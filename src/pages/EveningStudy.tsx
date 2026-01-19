@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Student, Class, AttendanceRecord, AttendanceStatus } from '@/types';
+import { Student, Class, AttendanceStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -11,38 +11,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   CalendarIcon,
   Loader2,
-  Moon,
+  BookOpen,
   CheckCircle2,
   XCircle,
-  Clock,
-  FileCheck,
   Save,
+  Settings2,
+  Download,
+  Share2,
+  FileText,
+  Users,
 } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
 export default function EveningStudy() {
-  const { currentSchool, user } = useAuth();
+  const { currentSchool, user, profile } = useAuth();
   const { toast } = useToast();
 
+  const [activeTab, setActiveTab] = useState<'attendance' | 'history'>('attendance');
   const [date, setDate] = useState<Date>(new Date());
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [classes, setClasses] = useState<Class[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<AttendanceMap>({});
-  const [existingRecords, setExistingRecords] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [savedReport, setSavedReport] = useState<any>(null);
 
   useEffect(() => {
     if (!currentSchool) return;
@@ -52,7 +64,7 @@ export default function EveningStudy() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchStudentsAndAttendance();
-  }, [currentSchool, date, selectedClass]);
+  }, [currentSchool, date]);
 
   const fetchClasses = async () => {
     if (!currentSchool) return;
@@ -72,8 +84,7 @@ export default function EveningStudy() {
     setIsLoading(true);
 
     try {
-      // Fetch students
-      let query = supabase
+      const { data: studentsData } = await supabase
         .from('students')
         .select('*, class:classes(*)')
         .eq('school_id', currentSchool.id)
@@ -81,18 +92,12 @@ export default function EveningStudy() {
         .eq('is_boarding', true)
         .order('full_name');
 
-      if (selectedClass !== 'all') {
-        query = query.eq('class_id', selectedClass);
-      }
-
-      const { data: studentsData } = await query;
       const typedStudents = (studentsData || []).map(s => ({
         ...s,
         class: s.class as unknown as Class
       })) as Student[];
       setStudents(typedStudents);
 
-      // Fetch existing attendance records
       const dateStr = format(date, 'yyyy-MM-dd');
       const { data: recordsData } = await supabase
         .from('attendance_records')
@@ -101,16 +106,11 @@ export default function EveningStudy() {
         .eq('attendance_date', dateStr)
         .eq('attendance_type', 'evening_study');
 
-      const records = (recordsData || []) as AttendanceRecord[];
-      setExistingRecords(records);
-
-      // Map existing records to attendance state
       const attendanceMap: AttendanceMap = {};
-      records.forEach((record) => {
+      (recordsData || []).forEach((record: any) => {
         attendanceMap[record.student_id] = record.status;
       });
       
-      // Set default status for students without records
       typedStudents.forEach((student) => {
         if (!attendanceMap[student.id]) {
           attendanceMap[student.id] = 'present';
@@ -130,11 +130,23 @@ export default function EveningStudy() {
     }
   };
 
-  const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
+  const handleToggleAbsent = (studentId: string) => {
     setAttendance((prev) => ({
       ...prev,
-      [studentId]: status,
+      [studentId]: prev[studentId] === 'absent' ? 'present' : 'absent',
     }));
+  };
+
+  const handleMarkAllPresent = () => {
+    const newAttendance: AttendanceMap = {};
+    filteredStudents.forEach(s => newAttendance[s.id] = 'present');
+    setAttendance(prev => ({ ...prev, ...newAttendance }));
+  };
+
+  const handleMarkAllAbsent = () => {
+    const newAttendance: AttendanceMap = {};
+    filteredStudents.forEach(s => newAttendance[s.id] = 'absent');
+    setAttendance(prev => ({ ...prev, ...newAttendance }));
   };
 
   const handleSave = async () => {
@@ -144,7 +156,6 @@ export default function EveningStudy() {
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      // Delete existing records for this date and type
       await supabase
         .from('attendance_records')
         .delete()
@@ -152,7 +163,6 @@ export default function EveningStudy() {
         .eq('attendance_date', dateStr)
         .eq('attendance_type', 'evening_study');
 
-      // Insert new records
       const records = students.map((student) => ({
         school_id: currentSchool.id,
         student_id: student.id,
@@ -166,9 +176,37 @@ export default function EveningStudy() {
       const { error } = await supabase.from('attendance_records').insert(records);
       if (error) throw error;
 
+      const presentCount = Object.values(attendance).filter(s => s === 'present').length;
+      const absentCount = Object.values(attendance).filter(s => s === 'absent').length;
+
+      // Group absent students by class
+      const absentByClass: Record<string, { name: string; count: number; students: string[] }> = {};
+      students.forEach(s => {
+        if (attendance[s.id] === 'absent') {
+          const className = s.class?.name || 'Khác';
+          if (!absentByClass[className]) {
+            absentByClass[className] = { name: className, count: 0, students: [] };
+          }
+          absentByClass[className].count++;
+          absentByClass[className].students.push(s.full_name);
+        }
+      });
+
+      setSavedReport({
+        date: dateStr,
+        total: students.length,
+        present: presentCount,
+        absent: absentCount,
+        reporter: profile?.full_name,
+        time: format(new Date(), 'HH:mm dd/MM/yyyy'),
+        absentByClass: Object.values(absentByClass),
+      });
+
+      setActiveTab('history');
+
       toast({
-        title: 'Thành công',
-        description: `Đã lưu điểm danh cho ${students.length} học sinh`,
+        title: 'Lưu báo cáo thành công',
+        description: `Báo cáo ngày ${format(date, 'dd/MM/yyyy')} đã được lưu`,
       });
 
       fetchStudentsAndAttendance();
@@ -184,16 +222,13 @@ export default function EveningStudy() {
     }
   };
 
-  const getStatusCount = (status: AttendanceStatus) => {
-    return Object.values(attendance).filter((s) => s === status).length;
-  };
+  const filteredStudents = useMemo(() => {
+    if (selectedClass === 'all' || selectedClass === 'Tất cả') return students;
+    return students.filter(s => s.class?.name === selectedClass);
+  }, [students, selectedClass]);
 
-  const statusButtons: { status: AttendanceStatus; label: string; icon: typeof CheckCircle2; className: string }[] = [
-    { status: 'present', label: 'Có mặt', icon: CheckCircle2, className: 'status-present' },
-    { status: 'absent', label: 'Vắng', icon: XCircle, className: 'status-absent' },
-    { status: 'late', label: 'Muộn', icon: Clock, className: 'status-late' },
-    { status: 'excused', label: 'Phép', icon: FileCheck, className: 'status-excused' },
-  ];
+  const presentCount = Object.values(attendance).filter(s => s === 'present').length;
+  const absentCount = Object.values(attendance).filter(s => s === 'absent').length;
 
   if (!currentSchool) {
     return (
@@ -207,123 +242,278 @@ export default function EveningStudy() {
     <div className="content-wrapper animate-fade-in">
       <div className="page-header">
         <h1 className="page-title flex items-center gap-2">
-          <Moon className="h-7 w-7 text-primary" />
+          <BookOpen className="h-7 w-7 text-blue-500" />
           Điểm danh tự học tối
         </h1>
         <p className="page-description">
-          Ghi nhận học sinh tự học buổi tối
+          Báo cáo sỹ số học sinh tự học buổi tối
         </p>
       </div>
 
-      {/* Controls */}
+      {/* Main Tabs */}
       <Card className="mb-6">
-        <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start md:w-[200px]">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(date, 'dd/MM/yyyy', { locale: vi })}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <TabsList className="w-full grid grid-cols-2 bg-transparent border-b rounded-none h-12">
+            <TabsTrigger
+              value="attendance"
+              className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              <BookOpen className="h-4 w-4 mr-2" />
+              Điểm danh
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Lịch sử
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="attendance" className="p-4 space-y-4">
+            {/* Filters */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">Ngày</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, 'dd/MM/yyyy', { locale: vi })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(d) => d && setDate(d)}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">Lớp</label>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tất cả lớp" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả lớp</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.name}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">&nbsp;</label>
+                <Button variant="outline" className="w-full">
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Ghi chú
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(d) => d && setDate(d)}
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+              </div>
+            </div>
+          </TabsContent>
 
-            <Select value={selectedClass} onValueChange={setSelectedClass}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="Chọn lớp" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả lớp</SelectItem>
-                {classes.map((cls) => (
-                  <SelectItem key={cls.id} value={cls.id}>
-                    {cls.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <TabsContent value="history" className="p-4">
+            {savedReport ? (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold">Báo cáo đã lưu</h3>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Tải ảnh
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Zalo
+                    </Button>
+                    <Button size="sm" onClick={() => setActiveTab('attendance')}>
+                      Báo cáo mới
+                    </Button>
+                  </div>
+                </div>
 
-          <Button onClick={handleSave} disabled={isSaving || students.length === 0}>
-            {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Card className="border-2">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-muted-foreground mb-2">{currentSchool.name}</p>
+                    <h2 className="text-xl font-bold text-blue-600 mb-1">
+                      BÁO CÁO ĐIỂM DANH GIỜ TỰ HỌC
+                    </h2>
+                    <p className="text-muted-foreground mb-6">
+                      Ngày {format(date, 'dd/MM/yyyy')}
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="p-4 rounded-lg bg-muted/50">
+                        <p className="text-3xl font-bold">{savedReport.total}</p>
+                        <p className="text-sm text-muted-foreground">Tổng số</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-green-50 text-green-600">
+                        <p className="text-3xl font-bold">{savedReport.present}</p>
+                        <p className="text-sm">Có mặt</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-red-50 text-red-600">
+                        <p className="text-3xl font-bold">{savedReport.absent}</p>
+                        <p className="text-sm">Vắng</p>
+                      </div>
+                    </div>
+
+                    {savedReport.absentByClass && savedReport.absentByClass.length > 0 && (
+                      <div className="mb-6 text-left">
+                        <h4 className="font-semibold mb-2">Danh sách vắng theo lớp</h4>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>STT</TableHead>
+                              <TableHead>Lớp</TableHead>
+                              <TableHead>SL</TableHead>
+                              <TableHead>Tên vắng (P/KP)</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {savedReport.absentByClass.map((item: any, idx: number) => (
+                              <TableRow key={item.name}>
+                                <TableCell>{idx + 1}</TableCell>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell>{item.count}</TableCell>
+                                <TableCell>{item.students.join(', ')} (KP)</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Người báo cáo: {savedReport.reporter}</span>
+                      <span>Lúc {savedReport.time}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <div className="text-center py-12 text-muted-foreground">
+                Chưa có báo cáo nào được lưu
+              </div>
             )}
-            Lưu điểm danh
-          </Button>
-        </CardContent>
+          </TabsContent>
+        </Tabs>
       </Card>
 
-      {/* Summary */}
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {statusButtons.map(({ status, label, icon: Icon, className }) => (
-          <Card key={status} className={cn('border', className.replace('text-', 'border-'))}>
-            <CardContent className="flex items-center gap-3 p-4">
-              <Icon className={cn('h-5 w-5', className.split(' ')[1])} />
-              <div>
-                <p className="text-2xl font-bold">{getStatusCount(status)}</p>
-                <p className="text-sm text-muted-foreground">{label}</p>
+      {/* Student Grid - Only show in attendance tab */}
+      {activeTab === 'attendance' && (
+        <>
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                  <h3 className="font-semibold">
+                    Chọn vắng ({absentCount}/{students.length})
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    Đủ
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleMarkAllAbsent}>
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Vắng
+                  </Button>
+                </div>
+              </div>
+
+              {/* Class Filter Tabs */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button
+                  variant={selectedClass === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedClass('all')}
+                >
+                  Tất cả
+                </Button>
+                {classes.map((cls) => (
+                  <Button
+                    key={cls.id}
+                    variant={selectedClass === cls.name ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedClass(cls.name)}
+                  >
+                    {cls.name}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Students Grid */}
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {filteredStudents.map((student) => (
+                    <button
+                      key={student.id}
+                      onClick={() => handleToggleAbsent(student.id)}
+                      className={cn(
+                        'flex items-center gap-2 p-3 rounded-lg border text-left transition-all',
+                        attendance[student.id] === 'absent'
+                          ? 'border-red-300 bg-red-50 text-red-700'
+                          : 'border-border hover:border-primary/50'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0',
+                        attendance[student.id] === 'absent'
+                          ? 'border-red-500 bg-red-500'
+                          : 'border-muted-foreground'
+                      )}>
+                        {attendance[student.id] === 'absent' && (
+                          <XCircle className="h-3 w-3 text-white" />
+                        )}
+                      </div>
+                      <span className="truncate text-sm">{student.full_name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Bottom Bar */}
+          <Card className="sticky bottom-20 lg:bottom-4">
+            <CardContent className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-4 text-sm">
+                <span>Tổng: <strong>{students.length}</strong></span>
+                <span className="text-green-600">Đủ: <strong>{presentCount}</strong></span>
+                <span className="text-red-600">Vắng: <strong>{absentCount}</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline">
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Zalo
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Lưu
+                </Button>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
-
-      {/* Attendance List */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : students.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Moon className="h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-4 text-muted-foreground">Không có học sinh nội trú</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {students.map((student) => (
-            <Card key={student.id} className="transition-all hover:shadow-md">
-              <CardContent className="p-4">
-                <div className="mb-3 flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold">{student.full_name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {student.class?.name} • {student.student_code}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {statusButtons.map(({ status, label, icon: Icon, className }) => (
-                    <Button
-                      key={status}
-                      variant={attendance[student.id] === status ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleStatusChange(student.id, status)}
-                      className={cn(
-                        'flex-1',
-                        attendance[student.id] === status && className
-                      )}
-                    >
-                      <Icon className="mr-1 h-3 w-3" />
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        </>
       )}
     </div>
   );
