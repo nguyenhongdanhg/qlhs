@@ -40,6 +40,7 @@ import {
   Download,
   CreditCard,
   UtensilsCrossed,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
@@ -295,6 +296,30 @@ export default function Students() {
     toast({ title: 'Thành công', description: 'Đã xuất file Excel' });
   };
 
+  const handleDeleteAll = async () => {
+    if (!currentSchool) return;
+    if (!confirm(`Bạn có chắc muốn xóa TẤT CẢ ${students.length} học sinh? Hành động này không thể hoàn tác!`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ is_active: false })
+        .eq('school_id', currentSchool.id);
+      
+      if (error) throw error;
+
+      toast({ title: 'Thành công', description: `Đã xóa ${students.length} học sinh` });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error deleting all students:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xóa học sinh',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -324,7 +349,7 @@ export default function Students() {
           <p className="page-description">{filteredStudents.length} học sinh</p>
         </div>
         {isSchoolAdmin() && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
               <FileSpreadsheet className="h-4 w-4 mr-1" />
               Nhập Excel
@@ -332,6 +357,10 @@ export default function Students() {
             <Button variant="outline" size="sm" onClick={handleExportExcel}>
               <Download className="h-4 w-4 mr-1" />
               Xuất Excel
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleDeleteAll} disabled={students.length === 0}>
+              <Trash2 className="h-4 w-4 mr-1" />
+              Xóa tất cả
             </Button>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
