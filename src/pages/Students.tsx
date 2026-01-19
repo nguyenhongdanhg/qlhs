@@ -80,6 +80,11 @@ export default function Students() {
   const [newClassGrade, setNewClassGrade] = useState('1');
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   
+  // Batch update dialog
+  const [isBatchUpdateOpen, setIsBatchUpdateOpen] = useState(false);
+  const [batchUpdateType, setBatchUpdateType] = useState<'class' | 'room' | 'meal'>('class');
+  const [batchUpdateValue, setBatchUpdateValue] = useState('');
+  
   // Room and meal group lists derived from students
   const roomNumbers = useMemo(() => {
     const rooms = new Set<string>();
@@ -460,6 +465,91 @@ export default function Students() {
     }
   };
 
+  // Quick update functions for single student
+  const handleQuickUpdateClass = async (studentId: string, classId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ class_id: classId })
+        .eq('id', studentId);
+      if (error) throw error;
+      toast({ title: 'Thành công', description: 'Đã cập nhật lớp' });
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleQuickUpdateRoom = async (studentId: string, room: string) => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ room_number: room || null })
+        .eq('id', studentId);
+      if (error) throw error;
+      toast({ title: 'Thành công', description: 'Đã cập nhật phòng' });
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleQuickUpdateMeal = async (studentId: string, meal: string) => {
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ meal_group: meal || null })
+        .eq('id', studentId);
+      if (error) throw error;
+      toast({ title: 'Thành công', description: 'Đã cập nhật mâm ăn' });
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  // Batch update for selected students
+  const handleBatchUpdate = async () => {
+    if (selectedIds.size === 0) return;
+    
+    try {
+      let updateData: Record<string, any> = {};
+      
+      if (batchUpdateType === 'class') {
+        updateData.class_id = batchUpdateValue === '__none__' ? null : batchUpdateValue || null;
+      } else if (batchUpdateType === 'room') {
+        updateData.room_number = batchUpdateValue || null;
+      } else if (batchUpdateType === 'meal') {
+        updateData.meal_group = batchUpdateValue || null;
+      }
+
+      const { error } = await supabase
+        .from('students')
+        .update(updateData)
+        .in('id', Array.from(selectedIds));
+
+      if (error) throw error;
+
+      const labels = { class: 'lớp', room: 'phòng', meal: 'mâm ăn' };
+      toast({ 
+        title: 'Thành công', 
+        description: `Đã cập nhật ${labels[batchUpdateType]} cho ${selectedIds.size} học sinh` 
+      });
+      setIsBatchUpdateOpen(false);
+      setBatchUpdateValue('');
+      setSelectedIds(new Set());
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const openBatchUpdate = (type: 'class' | 'room' | 'meal') => {
+    setBatchUpdateType(type);
+    setBatchUpdateValue('');
+    setIsBatchUpdateOpen(true);
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -733,17 +823,38 @@ export default function Students() {
           </div>
 
           {/* Selection & Class Filter */}
-          <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
-            {isSchoolAdmin() && (
-              <Button variant="outline" size="sm" onClick={handleSelectAll} className="shrink-0">
-                {selectedIds.size === filteredStudents.length && filteredStudents.length > 0 ? (
-                  <><CheckSquare className="h-4 w-4 mr-1" /> Bỏ chọn tất cả</>
-                ) : (
-                  <><Square className="h-4 w-4 mr-1" /> Chọn tất cả</>
-                )}
-              </Button>
-            )}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin flex-1">
+          <div className="mb-4 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {isSchoolAdmin() && (
+                <>
+                  <Button variant="outline" size="sm" onClick={handleSelectAll} className="shrink-0">
+                    {selectedIds.size === filteredStudents.length && filteredStudents.length > 0 ? (
+                      <><CheckSquare className="h-4 w-4 mr-1" /> Bỏ chọn</>
+                    ) : (
+                      <><Square className="h-4 w-4 mr-1" /> Chọn tất cả</>
+                    )}
+                  </Button>
+                  {selectedIds.size > 0 && (
+                    <>
+                      <Badge variant="secondary" className="px-2">{selectedIds.size} đã chọn</Badge>
+                      <Button variant="outline" size="sm" onClick={() => openBatchUpdate('class')}>
+                        <GraduationCap className="h-4 w-4 mr-1" /> Đổi lớp
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openBatchUpdate('room')}>
+                        <Building className="h-4 w-4 mr-1" /> Đổi phòng
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openBatchUpdate('meal')}>
+                        <Utensils className="h-4 w-4 mr-1" /> Đổi mâm
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={handleDeleteSelected}>
+                        <Trash2 className="h-4 w-4 mr-1" /> Xóa
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
               <Button
                 variant={selectedClassFilter === 'all' ? 'default' : 'outline'}
                 size="sm"
@@ -1013,6 +1124,76 @@ export default function Students() {
 
           {selectedStudent && (
             <div className="space-y-3 py-4">
+              {/* Quick Edit Section */}
+              {isSchoolAdmin() && (
+                <div className="space-y-3 pb-3 border-b">
+                  <div className="text-xs font-medium text-muted-foreground">Cập nhật nhanh</div>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="w-16 text-xs">Lớp</Label>
+                      <Select
+                        value={selectedStudent.class_id || '__none__'}
+                        onValueChange={(value) => handleQuickUpdateClass(selectedStudent.id, value === '__none__' ? null : value)}
+                      >
+                        <SelectTrigger className="flex-1 h-8">
+                          <SelectValue placeholder="Chọn lớp" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Chưa xếp</SelectItem>
+                          {classes.map((cls) => (
+                            <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="w-16 text-xs">Phòng</Label>
+                      <Input
+                        className="flex-1 h-8"
+                        value={selectedStudent.room_number || ''}
+                        placeholder="VD: P101"
+                        list="room-quick-suggestions"
+                        onBlur={(e) => {
+                          if (e.target.value !== (selectedStudent.room_number || '')) {
+                            handleQuickUpdateRoom(selectedStudent.id, e.target.value);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleQuickUpdateRoom(selectedStudent.id, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                      />
+                      <datalist id="room-quick-suggestions">
+                        {roomNumbers.map(r => <option key={r} value={r} />)}
+                      </datalist>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="w-16 text-xs">Mâm ăn</Label>
+                      <Input
+                        className="flex-1 h-8"
+                        value={selectedStudent.meal_group || ''}
+                        placeholder="VD: Mâm 1"
+                        list="meal-quick-suggestions"
+                        onBlur={(e) => {
+                          if (e.target.value !== (selectedStudent.meal_group || '')) {
+                            handleQuickUpdateMeal(selectedStudent.id, e.target.value);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleQuickUpdateMeal(selectedStudent.id, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                      />
+                      <datalist id="meal-quick-suggestions">
+                        {mealGroups.map(m => <option key={m} value={m} />)}
+                      </datalist>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <InfoItem icon={Users} label="Lớp" value={selectedStudent.class?.name || 'Chưa xếp'} />
                 <InfoItem icon={User} label="Giới tính" value={selectedStudent.gender === 'male' ? 'Nam' : selectedStudent.gender === 'female' ? 'Nữ' : '-'} />
@@ -1072,6 +1253,63 @@ export default function Students() {
         onOpenChange={setIsImportOpen}
         onImport={handleExcelImport}
       />
+
+      {/* Batch Update Dialog */}
+      <Dialog open={isBatchUpdateOpen} onOpenChange={setIsBatchUpdateOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {batchUpdateType === 'class' && 'Đổi lớp cho học sinh đã chọn'}
+              {batchUpdateType === 'room' && 'Đổi phòng cho học sinh đã chọn'}
+              {batchUpdateType === 'meal' && 'Đổi mâm ăn cho học sinh đã chọn'}
+            </DialogTitle>
+            <DialogDescription>
+              Áp dụng cho {selectedIds.size} học sinh đã chọn
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {batchUpdateType === 'class' && (
+              <Select value={batchUpdateValue} onValueChange={setBatchUpdateValue}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn lớp mới" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Chưa xếp (bỏ lớp)</SelectItem>
+                  {classes.map((cls) => (
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {batchUpdateType === 'room' && (
+              <Input
+                value={batchUpdateValue}
+                onChange={(e) => setBatchUpdateValue(e.target.value)}
+                placeholder="Nhập phòng mới (VD: P101)"
+                list="batch-room-suggestions"
+              />
+            )}
+            {batchUpdateType === 'meal' && (
+              <Input
+                value={batchUpdateValue}
+                onChange={(e) => setBatchUpdateValue(e.target.value)}
+                placeholder="Nhập mâm ăn mới (VD: Mâm 1)"
+                list="batch-meal-suggestions"
+              />
+            )}
+            <datalist id="batch-room-suggestions">
+              {roomNumbers.map(r => <option key={r} value={r} />)}
+            </datalist>
+            <datalist id="batch-meal-suggestions">
+              {mealGroups.map(m => <option key={m} value={m} />)}
+            </datalist>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBatchUpdateOpen(false)}>Hủy</Button>
+            <Button onClick={handleBatchUpdate}>Cập nhật</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
