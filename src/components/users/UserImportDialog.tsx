@@ -200,9 +200,6 @@ export default function UserImportDialog({
     });
   };
 
-  // Helper function to delay between requests
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
   const handleImport = async () => {
     if (!currentSchool) return;
 
@@ -219,74 +216,26 @@ export default function UserImportDialog({
     setIsImporting(true);
     let successCount = 0;
     let failCount = 0;
-    const errors: string[] = [];
 
     try {
-      // Fetch all classes for this school to map class names to IDs
-      const { data: classes } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('school_id', currentSchool.id);
-
-      const classNameToId: Record<string, string> = {};
-      classes?.forEach(c => {
-        classNameToId[c.name.toLowerCase()] = c.id;
-        classNameToId[c.name] = c.id;
-      });
-
-      // Process users sequentially with delay to avoid rate limiting
-      for (let i = 0; i < validUsers.length; i++) {
-        const user = validUsers[i];
-        
+      for (const user of validUsers) {
         try {
           // Create auth user with email or phone-based email
           const authEmail = user.email || `${user.phone}@phone.local`;
           
-          let authData = null;
-          let retryCount = 0;
-          const maxRetries = 3;
-
-          // Retry logic for rate limiting
-          while (retryCount < maxRetries) {
-            const { data, error: authError } = await supabase.auth.signUp({
-              email: authEmail,
-              password: user.password,
-              options: {
-                emailRedirectTo: `${window.location.origin}/`,
-                data: {
-                  full_name: user.full_name,
-                },
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: authEmail,
+            password: user.password,
+            options: {
+              emailRedirectTo: `${window.location.origin}/`,
+              data: {
+                full_name: user.full_name,
               },
-            });
+            },
+          });
 
-            if (authError) {
-              if (authError.status === 429) {
-                // Rate limited - wait longer and retry
-                retryCount++;
-                console.log(`Rate limited for ${user.full_name}, waiting... (retry ${retryCount}/${maxRetries})`);
-                await delay(2000 * retryCount); // Exponential backoff
-                continue;
-              } else if (authError.message === 'User already registered') {
-                // User exists, skip but don't count as error
-                errors.push(`${user.full_name}: Tài khoản đã tồn tại`);
-                failCount++;
-                break;
-              } else {
-                throw authError;
-              }
-            }
-
-            authData = data;
-            break;
-          }
-
-          if (!authData?.user) {
-            if (retryCount >= maxRetries) {
-              errors.push(`${user.full_name}: Quá nhiều yêu cầu, vui lòng thử lại sau`);
-              failCount++;
-            }
-            continue;
-          }
+          if (authError) throw authError;
+          if (!authData.user) throw new Error('User creation failed');
 
           // Update profile with phone
           await supabase.from('profiles').update({
@@ -297,56 +246,31 @@ export default function UserImportDialog({
 
           // Create school membership
           const role = POSITION_ROLE_MAP[user.position.toLowerCase()] || 'teacher';
-          
-          // Find class_id from class name if user is class_teacher
-          let classId: string | null = null;
-          if (role === 'class_teacher' && user.class_teacher) {
-            classId = classNameToId[user.class_teacher] || classNameToId[user.class_teacher.toLowerCase()] || null;
-          }
-
           await supabase.from('school_memberships').insert({
             school_id: currentSchool.id,
             user_id: authData.user.id,
             role: role as any,
-            class_id: classId,
+            class_id: role === 'class_teacher' ? user.class_teacher || null : null,
             status: 'active',
           });
 
           successCount++;
-
-          // Add delay between requests to avoid rate limiting (500ms)
-          if (i < validUsers.length - 1) {
-            await delay(500);
-          }
         } catch (error: any) {
           console.error('Error creating user:', user.full_name, error);
-          errors.push(`${user.full_name}: ${error.message || 'Lỗi không xác định'}`);
           failCount++;
         }
       }
 
-      if (successCount > 0) {
-        toast({
-          title: 'Hoàn thành',
-          description: `Đã tạo ${successCount} tài khoản${failCount > 0 ? `, ${failCount} thất bại` : ''}`,
-        });
-        onImportComplete();
-      }
+      toast({
+        title: 'Hoàn thành',
+        description: `Đã tạo ${successCount} tài khoản${failCount > 0 ? `, ${failCount} thất bại` : ''}`,
+        variant: failCount > 0 ? 'default' : 'default',
+      });
 
-      if (failCount > 0 && errors.length > 0) {
-        console.log('Import errors:', errors);
-        toast({
-          title: `${failCount} tài khoản thất bại`,
-          description: errors.slice(0, 3).join('; ') + (errors.length > 3 ? `... và ${errors.length - 3} lỗi khác` : ''),
-          variant: 'destructive',
-        });
-      }
-
-      if (successCount > 0) {
-        onOpenChange(false);
-        setImportStep('upload');
-        setImportData([]);
-      }
+      onOpenChange(false);
+      setImportStep('upload');
+      setImportData([]);
+      onImportComplete();
     } catch (error) {
       console.error('Import error:', error);
       toast({
