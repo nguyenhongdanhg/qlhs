@@ -50,6 +50,7 @@ export type Database = {
           attendance_type: Database["public"]["Enums"]["attendance_type"]
           class_id: string | null
           created_at: string | null
+          excused_reason: string | null
           id: string
           notes: string | null
           reporter_id: string | null
@@ -63,6 +64,7 @@ export type Database = {
           attendance_type: Database["public"]["Enums"]["attendance_type"]
           class_id?: string | null
           created_at?: string | null
+          excused_reason?: string | null
           id?: string
           notes?: string | null
           reporter_id?: string | null
@@ -76,6 +78,7 @@ export type Database = {
           attendance_type?: Database["public"]["Enums"]["attendance_type"]
           class_id?: string | null
           created_at?: string | null
+          excused_reason?: string | null
           id?: string
           notes?: string | null
           reporter_id?: string | null
@@ -258,6 +261,56 @@ export type Database = {
             foreignKeyName: "login_history_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_settings: {
+        Row: {
+          breakfast_deadline_offset: number
+          breakfast_deadline_time: string
+          created_at: string
+          dinner_deadline_offset: number
+          dinner_deadline_time: string
+          id: string
+          lunch_deadline_offset: number
+          lunch_deadline_time: string
+          rice_per_student: number
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          breakfast_deadline_offset?: number
+          breakfast_deadline_time?: string
+          created_at?: string
+          dinner_deadline_offset?: number
+          dinner_deadline_time?: string
+          id?: string
+          lunch_deadline_offset?: number
+          lunch_deadline_time?: string
+          rice_per_student?: number
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          breakfast_deadline_offset?: number
+          breakfast_deadline_time?: string
+          created_at?: string
+          dinner_deadline_offset?: number
+          dinner_deadline_time?: string
+          id?: string
+          lunch_deadline_offset?: number
+          lunch_deadline_time?: string
+          rice_per_student?: number
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
             referencedRelation: "schools"
             referencedColumns: ["id"]
           },
@@ -485,6 +538,7 @@ export type Database = {
       students: {
         Row: {
           address: string | null
+          cccd: string | null
           class_id: string | null
           created_at: string | null
           date_of_birth: string | null
@@ -493,15 +547,18 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_boarding: boolean | null
+          meal_group: string | null
           notes: string | null
           parent_phone: string | null
           phone: string | null
+          room_number: string | null
           school_id: string
           student_code: string
           updated_at: string | null
         }
         Insert: {
           address?: string | null
+          cccd?: string | null
           class_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
@@ -510,15 +567,18 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_boarding?: boolean | null
+          meal_group?: string | null
           notes?: string | null
           parent_phone?: string | null
           phone?: string | null
+          room_number?: string | null
           school_id: string
           student_code: string
           updated_at?: string | null
         }
         Update: {
           address?: string | null
+          cccd?: string | null
           class_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
@@ -527,9 +587,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_boarding?: boolean | null
+          meal_group?: string | null
           notes?: string | null
           parent_phone?: string | null
           phone?: string | null
+          room_number?: string | null
           school_id?: string
           student_code?: string
           updated_at?: string | null
