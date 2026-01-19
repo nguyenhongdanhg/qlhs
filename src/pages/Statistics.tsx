@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,156 +12,650 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   CalendarIcon,
   Loader2,
   BarChart3,
-  TrendingUp,
-  TrendingDown,
+  Home,
+  BookOpen,
+  UtensilsCrossed,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  FileSpreadsheet,
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Student, Class, AttendanceType } from '@/types';
+import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
 
-interface AttendanceStats {
+interface AbsentStudent {
+  id: string;
+  name: string;
+  className: string;
+  classGrade: number;
+  excused: boolean;
+  reason: string;
+  mealGroup?: string;
+}
+
+interface MealStats {
+  total: number;
+  present: number;
+  absent: number;
+  absentStudents: AbsentStudent[];
+  classesNotReported: string[];
+  hasReport: boolean;
+}
+
+interface DailyMealSummary {
+  breakfast: MealStats;
+  lunch: MealStats;
+  dinner: MealStats;
+  totalRice: number;
+}
+
+interface LatestReport {
   date: string;
+  session: string;
+  sessionLabel: string;
+  reporter: string;
+  reportTime: string;
+  total: number;
   present: number;
   absent: number;
-  late: number;
-  excused: number;
+  absentStudents: AbsentStudent[];
 }
-
-interface TypeStats {
-  type: string;
-  label: string;
-  present: number;
-  absent: number;
-  rate: number;
-}
-
-const COLORS = ['hsl(142, 76%, 36%)', 'hsl(0, 84%, 60%)', 'hsl(38, 92%, 50%)', 'hsl(199, 89%, 48%)'];
 
 export default function Statistics() {
-  const { currentSchool } = useAuth();
+  const { currentSchool, profile } = useAuth();
 
-  const [dateRange, setDateRange] = useState<'week' | 'month' | 'custom'>('week');
-  const [startDate, setStartDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [endDate, setEndDate] = useState<Date>(endOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [dailyStats, setDailyStats] = useState<AttendanceStats[]>([]);
-  const [typeStats, setTypeStats] = useState<TypeStats[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  
+  // Latest reports
+  const [latestBoardingReport, setLatestBoardingReport] = useState<LatestReport | null>(null);
+  const [latestStudyReport, setLatestStudyReport] = useState<LatestReport | null>(null);
+  
+  // Daily meal stats
+  const [dailyMealStats, setDailyMealStats] = useState<DailyMealSummary | null>(null);
+  
+  // Rice statistics
+  const [riceRangeType, setRiceRangeType] = useState<DateRangeType>('month');
+  const [riceDate, setRiceDate] = useState<Date>(new Date());
+  const [riceStats, setRiceStats] = useState<{ date: string; rice: number }[]>([]);
+  const [totalRiceInRange, setTotalRiceInRange] = useState(0);
+  const [isLoadingRice, setIsLoadingRice] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
+  // Expand/collapse states
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    breakfast: false,
+    lunch: false,
+    dinner: false,
+    notReported: false,
+  });
+
+  const riceDateRange = useMemo(() => getDateRange(riceDate, riceRangeType), [riceDate, riceRangeType]);
+
+  const sortedClasses = useMemo(() => {
+    return [...classes].sort((a, b) => {
+      if (a.grade !== b.grade) return a.grade - b.grade;
+      return a.name.localeCompare(b.name, 'vi');
+    });
+  }, [classes]);
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Fetch classes and students
   useEffect(() => {
-    if (dateRange === 'week') {
-      setStartDate(startOfWeek(new Date(), { weekStartsOn: 1 }));
-      setEndDate(endOfWeek(new Date(), { weekStartsOn: 1 }));
-    } else if (dateRange === 'month') {
-      setStartDate(startOfMonth(new Date()));
-      setEndDate(endOfMonth(new Date()));
+    if (!currentSchool) return;
+    fetchBasicData();
+  }, [currentSchool]);
+
+  // Fetch latest reports and daily meal stats when date changes
+  useEffect(() => {
+    if (!currentSchool) return;
+    fetchDailyData();
+  }, [currentSchool, selectedDate, students, classes]);
+
+  // Fetch rice statistics
+  useEffect(() => {
+    if (!currentSchool) return;
+    fetchRiceStats();
+  }, [currentSchool, riceDateRange, students]);
+
+  const fetchBasicData = async () => {
+    if (!currentSchool) return;
+    
+    try {
+      const [classesRes, studentsRes] = await Promise.all([
+        supabase
+          .from('classes')
+          .select('*')
+          .eq('school_id', currentSchool.id)
+          .eq('is_active', true)
+          .order('grade', { ascending: true })
+          .order('name', { ascending: true }),
+        supabase
+          .from('students')
+          .select('*, class:classes(*)')
+          .eq('school_id', currentSchool.id)
+          .eq('is_active', true)
+          .eq('is_boarding', true)
+          .order('full_name'),
+      ]);
+
+      setClasses((classesRes.data || []) as Class[]);
+      setStudents((studentsRes.data || []).map(s => ({
+        ...s,
+        class: s.class as unknown as Class
+      })) as Student[]);
+    } catch (error) {
+      console.error('Error fetching basic data:', error);
     }
-  }, [dateRange]);
+  };
 
-  useEffect(() => {
-    if (!currentSchool) return;
-    fetchStats();
-  }, [currentSchool, startDate, endDate]);
-
-  const fetchStats = async () => {
-    if (!currentSchool) return;
+  const fetchDailyData = async () => {
+    if (!currentSchool || students.length === 0) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     try {
-      const startStr = format(startDate, 'yyyy-MM-dd');
-      const endStr = format(endDate, 'yyyy-MM-dd');
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      // Fetch attendance records
-      const { data } = await supabase
+      // Fetch all attendance records for the date
+      const { data: records } = await supabase
         .from('attendance_records')
-        .select('*')
+        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
         .eq('school_id', currentSchool.id)
-        .gte('attendance_date', startStr)
-        .lte('attendance_date', endStr);
+        .eq('attendance_date', dateStr);
 
-      const records = data || [];
+      const allRecords = records || [];
 
-      // Calculate daily stats
-      const dailyMap: Record<string, AttendanceStats> = {};
-      records.forEach((record: any) => {
-        const date = record.attendance_date;
-        if (!dailyMap[date]) {
-          dailyMap[date] = { date, present: 0, absent: 0, late: 0, excused: 0 };
-        }
-        if (record.status === 'present') dailyMap[date].present++;
-        else if (record.status === 'absent') dailyMap[date].absent++;
-        else if (record.status === 'late') dailyMap[date].late++;
-        else if (record.status === 'excused') dailyMap[date].excused++;
-      });
+      // Process boarding report (latest)
+      const boardingRecords = allRecords.filter(r => r.attendance_type === 'boarding');
+      if (boardingRecords.length > 0) {
+        const latestTime = Math.max(...boardingRecords.map(r => new Date(r.created_at || 0).getTime()));
+        const latestRecords = boardingRecords.filter(r => 
+          new Date(r.created_at || 0).getTime() === latestTime
+        );
+        
+        const presentCount = latestRecords.filter(r => r.status === 'present').length;
+        const absentRecords = latestRecords.filter(r => r.status === 'absent' || r.status === 'excused');
+        
+        const absentStudents: AbsentStudent[] = absentRecords.map(record => {
+          const student = students.find(s => s.id === record.student_id);
+          return {
+            id: record.student_id,
+            name: student?.full_name || 'N/A',
+            className: student?.class?.name || 'Khác',
+            classGrade: student?.class?.grade || 0,
+            excused: record.status === 'excused',
+            reason: record.excused_reason || '',
+          };
+        }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
-      const sortedDaily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
-      setDailyStats(sortedDaily.map(d => ({
-        ...d,
-        date: format(new Date(d.date), 'dd/MM')
-      })));
+        setLatestBoardingReport({
+          date: dateStr,
+          session: '',
+          sessionLabel: 'Nội trú',
+          reporter: (latestRecords[0] as any).reporter?.full_name || 'N/A',
+          reportTime: format(new Date(latestRecords[0].created_at || new Date()), 'HH:mm dd/MM/yyyy'),
+          total: latestRecords.length,
+          present: presentCount,
+          absent: absentRecords.length,
+          absentStudents,
+        });
+      } else {
+        setLatestBoardingReport(null);
+      }
 
-      // Calculate type stats
-      const typeMap: Record<string, { present: number; total: number }> = {
-        evening_study: { present: 0, total: 0 },
-        boarding: { present: 0, total: 0 },
-        breakfast: { present: 0, total: 0 },
-        lunch: { present: 0, total: 0 },
-        dinner: { present: 0, total: 0 },
+      // Process evening study report (latest)
+      const studyRecords = allRecords.filter(r => r.attendance_type === 'evening_study');
+      if (studyRecords.length > 0) {
+        const latestTime = Math.max(...studyRecords.map(r => new Date(r.created_at || 0).getTime()));
+        const latestRecords = studyRecords.filter(r => 
+          new Date(r.created_at || 0).getTime() === latestTime
+        );
+        
+        const presentCount = latestRecords.filter(r => r.status === 'present').length;
+        const absentRecords = latestRecords.filter(r => r.status === 'absent' || r.status === 'excused');
+        
+        const absentStudents: AbsentStudent[] = absentRecords.map(record => {
+          const student = students.find(s => s.id === record.student_id);
+          return {
+            id: record.student_id,
+            name: student?.full_name || 'N/A',
+            className: student?.class?.name || 'Khác',
+            classGrade: student?.class?.grade || 0,
+            excused: record.status === 'excused',
+            reason: record.excused_reason || '',
+          };
+        }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
+
+        setLatestStudyReport({
+          date: dateStr,
+          session: '',
+          sessionLabel: 'Tự học tối',
+          reporter: (latestRecords[0] as any).reporter?.full_name || 'N/A',
+          reportTime: format(new Date(latestRecords[0].created_at || new Date()), 'HH:mm dd/MM/yyyy'),
+          total: latestRecords.length,
+          present: presentCount,
+          absent: absentRecords.length,
+          absentStudents,
+        });
+      } else {
+        setLatestStudyReport(null);
+      }
+
+      // Process meal statistics
+      const mealStats: DailyMealSummary = {
+        breakfast: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], hasReport: false },
+        lunch: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], hasReport: false },
+        dinner: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], hasReport: false },
+        totalRice: 0,
       };
 
-      records.forEach((record: any) => {
-        if (typeMap[record.attendance_type]) {
-          typeMap[record.attendance_type].total++;
-          if (record.status === 'present') {
-            typeMap[record.attendance_type].present++;
-          }
+      const mealTypes: AttendanceType[] = ['breakfast', 'lunch', 'dinner'];
+      
+      for (const mealType of mealTypes) {
+        const mealRecords = allRecords.filter(r => r.attendance_type === mealType);
+        
+        if (mealRecords.length > 0) {
+          // Get latest report for this meal
+          const latestTime = Math.max(...mealRecords.map(r => new Date(r.created_at || 0).getTime()));
+          const latestRecords = mealRecords.filter(r => 
+            new Date(r.created_at || 0).getTime() === latestTime
+          );
+
+          const presentCount = latestRecords.filter(r => r.status === 'present').length;
+          const absentRecords = latestRecords.filter(r => r.status !== 'present');
+          
+          // Find classes that haven't reported
+          const reportedStudentIds = new Set(latestRecords.map(r => r.student_id));
+          const classesWithReports = new Set(latestRecords.map(r => r.class_id).filter(Boolean));
+          
+          const classesNotReported = sortedClasses
+            .filter(c => !classesWithReports.has(c.id))
+            .filter(c => students.some(s => s.class_id === c.id))
+            .map(c => c.name);
+
+          // Build absent students list sorted by class (for breakfast) or by class + meal group (for lunch/dinner)
+          const absentStudents: AbsentStudent[] = absentRecords.map(record => {
+            const student = students.find(s => s.id === record.student_id);
+            return {
+              id: record.student_id,
+              name: student?.full_name || 'N/A',
+              className: student?.class?.name || 'Khác',
+              classGrade: student?.class?.grade || 0,
+              excused: record.status === 'excused',
+              reason: record.excused_reason || '',
+              mealGroup: student?.meal_group || '',
+            };
+          });
+
+          // Sort by class grade, then by meal group (for lunch/dinner), then by name
+          absentStudents.sort((a, b) => {
+            if (a.classGrade !== b.classGrade) return a.classGrade - b.classGrade;
+            if (mealType !== 'breakfast' && a.mealGroup !== b.mealGroup) {
+              return (a.mealGroup || '').localeCompare(b.mealGroup || '', 'vi');
+            }
+            return a.name.localeCompare(b.name, 'vi');
+          });
+
+          (mealStats as any)[mealType] = {
+            total: latestRecords.length,
+            present: presentCount,
+            absent: absentRecords.length,
+            absentStudents,
+            classesNotReported,
+            hasReport: true,
+          };
+        } else {
+          // No report - all classes haven't reported
+          const allClassNames = sortedClasses
+            .filter(c => students.some(s => s.class_id === c.id))
+            .map(c => c.name);
+          
+          (mealStats as any)[mealType] = {
+            total: students.length,
+            present: 0,
+            absent: 0,
+            absentStudents: [],
+            classesNotReported: allClassNames,
+            hasReport: false,
+          };
         }
-      });
+      }
 
-      const typeLabels: Record<string, string> = {
-        evening_study: 'Tự học tối',
-        boarding: 'Nội trú',
-        breakfast: 'Sáng',
-        lunch: 'Trưa',
-        dinner: 'Tối',
-      };
+      // Calculate total rice for lunch and dinner
+      mealStats.totalRice = ((mealStats.lunch as MealStats).present + (mealStats.dinner as MealStats).present) * 0.2;
 
-      setTypeStats(
-        Object.entries(typeMap)
-          .filter(([_, v]) => v.total > 0)
-          .map(([type, v]) => ({
-            type,
-            label: typeLabels[type] || type,
-            present: v.present,
-            absent: v.total - v.present,
-            rate: v.total > 0 ? Math.round((v.present / v.total) * 100) : 0,
-          }))
-      );
+      setDailyMealStats(mealStats);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error fetching daily data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const totalRecords = dailyStats.reduce((sum, d) => sum + d.present + d.absent + d.late + d.excused, 0);
-  const totalPresent = dailyStats.reduce((sum, d) => sum + d.present, 0);
-  const overallRate = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
+  const fetchRiceStats = async () => {
+    if (!currentSchool || students.length === 0) return;
+    setIsLoadingRice(true);
+
+    try {
+      const startDate = format(riceDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(riceDateRange.end, 'yyyy-MM-dd');
+
+      const { data: records } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .in('attendance_type', ['lunch', 'dinner'])
+        .gte('attendance_date', startDate)
+        .lte('attendance_date', endDate);
+
+      const allRecords = records || [];
+      const days = eachDayOfInterval({ start: riceDateRange.start, end: riceDateRange.end });
+
+      // Get latest report per date per meal
+      const latestByKey = new Map<string, any>();
+      allRecords.forEach((record: any) => {
+        const key = `${record.attendance_date}-${record.attendance_type}-${record.student_id}`;
+        const existing = latestByKey.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByKey.set(key, record);
+        }
+      });
+
+      // Calculate rice per day
+      const dailyRice: { date: string; rice: number }[] = [];
+      let totalRice = 0;
+
+      days.forEach(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        let dayPresent = 0;
+
+        students.forEach(student => {
+          const lunchKey = `${dateStr}-lunch-${student.id}`;
+          const dinnerKey = `${dateStr}-dinner-${student.id}`;
+          
+          const lunchRecord = latestByKey.get(lunchKey);
+          const dinnerRecord = latestByKey.get(dinnerKey);
+
+          if (lunchRecord?.status === 'present') dayPresent++;
+          if (dinnerRecord?.status === 'present') dayPresent++;
+        });
+
+        const dayRice = dayPresent * 0.2;
+        totalRice += dayRice;
+        dailyRice.push({ date: dateStr, rice: dayRice });
+      });
+
+      setRiceStats(dailyRice);
+      setTotalRiceInRange(totalRice);
+    } catch (error) {
+      console.error('Error fetching rice stats:', error);
+    } finally {
+      setIsLoadingRice(false);
+    }
+  };
+
+  const handleExportMealStats = async () => {
+    if (!currentSchool || students.length === 0) return;
+    setIsExporting(true);
+
+    try {
+      const days = eachDayOfInterval({ start: riceDateRange.start, end: riceDateRange.end });
+
+      const { data: records } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+        .gte('attendance_date', format(riceDateRange.start, 'yyyy-MM-dd'))
+        .lte('attendance_date', format(riceDateRange.end, 'yyyy-MM-dd'));
+
+      // Get latest report per meal/date/student
+      const latestByKey = new Map<string, any>();
+      (records || []).forEach((record: any) => {
+        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
+        const existing = latestByKey.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByKey.set(key, record);
+        }
+      });
+
+      // Build student data
+      const studentData: MealStudentData[] = students.map(student => {
+        const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
+
+        days.forEach(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const bRecord = latestByKey.get(`${student.id}-${dateStr}-breakfast`);
+          const lRecord = latestByKey.get(`${student.id}-${dateStr}-lunch`);
+          const dRecord = latestByKey.get(`${student.id}-${dateStr}-dinner`);
+
+          attendanceMap.set(dateStr, {
+            breakfast: bRecord ? bRecord.status === 'present' : null,
+            lunch: lRecord ? lRecord.status === 'present' : null,
+            dinner: dRecord ? dRecord.status === 'present' : null,
+          });
+        });
+
+        return {
+          id: student.id,
+          name: student.full_name,
+          className: student.class?.name || '',
+          classGrade: student.class?.grade,
+          roomNumber: student.room_number || undefined,
+          mealGroup: student.meal_group || undefined,
+          attendance: attendanceMap,
+        };
+      });
+
+      exportMealStatistics(studentData, {
+        schoolName: currentSchool.name,
+        title: 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ',
+        dateRange: riceDateRange,
+        reporterName: profile?.full_name,
+        exportTime: new Date(),
+      });
+    } catch (error) {
+      console.error('Error exporting meal stats:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const renderMealSection = (
+    mealType: 'breakfast' | 'lunch' | 'dinner',
+    stats: MealStats,
+    title: string,
+    icon: typeof UtensilsCrossed
+  ) => {
+    const Icon = icon;
+    const isExpanded = expandedSections[mealType];
+
+    // Group absent students by class
+    const groupedByClass = new Map<string, AbsentStudent[]>();
+    stats.absentStudents.forEach(student => {
+      if (!groupedByClass.has(student.className)) {
+        groupedByClass.set(student.className, []);
+      }
+      groupedByClass.get(student.className)!.push(student);
+    });
+
+    // For lunch/dinner, also group by meal group
+    const groupedByMealGroup = new Map<string, AbsentStudent[]>();
+    if (mealType !== 'breakfast') {
+      stats.absentStudents.forEach(student => {
+        const group = student.mealGroup || 'Chưa phân mâm';
+        if (!groupedByMealGroup.has(group)) {
+          groupedByMealGroup.set(group, []);
+        }
+        groupedByMealGroup.get(group)!.push(student);
+      });
+    }
+
+    return (
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Icon className="h-5 w-5 text-primary" />
+              {title}
+            </CardTitle>
+            {stats.hasReport ? (
+              <Badge variant="default" className="bg-success">Đã báo cáo</Badge>
+            ) : (
+              <Badge variant="destructive">Chưa báo cáo</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {stats.hasReport ? (
+            <div className="space-y-3">
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-muted p-2">
+                  <div className="text-xs text-muted-foreground">Tổng</div>
+                  <div className="text-lg font-bold">{stats.total}</div>
+                </div>
+                <div className="rounded-lg bg-success/10 p-2">
+                  <div className="text-xs text-success">Ăn</div>
+                  <div className="text-lg font-bold text-success">{stats.present}</div>
+                </div>
+                <div className="rounded-lg bg-destructive/10 p-2">
+                  <div className="text-xs text-destructive">Vắng</div>
+                  <div className="text-lg font-bold text-destructive">{stats.absent}</div>
+                </div>
+              </div>
+
+              {/* Absent students */}
+              {stats.absent > 0 && (
+                <div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-between"
+                    onClick={() => toggleSection(mealType)}
+                  >
+                    <span className="text-sm font-medium">Danh sách vắng ({stats.absent})</span>
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                  
+                  {isExpanded && (
+                    <div className="mt-2 max-h-60 space-y-2 overflow-y-auto rounded-lg border p-2">
+                      {mealType === 'breakfast' ? (
+                        // Breakfast: group by class only
+                        Array.from(groupedByClass.entries())
+                          .sort((a, b) => {
+                            const gradeA = a[1][0]?.classGrade || 0;
+                            const gradeB = b[1][0]?.classGrade || 0;
+                            return gradeA - gradeB;
+                          })
+                          .map(([className, students]) => (
+                            <div key={className} className="rounded bg-muted/50 p-2">
+                              <div className="mb-1 text-xs font-medium text-muted-foreground">
+                                Lớp {className} ({students.length})
+                              </div>
+                              <div className="space-y-1">
+                                {students.map(s => (
+                                  <div key={s.id} className="flex items-center gap-2 text-sm">
+                                    <span>{s.name}</span>
+                                    {s.excused && (
+                                      <Badge variant="outline" className="text-xs">P</Badge>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                      ) : (
+                        // Lunch/Dinner: group by class then by meal group
+                        <>
+                          <div className="mb-2 text-xs font-semibold text-muted-foreground">Theo lớp:</div>
+                          {Array.from(groupedByClass.entries())
+                            .sort((a, b) => {
+                              const gradeA = a[1][0]?.classGrade || 0;
+                              const gradeB = b[1][0]?.classGrade || 0;
+                              return gradeA - gradeB;
+                            })
+                            .map(([className, students]) => (
+                              <div key={className} className="rounded bg-muted/50 p-2">
+                                <div className="mb-1 text-xs font-medium text-muted-foreground">
+                                  Lớp {className} ({students.length})
+                                </div>
+                                <div className="space-y-1">
+                                  {students.map(s => (
+                                    <div key={s.id} className="flex items-center gap-2 text-sm">
+                                      <span>{s.name}</span>
+                                      {s.mealGroup && (
+                                        <span className="text-xs text-muted-foreground">
+                                          ({s.mealGroup})
+                                        </span>
+                                      )}
+                                      {s.excused && (
+                                        <Badge variant="outline" className="text-xs">P</Badge>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          
+                          <div className="mt-3 border-t pt-2">
+                            <div className="mb-2 text-xs font-semibold text-muted-foreground">Theo mâm ăn:</div>
+                            {Array.from(groupedByMealGroup.entries())
+                              .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
+                              .map(([mealGroup, students]) => (
+                                <div key={mealGroup} className="rounded bg-muted/50 p-2">
+                                  <div className="mb-1 text-xs font-medium text-muted-foreground">
+                                    Mâm {mealGroup} ({students.length})
+                                  </div>
+                                  <div className="space-y-1">
+                                    {students.map(s => (
+                                      <div key={s.id} className="flex items-center gap-2 text-sm">
+                                        <span>{s.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          ({s.className})
+                                        </span>
+                                        {s.excused && (
+                                          <Badge variant="outline" className="text-xs">P</Badge>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-4 text-center text-sm text-muted-foreground">
+              Chưa có báo cáo cho bữa này
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (!currentSchool) {
     return (
@@ -179,61 +673,31 @@ export default function Statistics() {
           Thống kê
         </h1>
         <p className="page-description">
-          Báo cáo và phân tích điểm danh
+          Báo cáo điểm danh và thống kê bữa ăn theo ngày
         </p>
       </div>
 
-      {/* Date Range Selector */}
+      {/* Date Selector */}
       <Card className="mb-6">
-        <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:items-center">
-          <Select value={dateRange} onValueChange={(v) => setDateRange(v as any)}>
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">Tuần này</SelectItem>
-              <SelectItem value="month">Tháng này</SelectItem>
-              <SelectItem value="custom">Tùy chọn</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {dateRange === 'custom' && (
-            <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[140px]">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(startDate, 'dd/MM/yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={(d) => d && setStartDate(d)}
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              <span className="text-muted-foreground">đến</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[140px]">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(endDate, 'dd/MM/yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={(d) => d && setEndDate(d)}
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
+        <CardContent className="flex flex-wrap items-center gap-4 p-4">
+          <span className="text-sm font-medium">Chọn ngày:</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[180px]">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(selectedDate, 'dd/MM/yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(d) => d && setSelectedDate(d)}
+                locale={vi}
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
         </CardContent>
       </Card>
 
@@ -242,107 +706,341 @@ export default function Statistics() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
-        <>
-          {/* Summary Cards */}
-          <div className="mb-6 grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Tổng lượt điểm danh</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{totalRecords}</div>
-              </CardContent>
-            </Card>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+            <TabsTrigger value="rice">Thống kê gạo</TabsTrigger>
+          </TabsList>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Tổng có mặt</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-success">{totalPresent}</span>
-                  <TrendingUp className="h-4 w-4 text-success" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Tỷ lệ có mặt</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold">{overallRate}%</span>
-                  {overallRate >= 90 ? (
-                    <TrendingUp className="h-4 w-4 text-success" />
+          <TabsContent value="overview" className="space-y-6">
+            {/* Boarding and Evening Study */}
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Latest Boarding Report */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Home className="h-5 w-5 text-primary" />
+                    Điểm danh nội trú gần nhất
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {latestBoardingReport ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Người báo:</span>
+                        <span className="font-medium">{latestBoardingReport.reporter}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Thời gian:</span>
+                        <span>{latestBoardingReport.reportTime}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-muted p-2">
+                          <div className="text-xs text-muted-foreground">Tổng</div>
+                          <div className="text-lg font-bold">{latestBoardingReport.total}</div>
+                        </div>
+                        <div className="rounded-lg bg-success/10 p-2">
+                          <div className="text-xs text-success">Có mặt</div>
+                          <div className="text-lg font-bold text-success">{latestBoardingReport.present}</div>
+                        </div>
+                        <div className="rounded-lg bg-destructive/10 p-2">
+                          <div className="text-xs text-destructive">Vắng</div>
+                          <div className="text-lg font-bold text-destructive">{latestBoardingReport.absent}</div>
+                        </div>
+                      </div>
+                      {latestBoardingReport.absent > 0 && (
+                        <div className="rounded-lg border p-2">
+                          <div className="mb-1 text-xs font-medium text-muted-foreground">
+                            Học sinh vắng:
+                          </div>
+                          <div className="max-h-32 space-y-1 overflow-y-auto text-sm">
+                            {latestBoardingReport.absentStudents.map(s => (
+                              <div key={s.id} className="flex items-center gap-2">
+                                <span>{s.name}</span>
+                                <span className="text-xs text-muted-foreground">({s.className})</span>
+                                {s.excused && <Badge variant="outline" className="text-xs">P</Badge>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <TrendingDown className="h-4 w-4 text-destructive" />
+                    <div className="py-4 text-center text-sm text-muted-foreground">
+                      Chưa có báo cáo ngày này
+                    </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Latest Evening Study Report */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    Điểm danh tự học gần nhất
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {latestStudyReport ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Người báo:</span>
+                        <span className="font-medium">{latestStudyReport.reporter}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Thời gian:</span>
+                        <span>{latestStudyReport.reportTime}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-muted p-2">
+                          <div className="text-xs text-muted-foreground">Tổng</div>
+                          <div className="text-lg font-bold">{latestStudyReport.total}</div>
+                        </div>
+                        <div className="rounded-lg bg-success/10 p-2">
+                          <div className="text-xs text-success">Có mặt</div>
+                          <div className="text-lg font-bold text-success">{latestStudyReport.present}</div>
+                        </div>
+                        <div className="rounded-lg bg-destructive/10 p-2">
+                          <div className="text-xs text-destructive">Vắng</div>
+                          <div className="text-lg font-bold text-destructive">{latestStudyReport.absent}</div>
+                        </div>
+                      </div>
+                      {latestStudyReport.absent > 0 && (
+                        <div className="rounded-lg border p-2">
+                          <div className="mb-1 text-xs font-medium text-muted-foreground">
+                            Học sinh vắng:
+                          </div>
+                          <div className="max-h-32 space-y-1 overflow-y-auto text-sm">
+                            {latestStudyReport.absentStudents.map(s => (
+                              <div key={s.id} className="flex items-center gap-2">
+                                <span>{s.name}</span>
+                                <span className="text-xs text-muted-foreground">({s.className})</span>
+                                {s.excused && <Badge variant="outline" className="text-xs">P</Badge>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center text-sm text-muted-foreground">
+                      Chưa có báo cáo ngày này
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Daily Meal Stats */}
+            <div>
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                <UtensilsCrossed className="h-5 w-5 text-primary" />
+                Báo cơm cả trường - {format(selectedDate, 'dd/MM/yyyy')}
+              </h2>
+
+              {dailyMealStats && (
+                <>
+                  {renderMealSection('breakfast', dailyMealStats.breakfast as MealStats, 'Bữa sáng', UtensilsCrossed)}
+                  {renderMealSection('lunch', dailyMealStats.lunch as MealStats, 'Bữa trưa', UtensilsCrossed)}
+                  {renderMealSection('dinner', dailyMealStats.dinner as MealStats, 'Bữa tối', UtensilsCrossed)}
+
+                  {/* Classes not reported */}
+                  {(() => {
+                    const allNotReported = new Set([
+                      ...((dailyMealStats.breakfast as MealStats).classesNotReported || []),
+                      ...((dailyMealStats.lunch as MealStats).classesNotReported || []),
+                      ...((dailyMealStats.dinner as MealStats).classesNotReported || []),
+                    ]);
+
+                    if (allNotReported.size > 0) {
+                      return (
+                        <Card className="border-warning/50 bg-warning/5">
+                          <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="flex items-center gap-2 text-base text-warning">
+                                <AlertCircle className="h-5 w-5" />
+                                Lớp chưa báo cáo
+                              </CardTitle>
+                              <Badge variant="outline" className="text-warning">
+                                {allNotReported.size} lớp
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-between"
+                              onClick={() => toggleSection('notReported')}
+                            >
+                              <span className="text-sm">Xem chi tiết</span>
+                              {expandedSections.notReported ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+                            
+                            {expandedSections.notReported && (
+                              <div className="mt-2 space-y-2">
+                                {['breakfast', 'lunch', 'dinner'].map(meal => {
+                                  const stats = dailyMealStats[meal as keyof DailyMealSummary] as MealStats;
+                                  const notReported = stats?.classesNotReported || [];
+                                  const mealLabel = meal === 'breakfast' ? 'Sáng' : meal === 'lunch' ? 'Trưa' : 'Tối';
+                                  
+                                  if (notReported.length === 0) return null;
+                                  
+                                  return (
+                                    <div key={meal} className="rounded bg-muted/50 p-2">
+                                      <div className="mb-1 text-xs font-medium">
+                                        {mealLabel}: {notReported.length} lớp
+                                      </div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {notReported.map(className => (
+                                          <Badge key={className} variant="secondary" className="text-xs">
+                                            {className}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  {/* Total rice for the day */}
+                  <Card className="mt-4 bg-primary/5">
+                    <CardContent className="flex items-center justify-between p-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Tổng gạo cần ăn trong ngày</div>
+                        <div className="text-xs text-muted-foreground">
+                          (Trưa: {(dailyMealStats.lunch as MealStats).present} + Tối: {(dailyMealStats.dinner as MealStats).present}) × 0.2kg
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-primary">
+                        {dailyMealStats.totalRice.toFixed(1)} kg
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="rice" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-primary" />
+                  Thống kê gạo đã ăn
+                </CardTitle>
+                <CardDescription>
+                  Thống kê lượng gạo tiêu thụ theo ngày, tuần hoặc tháng
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Date range selector */}
+                <div className="flex flex-wrap items-center gap-4">
+                  <Select value={riceRangeType} onValueChange={(v) => setRiceRangeType(v as DateRangeType)}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">Ngày</SelectItem>
+                      <SelectItem value="week">Tuần</SelectItem>
+                      <SelectItem value="month">Tháng</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-[180px]">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {riceDateRange.label}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={riceDate}
+                        onSelect={(d) => d && setRiceDate(d)}
+                        locale={vi}
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  <Button
+                    variant="outline"
+                    onClick={handleExportMealStats}
+                    disabled={isExporting}
+                  >
+                    {isExporting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    )}
+                    Xuất Excel
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
 
-          {/* Charts */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Daily Attendance Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Điểm danh theo ngày</CardTitle>
-                <CardDescription>Số lượng có mặt/vắng mỗi ngày</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {dailyStats.length === 0 ? (
-                  <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                    Chưa có dữ liệu
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dailyStats}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="present" name="Có mặt" fill="hsl(142, 76%, 36%)" />
-                      <Bar dataKey="absent" name="Vắng" fill="hsl(0, 84%, 60%)" />
-                      <Bar dataKey="late" name="Muộn" fill="hsl(38, 92%, 50%)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
+                {/* Summary */}
+                <Card className="bg-primary/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-muted-foreground">
+                          Tổng gạo {riceDateRange.label.toLowerCase()}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          (Bữa trưa + Bữa tối × 0.2kg/học sinh)
+                        </div>
+                      </div>
+                      <div className="text-3xl font-bold text-primary">
+                        {isLoadingRice ? (
+                          <Loader2 className="h-8 w-8 animate-spin" />
+                        ) : (
+                          `${totalRiceInRange.toFixed(1)} kg`
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            {/* Type Distribution Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Tỷ lệ theo loại</CardTitle>
-                <CardDescription>Phân bố điểm danh theo loại hình</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {typeStats.length === 0 ? (
-                  <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                    Chưa có dữ liệu
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={typeStats} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="label" type="category" width={80} />
-                      <Tooltip />
-                      <Bar dataKey="rate" name="Tỷ lệ %" fill="hsl(173, 58%, 39%)">
-                        {typeStats.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {/* Daily breakdown */}
+                {!isLoadingRice && riceRangeType !== 'day' && riceStats.length > 0 && (
+                  <div className="max-h-96 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-background">
+                        <tr className="border-b">
+                          <th className="p-2 text-left font-medium">Ngày</th>
+                          <th className="p-2 text-right font-medium">Gạo (kg)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {riceStats.map((item, idx) => (
+                          <tr key={item.date} className={idx % 2 === 0 ? 'bg-muted/30' : ''}>
+                            <td className="p-2">{format(new Date(item.date), 'EEEE, dd/MM/yyyy', { locale: vi })}</td>
+                            <td className="p-2 text-right font-medium">{item.rice.toFixed(1)}</td>
+                          </tr>
                         ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                      </tbody>
+                      <tfoot className="border-t bg-primary/10 font-bold">
+                        <tr>
+                          <td className="p-2">Tổng cộng</td>
+                          <td className="p-2 text-right">{totalRiceInRange.toFixed(1)} kg</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 )}
               </CardContent>
             </Card>
-          </div>
-        </>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
