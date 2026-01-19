@@ -216,49 +216,60 @@ export default function UserImportDialog({
     setIsImporting(true);
     let successCount = 0;
     let failCount = 0;
+    const failedUsers: string[] = [];
 
     try {
       for (const user of validUsers) {
         try {
-          // Create auth user with email or phone-based email
+          // Create auth user using Edge Function (doesn't affect current session)
           const authEmail = user.email || `${user.phone}@phone.local`;
+          const role = POSITION_ROLE_MAP[user.position.toLowerCase()] || 'teacher';
           
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: authEmail,
-            password: user.password,
-            options: {
-              emailRedirectTo: `${window.location.origin}/`,
-              data: {
-                full_name: user.full_name,
-              },
+          const { data, error } = await supabase.functions.invoke('create-user', {
+            body: {
+              email: authEmail,
+              password: user.password,
+              full_name: user.full_name,
+              phone: user.phone || null,
+              school_id: currentSchool.id,
+              role: role,
+              class_id: role === 'class_teacher' ? user.class_teacher || null : null,
             },
           });
 
-          if (authError) throw authError;
-          if (!authData.user) throw new Error('User creation failed');
+          if (error) {
+            console.error('Error creating user:', user.full_name, error);
+            failedUsers.push(`${user.full_name}: ${error.message}`);
+            failCount++;
+            continue;
+          }
 
-          // Update profile with phone
-          await supabase.from('profiles').update({
-            full_name: user.full_name,
-            phone: user.phone || null,
-            username: user.phone || user.email.split('@')[0],
-          }).eq('id', authData.user.id);
-
-          // Create school membership
-          const role = POSITION_ROLE_MAP[user.position.toLowerCase()] || 'teacher';
-          await supabase.from('school_memberships').insert({
-            school_id: currentSchool.id,
-            user_id: authData.user.id,
-            role: role as any,
-            class_id: role === 'class_teacher' ? user.class_teacher || null : null,
-            status: 'active',
-          });
+          if (data?.error) {
+            console.error('API error creating user:', user.full_name, data.error);
+            if (data.code !== 'USER_EXISTS') {
+              failedUsers.push(`${user.full_name}: ${data.error}`);
+              failCount++;
+            } else {
+              // User already exists - treat as success
+              successCount++;
+            }
+            continue;
+          }
 
           successCount++;
-        } catch (error: any) {
+          
+          // Add delay to prevent rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error: unknown) {
           console.error('Error creating user:', user.full_name, error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          failedUsers.push(`${user.full_name}: ${errorMessage}`);
           failCount++;
         }
+      }
+
+      if (failCount > 0 && failedUsers.length > 0) {
+        console.log('Failed users:', failedUsers);
       }
 
       toast({
