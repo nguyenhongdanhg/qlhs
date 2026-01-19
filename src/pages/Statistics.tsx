@@ -182,16 +182,51 @@ export default function Statistics() {
 
       const allRecords = records || [];
 
-      // Process boarding report (latest)
-      const boardingRecords = allRecords.filter(r => r.attendance_type === 'boarding');
-      if (boardingRecords.length > 0) {
-        const latestTime = Math.max(...boardingRecords.map(r => new Date(r.created_at || 0).getTime()));
-        const latestRecords = boardingRecords.filter(r => 
-          new Date(r.created_at || 0).getTime() === latestTime
-        );
+      // Helper function to get latest report batch (grouped by reporter session)
+      const getLatestReportBatch = (records: any[]) => {
+        if (records.length === 0) return [];
         
-        const presentCount = latestRecords.filter(r => r.status === 'present').length;
-        const absentRecords = latestRecords.filter(r => r.status === 'absent' || r.status === 'excused');
+        // Group records by reporter_id and find the latest session per reporter
+        const reporterSessions: Map<string, { reporter: string; maxTime: number; minTime: number }> = new Map();
+        
+        records.forEach(r => {
+          const reporterId = r.reporter_id || 'unknown';
+          const time = new Date(r.created_at || 0).getTime();
+          const existing = reporterSessions.get(reporterId);
+          
+          if (!existing) {
+            reporterSessions.set(reporterId, { 
+              reporter: reporterId, 
+              maxTime: time, 
+              minTime: time 
+            });
+          } else {
+            if (time > existing.maxTime) existing.maxTime = time;
+            if (time < existing.minTime) existing.minTime = time;
+          }
+        });
+        
+        // Find the reporter with the latest max time
+        let latestReporter = '';
+        let latestMaxTime = 0;
+        reporterSessions.forEach((session, reporterId) => {
+          if (session.maxTime > latestMaxTime) {
+            latestMaxTime = session.maxTime;
+            latestReporter = reporterId;
+          }
+        });
+        
+        // Get all records from the latest reporter
+        return records.filter(r => (r.reporter_id || 'unknown') === latestReporter);
+      };
+
+      // Process boarding report (latest reporter batch)
+      const boardingRecords = allRecords.filter(r => r.attendance_type === 'boarding');
+      const latestBoardingRecords = getLatestReportBatch(boardingRecords);
+      
+      if (latestBoardingRecords.length > 0) {
+        const presentCount = latestBoardingRecords.filter(r => r.status === 'present').length;
+        const absentRecords = latestBoardingRecords.filter(r => r.status === 'absent' || r.status === 'excused');
         
         const absentStudents: AbsentStudent[] = absentRecords.map(record => {
           const student = students.find(s => s.id === record.student_id);
@@ -205,13 +240,18 @@ export default function Statistics() {
           };
         }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
+        // Find the most recent record for time display
+        const sortedByTime = [...latestBoardingRecords].sort((a, b) => 
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+
         setLatestBoardingReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Nội trú',
-          reporter: (latestRecords[0] as any).reporter?.full_name || 'N/A',
-          reportTime: format(new Date(latestRecords[0].created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: latestRecords.length,
+          reporter: (sortedByTime[0] as any).reporter?.full_name || 'N/A',
+          reportTime: format(new Date(sortedByTime[0].created_at || new Date()), 'HH:mm dd/MM/yyyy'),
+          total: latestBoardingRecords.length,
           present: presentCount,
           absent: absentRecords.length,
           absentStudents,
@@ -220,16 +260,13 @@ export default function Statistics() {
         setLatestBoardingReport(null);
       }
 
-      // Process evening study report (latest)
+      // Process evening study report (latest reporter batch)
       const studyRecords = allRecords.filter(r => r.attendance_type === 'evening_study');
-      if (studyRecords.length > 0) {
-        const latestTime = Math.max(...studyRecords.map(r => new Date(r.created_at || 0).getTime()));
-        const latestRecords = studyRecords.filter(r => 
-          new Date(r.created_at || 0).getTime() === latestTime
-        );
-        
-        const presentCount = latestRecords.filter(r => r.status === 'present').length;
-        const absentRecords = latestRecords.filter(r => r.status === 'absent' || r.status === 'excused');
+      const latestStudyRecords = getLatestReportBatch(studyRecords);
+      
+      if (latestStudyRecords.length > 0) {
+        const presentCount = latestStudyRecords.filter(r => r.status === 'present').length;
+        const absentRecords = latestStudyRecords.filter(r => r.status === 'absent' || r.status === 'excused');
         
         const absentStudents: AbsentStudent[] = absentRecords.map(record => {
           const student = students.find(s => s.id === record.student_id);
@@ -243,13 +280,17 @@ export default function Statistics() {
           };
         }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
+        const sortedByTime = [...latestStudyRecords].sort((a, b) => 
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+
         setLatestStudyReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Tự học tối',
-          reporter: (latestRecords[0] as any).reporter?.full_name || 'N/A',
-          reportTime: format(new Date(latestRecords[0].created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: latestRecords.length,
+          reporter: (sortedByTime[0] as any).reporter?.full_name || 'N/A',
+          reportTime: format(new Date(sortedByTime[0].created_at || new Date()), 'HH:mm dd/MM/yyyy'),
+          total: latestStudyRecords.length,
           present: presentCount,
           absent: absentRecords.length,
           absentStudents,
@@ -270,19 +311,13 @@ export default function Statistics() {
       
       for (const mealType of mealTypes) {
         const mealRecords = allRecords.filter(r => r.attendance_type === mealType);
+        const latestRecords = getLatestReportBatch(mealRecords);
         
-        if (mealRecords.length > 0) {
-          // Get latest report for this meal
-          const latestTime = Math.max(...mealRecords.map(r => new Date(r.created_at || 0).getTime()));
-          const latestRecords = mealRecords.filter(r => 
-            new Date(r.created_at || 0).getTime() === latestTime
-          );
-
+        if (latestRecords.length > 0) {
           const presentCount = latestRecords.filter(r => r.status === 'present').length;
           const absentRecords = latestRecords.filter(r => r.status !== 'present');
           
           // Find classes that haven't reported
-          const reportedStudentIds = new Set(latestRecords.map(r => r.student_id));
           const classesWithReports = new Set(latestRecords.map(r => r.class_id).filter(Boolean));
           
           const classesNotReported = sortedClasses
