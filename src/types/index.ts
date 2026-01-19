@@ -79,6 +79,9 @@ export interface Student {
   phone?: string;
   parent_phone?: string;
   address?: string;
+  cccd?: string;
+  room_number?: string;
+  meal_group?: string;
   is_boarding: boolean;
   is_active: boolean;
   notes?: string;
@@ -96,10 +99,25 @@ export interface AttendanceRecord {
   attendance_type: AttendanceType;
   status: AttendanceStatus;
   notes?: string;
+  excused_reason?: string;
   reporter_id?: string;
   created_at: string;
   updated_at: string;
   student?: Student;
+}
+
+export interface MealSettings {
+  id: string;
+  school_id: string;
+  breakfast_deadline_time: string;
+  breakfast_deadline_offset: number;
+  lunch_deadline_time: string;
+  lunch_deadline_offset: number;
+  dinner_deadline_time: string;
+  dinner_deadline_offset: number;
+  rice_per_student: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DutySchedule {
