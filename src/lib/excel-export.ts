@@ -209,32 +209,41 @@ export interface MealStudentData {
   id: string;
   name: string;
   className: string;
+  classGrade?: number;
   roomNumber?: string;
   mealGroup?: string;
-  attendance: Map<string, { breakfast: boolean; lunch: boolean; dinner: boolean }>;
+  attendance: Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>;
 }
 
-export function exportMealStatistics(
-  students: MealStudentData[],
-  config: ExcelExportConfig
-): void {
-  const wb = XLSX.utils.book_new();
-  const days = eachDayOfInterval({ start: config.dateRange.start, end: config.dateRange.end });
-
-  // Build header rows
-  const headerRow1: any[] = ['STT', 'Họ và tên', 'Lớp', 'Phòng', 'Mâm'];
-  const headerRow2: any[] = ['', '', '', '', ''];
-
-  days.forEach(day => {
-    headerRow1.push(format(day, 'dd/MM'));
-    headerRow2.push('S/T/C');
+// Check if there's any report for a specific date
+function hasReportForDate(students: MealStudentData[], dateStr: string): boolean {
+  return students.some(student => {
+    const dayData = student.attendance.get(dateStr);
+    return dayData && (dayData.breakfast !== null || dayData.lunch !== null || dayData.dinner !== null);
   });
+}
 
-  headerRow1.push('Tổng S', 'Tổng T', 'Tổng C', 'Gạo (kg)');
-  headerRow2.push('', '', '', '');
+// Create meal statistics sheet for a group of students
+function createMealStatsSheet(
+  students: MealStudentData[],
+  days: Date[],
+  config: ExcelExportConfig,
+  sheetTitle: string
+): XLSX.WorkSheet {
+  // Build header row
+  const headerRow: any[] = ['STT', 'Họ và tên', 'Lớp', 'Phòng', 'Mâm'];
+  
+  days.forEach(day => {
+    headerRow.push(format(day, 'dd'));
+  });
+  
+  headerRow.push('Sáng', 'Trưa', 'Tối', 'Gạo (kg)');
 
   // Build data rows
   const dataRows: any[][] = [];
+  
+  // Track column totals
+  const dayTotals: Map<string, { breakfast: number; lunch: number; dinner: number }> = new Map();
   let grandTotalBreakfast = 0;
   let grandTotalLunch = 0;
   let grandTotalDinner = 0;
@@ -255,17 +264,41 @@ export function exportMealStatistics(
     days.forEach(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const dayData = student.attendance.get(dateStr);
+      
+      // Check if any meal has a report for this date
+      const hasAnyReport = dayData && (dayData.breakfast !== null || dayData.lunch !== null || dayData.dinner !== null);
+      
+      if (!hasAnyReport) {
+        // No report for this date - show dash and don't count
+        row.push('-');
+      } else {
+        // Get actual values - null means no report for that specific meal
+        const b = dayData?.breakfast;
+        const l = dayData?.lunch;
+        const d = dayData?.dinner;
 
-      const b = dayData?.breakfast ?? true;
-      const l = dayData?.lunch ?? true;
-      const d = dayData?.dinner ?? true;
+        // Only count if explicitly reported as present (true)
+        if (b === true) breakfastCount++;
+        if (l === true) lunchCount++;
+        if (d === true) dinnerCount++;
 
-      if (b) breakfastCount++;
-      if (l) lunchCount++;
-      if (d) dinnerCount++;
+        // Update day totals
+        if (!dayTotals.has(dateStr)) {
+          dayTotals.set(dateStr, { breakfast: 0, lunch: 0, dinner: 0 });
+        }
+        const totals = dayTotals.get(dateStr)!;
+        if (b === true) totals.breakfast++;
+        if (l === true) totals.lunch++;
+        if (d === true) totals.dinner++;
 
-      const display = `${b ? 'x' : 'o'}${l ? 'x' : 'o'}${d ? 'x' : 'o'}`;
-      row.push(display);
+        // Display: x = present, o = absent, - = no report
+        const bChar = b === null ? '-' : (b ? 'x' : 'o');
+        const lChar = l === null ? '-' : (l ? 'x' : 'o');
+        const dChar = d === null ? '-' : (d ? 'x' : 'o');
+        
+        const display = `${bChar}${lChar}${dChar}`;
+        row.push(display);
+      }
     });
 
     const totalRice = (lunchCount + dinnerCount) * 0.2;
@@ -278,52 +311,181 @@ export function exportMealStatistics(
     dataRows.push(row);
   });
 
-  // Totals row
+  // Totals row - sum by columns
   const totalsRow: any[] = ['', 'TỔNG CỘNG', '', '', ''];
-  days.forEach(() => totalsRow.push(''));
+  
+  days.forEach(day => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const totals = dayTotals.get(dateStr);
+    
+    if (!totals) {
+      // No reports for this date
+      totalsRow.push('-');
+    } else {
+      // Show total for each meal type in the day
+      totalsRow.push(`${totals.breakfast}/${totals.lunch}/${totals.dinner}`);
+    }
+  });
+  
   const grandTotalRice = (grandTotalLunch + grandTotalDinner) * 0.2;
   totalsRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(1));
 
   // Note rows
   const noteRows: any[][] = [
     [],
-    ['Ghi chú: x = ăn, o = vắng. Mỗi ô hiển thị: Sáng/Trưa/Chiều'],
-    ['Lượng gạo tính: 0.2kg/học sinh cho mỗi bữa trưa và tối'],
-    [`Tổng gạo tháng: ${grandTotalRice.toFixed(1)} kg`],
+    ['Ghi chú: x = ăn, o = vắng, - = chưa báo cáo. Mỗi ô: Sáng/Trưa/Tối'],
+    ['Lượng gạo: 0.2kg/học sinh cho mỗi bữa trưa và tối'],
+    [`Tổng gạo: ${grandTotalRice.toFixed(1)} kg`],
   ];
 
-  const wsData: any[][] = [headerRow1, headerRow2, ...dataRows, [], totalsRow, ...noteRows];
+  // Header info rows
+  const headerInfoRows: any[][] = [
+    [sheetTitle],
+    [`Trường: ${config.schoolName}`],
+    [`Thời gian: ${config.dateRange.label}`],
+    [config.reporterName ? `Người xuất: ${config.reporterName}` : ''],
+    [`Ngày xuất: ${format(config.exportTime, 'HH:mm dd/MM/yyyy', { locale: vi })}`],
+    [],
+  ];
 
-  // Create worksheet
+  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...noteRows];
+
+  // Column widths
   const columnWidths = [
-    5, 25, 10, 8, 8,
-    ...days.map(() => 7),
-    8, 8, 8, 10
+    5, 22, 8, 6, 6,
+    ...days.map(() => 5),
+    6, 6, 6, 8
   ];
 
-  const ws = createProfessionalWorksheet(wsData, config, columnWidths);
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = columnWidths.map(w => ({ wch: w }));
 
-  // Apply styles to header rows (row 7 and 8 after 6 header rows)
-  applyHeaderStyle(ws, 6, days.length + 9);
-  applyHeaderStyle(ws, 7, days.length + 9);
+  // Print settings for A4 landscape
+  ws['!margins'] = {
+    left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.2, footer: 0.2,
+  };
 
-  // Apply red background to cells with absences
-  const dataStartRow = 8; // 0-indexed: after 6 header rows + 2 table header rows
+  // Merge header info cells
+  if (!ws['!merges']) ws['!merges'] = [];
+  const totalCols = columnWidths.length;
+  for (let i = 0; i < 5; i++) {
+    if (wsData[i] && wsData[i][0]) {
+      ws['!merges'].push({
+        s: { r: i, c: 0 },
+        e: { r: i, c: totalCols - 1 }
+      });
+    }
+  }
+
+  // Apply header style (row 7 after 6 header info rows)
+  const headerRowIndex = 6;
+  for (let col = 0; col < totalCols; col++) {
+    const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c: col });
+    if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+    ws[cellRef].s = {
+      fill: { fgColor: { rgb: '1565C0' } },
+      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 10 },
+      alignment: { horizontal: 'center', vertical: 'center' },
+    };
+  }
+
+  // Apply alternating row colors and red for absent cells
+  const dataStartRow = 7;
   dataRows.forEach((row, rowIdx) => {
-    days.forEach((_, dayIdx) => {
-      const cellValue = row[5 + dayIdx] as string;
-      if (cellValue && cellValue.includes('o')) {
-        const cellRef = XLSX.utils.encode_cell({ r: dataStartRow + rowIdx, c: 5 + dayIdx });
-        if (!ws[cellRef]) ws[cellRef] = { v: cellValue, t: 's' };
-        ws[cellRef].s = { 
-          fill: { fgColor: { rgb: 'FFCDD2' } },
-          font: { color: { rgb: 'C62828' } }
+    const actualRow = dataStartRow + rowIdx;
+    const isEvenRow = rowIdx % 2 === 0;
+    const bgColor = isEvenRow ? 'FFFFFF' : 'E3F2FD'; // White or light blue
+
+    for (let col = 0; col < row.length; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: actualRow, c: col });
+      const cellValue = row[col];
+      
+      if (!ws[cellRef]) ws[cellRef] = { v: cellValue, t: typeof cellValue === 'number' ? 'n' : 's' };
+      
+      // Check if it's a meal cell with absence
+      const isMealCell = col >= 5 && col < 5 + days.length;
+      const hasAbsence = isMealCell && typeof cellValue === 'string' && cellValue.includes('o');
+      
+      if (hasAbsence) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: 'FFCDD2' } }, // Light red
+          font: { color: { rgb: 'C62828' }, sz: 9 },
+          alignment: { horizontal: 'center' },
+        };
+      } else {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: bgColor } },
+          font: { sz: 9 },
+          alignment: { horizontal: col < 2 ? 'left' : 'center' },
         };
       }
-    });
+    }
   });
 
-  XLSX.utils.book_append_sheet(wb, ws, 'Thống kê bữa ăn');
+  // Style totals row with bold
+  const totalsRowIndex = dataStartRow + dataRows.length + 1;
+  for (let col = 0; col < totalsRow.length; col++) {
+    const cellRef = XLSX.utils.encode_cell({ r: totalsRowIndex, c: col });
+    if (!ws[cellRef]) ws[cellRef] = { v: totalsRow[col], t: typeof totalsRow[col] === 'number' ? 'n' : 's' };
+    ws[cellRef].s = {
+      fill: { fgColor: { rgb: 'FFF3E0' } }, // Light orange
+      font: { bold: true, sz: 10 },
+      alignment: { horizontal: 'center' },
+    };
+  }
+
+  return ws;
+}
+
+export function exportMealStatistics(
+  students: MealStudentData[],
+  config: ExcelExportConfig
+): void {
+  const wb = XLSX.utils.book_new();
+  const days = eachDayOfInterval({ start: config.dateRange.start, end: config.dateRange.end });
+
+  // Sheet 1: Whole school
+  const schoolSheet = createMealStatsSheet(
+    students,
+    days,
+    config,
+    'THỐNG KÊ BỮA ĂN TOÀN TRƯỜNG'
+  );
+  XLSX.utils.book_append_sheet(wb, schoolSheet, 'Toàn trường');
+
+  // Group students by class and sort by grade
+  const classeMap = new Map<string, { grade: number; students: MealStudentData[] }>();
+  
+  students.forEach(student => {
+    const className = student.className;
+    if (!classeMap.has(className)) {
+      classeMap.set(className, {
+        grade: student.classGrade || 0,
+        students: []
+      });
+    }
+    classeMap.get(className)!.students.push(student);
+  });
+
+  // Sort classes by grade (small to large) then by name
+  const sortedClasses = Array.from(classeMap.entries()).sort((a, b) => {
+    if (a[1].grade !== b[1].grade) return a[1].grade - b[1].grade;
+    return a[0].localeCompare(b[0], 'vi');
+  });
+
+  // Create sheet for each class
+  sortedClasses.forEach(([className, classData]) => {
+    const classSheet = createMealStatsSheet(
+      classData.students,
+      days,
+      config,
+      `THỐNG KÊ BỮA ĂN - LỚP ${className}`
+    );
+    
+    // Truncate sheet name if too long (Excel limit is 31 chars)
+    const sheetName = className.length > 28 ? className.substring(0, 28) : className;
+    XLSX.utils.book_append_sheet(wb, classSheet, sheetName);
+  });
 
   // Add daily summary sheet
   const dailySummary: any[][] = [
@@ -332,37 +494,95 @@ export function exportMealStatistics(
 
   days.forEach(day => {
     const dateStr = format(day, 'yyyy-MM-dd');
-    let bPresent = 0, lPresent = 0, dPresent = 0;
+    const hasReport = hasReportForDate(students, dateStr);
+    
+    if (!hasReport) {
+      dailySummary.push([
+        format(day, 'dd/MM/yyyy'),
+        '-', '-', '-', '-', '-', '-', '-', '-'
+      ]);
+    } else {
+      let bPresent = 0, lPresent = 0, dPresent = 0;
+      let bReported = 0, lReported = 0, dReported = 0;
 
-    students.forEach(student => {
-      const dayData = student.attendance.get(dateStr);
-      if (dayData?.breakfast ?? true) bPresent++;
-      if (dayData?.lunch ?? true) lPresent++;
-      if (dayData?.dinner ?? true) dPresent++;
-    });
+      students.forEach(student => {
+        const dayData = student.attendance.get(dateStr);
+        // Only count if explicitly reported
+        if (dayData?.breakfast === true) { bPresent++; bReported++; }
+        else if (dayData?.breakfast === false) { bReported++; }
+        
+        if (dayData?.lunch === true) { lPresent++; lReported++; }
+        else if (dayData?.lunch === false) { lReported++; }
+        
+        if (dayData?.dinner === true) { dPresent++; dReported++; }
+        else if (dayData?.dinner === false) { dReported++; }
+      });
 
-    const totalStudents = students.length;
-    const dailyRice = (lPresent + dPresent) * 0.2;
+      const dailyRice = (lPresent + dPresent) * 0.2;
 
-    dailySummary.push([
-      format(day, 'dd/MM/yyyy'),
-      totalStudents,
-      bPresent,
-      totalStudents - bPresent,
-      lPresent,
-      totalStudents - lPresent,
-      dPresent,
-      totalStudents - dPresent,
-      dailyRice.toFixed(1),
-    ]);
+      dailySummary.push([
+        format(day, 'dd/MM/yyyy'),
+        students.length,
+        bPresent,
+        bReported - bPresent,
+        lPresent,
+        lReported - lPresent,
+        dPresent,
+        dReported - dPresent,
+        dailyRice.toFixed(1),
+      ]);
+    }
   });
 
-  const dailyWs = createProfessionalWorksheet(
-    dailySummary,
-    { ...config, title: 'THỐNG KÊ BỮA ĂN THEO NGÀY' },
-    [12, 10, 10, 10, 10, 10, 10, 10, 10]
-  );
-  applyHeaderStyle(dailyWs, 6, 9);
+  // Create daily summary sheet with header info
+  const dailyHeaderRows: any[][] = [
+    ['THỐNG KÊ BỮA ĂN THEO NGÀY'],
+    [`Trường: ${config.schoolName}`],
+    [`Thời gian: ${config.dateRange.label}`],
+    [`Ngày xuất: ${format(config.exportTime, 'HH:mm dd/MM/yyyy', { locale: vi })}`],
+    [],
+  ];
+
+  const dailyWsData = [...dailyHeaderRows, ...dailySummary];
+  const dailyWs = XLSX.utils.aoa_to_sheet(dailyWsData);
+  dailyWs['!cols'] = [
+    { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 10 },
+    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }
+  ];
+
+  // Merge header cells
+  if (!dailyWs['!merges']) dailyWs['!merges'] = [];
+  for (let i = 0; i < 4; i++) {
+    dailyWs['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 8 } });
+  }
+
+  // Style header row (row 6)
+  for (let col = 0; col < 9; col++) {
+    const cellRef = XLSX.utils.encode_cell({ r: 5, c: col });
+    if (!dailyWs[cellRef]) dailyWs[cellRef] = { v: '', t: 's' };
+    dailyWs[cellRef].s = {
+      fill: { fgColor: { rgb: '1565C0' } },
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      alignment: { horizontal: 'center' },
+    };
+  }
+
+  // Apply alternating rows
+  for (let rowIdx = 0; rowIdx < dailySummary.length - 1; rowIdx++) {
+    const actualRow = 6 + rowIdx;
+    const isEvenRow = rowIdx % 2 === 0;
+    const bgColor = isEvenRow ? 'FFFFFF' : 'E3F2FD';
+    
+    for (let col = 0; col < 9; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: actualRow, c: col });
+      if (dailyWs[cellRef]) {
+        dailyWs[cellRef].s = {
+          fill: { fgColor: { rgb: bgColor } },
+          alignment: { horizontal: 'center' },
+        };
+      }
+    }
+  }
 
   XLSX.utils.book_append_sheet(wb, dailyWs, 'Theo ngày');
 
