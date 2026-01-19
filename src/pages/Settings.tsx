@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
   Settings as SettingsIcon,
@@ -13,10 +14,12 @@ import {
   Lock,
   Loader2,
   Download,
+  Phone,
+  Mail,
 } from 'lucide-react';
 
 export default function Settings() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, currentMembership, user, refreshProfile, isSuperAdmin } = useAuth();
   const { toast } = useToast();
 
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -26,9 +29,34 @@ export default function Settings() {
   const [phone, setPhone] = useState(profile?.phone || '');
   const [username, setUsername] = useState(profile?.username || '');
 
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .slice(-2)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
+  };
+
+  const getRoleBadge = () => {
+    if (isSuperAdmin) return { label: 'Super Admin', variant: 'destructive' as const };
+    if (!currentMembership) return null;
+    
+    const roleMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+      admin: { label: 'Quản trị', variant: 'default' },
+      teacher: { label: 'Giáo viên', variant: 'secondary' },
+      class_teacher: { label: 'GVCN', variant: 'secondary' },
+      accountant: { label: 'Kế toán', variant: 'outline' },
+      kitchen: { label: 'Nhà bếp', variant: 'outline' },
+    };
+    
+    return roleMap[currentMembership.role] || { label: currentMembership.role, variant: 'outline' as const };
+  };
+
+  const roleBadge = getRoleBadge();
 
   const handleUpdateProfile = async () => {
     if (!profile) return;
@@ -104,7 +132,6 @@ export default function Settings() {
 
       if (error) throw error;
 
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       toast({ title: 'Thành công', description: 'Đã đổi mật khẩu' });
@@ -124,7 +151,7 @@ export default function Settings() {
     <div className="content-wrapper animate-fade-in">
       <div className="page-header">
         <h1 className="page-title flex items-center gap-2">
-          <SettingsIcon className="h-7 w-7 text-muted-foreground" />
+          <SettingsIcon className="h-7 w-7 text-primary" />
           Cài đặt
         </h1>
         <p className="page-description">
@@ -133,6 +160,34 @@ export default function Settings() {
       </div>
 
       <div className="max-w-2xl space-y-6">
+        {/* User Profile Card */}
+        <Card className="bg-primary text-primary-foreground overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-20 w-20 border-2 border-primary-foreground/20">
+                <AvatarFallback className="bg-primary-foreground/10 text-primary-foreground text-xl font-semibold">
+                  {profile ? getInitials(profile.full_name) : 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold">{profile?.full_name || 'Người dùng'}</h2>
+                <div className="flex items-center gap-2 mt-1 text-primary-foreground/80">
+                  <Mail className="h-4 w-4" />
+                  <span className="text-sm">{user?.email}</span>
+                </div>
+                {roleBadge && (
+                  <Badge 
+                    variant={roleBadge.variant}
+                    className="mt-2 bg-primary-foreground/20 text-primary-foreground border-0"
+                  >
+                    {roleBadge.label}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Profile Section */}
         <Card>
           <CardHeader>

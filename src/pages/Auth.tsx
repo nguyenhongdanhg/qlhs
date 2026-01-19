@@ -4,11 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { z } from 'zod';
+import { cn } from '@/lib/utils';
 
 const loginSchema = z.object({
   email: z.string().email('Email không hợp lệ'),
@@ -27,6 +26,7 @@ export default function Auth() {
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
 
+  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -124,131 +124,174 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4">
-      <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-      
-      <Card className="w-full max-w-md animate-scale-in relative">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
-            <GraduationCap className="h-9 w-9 text-primary-foreground" />
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        {/* Logo */}
+        <div className="mb-8 flex flex-col items-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary shadow-lg mb-4">
+            <GraduationCap className="h-10 w-10 text-primary-foreground" />
           </div>
-          <CardTitle className="font-heading text-2xl">EduBoard</CardTitle>
-          <CardDescription>
-            Hệ thống quản lý học sinh nội trú
-          </CardDescription>
-        </CardHeader>
+          <h1 className="text-2xl font-bold text-primary">Quản lý Nội trú</h1>
+        </div>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mx-auto max-w-[280px]">
-            <TabsTrigger value="login">Đăng nhập</TabsTrigger>
-            <TabsTrigger value="signup">Đăng ký</TabsTrigger>
-          </TabsList>
+        {/* Tab Switcher */}
+        <div className="w-full max-w-sm mb-6">
+          <div className="flex rounded-full bg-white shadow-sm p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('login')}
+              className={cn(
+                'flex-1 py-2.5 rounded-full text-sm font-medium transition-all',
+                activeTab === 'login'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Đăng nhập
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('signup')}
+              className={cn(
+                'flex-1 py-2.5 rounded-full text-sm font-medium transition-all',
+                activeTab === 'signup'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Đăng ký
+            </button>
+          </div>
+        </div>
 
-          <TabsContent value="login">
-            <form onSubmit={handleLogin}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Mật khẩu</Label>
-                  <div className="relative">
-                    <Input
-                      id="login-password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Đăng nhập
-                </Button>
-              </CardFooter>
-            </form>
-          </TabsContent>
+        {/* Login Form */}
+        {activeTab === 'login' && (
+          <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4 animate-fade-in">
+            <div className="space-y-2">
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Mật khẩu"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="pl-12 pr-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full h-12 rounded-xl text-base font-semibold shadow-lg" 
+              disabled={isLoading}
+            >
+              {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+              Đăng nhập
+            </Button>
+          </form>
+        )}
 
-          <TabsContent value="signup">
-            <form onSubmit={handleSignup}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Họ và tên</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Nguyễn Văn A"
-                    value={signupFullName}
-                    onChange={(e) => setSignupFullName(e.target.value)}
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    required
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Mật khẩu</Label>
-                  <div className="relative">
-                    <Input
-                      id="signup-password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={signupPassword}
-                      onChange={(e) => setSignupPassword(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Đăng ký
-                </Button>
-              </CardFooter>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </Card>
+        {/* Signup Form */}
+        {activeTab === 'signup' && (
+          <form onSubmit={handleSignup} className="w-full max-w-sm space-y-4 animate-fade-in">
+            <div className="space-y-2">
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Họ và tên"
+                  value={signupFullName}
+                  onChange={(e) => setSignupFullName(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Mật khẩu"
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="pl-12 pr-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full h-12 rounded-xl text-base font-semibold shadow-lg" 
+              disabled={isLoading}
+            >
+              {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+              Đăng ký
+            </Button>
+          </form>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="p-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          Develop by <span className="font-semibold text-primary">Lovable</span>
+        </p>
+        <a 
+          href="https://zalo.me/0888770699" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 mt-2 text-sm text-primary hover:underline"
+        >
+          Liên hệ Zalo
+        </a>
+      </div>
     </div>
   );
 }
