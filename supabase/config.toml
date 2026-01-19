@@ -1,1 +1,7 @@
 project_id = "qrxvkbcuggeitgxbbgrd"
+
+[functions.seed-data]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
