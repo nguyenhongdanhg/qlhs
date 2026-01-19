@@ -456,9 +456,15 @@ export default function Meals() {
         }
       });
 
-      // Build student data
+      // Determine which dates have any reports
+      const reportedDates = new Set<string>();
+      latestByKey.forEach((record) => {
+        reportedDates.add(record.attendance_date);
+      });
+
+      // Build student data with null for unreported meals
       const studentData: MealStudentData[] = students.map(student => {
-        const attendanceMap = new Map<string, { breakfast: boolean; lunch: boolean; dinner: boolean }>();
+        const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
         
         days.forEach(day => {
           const dateStr = format(day, 'yyyy-MM-dd');
@@ -470,10 +476,11 @@ export default function Meals() {
           const lRecord = latestByKey.get(lKey);
           const dRecord = latestByKey.get(dKey);
           
+          // Use null if no report exists for this meal on this date
           attendanceMap.set(dateStr, {
-            breakfast: bRecord ? bRecord.status === 'present' : true,
-            lunch: lRecord ? lRecord.status === 'present' : true,
-            dinner: dRecord ? dRecord.status === 'present' : true,
+            breakfast: bRecord ? bRecord.status === 'present' : null,
+            lunch: lRecord ? lRecord.status === 'present' : null,
+            dinner: dRecord ? dRecord.status === 'present' : null,
           });
         });
 
@@ -481,6 +488,7 @@ export default function Meals() {
           id: student.id,
           name: student.full_name,
           className: student.class?.name || '',
+          classGrade: student.class?.grade,
           roomNumber: student.room_number || undefined,
           mealGroup: student.meal_group || undefined,
           attendance: attendanceMap,
