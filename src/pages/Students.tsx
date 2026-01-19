@@ -85,6 +85,11 @@ export default function Students() {
   const [batchUpdateType, setBatchUpdateType] = useState<'class' | 'room' | 'meal'>('class');
   const [batchUpdateValue, setBatchUpdateValue] = useState('');
   
+  // Filter state for room and meal (used when clicking from tabs)
+  const [selectedRoomFilter, setSelectedRoomFilter] = useState<string | null>(null);
+  const [selectedMealFilter, setSelectedMealFilter] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('students');
+  
   // Room and meal group lists derived from students
   const roomNumbers = useMemo(() => {
     const rooms = new Set<string>();
@@ -132,6 +137,7 @@ export default function Students() {
         .select('*')
         .eq('school_id', currentSchool.id)
         .eq('is_active', true)
+        .order('grade')
         .order('name');
 
       setClasses((classesData || []) as Class[]);
@@ -170,7 +176,9 @@ export default function Students() {
       student.meal_group?.toLowerCase().includes(query);
     const matchesClass =
       selectedClassFilter === 'all' || student.class_id === selectedClassFilter;
-    return matchesSearch && matchesClass;
+    const matchesRoom = !selectedRoomFilter || student.room_number === selectedRoomFilter;
+    const matchesMeal = !selectedMealFilter || student.meal_group === selectedMealFilter;
+    return matchesSearch && matchesClass && matchesRoom && matchesMeal;
   });
 
   const handleOpenDialog = (student?: Student) => {
@@ -569,7 +577,16 @@ export default function Students() {
 
   return (
     <div className="content-wrapper animate-fade-in pb-20">
-      <Tabs defaultValue="students" className="w-full">
+      <Tabs value={activeTab} onValueChange={(val) => {
+        setActiveTab(val);
+        setSelectedIds(new Set());
+        // Reset filters when switching tabs
+        if (val !== 'students') {
+          setSelectedClassFilter('all');
+          setSelectedRoomFilter(null);
+          setSelectedMealFilter(null);
+        }
+      }} className="w-full">
         <TabsList className="grid w-full grid-cols-4 mb-4">
           <TabsTrigger value="students" className="flex items-center gap-1">
             <Users className="h-4 w-4" />
@@ -597,12 +614,35 @@ export default function Students() {
               <h1 className="page-title flex items-center gap-2">
                 <Users className="h-6 w-6 text-primary" />
                 Danh sách học sinh
+                {(selectedClassFilter !== 'all' || selectedRoomFilter || selectedMealFilter) && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {selectedClassFilter !== 'all' && classes.find(c => c.id === selectedClassFilter)?.name}
+                    {selectedRoomFilter && `Phòng ${selectedRoomFilter}`}
+                    {selectedMealFilter && selectedMealFilter}
+                  </Badge>
+                )}
               </h1>
-              <p className="page-description">
-                {selectedIds.size > 0 
-                  ? `Đã chọn ${selectedIds.size}/${filteredStudents.length} học sinh` 
-                  : `${filteredStudents.length} học sinh`}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="page-description">
+                  {selectedIds.size > 0 
+                    ? `Đã chọn ${selectedIds.size}/${filteredStudents.length} học sinh` 
+                    : `${filteredStudents.length} học sinh`}
+                </p>
+                {(selectedClassFilter !== 'all' || selectedRoomFilter || selectedMealFilter) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 px-2 text-xs"
+                    onClick={() => {
+                      setSelectedClassFilter('all');
+                      setSelectedRoomFilter(null);
+                      setSelectedMealFilter(null);
+                    }}
+                  >
+                    Xóa bộ lọc
+                  </Button>
+                )}
+              </div>
             </div>
             {isSchoolAdmin() && (
               <div className="flex flex-wrap gap-2">
@@ -994,16 +1034,26 @@ export default function Students() {
 
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {classes.map((cls) => {
-              const count = students.filter(s => s.class_id === cls.id).length;
+              const classStudents = students.filter(s => s.class_id === cls.id);
+              const count = classStudents.length;
               return (
-                <Card key={cls.id} className="hover:border-primary transition-colors">
+                <Card 
+                  key={cls.id} 
+                  className="hover:border-primary transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedClassFilter(cls.id);
+                    setSelectedRoomFilter(null);
+                    setSelectedMealFilter(null);
+                    setActiveTab('students');
+                  }}
+                >
                   <CardContent className="p-4 flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold">{cls.name}</h3>
                       <p className="text-sm text-muted-foreground">Khối {cls.grade} • {count} học sinh</p>
                     </div>
                     {isSchoolAdmin() && (
-                      <div className="flex gap-1">
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" onClick={() => {
                           setEditingClass(cls);
                           setNewClassName(cls.name);
@@ -1046,7 +1096,16 @@ export default function Students() {
             {roomNumbers.map((room) => {
               const count = students.filter(s => s.room_number === room).length;
               return (
-                <Card key={room} className="hover:border-primary transition-colors">
+                <Card 
+                  key={room} 
+                  className="hover:border-primary transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedRoomFilter(room);
+                    setSelectedClassFilter('all');
+                    setSelectedMealFilter(null);
+                    setActiveTab('students');
+                  }}
+                >
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold text-primary">{room}</div>
                     <p className="text-sm text-muted-foreground">{count} học sinh</p>
@@ -1079,7 +1138,16 @@ export default function Students() {
             {mealGroups.map((group) => {
               const count = students.filter(s => s.meal_group === group).length;
               return (
-                <Card key={group} className="hover:border-primary transition-colors">
+                <Card 
+                  key={group} 
+                  className="hover:border-primary transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedMealFilter(group);
+                    setSelectedClassFilter('all');
+                    setSelectedRoomFilter(null);
+                    setActiveTab('students');
+                  }}
+                >
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl font-bold text-orange-600">{group}</div>
                     <p className="text-sm text-muted-foreground">{count} học sinh</p>
