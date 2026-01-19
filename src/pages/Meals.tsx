@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Student, Class, AttendanceStatus, AttendanceType, MealSettings } from '@/types';
+import { Student, Class, AttendanceStatus, AttendanceType } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -14,7 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, subDays, isAfter, isBefore, setHours, setMinutes } from 'date-fns';
+import { format, addDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, subDays, isBefore, setHours, setMinutes } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   CalendarIcon,
@@ -38,7 +38,12 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import * as XLSX from 'xlsx';
+import { 
+  DateRangeType, 
+  getDateRange, 
+  exportMealStatistics, 
+  MealStudentData 
+} from '@/lib/excel-export';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -46,7 +51,7 @@ interface MealDeadline {
   type: AttendanceType;
   deadlineHour: number;
   deadlineMinute: number;
-  dayOffset: number; // -1 for previous day, 0 for same day
+  dayOffset: number;
   label: string;
   description: string;
 }
@@ -88,10 +93,13 @@ export default function Meals() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
-  const [historyMonth, setHistoryMonth] = useState<Date>(new Date());
+  const [historyDate, setHistoryDate] = useState<Date>(new Date());
+  const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // Sort classes by grade then name
+  const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
+
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
       if (a.grade !== b.grade) return a.grade - b.grade;
@@ -99,7 +107,6 @@ export default function Meals() {
     });
   }, [classes]);
 
-  // Check if meal can be reported based on deadline
   const getMealDeadlineInfo = useCallback((mealType: AttendanceType, targetDate: Date) => {
     const deadline = MEAL_DEADLINES.find(d => d.type === mealType);
     if (!deadline) return { canReport: false, remainingTime: '', isExpired: true };
@@ -108,7 +115,6 @@ export default function Meals() {
     let deadlineDate = new Date(targetDate);
     
     if (deadline.dayOffset === -1) {
-      // Previous day deadline (for breakfast)
       deadlineDate = subDays(deadlineDate, 1);
     }
     
@@ -141,7 +147,6 @@ export default function Meals() {
     return getMealDeadlineInfo(selectedMeal, date);
   }, [selectedMeal, date, getMealDeadlineInfo]);
 
-  // Get upcoming deadlines for reminder bar
   const upcomingDeadlines = useMemo(() => {
     const today = new Date();
     const tomorrow = addDays(today, 1);
@@ -170,7 +175,7 @@ export default function Meals() {
   useEffect(() => {
     if (!currentSchool || activeTab !== 'history') return;
     fetchHistory();
-  }, [currentSchool, activeTab, historyMonth]);
+  }, [currentSchool, activeTab, historyDateRange]);
 
   const fetchClasses = async () => {
     if (!currentSchool) return;
@@ -232,8 +237,8 @@ export default function Meals() {
     if (!currentSchool) return;
     setIsLoadingHistory(true);
     try {
-      const startDate = format(startOfMonth(historyMonth), 'yyyy-MM-dd');
-      const endDate = format(endOfMonth(historyMonth), 'yyyy-MM-dd');
+      const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
 
       const { data: recordsData } = await supabase
         .from('attendance_records')
@@ -295,7 +300,6 @@ export default function Meals() {
     setAttendance(prev => ({ ...prev, ...newAttendance }));
   };
 
-  // Mark all 3 meals at once
   const handleMarkAll3Meals = async (markPresent: boolean) => {
     if (!currentSchool || !user) return;
     setIsSaving(true);
@@ -304,7 +308,6 @@ export default function Meals() {
       const dateStr = format(date, 'yyyy-MM-dd');
       const mealTypesToSave: AttendanceType[] = ['breakfast', 'lunch', 'dinner'];
       
-      // Check deadlines for each meal
       const expiredMeals = mealTypesToSave.filter(meal => {
         const info = getMealDeadlineInfo(meal, date);
         return info.isExpired;
@@ -427,145 +430,76 @@ export default function Meals() {
     }
   };
 
-  const handleExportMonthlyExcel = async () => {
+  const handleExportExcel = async () => {
     if (!currentSchool) return;
+    setIsExporting(true);
     
     try {
-      const startDate = startOfMonth(historyMonth);
-      const endDate = endOfMonth(historyMonth);
-      const days = eachDayOfInterval({ start: startDate, end: endDate });
+      const days = eachDayOfInterval({ start: historyDateRange.start, end: historyDateRange.end });
       
-      // Fetch all attendance records for the month
+      // Fetch all attendance records for the date range
       const { data: recordsData } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('school_id', currentSchool.id)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .gte('attendance_date', format(startDate, 'yyyy-MM-dd'))
-        .lte('attendance_date', format(endDate, 'yyyy-MM-dd'));
+        .gte('attendance_date', format(historyDateRange.start, 'yyyy-MM-dd'))
+        .lte('attendance_date', format(historyDateRange.end, 'yyyy-MM-dd'));
 
-      // Create attendance map: studentId -> date -> meal -> status
-      const attendanceByStudent = new Map<string, Map<string, Map<string, boolean>>>();
+      // Create attendance map: studentId -> date -> meal -> status (based on latest report per meal/date)
+      const latestByKey = new Map<string, any>();
       (recordsData || []).forEach((record: any) => {
-        if (!attendanceByStudent.has(record.student_id)) {
-          attendanceByStudent.set(record.student_id, new Map());
+        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
+        const existing = latestByKey.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByKey.set(key, record);
         }
-        const studentMap = attendanceByStudent.get(record.student_id)!;
-        if (!studentMap.has(record.attendance_date)) {
-          studentMap.set(record.attendance_date, new Map());
-        }
-        const dateMap = studentMap.get(record.attendance_date)!;
-        dateMap.set(record.attendance_type, record.status === 'present');
       });
 
-      // Build Excel data
-      const headerRow1 = ['STT', 'Họ và tên', 'Lớp', 'Phòng', 'Mâm'];
-      const headerRow2 = ['', '', '', '', ''];
-      
-      days.forEach(day => {
-        headerRow1.push(format(day, 'dd'));
-        headerRow2.push('S/T/C');
-      });
-      headerRow1.push('Tổng S', 'Tổng T', 'Tổng C', 'Tổng gạo (kg)');
-      headerRow2.push('', '', '', '');
-
-      const dataRows: any[][] = [];
-      
-      students.forEach((student, index) => {
-        const row: any[] = [
-          index + 1,
-          student.full_name,
-          student.class?.name || '',
-          student.room_number || '',
-          student.meal_group || '',
-        ];
-        
-        let breakfastCount = 0;
-        let lunchCount = 0;
-        let dinnerCount = 0;
+      // Build student data
+      const studentData: MealStudentData[] = students.map(student => {
+        const attendanceMap = new Map<string, { breakfast: boolean; lunch: boolean; dinner: boolean }>();
         
         days.forEach(day => {
           const dateStr = format(day, 'yyyy-MM-dd');
-          const studentData = attendanceByStudent.get(student.id);
-          const dateData = studentData?.get(dateStr);
+          const bKey = `${student.id}-${dateStr}-breakfast`;
+          const lKey = `${student.id}-${dateStr}-lunch`;
+          const dKey = `${student.id}-${dateStr}-dinner`;
           
-          const b = dateData?.get('breakfast') ?? true;
-          const l = dateData?.get('lunch') ?? true;
-          const d = dateData?.get('dinner') ?? true;
+          const bRecord = latestByKey.get(bKey);
+          const lRecord = latestByKey.get(lKey);
+          const dRecord = latestByKey.get(dKey);
           
-          if (b) breakfastCount++;
-          if (l) lunchCount++;
-          if (d) dinnerCount++;
-          
-          const display = `${b ? 'x' : 'o'}${l ? 'x' : 'o'}${d ? 'x' : 'o'}`;
-          row.push(display);
+          attendanceMap.set(dateStr, {
+            breakfast: bRecord ? bRecord.status === 'present' : true,
+            lunch: lRecord ? lRecord.status === 'present' : true,
+            dinner: dRecord ? dRecord.status === 'present' : true,
+          });
         });
-        
-        const totalRice = (lunchCount + dinnerCount) * 0.2;
-        row.push(breakfastCount, lunchCount, dinnerCount, totalRice.toFixed(1));
-        
-        dataRows.push(row);
+
+        return {
+          id: student.id,
+          name: student.full_name,
+          className: student.class?.name || '',
+          roomNumber: student.room_number || undefined,
+          mealGroup: student.meal_group || undefined,
+          attendance: attendanceMap,
+        };
       });
 
-      // Calculate totals
-      const totalsRow = ['', 'TỔNG CỘNG', '', '', ''];
-      let totalBreakfast = 0, totalLunch = 0, totalDinner = 0;
-      
-      days.forEach(() => totalsRow.push(''));
-      
-      dataRows.forEach(row => {
-        totalBreakfast += row[row.length - 4] as number;
-        totalLunch += row[row.length - 3] as number;
-        totalDinner += row[row.length - 2] as number;
-      });
-      
-      const totalRiceAll = (totalLunch + totalDinner) * 0.2;
-      totalsRow.push(String(totalBreakfast), String(totalLunch), String(totalDinner), totalRiceAll.toFixed(1));
-
-      // Create workbook
-      const wb = XLSX.utils.book_new();
-      const wsData = [
-        [`THỐNG KÊ BỮA ĂN THÁNG ${format(historyMonth, 'MM/yyyy')}`],
-        [`Trường: ${currentSchool.name}`],
-        [],
-        headerRow1,
-        headerRow2,
-        ...dataRows,
-        [],
-        totalsRow,
-        [],
-        ['Ghi chú: x = ăn, o = vắng. Mỗi ô thể hiện: Sáng/Trưa/Chiều (S/T/C)'],
-        ['Lượng gạo: 0.2kg/học sinh cho mỗi bữa trưa và tối'],
-      ];
-      
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      
-      // Set column widths
-      ws['!cols'] = [
-        { wch: 5 }, { wch: 25 }, { wch: 8 }, { wch: 8 }, { wch: 8 },
-        ...days.map(() => ({ wch: 6 })),
-        { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 12 },
-      ];
-
-      // Apply red background to cells with absences
-      const startRow = 6; // 1-indexed, where data starts
-      dataRows.forEach((row, rowIdx) => {
-        days.forEach((_, dayIdx) => {
-          const cellValue = row[5 + dayIdx] as string;
-          if (cellValue && cellValue.includes('o')) {
-            const cellRef = XLSX.utils.encode_cell({ r: startRow + rowIdx - 1, c: 5 + dayIdx });
-            if (!ws[cellRef]) ws[cellRef] = { v: cellValue, t: 's' };
-            ws[cellRef].s = { fill: { fgColor: { rgb: 'FF6B6B' } } };
-          }
-        });
+      exportMealStatistics(studentData, {
+        schoolName: currentSchool.name,
+        title: 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ',
+        dateRange: historyDateRange,
+        reporterName: profile?.full_name,
+        exportTime: new Date(),
       });
 
-      XLSX.utils.book_append_sheet(wb, ws, 'Thống kê bữa ăn');
-      XLSX.writeFile(wb, `thong-ke-bua-an-${format(historyMonth, 'MM-yyyy')}.xlsx`);
-      
       toast({ title: 'Thành công', description: 'Đã xuất file Excel' });
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -607,7 +541,6 @@ export default function Meals() {
             </div>
           </div>
           
-          {/* Upcoming Deadlines */}
           {upcomingDeadlines.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
@@ -786,32 +719,65 @@ export default function Meals() {
           </TabsContent>
 
           <TabsContent value="history" className="p-4 space-y-4">
-            {/* Month Selection and Export */}
+            {/* Date Range Selection and Export */}
             <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Tháng</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      Tháng {format(historyMonth, 'MM/yyyy', { locale: vi })}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar 
-                      mode="single" 
-                      selected={historyMonth} 
-                      onSelect={(d) => d && setHistoryMonth(d)} 
-                      className="pointer-events-auto" 
-                    />
-                  </PopoverContent>
-                </Popover>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1.5 block">Loại thống kê</label>
+                  <Select value={historyRangeType} onValueChange={(v) => setHistoryRangeType(v as DateRangeType)}>
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">Theo ngày</SelectItem>
+                      <SelectItem value="week">Theo tuần</SelectItem>
+                      <SelectItem value="month">Theo tháng</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1.5 block">Chọn {historyRangeType === 'day' ? 'ngày' : historyRangeType === 'week' ? 'tuần' : 'tháng'}</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {historyDateRange.label}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar 
+                        mode="single" 
+                        selected={historyDate} 
+                        onSelect={(d) => d && setHistoryDate(d)} 
+                        className="pointer-events-auto" 
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
-              <Button onClick={handleExportMonthlyExcel} variant="outline">
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Xuất Excel tháng
+              <Button onClick={handleExportExcel} variant="outline" disabled={isExporting}>
+                {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
+                Xuất Excel
               </Button>
             </div>
+
+            {/* Statistics Summary */}
+            {historyRecords.length > 0 && (
+              <div className="grid grid-cols-3 gap-4">
+                <Card className="p-4 text-center bg-blue-50">
+                  <p className="text-2xl font-bold text-blue-600">{historyRecords.length}</p>
+                  <p className="text-xs text-muted-foreground">Số báo cáo</p>
+                </Card>
+                <Card className="p-4 text-center bg-green-50">
+                  <p className="text-2xl font-bold text-green-600">{historyRecords.reduce((s, r) => s + r.present, 0)}</p>
+                  <p className="text-xs text-muted-foreground">Tổng có mặt</p>
+                </Card>
+                <Card className="p-4 text-center bg-red-50">
+                  <p className="text-2xl font-bold text-red-600">{historyRecords.reduce((s, r) => s + r.absent, 0)}</p>
+                  <p className="text-xs text-muted-foreground">Tổng vắng</p>
+                </Card>
+              </div>
+            )}
 
             {/* History Records */}
             {isLoadingHistory ? (
@@ -820,7 +786,7 @@ export default function Meals() {
               </div>
             ) : historyRecords.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                Không có báo cáo trong tháng này
+                Không có báo cáo trong khoảng thời gian này
               </div>
             ) : (
               <div className="space-y-3">
