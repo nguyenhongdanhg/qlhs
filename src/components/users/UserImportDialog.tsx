@@ -222,6 +222,18 @@ export default function UserImportDialog({
     const errors: string[] = [];
 
     try {
+      // Fetch all classes for this school to map class names to IDs
+      const { data: classes } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', currentSchool.id);
+
+      const classNameToId: Record<string, string> = {};
+      classes?.forEach(c => {
+        classNameToId[c.name.toLowerCase()] = c.id;
+        classNameToId[c.name] = c.id;
+      });
+
       // Process users sequentially with delay to avoid rate limiting
       for (let i = 0; i < validUsers.length; i++) {
         const user = validUsers[i];
@@ -285,11 +297,18 @@ export default function UserImportDialog({
 
           // Create school membership
           const role = POSITION_ROLE_MAP[user.position.toLowerCase()] || 'teacher';
+          
+          // Find class_id from class name if user is class_teacher
+          let classId: string | null = null;
+          if (role === 'class_teacher' && user.class_teacher) {
+            classId = classNameToId[user.class_teacher] || classNameToId[user.class_teacher.toLowerCase()] || null;
+          }
+
           await supabase.from('school_memberships').insert({
             school_id: currentSchool.id,
             user_id: authData.user.id,
             role: role as any,
-            class_id: role === 'class_teacher' ? user.class_teacher || null : null,
+            class_id: classId,
             status: 'active',
           });
 
