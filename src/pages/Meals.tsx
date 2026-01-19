@@ -56,7 +56,17 @@ interface MealDeadline {
   description: string;
 }
 
-const MEAL_DEADLINES: MealDeadline[] = [
+interface MealSettingsData {
+  breakfast_deadline_time: string;
+  breakfast_deadline_offset: number;
+  lunch_deadline_time: string;
+  lunch_deadline_offset: number;
+  dinner_deadline_time: string;
+  dinner_deadline_offset: number;
+  rice_per_student: number;
+}
+
+const DEFAULT_MEAL_DEADLINES: MealDeadline[] = [
   { type: 'breakfast', deadlineHour: 20, deadlineMinute: 0, dayOffset: -1, label: 'Bữa sáng', description: 'Báo trước 20:00 hôm trước' },
   { type: 'lunch', deadlineHour: 7, deadlineMinute: 30, dayOffset: 0, label: 'Bữa trưa', description: 'Báo trước 7:30 cùng ngày' },
   { type: 'dinner', deadlineHour: 14, deadlineMinute: 0, dayOffset: 0, label: 'Bữa tối', description: 'Báo trước 14:00 cùng ngày' },
@@ -97,6 +107,7 @@ export default function Meals() {
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [mealDeadlines, setMealDeadlines] = useState<MealDeadline[]>(DEFAULT_MEAL_DEADLINES);
 
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
@@ -107,8 +118,73 @@ export default function Meals() {
     });
   }, [classes]);
 
+  // Fetch meal settings from database
+  useEffect(() => {
+    if (!currentSchool) return;
+    fetchMealSettings();
+  }, [currentSchool]);
+
+  const fetchMealSettings = async () => {
+    if (!currentSchool) return;
+
+    try {
+      const { data } = await supabase
+        .from('meal_settings')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .maybeSingle();
+
+      if (data) {
+        // Parse settings into MealDeadline format
+        const parseTime = (timeStr: string) => {
+          const parts = timeStr.split(':');
+          return { hour: parseInt(parts[0]), minute: parseInt(parts[1]) };
+        };
+
+        const breakfastTime = parseTime(data.breakfast_deadline_time);
+        const lunchTime = parseTime(data.lunch_deadline_time);
+        const dinnerTime = parseTime(data.dinner_deadline_time);
+
+        const formatDescription = (hour: number, minute: number, offset: number) => {
+          const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          const dayStr = offset === -1 ? 'hôm trước' : 'cùng ngày';
+          return `Báo trước ${timeStr} ${dayStr}`;
+        };
+
+        setMealDeadlines([
+          {
+            type: 'breakfast',
+            deadlineHour: breakfastTime.hour,
+            deadlineMinute: breakfastTime.minute,
+            dayOffset: data.breakfast_deadline_offset,
+            label: 'Bữa sáng',
+            description: formatDescription(breakfastTime.hour, breakfastTime.minute, data.breakfast_deadline_offset),
+          },
+          {
+            type: 'lunch',
+            deadlineHour: lunchTime.hour,
+            deadlineMinute: lunchTime.minute,
+            dayOffset: data.lunch_deadline_offset,
+            label: 'Bữa trưa',
+            description: formatDescription(lunchTime.hour, lunchTime.minute, data.lunch_deadline_offset),
+          },
+          {
+            type: 'dinner',
+            deadlineHour: dinnerTime.hour,
+            deadlineMinute: dinnerTime.minute,
+            dayOffset: data.dinner_deadline_offset,
+            label: 'Bữa tối',
+            description: formatDescription(dinnerTime.hour, dinnerTime.minute, data.dinner_deadline_offset),
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching meal settings:', error);
+    }
+  };
+
   const getMealDeadlineInfo = useCallback((mealType: AttendanceType, targetDate: Date) => {
-    const deadline = MEAL_DEADLINES.find(d => d.type === mealType);
+    const deadline = mealDeadlines.find(d => d.type === mealType);
     if (!deadline) return { canReport: false, remainingTime: '', isExpired: true };
 
     const now = new Date();
@@ -141,7 +217,7 @@ export default function Meals() {
       isExpired: !canReport,
       deadlineText: deadline.description,
     };
-  }, []);
+  }, [mealDeadlines]);
 
   const currentMealDeadline = useMemo(() => {
     return getMealDeadlineInfo(selectedMeal, date);
@@ -151,7 +227,7 @@ export default function Meals() {
     const today = new Date();
     const tomorrow = addDays(today, 1);
     
-    return MEAL_DEADLINES.map(deadline => {
+    return mealDeadlines.map(deadline => {
       let targetDate = deadline.type === 'breakfast' ? tomorrow : today;
       const info = getMealDeadlineInfo(deadline.type, targetDate);
       return {
@@ -160,7 +236,7 @@ export default function Meals() {
         targetDate,
       };
     }).filter(d => d.canReport);
-  }, [getMealDeadlineInfo]);
+  }, [getMealDeadlineInfo, mealDeadlines]);
 
   useEffect(() => {
     if (!currentSchool) return;
