@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Student, Class, AttendanceStatus } from '@/types';
@@ -24,9 +24,7 @@ import {
   XCircle,
   Save,
   Download,
-  Share2,
   FileText,
-  Users,
   Plus,
   Trash2,
   AlertCircle,
@@ -48,7 +46,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -56,7 +53,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import * as XLSX from 'xlsx';
+import {
+  DateRangeType,
+  getDateRange,
+  exportAttendanceReport,
+  exportSingleAttendanceReport,
+  AttendanceReportData,
+} from '@/lib/excel-export';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 type ExcuseInfo = { excused: boolean; reason: string };
@@ -119,6 +122,13 @@ export default function EveningStudy() {
   // Validation warnings
   const [showWarnings, setShowWarnings] = useState(false);
 
+  // History filter
+  const [historyDate, setHistoryDate] = useState<Date>(new Date());
+  const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
+
   // Sort classes by grade
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
@@ -128,6 +138,24 @@ export default function EveningStudy() {
       return a.name.localeCompare(b.name);
     });
   }, [classes]);
+
+  // Filter reports by date range
+  const filteredReports = useMemo(() => {
+    const startStr = format(historyDateRange.start, 'yyyy-MM-dd');
+    const endStr = format(historyDateRange.end, 'yyyy-MM-dd');
+    return savedReports.filter(r => r.date >= startStr && r.date <= endStr);
+  }, [savedReports, historyDateRange]);
+
+  const groupedReports = useMemo(() => {
+    const groups: Record<string, SavedReport[]> = {};
+    filteredReports.forEach(report => {
+      if (!groups[report.date]) {
+        groups[report.date] = [];
+      }
+      groups[report.date].push(report);
+    });
+    return groups;
+  }, [filteredReports]);
 
   useEffect(() => {
     if (!currentSchool) return;
@@ -234,7 +262,6 @@ export default function EveningStudy() {
   const handleToggleAbsent = (student: Student) => {
     const currentStatus = attendance[student.id];
     if (currentStatus === 'absent' || currentStatus === 'excused') {
-      // Toggle back to present
       setAttendance(prev => ({ ...prev, [student.id]: 'present' }));
       setExcuseInfo(prev => {
         const newMap = { ...prev };
@@ -242,7 +269,6 @@ export default function EveningStudy() {
         return newMap;
       });
     } else {
-      // Open excuse dialog
       setSelectedStudentForExcuse(student);
       setIsExcuseDialogOpen(true);
     }
@@ -320,7 +346,6 @@ export default function EveningStudy() {
       const presentCount = Object.values(attendance).filter(s => s === 'present').length;
       const absentCount = Object.values(attendance).filter(s => s === 'absent' || s === 'excused').length;
 
-      // Build absent students list with details
       const absentStudents = students
         .filter(s => attendance[s.id] === 'absent' || attendance[s.id] === 'excused')
         .map(s => ({
@@ -346,7 +371,7 @@ export default function EveningStudy() {
         absentStudents,
       };
 
-      const updatedReports = [newReport, ...savedReports.slice(0, 99)]; // Keep last 100 reports
+      const updatedReports = [newReport, ...savedReports.slice(0, 99)];
       saveReportsToStorage(updatedReports);
 
       setActiveTab('history');
@@ -400,44 +425,60 @@ export default function EveningStudy() {
     }
   };
 
-  const handleExportExcel = (report: SavedReport) => {
-    const wsData = [
-      ['BÁO CÁO ĐIỂM DANH GIỜ TỰ HỌC'],
-      [`Ngày: ${format(new Date(report.date), 'dd/MM/yyyy')}`],
-      [`Buổi: ${report.sessionLabel}`],
-      [`Người báo cáo: ${report.reporter}`],
-      [`Thời gian báo cáo: ${report.time}`],
-      [],
-      ['THỐNG KÊ'],
-      ['Tổng số', report.total],
-      ['Có mặt', report.present],
-      ['Vắng', report.absent],
-      [],
-    ];
+  const handleExportSingleReport = (report: SavedReport) => {
+    if (!currentSchool) return;
+    const reportData: AttendanceReportData = {
+      date: report.date,
+      session: report.session,
+      sessionLabel: report.sessionLabel,
+      reporter: report.reporter,
+      reportTime: report.time,
+      total: report.total,
+      present: report.present,
+      absent: report.absent,
+      notes: report.notes,
+      absentStudents: report.absentStudents,
+    };
+    exportSingleAttendanceReport(reportData, {
+      schoolName: currentSchool.name,
+      title: 'BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI',
+      reporterName: profile?.full_name,
+      exportTime: new Date(),
+    }, 'evening_study');
+  };
 
-    if (report.notes) {
-      wsData.push(['Ghi chú:', report.notes]);
-      wsData.push([]);
+  const handleExportRangeReports = () => {
+    if (!currentSchool || filteredReports.length === 0) return;
+    setIsExporting(true);
+
+    try {
+      const reportData: AttendanceReportData[] = filteredReports.map(report => ({
+        date: report.date,
+        session: report.session,
+        sessionLabel: report.sessionLabel,
+        reporter: report.reporter,
+        reportTime: report.time,
+        total: report.total,
+        present: report.present,
+        absent: report.absent,
+        notes: report.notes,
+        absentStudents: report.absentStudents,
+      }));
+
+      exportAttendanceReport(reportData, {
+        schoolName: currentSchool.name,
+        title: 'BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI',
+        dateRange: historyDateRange,
+        reporterName: profile?.full_name,
+        exportTime: new Date(),
+      }, 'evening_study');
+
+      toast({ title: 'Thành công', description: 'Đã xuất file Excel' });
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
     }
-
-    if (report.absentStudents.length > 0) {
-      wsData.push(['DANH SÁCH HỌC SINH VẮNG']);
-      wsData.push(['STT', 'Họ tên', 'Lớp', 'Phép/Không phép', 'Lý do']);
-      report.absentStudents.forEach((s, idx) => {
-        wsData.push([
-          idx + 1,
-          s.name,
-          s.className,
-          s.excused ? 'Có phép' : 'Không phép',
-          s.reason,
-        ]);
-      });
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
-    XLSX.writeFile(wb, `Diem_danh_tu_hoc_${report.date}_${report.session}.xlsx`);
   };
 
   const handleDeleteReport = (reportId: string) => {
@@ -455,18 +496,6 @@ export default function EveningStudy() {
 
   const presentCount = Object.values(attendance).filter(s => s === 'present').length;
   const absentCount = Object.values(attendance).filter(s => s === 'absent' || s === 'excused').length;
-
-  // Group reports by date for history
-  const groupedReports = useMemo(() => {
-    const groups: Record<string, SavedReport[]> = {};
-    savedReports.forEach(report => {
-      if (!groups[report.date]) {
-        groups[report.date] = [];
-      }
-      groups[report.date].push(report);
-    });
-    return groups;
-  }, [savedReports]);
 
   if (!currentSchool) {
     return (
@@ -552,9 +581,7 @@ export default function EveningStudy() {
                     <SelectContent>
                       {sessions.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
-                          <div className="flex items-center justify-between w-full">
-                            <span>{s.label}</span>
-                          </div>
+                          {s.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -594,19 +621,150 @@ export default function EveningStudy() {
                 </Button>
               </div>
             </div>
+
+            {/* Statistics Summary */}
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="p-3 text-center">
+                <p className="text-2xl font-bold text-primary">{students.length}</p>
+                <p className="text-xs text-muted-foreground">Tổng số</p>
+              </Card>
+              <Card className="p-3 text-center bg-green-50">
+                <p className="text-2xl font-bold text-green-600">{presentCount}</p>
+                <p className="text-xs text-muted-foreground">Có mặt</p>
+              </Card>
+              <Card className="p-3 text-center bg-red-50">
+                <p className="text-2xl font-bold text-red-600">{absentCount}</p>
+                <p className="text-xs text-muted-foreground">Vắng</p>
+              </Card>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
+                <CheckCircle2 className="h-4 w-4 mr-1" />Đủ tất cả
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleMarkAllAbsent}>
+                <XCircle className="h-4 w-4 mr-1" />Vắng tất cả
+              </Button>
+            </div>
+
+            {/* Students Grid */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {filteredStudents.map((student) => {
+                  const status = attendance[student.id];
+                  const isAbsent = status === 'absent' || status === 'excused';
+                  const excuse = excuseInfo[student.id];
+                  return (
+                    <button
+                      key={student.id}
+                      onClick={() => handleToggleAbsent(student)}
+                      className={cn(
+                        'flex items-center gap-2 p-3 rounded-lg border text-left transition-all',
+                        isAbsent
+                          ? 'border-red-300 bg-red-50'
+                          : 'border-border hover:border-primary/50'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-5 h-5 rounded-full border-2 flex-shrink-0',
+                        isAbsent ? 'border-red-500 bg-red-500' : 'border-muted-foreground'
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <span className={cn("truncate text-sm block", isAbsent && "text-red-700")}>{student.full_name}</span>
+                        <span className="text-xs text-muted-foreground">{student.class?.name}</span>
+                        {isAbsent && excuse && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Badge variant={excuse.excused ? 'secondary' : 'destructive'} className="text-[10px] px-1 py-0">
+                              {excuse.excused ? 'P' : 'KP'}
+                            </Badge>
+                            {excuse.reason && (
+                              <span className="text-[10px] text-muted-foreground truncate">{excuse.reason}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Save Button */}
+            <Button onClick={handleSave} disabled={isSaving} className="w-full">
+              {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Lưu báo cáo
+            </Button>
           </TabsContent>
 
-          <TabsContent value="history" className="p-4">
+          <TabsContent value="history" className="p-4 space-y-4">
+            {/* Date Range Filter */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1.5 block">Loại thống kê</label>
+                  <Select value={historyRangeType} onValueChange={(v) => setHistoryRangeType(v as DateRangeType)}>
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">Theo ngày</SelectItem>
+                      <SelectItem value="week">Theo tuần</SelectItem>
+                      <SelectItem value="month">Theo tháng</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1.5 block">Chọn thời gian</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {historyDateRange.label}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={historyDate}
+                        onSelect={(d) => d && setHistoryDate(d)}
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <Button onClick={handleExportRangeReports} variant="outline" disabled={isExporting || filteredReports.length === 0}>
+                {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                Xuất Excel ({filteredReports.length} báo cáo)
+              </Button>
+            </div>
+
+            {/* Statistics Summary */}
+            {filteredReports.length > 0 && (
+              <div className="grid grid-cols-3 gap-4">
+                <Card className="p-4 text-center bg-blue-50">
+                  <p className="text-2xl font-bold text-blue-600">{filteredReports.length}</p>
+                  <p className="text-xs text-muted-foreground">Số báo cáo</p>
+                </Card>
+                <Card className="p-4 text-center bg-green-50">
+                  <p className="text-2xl font-bold text-green-600">{filteredReports.reduce((s, r) => s + r.present, 0)}</p>
+                  <p className="text-xs text-muted-foreground">Tổng có mặt</p>
+                </Card>
+                <Card className="p-4 text-center bg-red-50">
+                  <p className="text-2xl font-bold text-red-600">{filteredReports.reduce((s, r) => s + r.absent, 0)}</p>
+                  <p className="text-xs text-muted-foreground">Tổng vắng</p>
+                </Card>
+              </div>
+            )}
+
+            {/* Reports List */}
             {Object.keys(groupedReports).length > 0 ? (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Lịch sử báo cáo</h3>
-                  <Button size="sm" onClick={() => setActiveTab('attendance')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Báo cáo mới
-                  </Button>
-                </div>
-
                 {Object.entries(groupedReports)
                   .sort(([a], [b]) => b.localeCompare(a))
                   .map(([dateStr, reports]) => (
@@ -625,7 +783,7 @@ export default function EveningStudy() {
                                 </p>
                               </div>
                               <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => handleExportExcel(report)}>
+                                <Button variant="outline" size="sm" onClick={() => handleExportSingleReport(report)}>
                                   <Download className="h-4 w-4 mr-1" />
                                   Excel
                                 </Button>
@@ -696,141 +854,12 @@ export default function EveningStudy() {
               </div>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
-                Chưa có báo cáo nào được lưu
+                Chưa có báo cáo nào trong khoảng thời gian này
               </div>
             )}
           </TabsContent>
         </Tabs>
       </Card>
-
-      {/* Student Grid - Only show in attendance tab */}
-      {activeTab === 'attendance' && (
-        <>
-          <Card className="mb-4">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-muted-foreground" />
-                  <h3 className="font-semibold">
-                    Chọn vắng ({absentCount}/{students.length})
-                  </h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
-                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                    Đủ
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleMarkAllAbsent}>
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Vắng
-                  </Button>
-                </div>
-              </div>
-
-              {/* Class Filter Tabs - Sorted by grade */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Button
-                  variant={selectedClass === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedClass('all')}
-                >
-                  Tất cả
-                </Button>
-                {sortedClasses.map((cls) => (
-                  <Button
-                    key={cls.id}
-                    variant={selectedClass === cls.name ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedClass(cls.name)}
-                  >
-                    {cls.name}
-                  </Button>
-                ))}
-              </div>
-
-              {/* Students Grid */}
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {filteredStudents.map((student) => {
-                    const status = attendance[student.id];
-                    const isAbsent = status === 'absent' || status === 'excused';
-                    const excuse = excuseInfo[student.id];
-                    return (
-                      <button
-                        key={student.id}
-                        onClick={() => handleToggleAbsent(student)}
-                        className={cn(
-                          'flex flex-col gap-1 p-3 rounded-lg border text-left transition-all',
-                          isAbsent
-                            ? excuse?.excused
-                              ? 'border-orange-300 bg-orange-50 text-orange-700'
-                              : 'border-red-300 bg-red-50 text-red-700'
-                            : 'border-border hover:border-primary/50'
-                        )}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={cn(
-                            'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0',
-                            isAbsent
-                              ? excuse?.excused
-                                ? 'border-orange-500 bg-orange-500'
-                                : 'border-red-500 bg-red-500'
-                              : 'border-muted-foreground'
-                          )}>
-                            {isAbsent && (
-                              <XCircle className="h-3 w-3 text-white" />
-                            )}
-                          </div>
-                          <span className="truncate text-sm font-medium">{student.full_name}</span>
-                        </div>
-                        {isAbsent && excuse && (
-                          <div className="text-xs ml-7">
-                            <Badge variant={excuse.excused ? 'secondary' : 'destructive'} className="text-[10px] h-4">
-                              {excuse.excused ? 'P' : 'KP'}
-                            </Badge>
-                            {excuse.reason && (
-                              <span className="ml-1 text-muted-foreground truncate">{excuse.reason}</span>
-                            )}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Bottom Bar */}
-          <Card className="sticky bottom-20 lg:bottom-4">
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-4 text-sm">
-                <span>Tổng: <strong>{students.length}</strong></span>
-                <span className="text-green-600">Đủ: <strong>{presentCount}</strong></span>
-                <span className="text-red-600">Vắng: <strong>{absentCount}</strong></span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline">
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Zalo
-                </Button>
-                <Button onClick={handleSave} disabled={isSaving}>
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Lưu
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
 
       {/* Notes Dialog */}
       <NotesDialog
@@ -843,7 +872,10 @@ export default function EveningStudy() {
       {/* Excuse Reason Dialog */}
       <ExcuseReasonDialog
         open={isExcuseDialogOpen}
-        onOpenChange={setIsExcuseDialogOpen}
+        onOpenChange={(open) => {
+          setIsExcuseDialogOpen(open);
+          if (!open) setSelectedStudentForExcuse(null);
+        }}
         studentName={selectedStudentForExcuse?.full_name || ''}
         onSave={handleSaveExcuse}
       />
@@ -853,44 +885,20 @@ export default function EveningStudy() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Thêm buổi điểm danh</DialogTitle>
-            <DialogDescription>
-              Nhập tên buổi điểm danh mới
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="sessionLabel">Tên buổi</Label>
+              <Label>Tên buổi</Label>
               <Input
-                id="sessionLabel"
-                placeholder="Ví dụ: Ca 3, Ôn tập..."
                 value={newSessionLabel}
                 onChange={(e) => setNewSessionLabel(e.target.value)}
+                placeholder="VD: Ca 3, Tự học thêm..."
               />
-            </div>
-            <div>
-              <p className="text-sm font-medium mb-2">Các buổi hiện có:</p>
-              <div className="flex flex-wrap gap-2">
-                {sessions.map((s) => (
-                  <Badge key={s.id} variant="secondary" className="flex items-center gap-1">
-                    {s.label}
-                    <button
-                      onClick={() => handleDeleteSession(s.id)}
-                      className="ml-1 hover:text-destructive"
-                    >
-                      <XCircle className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddSessionOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={handleAddSession} disabled={!newSessionLabel.trim()}>
-              Thêm
-            </Button>
+            <Button variant="outline" onClick={() => setIsAddSessionOpen(false)}>Hủy</Button>
+            <Button onClick={handleAddSession}>Thêm</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
