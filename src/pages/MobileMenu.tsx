@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import { Card, CardContent } from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import {
   UtensilsCrossed,
   BarChart3,
@@ -11,6 +13,8 @@ import {
   Building2,
   Download,
   ChevronRight,
+  LogOut,
+  Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -48,8 +52,8 @@ const menuItems: MenuItem[] = [
   },
   {
     code: 'user_management',
-    label: 'Người dùng',
-    description: 'Quản lý người dùng',
+    label: 'Quản lý người dùng',
+    description: 'Thêm, sửa, xóa người dùng',
     icon: UserCog,
     path: '/user-management',
     adminOnly: true,
@@ -71,7 +75,7 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function MobileMenu() {
-  const { isSuperAdmin, isSchoolAdmin } = useAuth();
+  const { profile, currentMembership, isSuperAdmin, isSchoolAdmin, signOut } = useAuth();
   const { isFeatureEnabled } = useSchool();
 
   const filteredItems = menuItems.filter((item) => {
@@ -82,17 +86,70 @@ export default function MobileMenu() {
     return true;
   });
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .slice(-2)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
+  };
+
+  const getRoleBadge = () => {
+    if (isSuperAdmin) return { label: 'Super Admin', variant: 'destructive' as const };
+    if (!currentMembership) return null;
+    
+    const roleMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+      admin: { label: 'Quản trị', variant: 'default' },
+      teacher: { label: 'Giáo viên', variant: 'secondary' },
+      class_teacher: { label: 'GVCN', variant: 'secondary' },
+      accountant: { label: 'Kế toán', variant: 'outline' },
+      kitchen: { label: 'Nhà bếp', variant: 'outline' },
+    };
+    
+    return roleMap[currentMembership.role] || { label: currentMembership.role, variant: 'outline' as const };
+  };
+
+  const roleBadge = getRoleBadge();
+
   return (
     <div className="content-wrapper animate-fade-in">
+      {/* User Profile Card */}
+      <Card className="mb-6 bg-primary text-primary-foreground">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16 border-2 border-primary-foreground/20">
+              <AvatarFallback className="bg-primary-foreground/10 text-primary-foreground text-lg font-semibold">
+                {profile ? getInitials(profile.full_name) : 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold">{profile?.full_name || 'Người dùng'}</h2>
+              {roleBadge && (
+                <Badge 
+                  variant={roleBadge.variant}
+                  className="mt-1 bg-primary-foreground/20 text-primary-foreground border-0"
+                >
+                  {roleBadge.label}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="page-header">
-        <h1 className="page-title">Menu</h1>
+        <h1 className="page-title flex items-center gap-2">
+          <Menu className="h-6 w-6" />
+          Menu
+        </h1>
         <p className="page-description">Tất cả tính năng</p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {isSuperAdmin && (
           <Link to="/superadmin">
-            <Card className="group transition-all hover:border-primary hover:shadow-md">
+            <Card className="group transition-all hover:border-primary hover:shadow-md border-primary/20 bg-primary/5">
               <CardContent className="flex items-center gap-4 p-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                   <Building2 className="h-6 w-6" />
@@ -126,6 +183,37 @@ export default function MobileMenu() {
             </Link>
           );
         })}
+
+        {/* Logout */}
+        <Card 
+          className="group cursor-pointer transition-all hover:border-destructive hover:shadow-md"
+          onClick={() => signOut()}
+        >
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive transition-colors group-hover:bg-destructive group-hover:text-destructive-foreground">
+              <LogOut className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-destructive">Đăng xuất</h3>
+              <p className="text-sm text-muted-foreground">Thoát khỏi tài khoản</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          Develop by <span className="font-semibold text-primary">Lovable</span>
+        </p>
+        <a 
+          href="https://zalo.me/0888770699" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-sm text-primary hover:underline"
+        >
+          Liên hệ Zalo
+        </a>
       </div>
     </div>
   );
