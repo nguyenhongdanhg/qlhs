@@ -77,7 +77,7 @@ export default function Students() {
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [isMealDialogOpen, setIsMealDialogOpen] = useState(false);
   const [newClassName, setNewClassName] = useState('');
-  const [newClassGrade, setNewClassGrade] = useState('10');
+  const [newClassGrade, setNewClassGrade] = useState('1');
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   
   // Room and meal group lists derived from students
@@ -848,9 +848,11 @@ export default function Students() {
                       <Select value={newClassGrade} onValueChange={setNewClassGrade}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="10">Khối 10</SelectItem>
-                          <SelectItem value="11">Khối 11</SelectItem>
-                          <SelectItem value="12">Khối 12</SelectItem>
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((grade) => (
+                            <SelectItem key={grade} value={grade.toString()}>
+                              Khối {grade}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
