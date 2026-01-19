@@ -403,25 +403,40 @@ export default function Students() {
 
     try {
       if (editingClass) {
+        // Update single class
         const { error } = await supabase
           .from('classes')
-          .update({ name: newClassName, grade: parseInt(newClassGrade) })
+          .update({ name: newClassName.trim(), grade: parseInt(newClassGrade) })
           .eq('id', editingClass.id);
         if (error) throw error;
         toast({ title: 'Thành công', description: 'Đã cập nhật lớp' });
       } else {
-        const { error } = await supabase.from('classes').insert({
+        // Parse multiple class names separated by comma, space, or both
+        const classNames = newClassName
+          .split(/[,\s]+/)
+          .map(name => name.trim())
+          .filter(name => name.length > 0);
+
+        if (classNames.length === 0) return;
+
+        const classesToInsert = classNames.map(name => ({
           school_id: currentSchool.id,
-          name: newClassName,
+          name: name,
           grade: parseInt(newClassGrade),
           school_year: new Date().getFullYear().toString(),
-        });
+        }));
+
+        const { error } = await supabase.from('classes').insert(classesToInsert);
         if (error) throw error;
-        toast({ title: 'Thành công', description: 'Đã thêm lớp mới' });
+        
+        toast({ 
+          title: 'Thành công', 
+          description: `Đã thêm ${classNames.length} lớp: ${classNames.join(', ')}` 
+        });
       }
 
       setNewClassName('');
-      setNewClassGrade('10');
+      setNewClassGrade('1');
       setEditingClass(null);
       setIsClassDialogOpen(false);
       fetchData();
@@ -836,11 +851,11 @@ export default function Students() {
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="space-y-1.5">
-                      <Label>Tên lớp</Label>
+                      <Label>{editingClass ? 'Tên lớp' : 'Tên lớp (nhiều lớp cách nhau bởi dấu phẩy)'}</Label>
                       <Input
                         value={newClassName}
                         onChange={(e) => setNewClassName(e.target.value)}
-                        placeholder="VD: 10A1, 11B2..."
+                        placeholder={editingClass ? "VD: 6A" : "VD: 6A, 6B, 6C"}
                       />
                     </div>
                     <div className="space-y-1.5">
