@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -29,19 +31,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   UserCog,
-  Plus,
   Loader2,
   Search,
   Edit,
   UserX,
   CheckCircle,
+  FileSpreadsheet,
+  Shield,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import PermissionGroupsManager from '@/components/users/PermissionGroupsManager';
+import UserImportDialog from '@/components/users/UserImportDialog';
+import AssignPermissionGroupDialog from '@/components/users/AssignPermissionGroupDialog';
 
 const roleLabels: Record<AppRole, string> = {
   super_admin: 'Super Admin',
@@ -71,6 +77,9 @@ export default function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingMembership, setEditingMembership] = useState<SchoolMembership | null>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isAssignGroupDialogOpen, setIsAssignGroupDialogOpen] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     role: 'teacher' as AppRole,
@@ -116,9 +125,10 @@ export default function UserManagement() {
 
   const filteredMemberships = memberships.filter((m) => {
     const name = m.profile?.full_name?.toLowerCase() || '';
-    const email = m.profile?.username?.toLowerCase() || '';
+    const phone = m.profile?.phone?.toLowerCase() || '';
+    const username = m.profile?.username?.toLowerCase() || '';
     const query = searchQuery.toLowerCase();
-    return name.includes(query) || email.includes(query);
+    return name.includes(query) || phone.includes(query) || username.includes(query);
   });
 
   const handleOpenEditDialog = (membership: SchoolMembership) => {
@@ -186,6 +196,22 @@ export default function UserManagement() {
     }
   };
 
+  const toggleSelectUser = (userId: string) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUserIds.length === filteredMemberships.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(filteredMemberships.map((m) => m.user_id));
+    }
+  };
+
   if (!currentSchool) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -210,105 +236,180 @@ export default function UserManagement() {
           Quản lý người dùng
         </h1>
         <p className="page-description">
-          Quản lý người dùng và phân quyền trong trường
+          Quản lý người dùng, nhóm quyền và phân quyền trong trường
         </p>
       </div>
 
-      {/* Search */}
-      <Card className="mb-6">
-        <CardContent className="flex items-center gap-4 p-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Tìm theo tên hoặc username..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="users" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Người dùng
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Nhóm quyền
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Users Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Danh sách người dùng</CardTitle>
-          <CardDescription>{filteredMemberships.length} người dùng</CardDescription>
-        </CardHeader>
+        <TabsContent value="users" className="space-y-6">
+          {/* Search and Actions */}
+          <Card>
+            <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Tìm theo tên, SĐT hoặc username..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsImportDialogOpen(true)}
+                  className="flex-1 sm:flex-none"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Nhập Excel
+                </Button>
+                {selectedUserIds.length > 0 && (
+                  <Button
+                    onClick={() => setIsAssignGroupDialogOpen(true)}
+                    className="flex-1 sm:flex-none"
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Gán quyền ({selectedUserIds.length})
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : filteredMemberships.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <UserCog className="h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-4 text-muted-foreground">Không có người dùng nào</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Họ và tên</TableHead>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Vai trò</TableHead>
-                    <TableHead className="hidden md:table-cell">Lớp</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead className="w-[100px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredMemberships.map((membership) => (
-                    <TableRow key={membership.id}>
-                      <TableCell className="font-medium">
-                        {membership.profile?.full_name || '-'}
-                      </TableCell>
-                      <TableCell>{membership.profile?.username || '-'}</TableCell>
-                      <TableCell>
-                        <Badge className={cn('border', roleColors[membership.role])}>
-                          {roleLabels[membership.role]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {membership.class_id || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={membership.status === 'active' ? 'default' : 'secondary'}>
-                          {membership.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenEditDialog(membership)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleStatus(membership)}
-                          >
-                            {membership.status === 'active' ? (
-                              <UserX className="h-4 w-4 text-destructive" />
-                            ) : (
-                              <CheckCircle className="h-4 w-4 text-success" />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          {/* Users Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Danh sách người dùng</CardTitle>
+              <CardDescription>
+                {filteredMemberships.length} người dùng
+                {selectedUserIds.length > 0 && ` • ${selectedUserIds.length} đã chọn`}
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : filteredMemberships.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <UserCog className="h-12 w-12 text-muted-foreground/50" />
+                  <p className="mt-4 text-muted-foreground">Không có người dùng nào</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => setIsImportDialogOpen(true)}
+                  >
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Nhập từ Excel
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[50px]">
+                          <Checkbox
+                            checked={
+                              selectedUserIds.length === filteredMemberships.length &&
+                              filteredMemberships.length > 0
+                            }
+                            onCheckedChange={toggleSelectAll}
+                          />
+                        </TableHead>
+                        <TableHead>Họ và tên</TableHead>
+                        <TableHead className="hidden md:table-cell">Điện thoại</TableHead>
+                        <TableHead>Vai trò</TableHead>
+                        <TableHead className="hidden md:table-cell">Lớp CN</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead className="w-[100px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredMemberships.map((membership) => (
+                        <TableRow key={membership.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedUserIds.includes(membership.user_id)}
+                              onCheckedChange={() => toggleSelectUser(membership.user_id)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            <div>
+                              <p>{membership.profile?.full_name || '-'}</p>
+                              <p className="text-xs text-muted-foreground md:hidden">
+                                {membership.profile?.phone || membership.profile?.username || '-'}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {membership.profile?.phone || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn('border', roleColors[membership.role])}>
+                              {roleLabels[membership.role]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {membership.class_id || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={membership.status === 'active' ? 'default' : 'secondary'}>
+                              {membership.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEditDialog(membership)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleToggleStatus(membership)}
+                              >
+                                {membership.status === 'active' ? (
+                                  <UserX className="h-4 w-4 text-destructive" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4 text-success" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="permissions">
+          <Card>
+            <CardContent className="pt-6">
+              <PermissionGroupsManager />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -363,6 +464,24 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Dialog */}
+      <UserImportDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        onImportComplete={fetchMemberships}
+      />
+
+      {/* Assign Permission Group Dialog */}
+      <AssignPermissionGroupDialog
+        open={isAssignGroupDialogOpen}
+        onOpenChange={setIsAssignGroupDialogOpen}
+        selectedUserIds={selectedUserIds}
+        onComplete={() => {
+          setSelectedUserIds([]);
+          fetchMemberships();
+        }}
+      />
     </div>
   );
 }
