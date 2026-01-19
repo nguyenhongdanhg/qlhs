@@ -91,54 +91,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Check if user already exists by email
-    const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email === body.email);
-    
-    if (existingUser) {
-      console.log('User already exists, checking membership:', existingUser.id);
-      
-      // Check if already has membership in this school
-      const { data: existingMembership } = await adminClient
-        .from('school_memberships')
-        .select('id')
-        .eq('user_id', existingUser.id)
-        .eq('school_id', body.school_id)
-        .maybeSingle();
-
-      if (existingMembership) {
-        return new Response(
-          JSON.stringify({ error: 'User already exists in this school', code: 'USER_EXISTS' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Add membership for existing user
-      const { error: membershipError } = await adminClient
-        .from('school_memberships')
-        .insert({
-          school_id: body.school_id,
-          user_id: existingUser.id,
-          role: body.role,
-          class_id: body.class_id || null,
-          status: 'active',
-        });
-
-      if (membershipError) {
-        console.error('Error creating membership:', membershipError);
-        return new Response(
-          JSON.stringify({ error: membershipError.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, user_id: existingUser.id, existing: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Create new user using Admin API (does not affect current session!)
+    // Try to create new user first using Admin API
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email: body.email,
       password: body.password,
@@ -149,7 +102,132 @@ Deno.serve(async (req) => {
       },
     });
 
+    // Handle case where user already exists
     if (createError) {
+      const errorMessage = createError.message || '';
+      
+      // Check if error is "user already exists"
+      if (errorMessage.includes('already been registered') || errorMessage.includes('already exists')) {
+        console.log('User already exists, looking up by email:', body.email);
+        
+        // Find the existing user using listUsers with filter
+        const { data: usersData } = await adminClient.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        });
+        
+        const existingUser = usersData?.users?.find(u => u.email === body.email);
+        
+        if (!existingUser) {
+          // Try to find in profiles by phone
+          const { data: profile } = await adminClient
+            .from('profiles')
+            .select('id')
+            .eq('phone', body.phone)
+            .maybeSingle();
+          
+          if (profile) {
+            // Check if already has membership in this school
+            const { data: existingMembership } = await adminClient
+              .from('school_memberships')
+              .select('id')
+              .eq('user_id', profile.id)
+              .eq('school_id', body.school_id)
+              .maybeSingle();
+
+            if (existingMembership) {
+              return new Response(
+                JSON.stringify({ success: true, user_id: profile.id, existing: true, code: 'USER_EXISTS' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+
+            // Add membership for existing user
+            const { error: membershipError } = await adminClient
+              .from('school_memberships')
+              .insert({
+                school_id: body.school_id,
+                user_id: profile.id,
+                role: body.role,
+                class_id: body.class_id || null,
+                status: 'active',
+              });
+
+            if (membershipError) {
+              console.error('Error creating membership:', membershipError);
+              return new Response(
+                JSON.stringify({ error: membershipError.message }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+
+            return new Response(
+              JSON.stringify({ success: true, user_id: profile.id, existing: true }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          console.error('Could not find existing user');
+          return new Response(
+            JSON.stringify({ error: 'User exists but could not be found', code: 'USER_EXISTS' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Found existing user:', existingUser.id);
+        
+        // Check if already has membership in this school
+        const { data: existingMembership } = await adminClient
+          .from('school_memberships')
+          .select('id')
+          .eq('user_id', existingUser.id)
+          .eq('school_id', body.school_id)
+          .maybeSingle();
+
+        if (existingMembership) {
+          return new Response(
+            JSON.stringify({ success: true, user_id: existingUser.id, existing: true, code: 'USER_EXISTS' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Add membership for existing user
+        const { error: membershipError } = await adminClient
+          .from('school_memberships')
+          .insert({
+            school_id: body.school_id,
+            user_id: existingUser.id,
+            role: body.role,
+            class_id: body.class_id || null,
+            status: 'active',
+          });
+
+        if (membershipError) {
+          console.error('Error creating membership:', membershipError);
+          return new Response(
+            JSON.stringify({ error: membershipError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Update profile with phone if needed
+        if (body.phone) {
+          await adminClient
+            .from('profiles')
+            .update({
+              phone: body.phone,
+              username: body.phone,
+            })
+            .eq('id', existingUser.id);
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, user_id: existingUser.id, existing: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Other create error
       console.error('Error creating user:', createError);
       return new Response(
         JSON.stringify({ error: createError.message }),
