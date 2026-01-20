@@ -58,12 +58,12 @@ Deno.serve(async (req) => {
       return newUser.user.id;
     }
 
-    // 1. Get or Create School
+    // 1. Get or Create School - Using PTDTNT THCS&THPT Xín Mần
     let school;
     const { data: existingSchool } = await supabase
       .from("schools")
       .select()
-      .eq("code", "thpt-nguyen-trai")
+      .eq("code", "ntxm")
       .single();
 
     if (existingSchool) {
@@ -73,11 +73,11 @@ Deno.serve(async (req) => {
       const { data: newSchool, error: schoolError } = await supabase
         .from("schools")
         .insert({
-          code: "thpt-nguyen-trai",
-          name: "THPT Nguyễn Trãi",
-          address: "123 Đường Nguyễn Trãi, Quận 1, TP.HCM",
-          phone: "028-1234-5678",
-          email: "contact@thptnguyen-trai.edu.vn",
+          code: "ntxm",
+          name: "1. PTDTNT THCS&THPT Xín Mần",
+          address: "Thị trấn Cốc Pài, Xín Mần, Hà Giang",
+          phone: "0219-3838-xxx",
+          email: "contact@noitruxinman.edu.vn",
           is_active: true
         })
         .select()
