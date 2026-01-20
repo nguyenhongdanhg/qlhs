@@ -28,7 +28,10 @@ import {
   FileSpreadsheet,
   Image,
   Plus,
+  Package,
+  Trash2,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
@@ -99,6 +102,13 @@ export default function Statistics() {
   const [isLoadingRice, setIsLoadingRice] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   
+  // Rice inventory
+  const [riceInventory, setRiceInventory] = useState<{ id: string; amount: number; notes: string; created_at: string }[]>([]);
+  const [newRiceAmount, setNewRiceAmount] = useState('');
+  const [newRiceNotes, setNewRiceNotes] = useState('');
+  const [isAddingRice, setIsAddingRice] = useState(false);
+  const [showAddRiceForm, setShowAddRiceForm] = useState(false);
+  
   // Share meal report dialog
   const [shareMealDialogOpen, setShareMealDialogOpen] = useState(false);
   
@@ -143,10 +153,11 @@ export default function Statistics() {
     fetchDailyData();
   }, [currentSchool, selectedDate, students, classes]);
 
-  // Fetch rice statistics
+  // Fetch rice statistics and inventory
   useEffect(() => {
     if (!currentSchool) return;
     fetchRiceStats();
+    fetchRiceInventory();
   }, [currentSchool, riceDateRange, students]);
 
   // Subscribe to realtime updates for attendance_records
@@ -488,6 +499,105 @@ export default function Statistics() {
       console.error('Error fetching rice stats:', error);
     } finally {
       setIsLoadingRice(false);
+    }
+  };
+
+  const fetchRiceInventory = async () => {
+    if (!currentSchool) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('rice_inventory')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRiceInventory(data || []);
+    } catch (error) {
+      console.error('Error fetching rice inventory:', error);
+    }
+  };
+
+  const totalRiceAdded = useMemo(() => {
+    return riceInventory.reduce((sum, item) => sum + Number(item.amount), 0);
+  }, [riceInventory]);
+
+  const remainingRice = useMemo(() => {
+    return totalRiceAdded - totalRiceInRange;
+  }, [totalRiceAdded, totalRiceInRange]);
+
+  const handleAddRice = async () => {
+    if (!currentSchool || !user || !newRiceAmount) return;
+    
+    const amount = parseFloat(newRiceAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng nhập số lượng gạo hợp lệ',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsAddingRice(true);
+    try {
+      const { error } = await supabase
+        .from('rice_inventory')
+        .insert({
+          school_id: currentSchool.id,
+          amount,
+          notes: newRiceNotes || null,
+          created_by: user.id,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Thành công',
+        description: `Đã thêm ${amount} kg gạo vào kho`,
+      });
+
+      setNewRiceAmount('');
+      setNewRiceNotes('');
+      setShowAddRiceForm(false);
+      fetchRiceInventory();
+    } catch (error) {
+      console.error('Error adding rice:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể thêm gạo vào kho',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAddingRice(false);
+    }
+  };
+
+  const handleDeleteRice = async (id: string) => {
+    if (!confirm('Bạn có chắc muốn xóa mục này?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('rice_inventory')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Thành công',
+        description: 'Đã xóa mục gạo',
+      });
+
+      fetchRiceInventory();
+    } catch (error) {
+      console.error('Error deleting rice:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xóa mục gạo',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -1023,6 +1133,132 @@ export default function Statistics() {
           </TabsContent>
 
           <TabsContent value="rice" className="space-y-4">
+            {/* Rice Inventory Card */}
+            <Card className="border-success/30 bg-success/5">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Package className="h-5 w-5 text-success" />
+                    Gạo đang có
+                  </CardTitle>
+                  {canSupplementReports && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddRiceForm(!showAddRiceForm)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Nhập gạo
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Summary stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg bg-success/10 p-3 text-center">
+                    <div className="text-xs text-muted-foreground">Tổng nhập</div>
+                    <div className="text-xl font-bold text-success">{totalRiceAdded.toFixed(1)} kg</div>
+                  </div>
+                  <div className="rounded-lg bg-destructive/10 p-3 text-center">
+                    <div className="text-xs text-muted-foreground">Đã dùng ({riceDateRange.label.toLowerCase()})</div>
+                    <div className="text-xl font-bold text-destructive">{totalRiceInRange.toFixed(1)} kg</div>
+                  </div>
+                  <div className={`rounded-lg p-3 text-center ${remainingRice >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
+                    <div className="text-xs text-muted-foreground">Còn lại</div>
+                    <div className={`text-xl font-bold ${remainingRice >= 0 ? 'text-primary' : 'text-warning'}`}>
+                      {remainingRice.toFixed(1)} kg
+                    </div>
+                  </div>
+                </div>
+
+                {/* Add rice form */}
+                {showAddRiceForm && canSupplementReports && (
+                  <div className="rounded-lg border bg-background p-4 space-y-3">
+                    <div className="text-sm font-medium">Nhập gạo mới</div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground">Số lượng (kg) *</label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          placeholder="Nhập số kg"
+                          value={newRiceAmount}
+                          onChange={(e) => setNewRiceAmount(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Ghi chú</label>
+                        <Input
+                          placeholder="VD: Nhập kho tháng 1"
+                          value={newRiceNotes}
+                          onChange={(e) => setNewRiceNotes(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowAddRiceForm(false);
+                          setNewRiceAmount('');
+                          setNewRiceNotes('');
+                        }}
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleAddRice}
+                        disabled={isAddingRice || !newRiceAmount}
+                      >
+                        {isAddingRice && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Lưu
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Inventory history */}
+                {riceInventory.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-muted-foreground">Lịch sử nhập gạo</div>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {riceInventory.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between rounded bg-muted/50 p-2 text-sm"
+                        >
+                          <div className="flex-1">
+                            <span className="font-medium text-success">+{Number(item.amount).toFixed(1)} kg</span>
+                            {item.notes && (
+                              <span className="ml-2 text-muted-foreground">- {item.notes}</span>
+                            )}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({format(new Date(item.created_at), 'dd/MM/yyyy HH:mm')})
+                            </span>
+                          </div>
+                          {canSupplementReports && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteRice(item.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Rice Statistics Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1085,7 +1321,7 @@ export default function Statistics() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm text-muted-foreground">
-                          Tổng gạo {riceDateRange.label.toLowerCase()}
+                          Tổng gạo đã dùng {riceDateRange.label.toLowerCase()}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           (Bữa trưa + Bữa tối × 0.2kg/học sinh)
