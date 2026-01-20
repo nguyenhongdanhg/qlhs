@@ -174,7 +174,8 @@ export default function Boarding() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchStudentsAndAttendance();
-  }, [currentSchool, date, selectedSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSchool, date]);
 
   const fetchClasses = async () => {
     if (!currentSchool) return;
