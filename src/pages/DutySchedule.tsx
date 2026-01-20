@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import {
   Table,
   TableBody,
@@ -47,7 +47,9 @@ import {
   startOfWeek,
   endOfWeek,
   addDays,
-  isSameDay,
+  getDay,
+  differenceInHours,
+  differenceInMinutes,
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -56,18 +58,19 @@ import {
   RefreshCw,
   Copy,
   Wand2,
-  Pin,
   ChevronLeft,
   ChevronRight,
   Users,
   Calendar,
-  User,
   Clock,
+  Trash2,
+  ArrowRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const MAX_PER_DAY = 3;
 const MAX_PER_PERSON = 5;
+const SHIFT_START_HOUR = 6;
 
 interface DutyMember extends Profile {
   dutyCount: number;
@@ -87,6 +90,7 @@ export default function DutySchedule() {
   const [activeTab, setActiveTab] = useState('assignment');
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [timeRemaining, setTimeRemaining] = useState({ hours: 0, minutes: 0 });
 
   // Get days in current month
   const daysInMonth = useMemo(() => {
@@ -95,20 +99,59 @@ export default function DutySchedule() {
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  // Calculate current duty person (6am to 6am next day)
-  const currentDutyPersons = useMemo(() => {
+  // Calculate current duty date (6am to 6am next day)
+  const getCurrentDutyDate = () => {
     const now = new Date();
     const currentHour = now.getHours();
     
     // If before 6am, use previous day's duty
-    let dutyDate: Date;
-    if (currentHour < 6) {
-      dutyDate = addDays(now, -1);
-    } else {
-      dutyDate = now;
+    if (currentHour < SHIFT_START_HOUR) {
+      return addDays(now, -1);
     }
-    
+    return now;
+  };
+
+  // Calculate next duty date
+  const getNextDutyDate = () => {
+    return addDays(getCurrentDutyDate(), 1);
+  };
+
+  // Calculate time remaining for current shift
+  useEffect(() => {
+    const updateTimeRemaining = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      
+      // Calculate next shift change at 6 AM
+      let nextShiftChange = new Date(now);
+      if (hour >= SHIFT_START_HOUR) {
+        // Next shift is tomorrow at 6 AM
+        nextShiftChange = addDays(nextShiftChange, 1);
+      }
+      nextShiftChange.setHours(SHIFT_START_HOUR, 0, 0, 0);
+      
+      const hoursLeft = differenceInHours(nextShiftChange, now);
+      const minutesLeft = differenceInMinutes(nextShiftChange, now) % 60;
+      
+      setTimeRemaining({ hours: hoursLeft, minutes: minutesLeft });
+    };
+
+    updateTimeRemaining();
+    const interval = setInterval(updateTimeRemaining, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  // Current duty persons
+  const currentDutyPersons = useMemo(() => {
+    const dutyDate = getCurrentDutyDate();
     const dateStr = format(dutyDate, 'yyyy-MM-dd');
+    return schedules.filter(s => s.duty_date === dateStr);
+  }, [schedules]);
+
+  // Next duty persons
+  const nextDutyPersons = useMemo(() => {
+    const nextDate = getNextDutyDate();
+    const dateStr = format(nextDate, 'yyyy-MM-dd');
     return schedules.filter(s => s.duty_date === dateStr);
   }, [schedules]);
 
@@ -291,6 +334,47 @@ export default function DutySchedule() {
       toast({
         title: 'Lỗi',
         description: error.message || 'Không thể cập nhật phân công',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Remove all assignments for a member in current month
+  const removeAllAssignments = async (userId: string) => {
+    if (!currentSchool) return;
+    
+    const memberSchedules = schedules.filter(s => s.user_id === userId);
+    if (memberSchedules.length === 0) return;
+    
+    setIsSaving(true);
+    try {
+      const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+      
+      const { error } = await supabase
+        .from('duty_schedules')
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .eq('user_id', userId)
+        .gte('duty_date', monthStart)
+        .lte('duty_date', monthEnd);
+      
+      if (error) throw error;
+      
+      setSchedules(prev => prev.filter(s => 
+        s.user_id !== userId || 
+        s.duty_date < monthStart ||
+        s.duty_date > monthEnd
+      ));
+      
+      toast({ title: 'Thành công', description: 'Đã xóa tất cả phân công của thành viên' });
+    } catch (error: any) {
+      console.error('Error removing assignments:', error);
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể xóa phân công',
         variant: 'destructive',
       });
     } finally {
@@ -482,6 +566,13 @@ export default function DutySchedule() {
       .toUpperCase();
   };
 
+  // Get day of week name
+  const getDayName = (date: Date) => {
+    const dayIndex = getDay(date);
+    const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    return days[dayIndex];
+  };
+
   // Get schedules for calendar view
   const getSchedulesForRange = () => {
     let start: Date, end: Date;
@@ -528,31 +619,57 @@ export default function DutySchedule() {
         </div>
       </div>
 
-      {/* Current Duty Display */}
-      <Card className="mb-4 border-primary/30 bg-primary/5">
+      {/* Current Duty Display - Enhanced */}
+      <Card className="mb-4 border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
-            Đang trực hiện tại
+          <CardTitle className="text-base flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Đang trực hiện tại
+            </div>
+            <Badge variant="outline" className="flex items-center gap-1 font-normal">
+              <Clock className="h-3 w-3" />
+              Còn {timeRemaining.hours}h {timeRemaining.minutes}p
+            </Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          {currentDutyPersons.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có người trực được phân công</p>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {currentDutyPersons.map(duty => (
-                <div key={duty.id} className="flex items-center gap-2 bg-background rounded-full px-3 py-1.5 border">
-                  <Avatar className="h-6 w-6">
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {getInitials(duty.profile?.full_name || '')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium text-sm">{duty.profile?.full_name}</span>
-                </div>
-              ))}
+        <CardContent className="space-y-3">
+          {/* Current shift info */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">
+              Ca trực: {format(getCurrentDutyDate(), 'dd/MM/yyyy', { locale: vi })} (6h sáng - 6h sáng hôm sau)
+            </p>
+            {currentDutyPersons.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa có người trực được phân công</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {currentDutyPersons.map(duty => (
+                  <Badge key={duty.id} variant="default" className="px-3 py-1.5 text-sm">
+                    {duty.profile?.full_name}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Next shift info */}
+          <div className="pt-2 border-t border-border/50">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <ArrowRight className="h-3 w-3" />
+              <span>Ca tiếp theo: {format(getNextDutyDate(), 'dd/MM/yyyy', { locale: vi })}</span>
             </div>
-          )}
+            {nextDutyPersons.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa phân công</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {nextDutyPersons.map(duty => (
+                  <Badge key={duty.id} variant="secondary" className="px-2 py-1 text-xs">
+                    {duty.profile?.full_name}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -661,7 +778,7 @@ export default function DutySchedule() {
             </CardContent>
           </Card>
 
-          {/* Assignment Grid */}
+          {/* Assignment Grid - Improved with horizontal scroll and better header */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -679,109 +796,181 @@ export default function DutySchedule() {
             </Card>
           ) : (
             <Card>
-              <ScrollArea className="w-full">
-                <div className="min-w-[800px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12 text-center sticky left-0 bg-background z-10">STT</TableHead>
-                        <TableHead className="min-w-[150px] sticky left-12 bg-background z-10">Họ tên</TableHead>
-                        <TableHead className="w-16 text-center">Số lần</TableHead>
-                        {daysInMonth.map((day, i) => {
-                          const dayCount = dutiesPerDay[format(day, 'yyyy-MM-dd')] || 0;
-                          const isFull = dayCount >= MAX_PER_DAY;
-                          const today = isToday(day);
-                          
+              <CardContent className="p-0">
+                <ScrollArea className="w-full">
+                  <div className="min-w-max">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-12 text-center sticky left-0 bg-muted/50 z-20 border-r">STT</TableHead>
+                          <TableHead className="min-w-[140px] sticky left-12 bg-muted/50 z-20 border-r">Họ tên</TableHead>
+                          <TableHead className="w-16 text-center sticky left-[196px] bg-muted/50 z-20 border-r">Số lần</TableHead>
+                          <TableHead className="w-12 text-center sticky left-[260px] bg-muted/50 z-20 border-r">Xóa</TableHead>
+                          {daysInMonth.map((day, i) => {
+                            const dayName = getDayName(day);
+                            const dayCount = dutiesPerDay[format(day, 'yyyy-MM-dd')] || 0;
+                            const isFull = dayCount >= MAX_PER_DAY;
+                            const today = isToday(day);
+                            const isWeekend = dayName === "CN" || dayName === "T7";
+                            
+                            return (
+                              <TableHead 
+                                key={i} 
+                                className={cn(
+                                  "w-11 text-center p-0",
+                                  today && "bg-primary/10",
+                                  isWeekend && !today && "bg-orange-50 dark:bg-orange-950/20"
+                                )}
+                              >
+                                <div className="flex flex-col items-center py-1.5">
+                                  <span className={cn(
+                                    "text-[10px] font-semibold",
+                                    isWeekend ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground",
+                                    today && "text-primary"
+                                  )}>
+                                    {dayName}
+                                  </span>
+                                  <span className={cn(
+                                    "text-base font-bold leading-tight",
+                                    isWeekend && "text-orange-600 dark:text-orange-400",
+                                    today && "text-primary"
+                                  )}>
+                                    {format(day, 'd')}
+                                  </span>
+                                  <Badge 
+                                    variant={isFull ? "destructive" : "secondary"} 
+                                    className="text-[9px] px-1 py-0 h-4 min-w-[22px] mt-0.5"
+                                  >
+                                    {dayCount}/{MAX_PER_DAY}
+                                  </Badge>
+                                </div>
+                              </TableHead>
+                            );
+                          })}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dutyMembers.map((member, idx) => {
+                          const memberDutyCount = dutiesPerMember[member.id] || 0;
+                          const isFull = memberDutyCount >= MAX_PER_PERSON;
+
                           return (
-                            <TableHead 
-                              key={i} 
-                              className={cn(
-                                "w-10 text-center p-1",
-                                today && "bg-primary/10",
-                                isFull && "bg-destructive/10"
-                              )}
-                            >
-                              <div className="flex flex-col items-center">
-                                <span className="text-xs text-muted-foreground">
-                                  {format(day, 'EEE', { locale: vi })}
-                                </span>
-                                <span className={cn("text-sm", today && "text-primary font-bold")}>
-                                  {format(day, 'd')}
-                                </span>
-                                <span className={cn(
-                                  "text-xs",
-                                  isFull ? "text-destructive" : "text-muted-foreground"
-                                )}>
-                                  {dayCount}/{MAX_PER_DAY}
-                                </span>
-                              </div>
-                            </TableHead>
+                            <TableRow key={member.id} className={cn(isFull && "bg-yellow-50/50 dark:bg-yellow-950/10")}>
+                              <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r">
+                                {idx + 1}
+                              </TableCell>
+                              <TableCell className="sticky left-12 bg-background z-10 border-r">
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                      {getInitials(member.full_name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="font-medium text-sm truncate max-w-[100px]">
+                                    {member.full_name}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center sticky left-[196px] bg-background z-10 border-r">
+                                <Badge variant={isFull ? "destructive" : "outline"} className="min-w-[36px]">
+                                  {memberDutyCount}/{MAX_PER_PERSON}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center sticky left-[260px] bg-background z-10 border-r">
+                                {isSchoolAdmin() && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6"
+                                        disabled={memberDutyCount === 0 || isSaving}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Xóa phân công</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Xóa tất cả {memberDutyCount} lượt phân công của {member.full_name} trong tháng này?
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                        <AlertDialogAction 
+                                          onClick={() => removeAllAssignments(member.id)}
+                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        >
+                                          Xóa
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+                              </TableCell>
+                              {daysInMonth.map((day, i) => {
+                                const assigned = isAssigned(member.id, day);
+                                const canCheck = canAssign(member.id, day);
+                                const today = isToday(day);
+                                const dayName = getDayName(day);
+                                const isWeekend = dayName === "CN" || dayName === "T7";
+
+                                return (
+                                  <TableCell 
+                                    key={i} 
+                                    className={cn(
+                                      "text-center p-1",
+                                      today && "bg-primary/5",
+                                      isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10"
+                                    )}
+                                  >
+                                    <div className="flex justify-center">
+                                      <Checkbox
+                                        checked={assigned}
+                                        disabled={!isSchoolAdmin() || isSaving || (!assigned && !canCheck)}
+                                        onCheckedChange={() => toggleAssignment(member.id, day)}
+                                        className={cn(
+                                          "h-5 w-5",
+                                          assigned && "bg-primary border-primary"
+                                        )}
+                                      />
+                                    </div>
+                                  </TableCell>
+                                );
+                              })}
+                            </TableRow>
                           );
                         })}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dutyMembers.map((member, idx) => {
-                        const memberDutyCount = dutiesPerMember[member.id] || 0;
-                        const isFull = memberDutyCount >= MAX_PER_PERSON;
-
-                        return (
-                          <TableRow key={member.id} className={cn(isFull && "bg-destructive/5")}>
-                            <TableCell className="text-center sticky left-0 bg-background">
-                              {idx + 1}
-                            </TableCell>
-                            <TableCell className="sticky left-12 bg-background">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-7 w-7">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {getInitials(member.full_name)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="font-medium text-sm truncate max-w-[120px]">
-                                  {member.full_name}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Badge variant={isFull ? "destructive" : "secondary"}>
-                                {memberDutyCount}/{MAX_PER_PERSON}
-                              </Badge>
-                            </TableCell>
-                            {daysInMonth.map((day, i) => {
-                              const assigned = isAssigned(member.id, day);
-                              const canCheck = canAssign(member.id, day);
-                              const today = isToday(day);
-
-                              return (
-                                <TableCell 
-                                  key={i} 
-                                  className={cn(
-                                    "text-center p-1",
-                                    today && "bg-primary/5"
-                                  )}
-                                >
-                                  <div className="flex justify-center">
-                                    <Checkbox
-                                      checked={assigned}
-                                      disabled={!isSchoolAdmin() || isSaving || (!assigned && !canCheck)}
-                                      onCheckedChange={() => toggleAssignment(member.id, day)}
-                                      className={cn(
-                                        "h-5 w-5",
-                                        assigned && "bg-primary border-primary"
-                                      )}
-                                    />
-                                  </div>
-                                </TableCell>
-                              );
-                            })}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </ScrollArea>
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+              </CardContent>
             </Card>
+          )}
+
+          {/* Legend */}
+          {dutyMembers.length > 0 && (
+            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-orange-100 dark:bg-orange-950/30"></div>
+                <span>Cuối tuần</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-primary/10"></div>
+                <span>Hôm nay</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">3/3</Badge>
+                <span>Đã đủ {MAX_PER_DAY} người/ngày</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">5/5</Badge>
+                <span>Đã đủ {MAX_PER_PERSON} lần/người</span>
+              </div>
+            </div>
           )}
         </TabsContent>
 
@@ -859,25 +1048,33 @@ export default function DutySchedule() {
               {getSchedulesForRange().map(day => {
                 const daySchedules = getSchedulesForDay(day);
                 const today = isToday(day);
+                const dayName = getDayName(day);
+                const isWeekend = dayName === "CN" || dayName === "T7";
 
                 return (
                   <Card 
                     key={day.toISOString()} 
                     className={cn(
                       "overflow-hidden",
-                      today && "border-primary ring-1 ring-primary"
+                      today && "border-primary ring-1 ring-primary",
+                      isWeekend && !today && "border-orange-200 dark:border-orange-900"
                     )}
                   >
                     <div className={cn(
                       "px-3 py-2 border-b text-center",
-                      today ? "bg-primary/10" : "bg-muted/50"
+                      today ? "bg-primary/10" : 
+                      isWeekend ? "bg-orange-50 dark:bg-orange-950/20" : "bg-muted/50"
                     )}>
-                      <div className="text-xs text-muted-foreground">
+                      <div className={cn(
+                        "text-xs",
+                        isWeekend ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"
+                      )}>
                         {format(day, 'EEEE', { locale: vi })}
                       </div>
                       <div className={cn(
                         "text-lg font-semibold",
-                        today && "text-primary"
+                        today && "text-primary",
+                        isWeekend && !today && "text-orange-600 dark:text-orange-400"
                       )}>
                         {format(day, 'd')}
                       </div>
@@ -894,19 +1091,19 @@ export default function DutySchedule() {
                           Chưa phân công
                         </p>
                       ) : (
-                        <div className="space-y-1.5">
-                          {daySchedules.map(schedule => (
+                        <div className="space-y-1">
+                          {daySchedules.map(duty => (
                             <div
-                              key={schedule.id}
-                              className="flex items-center gap-1.5 bg-primary/10 rounded-md px-2 py-1"
+                              key={duty.id}
+                              className="flex items-center gap-1.5 bg-primary/10 rounded px-2 py-1"
                             >
                               <Avatar className="h-5 w-5">
-                                <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">
-                                  {getInitials(schedule.profile?.full_name || '')}
+                                <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
+                                  {getInitials(duty.profile?.full_name || '')}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="text-xs font-medium truncate">
-                                {schedule.profile?.full_name}
+                              <span className="text-xs truncate">
+                                {duty.profile?.full_name?.split(' ').pop()}
                               </span>
                             </div>
                           ))}
