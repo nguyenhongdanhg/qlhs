@@ -203,16 +203,13 @@ export default function MobileMenu() {
 
       {/* Footer */}
       <div className="mt-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          Develop by <span className="font-semibold text-primary">Lovable</span>
-        </p>
         <a 
           href="https://zalo.me/0888770699" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-sm text-primary hover:underline"
+          className="text-sm text-muted-foreground hover:text-primary"
         >
-          Liên hệ Zalo
+          Thiết kế bởi <span className="font-semibold text-primary">Thầy giáo Nguyễn Hồng Dân</span> - Zalo: 0888 770 699
         </a>
       </div>
     </div>
