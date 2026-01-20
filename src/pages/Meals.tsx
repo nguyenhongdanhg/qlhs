@@ -33,6 +33,7 @@ import {
   Trash2,
   History,
   Ban,
+  UserMinus,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -44,6 +45,7 @@ import {
   exportMealStatistics, 
   MealStudentData 
 } from '@/lib/excel-export';
+import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -108,6 +110,10 @@ export default function Meals() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [mealDeadlines, setMealDeadlines] = useState<MealDeadline[]>(DEFAULT_MEAL_DEADLINES);
+  
+  // Dialog for selecting absent students for 3 meals
+  const [absent3MealsDialogOpen, setAbsent3MealsDialogOpen] = useState(false);
+  const [absentSingleMealDialogOpen, setAbsentSingleMealDialogOpen] = useState(false);
 
   // Check if user is class teacher and get their class
   const isClassTeacher = currentMembership?.role === 'class_teacher';
@@ -378,6 +384,120 @@ export default function Meals() {
     const newAttendance: AttendanceMap = {};
     filteredStudents.forEach(s => newAttendance[s.id] = 'absent');
     setAttendance(prev => ({ ...prev, ...newAttendance }));
+  };
+
+  // Handler for mark all 3 meals with custom absent list
+  const handleSave3MealsWithAbsent = async (absentStudentIds: string[]) => {
+    if (!currentSchool || !user) return;
+    setIsSaving(true);
+    setAbsent3MealsDialogOpen(false);
+    
+    try {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const mealTypesToSave: AttendanceType[] = ['breakfast', 'lunch', 'dinner'];
+      
+      const expiredMeals = mealTypesToSave.filter(meal => {
+        const info = getMealDeadlineInfo(meal, date);
+        return info.isExpired;
+      });
+
+      if (expiredMeals.length === 3) {
+        toast({ 
+          title: 'Không thể báo cáo', 
+          description: 'Tất cả các bữa đã quá hạn báo cáo', 
+          variant: 'destructive' 
+        });
+        setIsSaving(false);
+        return;
+      }
+
+      const validMeals = mealTypesToSave.filter(meal => !expiredMeals.includes(meal));
+      const absentSet = new Set(absentStudentIds);
+
+      for (const meal of validMeals) {
+        await supabase
+          .from('attendance_records')
+          .delete()
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', meal);
+
+        const records = students.map((student) => ({
+          school_id: currentSchool.id,
+          student_id: student.id,
+          class_id: student.class_id,
+          attendance_date: dateStr,
+          attendance_type: meal,
+          status: (absentSet.has(student.id) ? 'absent' : 'present') as AttendanceStatus,
+          reporter_id: user.id,
+        }));
+
+        await supabase.from('attendance_records').insert(records);
+      }
+
+      const savedMeals = validMeals.map(m => mealTypes.find(t => t.type === m)?.label).join(', ');
+      toast({ 
+        title: 'Thành công', 
+        description: `Đã lưu ${savedMeals} - ${absentStudentIds.length} vắng` 
+      });
+      
+      if (expiredMeals.length > 0) {
+        const skippedMeals = expiredMeals.map(m => mealTypes.find(t => t.type === m)?.label).join(', ');
+        toast({ 
+          title: 'Lưu ý', 
+          description: `Đã bỏ qua ${skippedMeals} do quá hạn`, 
+          variant: 'destructive' 
+        });
+      }
+      
+      fetchStudentsAndAttendance();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handler for save single meal with custom absent list
+  const handleSaveSingleMealWithAbsent = async (absentStudentIds: string[]) => {
+    if (!currentSchool || !user) return;
+    setIsSaving(true);
+    setAbsentSingleMealDialogOpen(false);
+    
+    try {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const absentSet = new Set(absentStudentIds);
+      
+      await supabase
+        .from('attendance_records')
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .eq('attendance_date', dateStr)
+        .eq('attendance_type', selectedMeal);
+
+      const records = students.map((student) => ({
+        school_id: currentSchool.id,
+        student_id: student.id,
+        class_id: student.class_id,
+        attendance_date: dateStr,
+        attendance_type: selectedMeal,
+        status: (absentSet.has(student.id) ? 'absent' : 'present') as AttendanceStatus,
+        reporter_id: user.id,
+      }));
+
+      const { error } = await supabase.from('attendance_records').insert(records);
+      if (error) throw error;
+
+      toast({ 
+        title: 'Thành công', 
+        description: `Đã lưu ${mealTypes.find(m => m.type === selectedMeal)?.label} - ${absentStudentIds.length} vắng` 
+      });
+      fetchStudentsAndAttendance();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleMarkAll3Meals = async (markPresent: boolean) => {
@@ -781,62 +901,93 @@ export default function Meals() {
               </Alert>
             )}
 
-            {/* Quick Actions */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={handleMarkAllPresent} disabled={currentMealDeadline.isExpired || !canReportMeals}>
-                  <CheckCircle2 className="h-4 w-4 mr-1" />Đủ tất cả
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleMarkAllAbsent} disabled={currentMealDeadline.isExpired || !canReportMeals}>
-                  <XCircle className="h-4 w-4 mr-1" />Vắng tất cả
+            {/* Quick Actions - Compact for mobile */}
+            <div className="space-y-2">
+              {/* Row 1: Current meal actions */}
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleMarkAllPresent} 
+                  disabled={currentMealDeadline.isExpired || !canReportMeals}
+                  className="flex-1 h-8 text-xs"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Đủ
                 </Button>
                 <Button 
-                  variant="default" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setAbsentSingleMealDialogOpen(true)} 
+                  disabled={currentMealDeadline.isExpired || !canReportMeals}
+                  className="flex-1 h-8 text-xs"
+                >
+                  <UserMinus className="h-3.5 w-3.5 mr-1" />Chọn vắng
+                </Button>
+              </div>
+              
+              {/* Row 2: 3-meal actions */}
+              <div className="flex items-center gap-2">
+                <Button 
                   size="sm" 
                   onClick={() => handleMarkAll3Meals(true)} 
                   disabled={isSaving || !canReportMeals}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="flex-1 h-8 text-xs bg-success hover:bg-success/90"
                 >
-                  <CheckCircle2 className="h-4 w-4 mr-1" />Đủ 3 bữa
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Đủ 3 bữa
                 </Button>
                 <Button 
-                  variant="destructive" 
                   size="sm" 
-                  onClick={() => handleMarkAll3Meals(false)} 
+                  onClick={() => setAbsent3MealsDialogOpen(true)} 
                   disabled={isSaving || !canReportMeals}
+                  className="flex-1 h-8 text-xs bg-primary hover:bg-primary/90"
                 >
-                  <XCircle className="h-4 w-4 mr-1" />Vắng 3 bữa
+                  <UserMinus className="h-3.5 w-3.5 mr-1" />3 bữa (chọn vắng)
                 </Button>
               </div>
-              <span className="text-sm text-green-600 font-medium">{presentCount}/{filteredStudents.length} ăn</span>
+              
+              {/* Summary */}
+              <div className="flex items-center justify-between text-xs px-1">
+                <span className="text-muted-foreground">
+                  {filteredStudents.length} học sinh
+                </span>
+                <Badge variant={presentCount === filteredStudents.length ? "default" : "secondary"} className="text-xs">
+                  {presentCount}/{filteredStudents.length} ăn
+                </Badge>
+              </div>
             </div>
 
-            {/* Students Grid with fixed height scroll */}
+            {/* Compact Students Grid */}
             {isLoading ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
             ) : (
-              <div className="max-h-[400px] overflow-y-auto border rounded-lg p-2">
-                <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              <div className="max-h-[350px] overflow-y-auto border rounded-lg p-1.5">
+                <div className="grid gap-1 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
                   {filteredStudents.map((student) => (
                     <button 
                       key={student.id} 
                       onClick={() => !currentMealDeadline.isExpired && canReportMeals && handleToggleAbsent(student.id)}
                       disabled={currentMealDeadline.isExpired || !canReportMeals}
                       className={cn(
-                        'flex items-center gap-2 p-3 rounded-lg border text-left transition-all',
+                        'flex items-center gap-1.5 p-2 rounded border text-left transition-all',
                         attendance[student.id] === 'absent' 
-                          ? 'border-red-300 bg-red-50 text-red-700' 
-                          : 'border-border hover:border-primary/50',
+                          ? 'border-destructive/50 bg-destructive/10 text-destructive' 
+                          : 'border-border hover:border-primary/50 hover:bg-muted/30',
                         (currentMealDeadline.isExpired || !canReportMeals) && 'opacity-50 cursor-not-allowed'
                       )}
                     >
                       <div className={cn(
-                        'w-5 h-5 rounded-full border-2 flex-shrink-0',
-                        attendance[student.id] === 'absent' ? 'border-red-500 bg-red-500' : 'border-muted-foreground'
-                      )} />
+                        'w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center',
+                        attendance[student.id] === 'absent' ? 'border-destructive bg-destructive' : 'border-muted-foreground'
+                      )}>
+                        {attendance[student.id] === 'absent' && (
+                          <span className="text-destructive-foreground text-[8px]">✕</span>
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <span className="truncate text-sm block">{student.full_name}</span>
-                        <span className="text-xs text-muted-foreground">{student.class?.name}</span>
+                        <span className="truncate text-xs block font-medium">{student.full_name}</span>
+                        <span className="text-[10px] text-muted-foreground">{student.class?.name}</span>
                       </div>
                     </button>
                   ))}
@@ -847,7 +998,7 @@ export default function Meals() {
             <Button 
               onClick={handleSave} 
               disabled={isSaving || currentMealDeadline.isExpired || !canReportMeals} 
-              className="w-full"
+              className="w-full h-10"
             >
               {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Lưu {mealTypes.find(m => m.type === selectedMeal)?.label}
@@ -987,6 +1138,30 @@ export default function Meals() {
           </TabsContent>
         </Tabs>
       </Card>
+
+      {/* Dialog for selecting absent students for 3 meals */}
+      <MealAbsentSelectionDialog
+        open={absent3MealsDialogOpen}
+        onOpenChange={setAbsent3MealsDialogOpen}
+        students={students}
+        classes={classes}
+        onConfirm={handleSave3MealsWithAbsent}
+        isLoading={isSaving}
+        title="Báo 3 bữa - Chọn học sinh vắng"
+        description="Chọn học sinh vắng cho cả 3 bữa (Sáng, Trưa, Tối). Các học sinh không chọn sẽ được báo đủ."
+      />
+
+      {/* Dialog for selecting absent students for single meal */}
+      <MealAbsentSelectionDialog
+        open={absentSingleMealDialogOpen}
+        onOpenChange={setAbsentSingleMealDialogOpen}
+        students={filteredStudents}
+        classes={classes}
+        onConfirm={handleSaveSingleMealWithAbsent}
+        isLoading={isSaving}
+        title={`${mealTypes.find(m => m.type === selectedMeal)?.label} - Chọn học sinh vắng`}
+        description="Chọn học sinh vắng cho bữa này. Các học sinh không chọn sẽ được báo đủ."
+      />
     </div>
   );
 }

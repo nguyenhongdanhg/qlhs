@@ -27,12 +27,15 @@ import {
   AlertCircle,
   FileSpreadsheet,
   Image,
+  Plus,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Student, Class, AttendanceType } from '@/types';
+import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
 import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
 import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDialog';
+import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface AbsentStudent {
   id: string;
@@ -73,7 +76,8 @@ interface LatestReport {
 }
 
 export default function Statistics() {
-  const { currentSchool, profile } = useAuth();
+  const { currentSchool, profile, user, currentMembership, isSuperAdmin, isSchoolAdmin } = useAuth();
+  const { toast } = useToast();
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -97,6 +101,14 @@ export default function Statistics() {
   
   // Share meal report dialog
   const [shareMealDialogOpen, setShareMealDialogOpen] = useState(false);
+  
+  // Supplement meal report dialog
+  const [supplementDialogOpen, setSupplementDialogOpen] = useState(false);
+  const [supplementMealType, setSupplementMealType] = useState<AttendanceType>('breakfast');
+  const [isSavingSupplement, setIsSavingSupplement] = useState(false);
+
+  // Check if user can supplement reports (admin or accountant)
+  const canSupplementReports = isSuperAdmin || isSchoolAdmin() || currentMembership?.role === 'accountant';
 
   // Expand/collapse states
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
