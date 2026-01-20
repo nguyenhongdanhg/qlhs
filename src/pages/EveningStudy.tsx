@@ -30,6 +30,7 @@ import {
   AlertCircle,
   MessageSquare,
   Users,
+  Image,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,7 @@ import {
 } from '@/components/ui/table';
 import { NotesDialog } from '@/components/attendance/NotesDialog';
 import { ExcuseReasonDialog } from '@/components/attendance/ExcuseReasonDialog';
+import { ShareReportDialog } from '@/components/attendance/ShareReportDialog';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -127,6 +129,10 @@ export default function EveningStudy() {
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
   const [isExporting, setIsExporting] = useState(false);
+
+  // Share image dialog
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [reportToShare, setReportToShare] = useState<SavedReport | null>(null);
 
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
@@ -803,6 +809,13 @@ export default function EveningStudy() {
                                 </p>
                               </div>
                               <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => {
+                                  setReportToShare(report);
+                                  setShareDialogOpen(true);
+                                }}>
+                                  <Image className="h-4 w-4 mr-1" />
+                                  Ảnh
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={() => handleExportSingleReport(report)}>
                                   <Download className="h-4 w-4 mr-1" />
                                   Excel
@@ -922,6 +935,17 @@ export default function EveningStudy() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Share Report Dialog */}
+      {reportToShare && currentSchool && (
+        <ShareReportDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          report={reportToShare}
+          schoolName={currentSchool.name}
+          title="BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI"
+        />
+      )}
     </div>
   );
 }
