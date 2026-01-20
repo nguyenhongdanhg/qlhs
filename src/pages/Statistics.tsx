@@ -132,6 +132,34 @@ export default function Statistics() {
     fetchRiceStats();
   }, [currentSchool, riceDateRange, students]);
 
+  // Subscribe to realtime updates for attendance_records
+  useEffect(() => {
+    if (!currentSchool) return;
+
+    const channel = supabase
+      .channel('statistics-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance_records',
+          filter: `school_id=eq.${currentSchool.id}`,
+        },
+        (payload) => {
+          console.log('Realtime update received:', payload);
+          // Refetch data when any attendance record changes
+          fetchDailyData();
+          fetchRiceStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentSchool, selectedDate, students, classes]);
+
   const fetchBasicData = async () => {
     if (!currentSchool) return;
     
