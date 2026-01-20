@@ -68,19 +68,23 @@ import CreateUserDialog from '@/components/users/CreateUserDialog';
 const roleLabels: Record<AppRole, string> = {
   super_admin: 'Super Admin',
   admin: 'Quản trị viên',
+  board: 'Ban giám hiệu',
   teacher: 'Giáo viên',
   class_teacher: 'GVCN',
   accountant: 'Kế toán',
   kitchen: 'Nhà bếp',
+  staff: 'Nhân viên',
 };
 
 const roleColors: Record<AppRole, string> = {
   super_admin: 'bg-destructive/10 text-destructive border-destructive/20',
   admin: 'bg-primary/10 text-primary border-primary/20',
+  board: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-800',
   teacher: 'bg-info/10 text-info border-info/20',
   class_teacher: 'bg-success/10 text-success border-success/20',
   accountant: 'bg-warning/10 text-warning border-warning/20',
   kitchen: 'bg-accent/10 text-accent border-accent/20',
+  staff: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
 };
 
 export default function UserManagement() {
@@ -635,10 +639,12 @@ export default function UserManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Quản trị viên</SelectItem>
+                      <SelectItem value="board">Ban giám hiệu</SelectItem>
                       <SelectItem value="teacher">Giáo viên</SelectItem>
                       <SelectItem value="class_teacher">Giáo viên chủ nhiệm</SelectItem>
                       <SelectItem value="accountant">Kế toán</SelectItem>
                       <SelectItem value="kitchen">Nhà bếp</SelectItem>
+                      <SelectItem value="staff">Nhân viên</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

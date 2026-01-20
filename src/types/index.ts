@@ -2,7 +2,7 @@
 // EDUBOARD - Type Definitions
 // =====================================================
 
-export type AppRole = 'super_admin' | 'admin' | 'teacher' | 'class_teacher' | 'accountant' | 'kitchen';
+export type AppRole = 'super_admin' | 'admin' | 'board' | 'teacher' | 'class_teacher' | 'accountant' | 'kitchen' | 'staff';
 export type MembershipStatus = 'active' | 'suspended';
 export type AttendanceType = 'evening_study' | 'boarding' | 'breakfast' | 'lunch' | 'dinner';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';

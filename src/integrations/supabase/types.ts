@@ -776,6 +776,8 @@ export type Database = {
         | "class_teacher"
         | "accountant"
         | "kitchen"
+        | "board"
+        | "staff"
       attendance_status: "present" | "absent" | "late" | "excused"
       attendance_type:
         | "evening_study"
@@ -919,6 +921,8 @@ export const Constants = {
         "class_teacher",
         "accountant",
         "kitchen",
+        "board",
+        "staff",
       ],
       attendance_status: ["present", "absent", "late", "excused"],
       attendance_type: [
