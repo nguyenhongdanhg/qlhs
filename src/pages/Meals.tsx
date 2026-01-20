@@ -256,7 +256,8 @@ export default function Meals() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchStudentsAndAttendance();
-  }, [currentSchool, date, selectedMeal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSchool, date]);
 
   useEffect(() => {
     if (!currentSchool || activeTab !== 'history') return;
@@ -450,7 +451,10 @@ export default function Meals() {
         });
       }
       
-      fetchStudentsAndAttendance();
+      // Reset attendance to all present for next report
+      const freshAttendance: AttendanceMap = {};
+      students.forEach(s => freshAttendance[s.id] = 'present');
+      setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     } finally {
@@ -492,7 +496,11 @@ export default function Meals() {
         title: 'Thành công', 
         description: `Đã lưu ${mealTypes.find(m => m.type === selectedMeal)?.label} - ${absentStudentIds.length} vắng` 
       });
-      fetchStudentsAndAttendance();
+      
+      // Reset attendance to all present for next report
+      const freshAttendance: AttendanceMap = {};
+      students.forEach(s => freshAttendance[s.id] = 'present');
+      setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     } finally {
@@ -561,7 +569,10 @@ export default function Meals() {
         });
       }
       
-      fetchStudentsAndAttendance();
+      // Reset attendance to all present for next report
+      const freshAttendance: AttendanceMap = {};
+      students.forEach(s => freshAttendance[s.id] = 'present');
+      setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     } finally {
@@ -605,7 +616,11 @@ export default function Meals() {
       if (error) throw error;
 
       toast({ title: 'Thành công', description: `Đã lưu điểm danh bữa ăn` });
-      fetchStudentsAndAttendance();
+      
+      // Reset attendance to all present for next report
+      const freshAttendance: AttendanceMap = {};
+      students.forEach(s => freshAttendance[s.id] = 'present');
+      setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     } finally {
