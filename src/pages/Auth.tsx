@@ -5,17 +5,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Loader2, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 
+// Helper to convert phone to email format for Supabase auth
+const phoneToEmail = (phone: string) => {
+  // Remove all non-digit characters
+  const cleanPhone = phone.replace(/\D/g, '');
+  return `${cleanPhone}@phone.local`;
+};
+
 const loginSchema = z.object({
-  email: z.string().email('Email không hợp lệ'),
+  phone: z.string().min(9, 'Số điện thoại phải có ít nhất 9 số').regex(/^[0-9\s\-+()]+$/, 'Số điện thoại không hợp lệ'),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
 });
 
 const signupSchema = z.object({
-  email: z.string().email('Email không hợp lệ'),
+  phone: z.string().min(9, 'Số điện thoại phải có ít nhất 9 số').regex(/^[0-9\s\-+()]+$/, 'Số điện thoại không hợp lệ'),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
   fullName: z.string().min(2, 'Họ tên phải có ít nhất 2 ký tự'),
 });
@@ -31,11 +38,11 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Login form state
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Signup form state
-  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPhone, setSignupPhone] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupFullName, setSignupFullName] = useState('');
 
@@ -50,7 +57,7 @@ export default function Auth() {
     e.preventDefault();
     
     try {
-      loginSchema.parse({ email: loginEmail, password: loginPassword });
+      loginSchema.parse({ phone: loginPhone, password: loginPassword });
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast({
@@ -63,14 +70,16 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    const { error } = await signIn(loginEmail, loginPassword);
+    // Convert phone to email format for Supabase auth
+    const email = phoneToEmail(loginPhone);
+    const { error } = await signIn(email, loginPassword);
     setIsLoading(false);
 
     if (error) {
       toast({
         title: 'Đăng nhập thất bại',
         description: error.message === 'Invalid login credentials'
-          ? 'Email hoặc mật khẩu không đúng'
+          ? 'Số điện thoại hoặc mật khẩu không đúng'
           : error.message,
         variant: 'destructive',
       });
@@ -90,7 +99,7 @@ export default function Auth() {
     e.preventDefault();
     
     try {
-      signupSchema.parse({ email: signupEmail, password: signupPassword, fullName: signupFullName });
+      signupSchema.parse({ phone: signupPhone, password: signupPassword, fullName: signupFullName });
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast({
@@ -103,14 +112,16 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupFullName);
+    // Convert phone to email format for Supabase auth
+    const email = phoneToEmail(signupPhone);
+    const { error } = await signUp(email, signupPassword, signupFullName);
     setIsLoading(false);
 
     if (error) {
       toast({
         title: 'Đăng ký thất bại',
         description: error.message === 'User already registered'
-          ? 'Email này đã được đăng ký'
+          ? 'Số điện thoại này đã được đăng ký'
           : error.message,
         variant: 'destructive',
       });
@@ -170,12 +181,12 @@ export default function Auth() {
           <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4 animate-fade-in">
             <div className="space-y-2">
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
-                  type="email"
-                  placeholder="Email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
+                  type="tel"
+                  placeholder="Số điện thoại"
+                  value={loginPhone}
+                  onChange={(e) => setLoginPhone(e.target.value)}
                   required
                   disabled={isLoading}
                   className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm"
@@ -233,12 +244,12 @@ export default function Auth() {
             </div>
             <div className="space-y-2">
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
-                  type="email"
-                  placeholder="Email"
-                  value={signupEmail}
-                  onChange={(e) => setSignupEmail(e.target.value)}
+                  type="tel"
+                  placeholder="Số điện thoại"
+                  value={signupPhone}
+                  onChange={(e) => setSignupPhone(e.target.value)}
                   required
                   disabled={isLoading}
                   className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm"

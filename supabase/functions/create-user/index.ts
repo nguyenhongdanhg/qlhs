@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 interface CreateUserRequest {
-  email: string;
+  email?: string;
   password: string;
   full_name: string;
   phone?: string;
@@ -14,6 +14,13 @@ interface CreateUserRequest {
   role: string;
   class_id?: string | null;
 }
+
+// Helper to convert phone to email format for Supabase auth
+const phoneToEmail = (phone: string) => {
+  // Remove all non-digit characters
+  const cleanPhone = phone.replace(/\D/g, '');
+  return `${cleanPhone}@phone.local`;
+};
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -58,7 +65,17 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const body: CreateUserRequest = await req.json();
-    console.log('Creating user:', { email: body.email, full_name: body.full_name, role: body.role });
+    
+    // Determine email - use provided email or convert phone to email
+    const userEmail = body.email || (body.phone ? phoneToEmail(body.phone) : '');
+    if (!userEmail) {
+      return new Response(
+        JSON.stringify({ error: 'Email or phone is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('Creating user:', { email: userEmail, full_name: body.full_name, role: body.role, phone: body.phone });
 
     // Verify caller is admin of the school or super admin
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -93,12 +110,12 @@ Deno.serve(async (req) => {
 
     // Try to create new user first using Admin API
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email: body.email,
+      email: userEmail,
       password: body.password,
       email_confirm: true, // Auto-confirm email
       user_metadata: {
         full_name: body.full_name,
-        username: body.phone || body.email.split('@')[0],
+        username: body.phone || userEmail.split('@')[0],
       },
     });
 
@@ -108,7 +125,7 @@ Deno.serve(async (req) => {
       
       // Check if error is "user already exists"
       if (errorMessage.includes('already been registered') || errorMessage.includes('already exists')) {
-        console.log('User already exists, looking up by email:', body.email);
+        console.log('User already exists, looking up by email:', userEmail);
         
         // Find the existing user using listUsers with filter
         const { data: usersData } = await adminClient.auth.admin.listUsers({
@@ -116,7 +133,7 @@ Deno.serve(async (req) => {
           perPage: 1000,
         });
         
-        const existingUser = usersData?.users?.find(u => u.email === body.email);
+        const existingUser = usersData?.users?.find(u => u.email === userEmail);
         
         if (!existingUser) {
           // Try to find in profiles by phone
