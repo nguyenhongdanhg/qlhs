@@ -38,11 +38,15 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: 'LayoutDashboard', path: '/dashboard' },
+  { code: 'students', label: 'Học sinh', icon: 'Users', path: '/students' },
   { code: 'meals', label: 'Bữa ăn', icon: 'UtensilsCrossed', path: '/meals' },
   { code: 'boarding', label: 'Nội trú', icon: 'Home', path: '/boarding' },
   { code: 'evening_study', label: 'Tự học', icon: 'Moon', path: '/evening-study' },
   { code: 'menu', label: 'Thêm', icon: 'Menu', path: '/menu' },
 ];
+
+// Items already in bottom nav - to exclude from menu page
+export const bottomNavCodes = ['dashboard', 'students', 'meals', 'boarding', 'evening_study'];
 
 export function MobileNav() {
   const location = useLocation();
@@ -54,7 +58,7 @@ export function MobileNav() {
     if (!isFeatureEnabled(item.code)) return false;
     if (item.adminOnly && !isSchoolAdmin()) return false;
     return true;
-  }).slice(0, 5); // Max 5 items
+  }).slice(0, 6); // Max 6 items
 
   return (
     <nav className="mobile-nav lg:hidden">

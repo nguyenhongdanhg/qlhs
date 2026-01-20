@@ -5,7 +5,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
-  UtensilsCrossed,
   BarChart3,
   CalendarDays,
   UserCog,
@@ -16,26 +15,19 @@ import {
   LogOut,
   Menu,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { bottomNavCodes } from '@/components/layout/MobileNav';
 
 interface MenuItem {
   code: string;
   label: string;
   description: string;
-  icon: typeof UtensilsCrossed;
+  icon: typeof BarChart3;
   path: string;
   adminOnly?: boolean;
   superAdminOnly?: boolean;
 }
 
 const menuItems: MenuItem[] = [
-  {
-    code: 'meals',
-    label: 'Bữa ăn',
-    description: 'Điểm danh bữa ăn',
-    icon: UtensilsCrossed,
-    path: '/meals',
-  },
   {
     code: 'statistics',
     label: 'Thống kê',
@@ -78,7 +70,10 @@ export default function MobileMenu() {
   const { profile, currentMembership, isSuperAdmin, isSchoolAdmin, signOut } = useAuth();
   const { isFeatureEnabled } = useSchool();
 
+  // Filter out items already in bottom nav and apply permission checks
   const filteredItems = menuItems.filter((item) => {
+    // Skip items already in bottom nav
+    if (bottomNavCodes.includes(item.code)) return false;
     if (item.code === 'settings' || item.code === 'install') return true;
     if (!isFeatureEnabled(item.code)) return false;
     if (item.adminOnly && !isSchoolAdmin()) return false;
