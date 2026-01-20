@@ -35,74 +35,79 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
       groupedByClass.get(student.className)!.push(student);
     });
 
+    const formattedDate = format(new Date(date), 'dd/MM/yyyy', { locale: vi });
+
     return (
       <div
         ref={ref}
-        className="w-[400px] bg-white p-5 font-sans"
-        style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+        style={{ 
+          width: '400px',
+          backgroundColor: 'white',
+          padding: '20px',
+          fontFamily: 'system-ui, -apple-system, sans-serif'
+        }}
       >
         {/* Header */}
-        <div className="mb-4 text-center">
-          <h2 className="text-sm font-medium text-gray-600">{schoolName}</h2>
-          <h1 className="mt-1 text-lg font-bold text-sky-600">{title}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Ngày {format(new Date(date), 'dd/MM/yyyy', { locale: vi })}
-            {sessionLabel && ` - ${sessionLabel}`}
+        <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: 500, color: '#4b5563', margin: 0 }}>{schoolName}</h2>
+          <h1 style={{ marginTop: '4px', fontSize: '18px', fontWeight: 700, color: '#0284c7', marginBottom: 0 }}>{title}</h1>
+          <p style={{ marginTop: '4px', fontSize: '14px', color: '#6b7280', marginBottom: 0 }}>
+            Ngày {formattedDate}{sessionLabel ? ` - ${sessionLabel}` : ''}
           </p>
         </div>
 
         {/* Summary Stats */}
-        <div className="mb-4 grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-lg bg-gray-100 p-3">
-            <div className="text-xs text-gray-500">Tổng số</div>
-            <div className="text-xl font-bold text-gray-700">{total}</div>
+        <div style={{ marginBottom: '16px', display: 'flex', textAlign: 'center' }}>
+          <div style={{ flex: 1, borderRadius: '8px', backgroundColor: '#f3f4f6', padding: '12px', marginRight: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>Tổng số</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: '#374151' }}>{total}</div>
           </div>
-          <div className="rounded-lg bg-green-50 p-3">
-            <div className="flex items-center justify-center gap-1 text-xs text-green-600">
-              <CheckCircle2 className="h-3 w-3" />
+          <div style={{ flex: 1, borderRadius: '8px', backgroundColor: '#f0fdf4', padding: '12px', marginRight: '8px' }}>
+            <div style={{ fontSize: '12px', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CheckCircle2 style={{ width: '12px', height: '12px', marginRight: '4px' }} />
               <span>Có mặt</span>
             </div>
-            <div className="text-xl font-bold text-green-600">{present}</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: '#16a34a' }}>{present}</div>
           </div>
-          <div className="rounded-lg bg-red-50 p-3">
-            <div className="flex items-center justify-center gap-1 text-xs text-red-600">
-              <XCircle className="h-3 w-3" />
+          <div style={{ flex: 1, borderRadius: '8px', backgroundColor: '#fef2f2', padding: '12px' }}>
+            <div style={{ fontSize: '12px', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <XCircle style={{ width: '12px', height: '12px', marginRight: '4px' }} />
               <span>Vắng</span>
             </div>
-            <div className="text-xl font-bold text-red-600">{absent}</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: '#dc2626' }}>{absent}</div>
           </div>
         </div>
 
         {/* Absent Students List */}
         {absent > 0 && (
-          <div className="mb-4">
-            <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-700">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              Danh sách vắng ({absent})
+          <div style={{ marginBottom: '16px' }}>
+            <h3 style={{ marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center' }}>
+              <AlertCircle style={{ width: '16px', height: '16px', color: '#ef4444', marginRight: '4px' }} />
+              <span>Danh sách vắng ({absent})</span>
             </h3>
-            <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+            <div style={{ borderRadius: '8px', border: '1px solid #e5e7eb', padding: '12px' }}>
               {Array.from(groupedByClass.entries())
                 .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
-                .map(([className, students]) => (
-                  <div key={className}>
-                    <div className="text-xs font-medium text-gray-500">
+                .map(([className, students], classIndex) => (
+                  <div key={className} style={{ marginTop: classIndex > 0 ? '8px' : 0 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280' }}>
                       Lớp {className} ({students.length})
                     </div>
-                    <div className="ml-2 space-y-0.5">
+                    <div style={{ marginLeft: '8px' }}>
                       {students.map((s, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-sm">
-                          <span className="text-gray-700">{s.name}</span>
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', fontSize: '14px', marginTop: '2px' }}>
+                          <span style={{ color: '#374151', marginRight: '8px' }}>{s.name}</span>
                           {s.excused ? (
-                            <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-700">
+                            <span style={{ borderRadius: '4px', backgroundColor: '#fef3c7', padding: '2px 6px', fontSize: '12px', color: '#a16207' }}>
                               P
                             </span>
                           ) : (
-                            <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">
+                            <span style={{ borderRadius: '4px', backgroundColor: '#fee2e2', padding: '2px 6px', fontSize: '12px', color: '#dc2626' }}>
                               KP
                             </span>
                           )}
                           {s.reason && (
-                            <span className="text-xs text-gray-400">({s.reason})</span>
+                            <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: '8px' }}>({s.reason})</span>
                           )}
                         </div>
                       ))}
@@ -115,16 +120,16 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
 
         {/* Notes */}
         {notes && (
-          <div className="mb-4 rounded-lg bg-blue-50 p-3">
-            <div className="text-xs font-medium text-blue-600">Ghi chú</div>
-            <div className="text-sm text-blue-800">{notes}</div>
+          <div style={{ marginBottom: '16px', borderRadius: '8px', backgroundColor: '#eff6ff', padding: '12px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 500, color: '#2563eb' }}>Ghi chú</div>
+            <div style={{ fontSize: '14px', color: '#1e40af' }}>{notes}</div>
           </div>
         )}
 
         {/* Footer */}
-        <div className="border-t pt-3 text-center text-xs text-gray-400">
-          <p>Người báo cáo: {reporter}</p>
-          <p>Thời gian: {reportTime}</p>
+        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', textAlign: 'center', fontSize: '12px', color: '#9ca3af' }}>
+          <p style={{ margin: 0 }}>Người báo cáo: {reporter}</p>
+          <p style={{ margin: '4px 0 0 0' }}>Thời gian: {reportTime}</p>
         </div>
       </div>
     );
