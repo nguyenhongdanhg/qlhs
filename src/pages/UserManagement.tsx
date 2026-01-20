@@ -63,6 +63,7 @@ import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
 import PermissionGroupsManager from '@/components/users/PermissionGroupsManager';
 import UserImportDialog from '@/components/users/UserImportDialog';
 import AssignPermissionGroupDialog from '@/components/users/AssignPermissionGroupDialog';
+import CreateUserDialog from '@/components/users/CreateUserDialog';
 
 const roleLabels: Record<AppRole, string> = {
   super_admin: 'Super Admin',
@@ -94,6 +95,7 @@ export default function UserManagement() {
   const [isSaving, setIsSaving] = useState(false);
   const [editingMembership, setEditingMembership] = useState<SchoolMembership | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignGroupDialogOpen, setIsAssignGroupDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -363,6 +365,13 @@ export default function UserManagement() {
                 />
               </div>
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                <Button
+                  onClick={() => setIsCreateDialogOpen(true)}
+                  className="flex-1 sm:flex-none"
+                >
+                  <UserCog className="mr-2 h-4 w-4" />
+                  Thêm mới
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setIsImportDialogOpen(true)}
@@ -636,6 +645,13 @@ export default function UserManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create User Dialog */}
+      <CreateUserDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onCreateComplete={fetchMemberships}
+      />
 
       {/* Import Dialog */}
       <UserImportDialog
