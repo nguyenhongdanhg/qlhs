@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { SchoolMembership, Profile, AppRole } from '@/types';
+import { SchoolMembership, Profile, AppRole, Class } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   UserCog,
@@ -44,6 +54,9 @@ import {
   Shield,
   Users,
   KeyRound,
+  Trash2,
+  Mail,
+  Phone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
@@ -70,10 +83,11 @@ const roleColors: Record<AppRole, string> = {
 };
 
 export default function UserManagement() {
-  const { currentSchool, isSchoolAdmin } = useAuth();
+  const { currentSchool, isSchoolAdmin, profile: currentProfile } = useAuth();
   const { toast } = useToast();
 
   const [memberships, setMemberships] = useState<(SchoolMembership & { profile: Profile })[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -82,6 +96,8 @@ export default function UserManagement() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isAssignGroupDialogOpen, setIsAssignGroupDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [singleResetUserId, setSingleResetUserId] = useState<string | null>(null);
 
@@ -93,6 +109,7 @@ export default function UserManagement() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchMemberships();
+    fetchClasses();
   }, [currentSchool]);
 
   const fetchMemberships = async () => {
@@ -125,6 +142,31 @@ export default function UserManagement() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fetchClasses = async () => {
+    if (!currentSchool) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true)
+        .order('grade', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setClasses(data || []);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+    }
+  };
+
+  const getClassName = (classId: string | null) => {
+    if (!classId) return '-';
+    const cls = classes.find(c => c.id === classId);
+    return cls?.name || classId;
   };
 
   const filteredMemberships = memberships.filter((m) => {
@@ -200,6 +242,49 @@ export default function UserManagement() {
     }
   };
 
+  const handleDeleteUsers = async () => {
+    if (!currentSchool || selectedUserIds.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-users', {
+        body: {
+          user_ids: selectedUserIds,
+          school_id: currentSchool.id,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        toast({
+          title: 'Lỗi',
+          description: data.error,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Thành công',
+        description: `Đã xóa ${data.deleted} tài khoản${data.failed > 0 ? `, ${data.failed} thất bại` : ''}`,
+      });
+
+      setSelectedUserIds([]);
+      setIsDeleteDialogOpen(false);
+      fetchMemberships();
+    } catch (error: any) {
+      console.error('Error deleting users:', error);
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể xóa tài khoản',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const toggleSelectUser = (userId: string) => {
     setSelectedUserIds((prev) =>
       prev.includes(userId)
@@ -214,6 +299,14 @@ export default function UserManagement() {
     } else {
       setSelectedUserIds(filteredMemberships.map((m) => m.user_id));
     }
+  };
+
+  // Get email display (extract from phone.local or show real email)
+  const getEmailDisplay = (profile: Profile | null) => {
+    if (!profile) return '-';
+    // If username exists and ends with @phone.local, it's a phone-based account
+    // In that case, show "-" for email column since phone is shown separately
+    return '-';
   };
 
   if (!currentSchool) {
@@ -269,7 +362,7 @@ export default function UserManagement() {
                   className="pl-9"
                 />
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   onClick={() => setIsImportDialogOpen(true)}
@@ -295,13 +388,21 @@ export default function UserManagement() {
                       <Shield className="mr-2 h-4 w-4" />
                       Gán quyền ({selectedUserIds.length})
                     </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Xóa ({selectedUserIds.length})
+                    </Button>
                   </>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Users Table */}
+          {/* Users Table - Matching Import Template */}
           <Card>
             <CardHeader>
               <CardTitle>Danh sách người dùng</CardTitle>
@@ -343,16 +444,22 @@ export default function UserManagement() {
                             onCheckedChange={toggleSelectAll}
                           />
                         </TableHead>
+                        <TableHead className="w-[60px]">STT</TableHead>
                         <TableHead>Họ và tên</TableHead>
-                        <TableHead className="hidden md:table-cell">Điện thoại</TableHead>
-                        <TableHead>Vai trò</TableHead>
+                        <TableHead>Chức vụ</TableHead>
                         <TableHead className="hidden md:table-cell">Lớp CN</TableHead>
+                        <TableHead className="hidden md:table-cell">
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-4 w-4" />
+                            SĐT
+                          </div>
+                        </TableHead>
                         <TableHead>Trạng thái</TableHead>
-                        <TableHead className="w-[100px]"></TableHead>
+                        <TableHead className="w-[120px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredMemberships.map((membership) => (
+                      {filteredMemberships.map((membership, index) => (
                         <TableRow key={membership.id}>
                           <TableCell>
                             <Checkbox
@@ -360,16 +467,17 @@ export default function UserManagement() {
                               onCheckedChange={() => toggleSelectUser(membership.user_id)}
                             />
                           </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {index + 1}
+                          </TableCell>
                           <TableCell className="font-medium">
                             <div>
                               <p>{membership.profile?.full_name || '-'}</p>
-                              <p className="text-xs text-muted-foreground md:hidden">
-                                {membership.profile?.phone || membership.profile?.username || '-'}
+                              <p className="text-xs text-muted-foreground md:hidden flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {membership.profile?.phone || '-'}
                               </p>
                             </div>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            {membership.profile?.phone || '-'}
                           </TableCell>
                           <TableCell>
                             <Badge className={cn('border', roleColors[membership.role])}>
@@ -377,7 +485,10 @@ export default function UserManagement() {
                             </Badge>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
-                            {membership.class_id || '-'}
+                            {getClassName(membership.class_id)}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {membership.profile?.phone || '-'}
                           </TableCell>
                           <TableCell>
                             <Badge variant={membership.status === 'active' ? 'default' : 'secondary'}>
@@ -471,11 +582,21 @@ export default function UserManagement() {
             {formData.role === 'class_teacher' && (
               <div className="grid gap-2">
                 <Label>Lớp chủ nhiệm</Label>
-                <Input
+                <Select
                   value={formData.class_id}
-                  onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
-                  placeholder="VD: 10A1"
-                />
+                  onValueChange={(v) => setFormData({ ...formData, class_id: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn lớp" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
@@ -491,6 +612,30 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa tài khoản</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn xóa {selectedUserIds.length} tài khoản đã chọn? 
+              Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUsers}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa {selectedUserIds.length} tài khoản
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Import Dialog */}
       <UserImportDialog
