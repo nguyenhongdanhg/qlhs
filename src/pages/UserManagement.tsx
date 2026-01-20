@@ -106,6 +106,8 @@ export default function UserManagement() {
   const [formData, setFormData] = useState({
     role: 'teacher' as AppRole,
     class_id: '',
+    full_name: '',
+    phone: '',
   });
 
   useEffect(() => {
@@ -179,11 +181,13 @@ export default function UserManagement() {
     return name.includes(query) || phone.includes(query) || username.includes(query);
   });
 
-  const handleOpenEditDialog = (membership: SchoolMembership) => {
+  const handleOpenEditDialog = (membership: SchoolMembership & { profile: Profile }) => {
     setEditingMembership(membership);
     setFormData({
       role: membership.role,
       class_id: membership.class_id || '',
+      full_name: membership.profile?.full_name || '',
+      phone: membership.profile?.phone || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -193,7 +197,8 @@ export default function UserManagement() {
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
+      // Update membership (role, class)
+      const { error: membershipError } = await supabase
         .from('school_memberships')
         .update({
           role: formData.role,
@@ -201,16 +206,27 @@ export default function UserManagement() {
         })
         .eq('id', editingMembership.id);
 
-      if (error) throw error;
+      if (membershipError) throw membershipError;
 
-      toast({ title: 'Thành công', description: 'Đã cập nhật quyền người dùng' });
+      // Update profile (name, phone)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: formData.full_name,
+          phone: formData.phone || null,
+        })
+        .eq('id', editingMembership.user_id);
+
+      if (profileError) throw profileError;
+
+      toast({ title: 'Thành công', description: 'Đã cập nhật thông tin người dùng' });
       setIsEditDialogOpen(false);
       fetchMemberships();
     } catch (error: any) {
       console.error('Error updating membership:', error);
       toast({
         title: 'Lỗi',
-        description: error.message || 'Không thể cập nhật quyền',
+        description: error.message || 'Không thể cập nhật thông tin',
         variant: 'destructive',
       });
     } finally {
@@ -562,59 +578,84 @@ export default function UserManagement() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sửa quyền người dùng</DialogTitle>
+            <DialogTitle>Sửa thông tin người dùng</DialogTitle>
             <DialogDescription>
-              Cập nhật vai trò và phân công cho người dùng
+              Cập nhật thông tin cá nhân, vai trò và phân công
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            {/* Personal Info */}
             <div className="grid gap-2">
-              <Label>Vai trò</Label>
-              <Select
-                value={formData.role}
-                onValueChange={(v) => setFormData({ ...formData, role: v as AppRole })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Quản trị viên</SelectItem>
-                  <SelectItem value="teacher">Giáo viên</SelectItem>
-                  <SelectItem value="class_teacher">Giáo viên chủ nhiệm</SelectItem>
-                  <SelectItem value="accountant">Kế toán</SelectItem>
-                  <SelectItem value="kitchen">Nhà bếp</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Họ và tên</Label>
+              <Input
+                value={formData.full_name}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                placeholder="Nhập họ và tên"
+              />
             </div>
 
-            {formData.role === 'class_teacher' && (
-              <div className="grid gap-2">
-                <Label>Lớp chủ nhiệm</Label>
-                <Select
-                  value={formData.class_id}
-                  onValueChange={(v) => setFormData({ ...formData, class_id: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn lớp" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {cls.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="grid gap-2">
+              <Label>Số điện thoại</Label>
+              <Input
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="Nhập số điện thoại"
+              />
+            </div>
+
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Vai trò & Phân công</p>
+              
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label>Vai trò</Label>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(v) => setFormData({ ...formData, role: v as AppRole })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Quản trị viên</SelectItem>
+                      <SelectItem value="teacher">Giáo viên</SelectItem>
+                      <SelectItem value="class_teacher">Giáo viên chủ nhiệm</SelectItem>
+                      <SelectItem value="accountant">Kế toán</SelectItem>
+                      <SelectItem value="kitchen">Nhà bếp</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.role === 'class_teacher' && (
+                  <div className="grid gap-2">
+                    <Label>Lớp chủ nhiệm</Label>
+                    <Select
+                      value={formData.class_id}
+                      onValueChange={(v) => setFormData({ ...formData, class_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn lớp" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id}>
+                            {cls.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSaving}>
               Hủy
             </Button>
-            <Button onClick={handleUpdateMembership} disabled={isSaving}>
+            <Button onClick={handleUpdateMembership} disabled={isSaving || !formData.full_name.trim()}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Lưu
             </Button>
