@@ -149,9 +149,10 @@ export default function Statistics() {
 
   // Fetch latest reports and daily meal stats when date changes
   useEffect(() => {
-    if (!currentSchool) return;
+    if (!currentSchool || students.length === 0 || classes.length === 0) return;
     fetchDailyData();
-  }, [currentSchool, selectedDate, students, classes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSchool, selectedDate, students.length, classes.length]);
 
   // Fetch rice statistics and inventory
   useEffect(() => {
@@ -162,7 +163,7 @@ export default function Statistics() {
 
   // Subscribe to realtime updates for attendance_records
   useEffect(() => {
-    if (!currentSchool) return;
+    if (!currentSchool || students.length === 0) return;
 
     const channel = supabase
       .channel('statistics-realtime')
@@ -186,7 +187,8 @@ export default function Statistics() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentSchool, selectedDate, students, classes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSchool, selectedDate, students.length]);
 
   const fetchBasicData = async () => {
     if (!currentSchool) return;
@@ -220,8 +222,7 @@ export default function Statistics() {
   };
 
   const fetchDailyData = async () => {
-    if (!currentSchool || students.length === 0) {
-      setIsLoading(false);
+    if (!currentSchool || students.length === 0 || classes.length === 0) {
       return;
     }
     setIsLoading(true);
