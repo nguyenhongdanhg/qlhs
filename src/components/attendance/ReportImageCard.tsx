@@ -37,6 +37,11 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
 
     const formattedDate = format(new Date(date), 'dd/MM/yyyy', { locale: vi });
 
+    const baseTextStyle = {
+      letterSpacing: '0.01em',
+      wordSpacing: '0.05em',
+    };
+
     return (
       <div
         ref={ref}
@@ -44,35 +49,36 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
           width: '400px',
           backgroundColor: 'white',
           padding: '20px',
-          fontFamily: 'system-ui, -apple-system, sans-serif'
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          ...baseTextStyle
         }}
       >
         {/* Header */}
         <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: 500, color: '#4b5563', margin: 0 }}>{schoolName}</h2>
-          <h1 style={{ marginTop: '4px', fontSize: '18px', fontWeight: 700, color: '#0284c7', marginBottom: 0 }}>{title}</h1>
-          <p style={{ marginTop: '4px', fontSize: '14px', color: '#6b7280', marginBottom: 0 }}>
-            Ngày {formattedDate}{sessionLabel ? ` - ${sessionLabel}` : ''}
+          <h2 style={{ fontSize: '14px', fontWeight: 500, color: '#4b5563', margin: 0, ...baseTextStyle }}>{schoolName}</h2>
+          <h1 style={{ marginTop: '4px', fontSize: '18px', fontWeight: 700, color: '#0284c7', marginBottom: 0, letterSpacing: '0.02em' }}>{title}</h1>
+          <p style={{ marginTop: '4px', fontSize: '14px', color: '#6b7280', marginBottom: 0, ...baseTextStyle }}>
+            {'Ngày '}{formattedDate}{sessionLabel ? ` - ${sessionLabel}` : ''}
           </p>
         </div>
 
         {/* Summary Stats */}
         <div style={{ marginBottom: '16px', display: 'flex', textAlign: 'center' }}>
           <div style={{ flex: 1, borderRadius: '8px', backgroundColor: '#f3f4f6', padding: '12px', marginRight: '8px' }}>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Tổng số</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', ...baseTextStyle }}>{'Tổng số'}</div>
             <div style={{ fontSize: '24px', fontWeight: 700, color: '#374151' }}>{total}</div>
           </div>
           <div style={{ flex: 1, borderRadius: '8px', backgroundColor: '#f0fdf4', padding: '12px', marginRight: '8px' }}>
             <div style={{ fontSize: '12px', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CheckCircle2 style={{ width: '12px', height: '12px', marginRight: '4px' }} />
-              <span>Có mặt</span>
+              <span style={baseTextStyle}>{'Có mặt'}</span>
             </div>
             <div style={{ fontSize: '24px', fontWeight: 700, color: '#16a34a' }}>{present}</div>
           </div>
           <div style={{ flex: 1, borderRadius: '8px', backgroundColor: '#fef2f2', padding: '12px' }}>
             <div style={{ fontSize: '12px', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <XCircle style={{ width: '12px', height: '12px', marginRight: '4px' }} />
-              <span>Vắng</span>
+              <span style={baseTextStyle}>{'Vắng'}</span>
             </div>
             <div style={{ fontSize: '24px', fontWeight: 700, color: '#dc2626' }}>{absent}</div>
           </div>
@@ -81,22 +87,22 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
         {/* Absent Students List */}
         {absent > 0 && (
           <div style={{ marginBottom: '16px' }}>
-            <h3 style={{ marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center' }}>
-              <AlertCircle style={{ width: '16px', height: '16px', color: '#ef4444', marginRight: '4px' }} />
-              <span>Danh sách vắng ({absent})</span>
+            <h3 style={{ marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', ...baseTextStyle }}>
+              <AlertCircle style={{ width: '16px', height: '16px', color: '#ef4444', marginRight: '6px' }} />
+              <span>{'Danh sách vắng'}{` (${absent})`}</span>
             </h3>
             <div style={{ borderRadius: '8px', border: '1px solid #e5e7eb', padding: '12px' }}>
               {Array.from(groupedByClass.entries())
                 .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
                 .map(([className, students], classIndex) => (
                   <div key={className} style={{ marginTop: classIndex > 0 ? '8px' : 0 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280' }}>
-                      Lớp {className} ({students.length})
+                    <div style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', ...baseTextStyle }}>
+                      {'Lớp '}{className}{` (${students.length})`}
                     </div>
                     <div style={{ marginLeft: '8px' }}>
                       {students.map((s, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', fontSize: '14px', marginTop: '2px' }}>
-                          <span style={{ color: '#374151', marginRight: '8px' }}>{s.name}</span>
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', fontSize: '14px', marginTop: '4px', flexWrap: 'wrap' }}>
+                          <span style={{ color: '#374151', marginRight: '8px', ...baseTextStyle }}>{s.name}</span>
                           {s.excused ? (
                             <span style={{ borderRadius: '4px', backgroundColor: '#fef3c7', padding: '2px 6px', fontSize: '12px', color: '#a16207' }}>
                               P
@@ -107,7 +113,7 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
                             </span>
                           )}
                           {s.reason && (
-                            <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: '8px' }}>({s.reason})</span>
+                            <span style={{ fontSize: '12px', color: '#9ca3af', marginLeft: '8px', ...baseTextStyle }}>{`(${s.reason})`}</span>
                           )}
                         </div>
                       ))}
@@ -121,15 +127,15 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
         {/* Notes */}
         {notes && (
           <div style={{ marginBottom: '16px', borderRadius: '8px', backgroundColor: '#eff6ff', padding: '12px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 500, color: '#2563eb' }}>Ghi chú</div>
-            <div style={{ fontSize: '14px', color: '#1e40af' }}>{notes}</div>
+            <div style={{ fontSize: '12px', fontWeight: 500, color: '#2563eb', ...baseTextStyle }}>{'Ghi chú'}</div>
+            <div style={{ fontSize: '14px', color: '#1e40af', ...baseTextStyle }}>{notes}</div>
           </div>
         )}
 
         {/* Footer */}
         <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', textAlign: 'center', fontSize: '12px', color: '#9ca3af' }}>
-          <p style={{ margin: 0 }}>Người báo cáo: {reporter}</p>
-          <p style={{ margin: '4px 0 0 0' }}>Thời gian: {reportTime}</p>
+          <p style={{ margin: 0, ...baseTextStyle }}>{'Người báo cáo: '}{reporter}</p>
+          <p style={{ margin: '4px 0 0 0', ...baseTextStyle }}>{'Thời gian: '}{reportTime}</p>
         </div>
       </div>
     );
