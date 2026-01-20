@@ -926,10 +926,10 @@ export default function DutySchedule() {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
-                          <TableHead className="w-12 text-center sticky left-0 bg-muted/50 z-20 border-r">STT</TableHead>
-                          <TableHead className="min-w-[140px] sticky left-12 bg-muted/50 z-20 border-r">Họ tên</TableHead>
-                          <TableHead className="w-16 text-center sticky left-[196px] bg-muted/50 z-20 border-r">Số lần</TableHead>
-                          <TableHead className="w-12 text-center sticky left-[260px] bg-muted/50 z-20 border-r">Xóa</TableHead>
+                          <TableHead className="w-10 text-center sticky left-0 bg-muted/50 z-20 border-r px-1">STT</TableHead>
+                          <TableHead className="min-w-[180px] sticky left-10 bg-muted/50 z-20 border-r">Họ tên</TableHead>
+                          <TableHead className="w-14 text-center sticky left-[220px] bg-muted/50 z-20 border-r px-1">Lần</TableHead>
+                          <TableHead className="w-10 text-center sticky left-[276px] bg-muted/50 z-20 border-r px-0"></TableHead>
                           {daysInMonth.map((day, i) => {
                             const dayName = getDayName(day);
                             const dayCount = dutiesPerDay[format(day, 'yyyy-MM-dd')] || 0;
@@ -980,37 +980,37 @@ export default function DutySchedule() {
 
                           return (
                             <TableRow key={member.id} className={cn(isFull && "bg-yellow-50/50 dark:bg-yellow-950/10")}>
-                              <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r">
+                              <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r px-1 text-xs">
                                 {idx + 1}
                               </TableCell>
-                              <TableCell className="sticky left-12 bg-background z-10 border-r">
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              <TableCell className="sticky left-10 bg-background z-10 border-r py-1">
+                                <div className="flex items-center gap-1.5">
+                                  <Avatar className="h-5 w-5 shrink-0">
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                       {getInitials(member.full_name)}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="font-medium text-sm truncate max-w-[100px]">
+                                  <span className="font-medium text-sm whitespace-nowrap">
                                     {member.full_name}
                                   </span>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-center sticky left-[196px] bg-background z-10 border-r">
-                                <Badge variant={isFull ? "destructive" : "outline"} className="min-w-[36px]">
+                              <TableCell className="text-center sticky left-[220px] bg-background z-10 border-r px-1">
+                                <Badge variant={isFull ? "destructive" : "outline"} className="text-[10px] px-1.5 py-0">
                                   {memberDutyCount}/{MAX_PER_PERSON}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-center sticky left-[260px] bg-background z-10 border-r">
+                              <TableCell className="text-center sticky left-[276px] bg-background z-10 border-r px-0">
                                 {isSchoolAdmin() && (
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-6 w-6"
+                                        className="h-5 w-5"
                                         disabled={isSaving}
                                       >
-                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                        <Trash2 className="h-3 w-3 text-destructive" />
                                       </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
