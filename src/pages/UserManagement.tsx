@@ -83,6 +83,7 @@ export default function UserManagement() {
   const [isAssignGroupDialogOpen, setIsAssignGroupDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [singleResetUserId, setSingleResetUserId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     role: 'teacher' as AppRole,
@@ -389,13 +390,26 @@ export default function UserManagement() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleOpenEditDialog(membership)}
+                                title="Sửa quyền"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => {
+                                  setSingleResetUserId(membership.user_id);
+                                  setIsResetPasswordDialogOpen(true);
+                                }}
+                                title="Reset mật khẩu"
+                              >
+                                <KeyRound className="h-4 w-4 text-warning" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => handleToggleStatus(membership)}
+                                title={membership.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'}
                               >
                                 {membership.status === 'active' ? (
                                   <UserX className="h-4 w-4 text-destructive" />
@@ -499,10 +513,16 @@ export default function UserManagement() {
       {/* Reset Password Dialog */}
       <ResetPasswordDialog
         open={isResetPasswordDialogOpen}
-        onOpenChange={setIsResetPasswordDialogOpen}
-        selectedUserIds={selectedUserIds}
+        onOpenChange={(open) => {
+          setIsResetPasswordDialogOpen(open);
+          if (!open) {
+            setSingleResetUserId(null);
+          }
+        }}
+        selectedUserIds={singleResetUserId ? [singleResetUserId] : selectedUserIds}
         onResetComplete={() => {
           setSelectedUserIds([]);
+          setSingleResetUserId(null);
         }}
       />
     </div>
