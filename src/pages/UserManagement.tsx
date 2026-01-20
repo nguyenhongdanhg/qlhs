@@ -108,6 +108,7 @@ export default function UserManagement() {
     class_id: '',
     full_name: '',
     phone: '',
+    position: '',
   });
 
   useEffect(() => {
@@ -188,6 +189,7 @@ export default function UserManagement() {
       class_id: membership.class_id || '',
       full_name: membership.profile?.full_name || '',
       phone: membership.profile?.phone || '',
+      position: membership.profile?.position || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -208,12 +210,13 @@ export default function UserManagement() {
 
       if (membershipError) throw membershipError;
 
-      // Update profile (name, phone)
+      // Update profile (name, phone, position)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           full_name: formData.full_name,
           phone: formData.phone || null,
+          position: formData.position || null,
         })
         .eq('id', editingMembership.user_id);
 
@@ -471,7 +474,8 @@ export default function UserManagement() {
                         </TableHead>
                         <TableHead className="w-[60px]">STT</TableHead>
                         <TableHead>Họ và tên</TableHead>
-                        <TableHead>Chức vụ</TableHead>
+                        <TableHead className="hidden md:table-cell">Chức vụ</TableHead>
+                        <TableHead>Vai trò</TableHead>
                         <TableHead className="hidden md:table-cell">Lớp CN</TableHead>
                         <TableHead className="hidden md:table-cell">
                           <div className="flex items-center gap-1">
@@ -503,6 +507,9 @@ export default function UserManagement() {
                                 {membership.profile?.phone || '-'}
                               </p>
                             </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground">
+                            {(membership.profile as any)?.position || '-'}
                           </TableCell>
                           <TableCell>
                             <Badge className={cn('border', roleColors[membership.role])}>
@@ -601,6 +608,15 @@ export default function UserManagement() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="Nhập số điện thoại"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Chức vụ</Label>
+              <Input
+                value={formData.position}
+                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                placeholder="VD: Hiệu trưởng, Phó hiệu trưởng, Tổ trưởng..."
               />
             </div>
 
