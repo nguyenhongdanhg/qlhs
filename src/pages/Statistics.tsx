@@ -26,11 +26,13 @@ import {
   ChevronUp,
   AlertCircle,
   FileSpreadsheet,
+  Image,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Student, Class, AttendanceType } from '@/types';
 import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
+import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDialog';
 
 interface AbsentStudent {
   id: string;
@@ -92,6 +94,9 @@ export default function Statistics() {
   const [totalRiceInRange, setTotalRiceInRange] = useState(0);
   const [isLoadingRice, setIsLoadingRice] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Share meal report dialog
+  const [shareMealDialogOpen, setShareMealDialogOpen] = useState(false);
 
   // Expand/collapse states
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -897,10 +902,22 @@ export default function Statistics() {
 
             {/* Daily Meal Stats */}
             <div>
-              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                <UtensilsCrossed className="h-5 w-5 text-primary" />
-                Báo cơm cả trường - {format(selectedDate, 'dd/MM/yyyy')}
-              </h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <UtensilsCrossed className="h-5 w-5 text-primary" />
+                  Báo cơm cả trường - {format(selectedDate, 'dd/MM/yyyy')}
+                </h2>
+                {dailyMealStats && (dailyMealStats.breakfast.hasReport || dailyMealStats.lunch.hasReport || dailyMealStats.dinner.hasReport) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShareMealDialogOpen(true)}
+                  >
+                    <Image className="h-4 w-4 mr-2" />
+                    Xuất ảnh
+                  </Button>
+                )}
+              </div>
 
               {dailyMealStats && (
                 <>
@@ -1104,6 +1121,21 @@ export default function Statistics() {
             </Card>
           </TabsContent>
         </Tabs>
+      )}
+
+      {/* Share Meal Report Dialog */}
+      {dailyMealStats && currentSchool && (
+        <ShareMealReportDialog
+          open={shareMealDialogOpen}
+          onOpenChange={setShareMealDialogOpen}
+          schoolName={currentSchool.name}
+          date={selectedDate}
+          reporter={profile?.full_name || 'N/A'}
+          breakfast={dailyMealStats.breakfast as MealStats}
+          lunch={dailyMealStats.lunch as MealStats}
+          dinner={dailyMealStats.dinner as MealStats}
+          totalRice={dailyMealStats.totalRice}
+        />
       )}
     </div>
   );
