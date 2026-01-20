@@ -26,6 +26,11 @@ Deno.serve(async (req) => {
       
       if (existingUser) {
         console.log(`User ${email} already exists:`, existingUser.id);
+        // Update password to ensure it's correct
+        await supabase.auth.admin.updateUserById(existingUser.id, {
+          password: password,
+        });
+        console.log(`Updated password for ${email}`);
         // Update profile
         await supabase
           .from("profiles")
