@@ -526,7 +526,7 @@ export default function UserManagement() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleOpenEditDialog(membership)}
-                                title="Sửa quyền"
+                                title="Sửa thông tin & chức vụ"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
