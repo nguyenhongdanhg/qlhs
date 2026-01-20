@@ -38,9 +38,9 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: 'LayoutDashboard', path: '/dashboard' },
-  { code: 'students', label: 'Học sinh', icon: 'Users', path: '/students' },
-  { code: 'evening_study', label: 'Tự học', icon: 'Moon', path: '/evening-study' },
+  { code: 'meals', label: 'Bữa ăn', icon: 'UtensilsCrossed', path: '/meals' },
   { code: 'boarding', label: 'Nội trú', icon: 'Home', path: '/boarding' },
+  { code: 'evening_study', label: 'Tự học', icon: 'Moon', path: '/evening-study' },
   { code: 'menu', label: 'Thêm', icon: 'Menu', path: '/menu' },
 ];
 

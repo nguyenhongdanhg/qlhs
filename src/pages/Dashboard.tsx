@@ -149,17 +149,17 @@ export default function Dashboard() {
   }, [currentSchool, dateStr]);
 
   const quickActions = [
-    { label: 'Điểm danh nội trú', icon: Home, path: '/boarding', color: 'text-blue-500 bg-blue-50' },
-    { label: 'Điểm danh giờ học', icon: BookOpen, path: '/evening-study', color: 'text-orange-500 bg-orange-50' },
-    { label: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals', color: 'text-purple-500 bg-purple-50' },
-    { label: 'Xem thống kê', icon: BarChart3, path: '/statistics', color: 'text-green-500 bg-green-50' },
+    { label: 'Điểm danh nội trú', icon: Home, path: '/boarding', color: 'text-sky-600 bg-sky-100' },
+    { label: 'Điểm danh giờ học', icon: BookOpen, path: '/evening-study', color: 'text-amber-600 bg-amber-100' },
+    { label: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals', color: 'text-violet-600 bg-violet-100' },
+    { label: 'Xem thống kê', icon: BarChart3, path: '/statistics', color: 'text-emerald-600 bg-emerald-100' },
   ];
 
   const statCards = [
-    { label: 'Học sinh', value: stats?.totalStudents || 0, icon: Users, color: 'text-blue-500 bg-blue-50 border-blue-200' },
-    { label: 'Nội trú', value: stats?.boardingStudents || 0, icon: Home, color: 'text-green-500 bg-green-50 border-green-200' },
-    { label: 'Giáo viên', value: stats?.totalTeachers || 0, icon: GraduationCap, color: 'text-orange-500 bg-orange-50 border-orange-200' },
-    { label: 'Lớp học', value: stats?.totalClasses || 0, icon: Building2, color: 'text-purple-500 bg-purple-50 border-purple-200' },
+    { label: 'Học sinh', value: stats?.totalStudents || 0, icon: Users, color: 'bg-sky-50 text-sky-600 border-sky-200' },
+    { label: 'Nội trú', value: stats?.boardingStudents || 0, icon: Home, color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+    { label: 'Giáo viên', value: stats?.totalTeachers || 0, icon: GraduationCap, color: 'bg-amber-50 text-amber-600 border-amber-200' },
+    { label: 'Lớp học', value: stats?.totalClasses || 0, icon: Building2, color: 'bg-violet-50 text-violet-600 border-violet-200' },
   ];
 
   if (!currentSchool) {
@@ -200,61 +200,63 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* Stats Cards */}
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-6">
-            {statCards.map(({ label, value, icon: Icon, color }) => (
-              <Card key={label} className={cn('border', color.split(' ')[2])}>
-                <CardContent className="p-4">
-                  <div className={cn('inline-flex items-center justify-center rounded-lg p-2 mb-2', color.split(' ').slice(0, 2).join(' '))}>
-                    <Icon className={cn('h-5 w-5', color.split(' ')[0])} />
-                  </div>
-                  <p className="text-2xl font-bold">{value}</p>
-                  <p className="text-sm text-muted-foreground">{label}</p>
-                </CardContent>
-              </Card>
-            ))}
+          {/* Stats Cards - Compact */}
+          <div className="grid gap-3 grid-cols-4 mb-4">
+            {statCards.map(({ label, value, icon: Icon, color }) => {
+              const colors = color.split(' ');
+              const bgColor = colors[0];
+              const textColor = colors[1];
+              return (
+                <Card key={label} className={cn('border', colors[2])}>
+                  <CardContent className="p-3 flex flex-col items-center text-center">
+                    <div className={cn('rounded-lg p-1.5 mb-1', bgColor)}>
+                      <Icon className={cn('h-4 w-4', textColor)} />
+                    </div>
+                    <p className="text-lg font-bold leading-none">{value}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
-          {/* Quick Actions */}
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mb-6">
+          {/* Quick Actions - Compact 2x2 grid on mobile */}
+          <div className="grid gap-2 grid-cols-2 lg:grid-cols-4 mb-4">
             {quickActions.map(({ label, icon: Icon, path, color }) => (
               <Link key={path} to={path}>
-                <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/50">
-                  <CardContent className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <div className={cn('rounded-lg p-2', color)}>
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <span className="font-medium text-sm">{label}</span>
+                <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/50 h-full">
+                  <CardContent className="flex items-center gap-2 p-3">
+                    <div className={cn('rounded-lg p-2 shrink-0', color)}>
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                    <span className="font-medium text-xs leading-tight">{label}</span>
                   </CardContent>
                 </Card>
               </Link>
             ))}
           </div>
 
-          {/* Today Progress */}
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
+          {/* Today Progress - Compact */}
+          <Card className="mb-4">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
-                  <h3 className="font-semibold">Tiến độ hôm nay</h3>
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-sm">Tiến độ hôm nay</h3>
                 </div>
-                <span className="text-sm text-muted-foreground">0/7</span>
+                <span className="text-xs text-muted-foreground">0/7</span>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-3 grid-cols-3">
                 {/* Meals */}
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <UtensilsCrossed className="h-4 w-4 text-purple-500" />
-                    <span className="text-sm font-medium">Bữa ăn</span>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <UtensilsCrossed className="h-3.5 w-3.5 text-accent" />
+                    <span className="text-xs font-medium">Bữa ăn</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-1">
                     {['Sáng', 'Trưa', 'Tối'].map((meal) => (
-                      <span key={meal} className="px-3 py-1 text-xs rounded-full bg-muted text-muted-foreground">
+                      <span key={meal} className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
                         {meal}
                       </span>
                     ))}
@@ -263,13 +265,13 @@ export default function Dashboard() {
 
                 {/* Boarding */}
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Home className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm font-medium">Nội trú</span>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Home className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-medium">Nội trú</span>
                   </div>
-                  <div className="flex gap-2">
-                    {['Thể dục', 'Ngủ trưa', 'Ngủ tối'].map((item) => (
-                      <span key={item} className="px-3 py-1 text-xs rounded-full bg-muted text-muted-foreground">
+                  <div className="flex flex-wrap gap-1">
+                    {['TD', 'Trưa', 'Tối'].map((item) => (
+                      <span key={item} className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
                         {item}
                       </span>
                     ))}
@@ -278,38 +280,36 @@ export default function Dashboard() {
 
                 {/* Study */}
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <BookOpen className="h-4 w-4 text-orange-500" />
-                    <span className="text-sm font-medium">Tự học</span>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <BookOpen className="h-3.5 w-3.5 text-warning" />
+                    <span className="text-xs font-medium">Tự học</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 text-xs rounded-full bg-muted text-muted-foreground">
-                      Chưa điểm
-                    </span>
-                  </div>
+                  <span className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
+                    Chưa điểm
+                  </span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Bottom Grid */}
-          <div className="grid gap-6 lg:grid-cols-2">
+          {/* Bottom Grid - Compact */}
+          <div className="grid gap-3 lg:grid-cols-2">
             {/* Meals Today */}
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <UtensilsCrossed className="h-5 w-5 text-purple-500" />
-                  <h3 className="font-semibold">Bữa ăn hôm nay</h3>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <UtensilsCrossed className="h-4 w-4 text-accent" />
+                  <h3 className="font-semibold text-sm">Bữa ăn hôm nay</h3>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: 'Sáng', value: stats?.mealStats.breakfast || '--' },
                     { label: 'Trưa', value: stats?.mealStats.lunch || '--' },
                     { label: 'Tối', value: stats?.mealStats.dinner || '--' },
                   ].map(({ label, value }) => (
-                    <div key={label} className="text-center p-3 rounded-lg bg-muted/50">
-                      <p className="text-sm text-muted-foreground">{label}</p>
-                      <p className="text-lg font-semibold">{value}</p>
+                    <div key={label} className="text-center p-2 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="text-base font-semibold">{value}</p>
                     </div>
                   ))}
                 </div>
@@ -318,23 +318,23 @@ export default function Dashboard() {
 
             {/* Boarding Stats */}
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Home className="h-5 w-5 text-blue-500" />
-                  <h3 className="font-semibold">Nội trú gần nhất</h3>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <Home className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-sm">Nội trú gần nhất</h3>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { label: 'Thể dục', value: 99, total: 483, max: 486 },
                     { label: 'Ngủ trưa', value: 96, total: 48, max: 50 },
                     { label: 'Ngủ tối', value: 90, total: 45, max: 50 },
                   ].map(({ label, value, total, max }) => (
                     <div key={label} className="text-center">
-                      <p className="text-sm text-muted-foreground mb-1">{label}</p>
-                      <p className={cn('text-2xl font-bold', value >= 95 ? 'text-green-500' : value >= 90 ? 'text-orange-500' : 'text-red-500')}>
+                      <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+                      <p className={cn('text-lg font-bold', value >= 95 ? 'text-success' : value >= 90 ? 'text-warning' : 'text-destructive')}>
                         {value}%
                       </p>
-                      <p className="text-xs text-muted-foreground">{total}/{max}</p>
+                      <p className="text-[10px] text-muted-foreground">{total}/{max}</p>
                     </div>
                   ))}
                 </div>
@@ -342,49 +342,48 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Grade Stats */}
+          {/* Grade Stats - Compact */}
           {stats?.gradeStats && stats.gradeStats.length > 0 && (
-            <Card className="mt-6">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Users className="h-5 w-5 text-blue-500" />
-                  <h3 className="font-semibold">Thống kê theo khối</h3>
+            <Card className="mt-4">
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-sm">Thống kê theo khối</h3>
                 </div>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                   {stats.gradeStats.map(({ grade, total, boarding }) => (
-                    <div key={grade} className="text-center">
-                      <p className="text-sm text-muted-foreground mb-1">Khối {grade}</p>
-                      <p className="text-xl font-bold">{total}</p>
-                      <p className="text-xs text-blue-500">{boarding} nội trú</p>
+                    <div key={grade} className="text-center p-2 rounded-lg bg-muted/30">
+                      <p className="text-xs text-muted-foreground">Khối {grade}</p>
+                      <p className="text-base font-bold">{total}</p>
+                      <p className="text-[10px] text-primary">{boarding} nội trú</p>
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-end gap-4 mt-4 pt-4 border-t">
-                  <span className="text-sm">Tổng cộng</span>
-                  <span className="font-bold text-green-500">{stats.totalStudents} học sinh</span>
-                  <span className="font-bold text-blue-500">{stats.boardingStudents} nội trú</span>
+                <div className="flex justify-center gap-4 mt-3 pt-3 border-t text-xs">
+                  <span className="text-muted-foreground">Tổng:</span>
+                  <span className="font-bold text-success">{stats.totalStudents} HS</span>
+                  <span className="font-bold text-primary">{stats.boardingStudents} NT</span>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Evening Study Progress */}
-          <Card className="mt-6">
-            <CardContent className="p-4">
+          {/* Evening Study Progress - Compact */}
+          <Card className="mt-4">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-orange-500" />
-                  <h3 className="font-semibold">Tự học tối gần nhất</h3>
+                  <BookOpen className="h-4 w-4 text-warning" />
+                  <h3 className="font-semibold text-sm">Tự học tối gần nhất</h3>
                 </div>
-                <span className="text-sm text-muted-foreground">{format(today, 'dd/MM/yyyy')}</span>
+                <span className="text-xs text-muted-foreground">{format(today, 'dd/MM')}</span>
               </div>
-              <div className="flex items-center gap-4">
-                <Progress value={99} className="flex-1 h-3" />
-                <div className="text-right">
-                  <span className="text-xl font-bold text-green-500">483</span>
-                  <span className="text-muted-foreground">/486</span>
+              <div className="flex items-center gap-3">
+                <Progress value={99} className="flex-1 h-2" />
+                <div className="flex items-baseline gap-1">
+                  <span className="text-base font-bold text-success">483</span>
+                  <span className="text-xs text-muted-foreground">/486</span>
                 </div>
-                <span className="text-sm text-muted-foreground">Vắng: 3</span>
               </div>
             </CardContent>
           </Card>
