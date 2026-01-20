@@ -8,9 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ExcuseReasonDialogProps {
   open: boolean;
@@ -19,27 +19,16 @@ interface ExcuseReasonDialogProps {
   onSave: (excused: boolean, reason: string) => void;
 }
 
-const COMMON_REASONS = [
-  'Ốm, nghỉ tại nhà',
-  'Có lịch khám bệnh',
-  'Việc gia đình',
-  'Đi thi/tập huấn',
-  'Được phép về sớm',
-];
-
 export function ExcuseReasonDialog({ open, onOpenChange, studentName, onSave }: ExcuseReasonDialogProps) {
   const [excused, setExcused] = useState(true);
   const [reason, setReason] = useState('');
-  const [customReason, setCustomReason] = useState('');
 
   const handleSave = () => {
-    const finalReason = reason === 'custom' ? customReason : reason;
-    onSave(excused, finalReason);
+    onSave(excused, reason);
     onOpenChange(false);
     // Reset
     setExcused(true);
     setReason('');
-    setCustomReason('');
   };
 
   return (
@@ -75,31 +64,14 @@ export function ExcuseReasonDialog({ open, onOpenChange, studentName, onSave }: 
           </div>
 
           <div className="space-y-2">
-            <Label>Lý do</Label>
-            <RadioGroup value={reason} onValueChange={setReason} className="space-y-2">
-              {COMMON_REASONS.map((r) => (
-                <div key={r} className="flex items-center space-x-2">
-                  <RadioGroupItem value={r} id={r} />
-                  <Label htmlFor={r} className="font-normal cursor-pointer">
-                    {r}
-                  </Label>
-                </div>
-              ))}
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="custom" id="custom" />
-                <Label htmlFor="custom" className="font-normal cursor-pointer">
-                  Khác
-                </Label>
-              </div>
-            </RadioGroup>
-            {reason === 'custom' && (
-              <Input
-                placeholder="Nhập lý do khác..."
-                value={customReason}
-                onChange={(e) => setCustomReason(e.target.value)}
-                className="mt-2"
-              />
-            )}
+            <Label htmlFor="reason">Lý do</Label>
+            <Textarea
+              id="reason"
+              placeholder="Nhập lý do vắng mặt..."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="min-h-[80px]"
+            />
           </div>
         </div>
         <DialogFooter>
