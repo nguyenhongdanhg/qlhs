@@ -661,14 +661,19 @@ export default function Boarding() {
               </Button>
             </div>
 
-            {/* Students Grid with fixed height scroll */}
+            {/* Students List - Compact for mobile */}
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : filteredStudents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <Users className="h-10 w-10 mb-2 opacity-50" />
+                <p className="text-sm">Chọn lớp để xem danh sách học sinh</p>
               </div>
             ) : (
-              <div className="max-h-[400px] overflow-y-auto border rounded-lg p-2">
-                <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              <div className="max-h-[50vh] overflow-y-auto border rounded-lg">
+                <div className="divide-y">
                   {filteredStudents.map((student) => {
                     const status = attendance[student.id];
                     const isAbsent = status === 'absent' || status === 'excused';
@@ -678,26 +683,28 @@ export default function Boarding() {
                         key={student.id}
                         onClick={() => handleToggleAbsent(student)}
                         className={cn(
-                          'flex items-center gap-2 p-3 rounded-lg border text-left transition-all',
-                          isAbsent
-                            ? 'border-red-300 bg-red-50'
-                            : 'border-border hover:border-primary/50'
+                          'w-full flex items-center gap-2 px-3 py-2 text-left transition-all',
+                          isAbsent ? 'bg-destructive/10' : 'hover:bg-muted/50'
                         )}
                       >
                         <div className={cn(
-                          'w-5 h-5 rounded-full border-2 flex-shrink-0',
-                          isAbsent ? 'border-red-500 bg-red-500' : 'border-muted-foreground'
-                        )} />
+                          'w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center',
+                          isAbsent ? 'border-destructive bg-destructive' : 'border-primary bg-primary'
+                        )}>
+                          {!isAbsent && <CheckCircle2 className="h-3 w-3 text-white" />}
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <span className={cn("truncate text-sm block", isAbsent && "text-red-700")}>{student.full_name}</span>
-                          <span className="text-xs text-muted-foreground">{student.class?.name}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn("font-medium text-sm truncate", isAbsent && "text-destructive")}>{student.full_name}</span>
+                            <span className="text-xs text-muted-foreground flex-shrink-0">{student.class?.name}</span>
+                          </div>
                           {isAbsent && excuse && (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <Badge variant={excuse.excused ? 'secondary' : 'destructive'} className="text-[10px] px-1 py-0">
-                                {excuse.excused ? 'P' : 'KP'}
+                              <Badge variant={excuse.excused ? 'secondary' : 'destructive'} className="text-[10px] px-1 py-0 h-4">
+                                {excuse.excused ? 'Có phép' : 'KP'}
                               </Badge>
                               {excuse.reason && (
-                                <span className="text-[10px] text-muted-foreground truncate">{excuse.reason}</span>
+                                <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{excuse.reason}</span>
                               )}
                             </div>
                           )}
