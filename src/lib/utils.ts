@@ -4,3 +4,18 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+/**
+ * Natural sort comparator - sorts strings with numbers in natural order
+ * e.g., "1", "2", "10" instead of "1", "10", "2"
+ */
+export function naturalSortCompare(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+/**
+ * Sort an array of strings using natural sort order
+ */
+export function naturalSort(arr: string[]): string[] {
+  return [...arr].sort(naturalSortCompare);
+}
