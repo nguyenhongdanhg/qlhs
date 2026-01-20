@@ -65,7 +65,18 @@ import {
   Clock,
   Trash2,
   ArrowRight,
+  UserPlus,
+  Save,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 const MAX_PER_DAY = 3;
@@ -91,6 +102,9 @@ export default function DutySchedule() {
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [timeRemaining, setTimeRemaining] = useState({ hours: 0, minutes: 0 });
+  const [availableMembers, setAvailableMembers] = useState<DutyMember[]>([]);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  const [selectedNewMembers, setSelectedNewMembers] = useState<string[]>([]);
 
   // Get days in current month
   const daysInMonth = useMemo(() => {
@@ -181,6 +195,7 @@ export default function DutySchedule() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchSchedules();
+    fetchSavedDutyMembers();
   }, [currentSchool, currentMonth]);
 
   const fetchSchedules = async () => {
@@ -217,7 +232,35 @@ export default function DutySchedule() {
     }
   };
 
-  const fetchMembers = async () => {
+  // Fetch saved duty members from database
+  const fetchSavedDutyMembers = async () => {
+    if (!currentSchool) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('duty_members')
+        .select(`*, profile:profiles(*)`)
+        .eq('school_id', currentSchool.id);
+
+      if (error) throw error;
+
+      const members = (data || [])
+        .map(m => ({
+          ...(m.profile as unknown as Profile),
+          dutyCount: dutiesPerMember[(m.profile as any)?.id] || 0,
+          isFixed: false,
+          fixedDays: [],
+        }))
+        .filter(Boolean) as DutyMember[];
+
+      setDutyMembers(members);
+    } catch (error) {
+      console.error('Error fetching saved duty members:', error);
+    }
+  };
+
+  // Fetch available members from school accounts (for adding new members)
+  const fetchAvailableMembers = async () => {
     if (!currentSchool) return;
 
     try {
@@ -229,24 +272,105 @@ export default function DutySchedule() {
 
       if (error) throw error;
 
-      const members = (data || [])
+      // Filter out members already in duty list
+      const existingIds = dutyMembers.map(m => m.id);
+      const available = (data || [])
         .map(m => ({
           ...(m.profile as unknown as Profile),
-          dutyCount: dutiesPerMember[m.user_id] || 0,
+          dutyCount: 0,
           isFixed: false,
           fixedDays: [],
         }))
-        .filter(Boolean) as DutyMember[];
+        .filter(m => m && !existingIds.includes(m.id)) as DutyMember[];
 
-      setDutyMembers(members);
-      toast({ title: 'Thành công', description: `Đã tải ${members.length} tài khoản` });
+      setAvailableMembers(available);
+      setSelectedNewMembers([]);
+      setShowAddMemberDialog(true);
     } catch (error) {
-      console.error('Error fetching members:', error);
+      console.error('Error fetching available members:', error);
       toast({
         title: 'Lỗi',
         description: 'Không thể tải danh sách tài khoản',
         variant: 'destructive',
       });
+    }
+  };
+
+  // Add selected members to duty list and save to database
+  const addSelectedMembers = async () => {
+    if (!currentSchool || selectedNewMembers.length === 0) return;
+
+    setIsSaving(true);
+    try {
+      const newEntries = selectedNewMembers.map(userId => ({
+        school_id: currentSchool.id,
+        user_id: userId,
+      }));
+
+      const { error } = await supabase
+        .from('duty_members')
+        .insert(newEntries);
+
+      if (error) throw error;
+
+      // Add to local state
+      const newMembers = availableMembers.filter(m => selectedNewMembers.includes(m.id));
+      setDutyMembers(prev => [...prev, ...newMembers]);
+      
+      setShowAddMemberDialog(false);
+      setSelectedNewMembers([]);
+      toast({ title: 'Thành công', description: `Đã thêm ${newMembers.length} người vào danh sách trực` });
+    } catch (error: any) {
+      console.error('Error adding members:', error);
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể thêm người trực',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Remove member from duty list
+  const removeDutyMember = async (userId: string) => {
+    if (!currentSchool) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('duty_members')
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Also remove their schedules for current month
+      const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+      
+      await supabase
+        .from('duty_schedules')
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .eq('user_id', userId)
+        .gte('duty_date', monthStart)
+        .lte('duty_date', monthEnd);
+
+      setDutyMembers(prev => prev.filter(m => m.id !== userId));
+      setSchedules(prev => prev.filter(s => s.user_id !== userId));
+      
+      toast({ title: 'Thành công', description: 'Đã xóa người trực khỏi danh sách' });
+    } catch (error: any) {
+      console.error('Error removing member:', error);
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể xóa người trực',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -717,11 +841,11 @@ export default function DutySchedule() {
                     variant="outline"
                     size="sm"
                     className="gap-1"
-                    onClick={fetchMembers}
+                    onClick={fetchAvailableMembers}
                     disabled={isSaving}
                   >
-                    <RefreshCw className="h-4 w-4" />
-                    Lấy danh sách
+                    <UserPlus className="h-4 w-4" />
+                    Thêm người trực
                   </Button>
 
                   {isSchoolAdmin() && (
@@ -788,9 +912,9 @@ export default function DutySchedule() {
               <CardContent className="p-8 text-center">
                 <Users className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                 <p className="text-muted-foreground mb-4">Chưa có danh sách người trực</p>
-                <Button onClick={fetchMembers} className="gap-2">
-                  <RefreshCw className="h-4 w-4" />
-                  Lấy từ danh sách tài khoản
+                <Button onClick={fetchAvailableMembers} className="gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  Thêm người trực
                 </Button>
               </CardContent>
             </Card>
@@ -884,22 +1008,22 @@ export default function DutySchedule() {
                                         variant="ghost" 
                                         size="icon" 
                                         className="h-6 w-6"
-                                        disabled={memberDutyCount === 0 || isSaving}
+                                        disabled={isSaving}
                                       >
                                         <Trash2 className="h-3.5 w-3.5 text-destructive" />
                                       </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                       <AlertDialogHeader>
-                                        <AlertDialogTitle>Xóa phân công</AlertDialogTitle>
+                                        <AlertDialogTitle>Xóa người trực</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                          Xóa tất cả {memberDutyCount} lượt phân công của {member.full_name} trong tháng này?
+                                          Xóa {member.full_name} khỏi danh sách trực? Các lượt phân công của người này trong tháng cũng sẽ bị xóa.
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
                                         <AlertDialogCancel>Hủy</AlertDialogCancel>
                                         <AlertDialogAction 
-                                          onClick={() => removeAllAssignments(member.id)}
+                                          onClick={() => removeDutyMember(member.id)}
                                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                         >
                                           Xóa
@@ -1117,6 +1241,75 @@ export default function DutySchedule() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Add Member Dialog */}
+      <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Thêm người trực</DialogTitle>
+            <DialogDescription>
+              Chọn thành viên từ danh sách tài khoản để thêm vào danh sách trực
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-[300px] overflow-y-auto space-y-2">
+            {availableMembers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Không có thành viên mới để thêm
+              </p>
+            ) : (
+              availableMembers.map(member => (
+                <div
+                  key={member.id}
+                  className={cn(
+                    "flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors",
+                    selectedNewMembers.includes(member.id) 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover:bg-muted/50"
+                  )}
+                  onClick={() => {
+                    setSelectedNewMembers(prev => 
+                      prev.includes(member.id)
+                        ? prev.filter(id => id !== member.id)
+                        : [...prev, member.id]
+                    );
+                  }}
+                >
+                  <Checkbox
+                    checked={selectedNewMembers.includes(member.id)}
+                    onCheckedChange={() => {
+                      setSelectedNewMembers(prev => 
+                        prev.includes(member.id)
+                          ? prev.filter(id => id !== member.id)
+                          : [...prev, member.id]
+                      );
+                    }}
+                  />
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                      {getInitials(member.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium">{member.full_name}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddMemberDialog(false)}>
+              Hủy
+            </Button>
+            <Button 
+              onClick={addSelectedMembers} 
+              disabled={selectedNewMembers.length === 0 || isSaving}
+            >
+              <Save className="h-4 w-4 mr-1" />
+              Thêm ({selectedNewMembers.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
