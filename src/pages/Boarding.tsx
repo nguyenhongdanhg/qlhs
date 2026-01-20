@@ -384,13 +384,18 @@ export default function Boarding() {
 
       setActiveTab('history');
       setReportNotes('');
+      
+      // Reset attendance to all present for next report
+      const freshAttendance: AttendanceMap = {};
+      students.forEach(s => freshAttendance[s.id] = 'present');
+      setAttendance(freshAttendance);
+      setExcuseInfo({});
+      setSelectedSession('');
 
       toast({
         title: 'Lưu báo cáo thành công',
         description: `Báo cáo ngày ${format(date, 'dd/MM/yyyy')} - ${sessionLabel} đã được lưu`,
       });
-
-      fetchStudentsAndAttendance();
     } catch (error: any) {
       console.error('Error saving attendance:', error);
       toast({
