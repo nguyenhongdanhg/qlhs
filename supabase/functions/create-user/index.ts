@@ -48,8 +48,9 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Verify the calling user using getUser
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    // Verify the calling user using getUser with explicit token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
     
     if (userError || !user) {
       console.error('Invalid token:', userError);
