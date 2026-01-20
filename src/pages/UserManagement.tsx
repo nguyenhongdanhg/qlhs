@@ -43,8 +43,10 @@ import {
   FileSpreadsheet,
   Shield,
   Users,
+  KeyRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
 import PermissionGroupsManager from '@/components/users/PermissionGroupsManager';
 import UserImportDialog from '@/components/users/UserImportDialog';
 import AssignPermissionGroupDialog from '@/components/users/AssignPermissionGroupDialog';
@@ -79,6 +81,7 @@ export default function UserManagement() {
   const [editingMembership, setEditingMembership] = useState<SchoolMembership | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isAssignGroupDialogOpen, setIsAssignGroupDialogOpen] = useState(false);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
@@ -275,13 +278,23 @@ export default function UserManagement() {
                   Nhập Excel
                 </Button>
                 {selectedUserIds.length > 0 && (
-                  <Button
-                    onClick={() => setIsAssignGroupDialogOpen(true)}
-                    className="flex-1 sm:flex-none"
-                  >
-                    <Shield className="mr-2 h-4 w-4" />
-                    Gán quyền ({selectedUserIds.length})
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsResetPasswordDialogOpen(true)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <KeyRound className="mr-2 h-4 w-4" />
+                      Reset MK ({selectedUserIds.length})
+                    </Button>
+                    <Button
+                      onClick={() => setIsAssignGroupDialogOpen(true)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Shield className="mr-2 h-4 w-4" />
+                      Gán quyền ({selectedUserIds.length})
+                    </Button>
+                  </>
                 )}
               </div>
             </CardContent>
@@ -480,6 +493,16 @@ export default function UserManagement() {
         onComplete={() => {
           setSelectedUserIds([]);
           fetchMemberships();
+        }}
+      />
+
+      {/* Reset Password Dialog */}
+      <ResetPasswordDialog
+        open={isResetPasswordDialogOpen}
+        onOpenChange={setIsResetPasswordDialogOpen}
+        selectedUserIds={selectedUserIds}
+        onResetComplete={() => {
+          setSelectedUserIds([]);
         }}
       />
     </div>
