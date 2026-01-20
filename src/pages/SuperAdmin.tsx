@@ -321,7 +321,6 @@ export default function SuperAdmin() {
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                     placeholder="VD: thpt-nt-a"
-                    disabled={!!editingSchool}
                   />
                 </div>
                 <div className="grid gap-2">
