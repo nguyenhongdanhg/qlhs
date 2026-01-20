@@ -48,19 +48,18 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Verify the calling user
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    // Verify the calling user using getUser
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
     
-    if (claimsError || !claimsData?.claims) {
-      console.error('Invalid token:', claimsError);
+    if (userError || !user) {
+      console.error('Invalid token:', userError);
       return new Response(
         JSON.stringify({ error: 'Invalid token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const callerUserId = claimsData.claims.sub;
+    const callerUserId = user.id;
     console.log('Caller user ID:', callerUserId);
 
     // Parse request body
