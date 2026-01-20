@@ -3,11 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
+import { ForgotPasswordDialog } from '@/components/auth/ForgotPasswordDialog';
 
 // Helper to convert phone to email format for Supabase auth
 const phoneToEmail = (phone: string) => {
@@ -36,6 +36,7 @@ export default function Auth() {
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Login form state
   const [loginPhone, setLoginPhone] = useState('');
@@ -222,8 +223,20 @@ export default function Auth() {
               {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
               Đăng nhập
             </Button>
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              Quên mật khẩu?
+            </button>
           </form>
         )}
+
+        <ForgotPasswordDialog 
+          open={showForgotPassword} 
+          onOpenChange={setShowForgotPassword} 
+        />
 
         {/* Signup Form */}
         {activeTab === 'signup' && (
