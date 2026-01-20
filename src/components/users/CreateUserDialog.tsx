@@ -31,10 +31,12 @@ interface CreateUserDialogProps {
 
 const roleOptions: { value: AppRole; label: string }[] = [
   { value: 'admin', label: 'Quản trị viên' },
+  { value: 'board', label: 'Ban giám hiệu' },
   { value: 'teacher', label: 'Giáo viên' },
   { value: 'class_teacher', label: 'Giáo viên chủ nhiệm' },
   { value: 'accountant', label: 'Kế toán' },
   { value: 'kitchen', label: 'Nhà bếp' },
+  { value: 'staff', label: 'Nhân viên' },
 ];
 
 export default function CreateUserDialog({
