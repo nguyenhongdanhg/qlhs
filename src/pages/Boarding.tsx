@@ -574,20 +574,31 @@ export default function Boarding() {
               </div>
 
               <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Buổi *</label>
-                <div className="flex gap-2">
-                  <Select value={selectedSession} onValueChange={setSelectedSession}>
-                    <SelectTrigger className={cn(showWarnings && !selectedSession && 'border-red-500')}>
-                      <SelectValue placeholder="Chọn buổi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sessions.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <label className="text-sm text-muted-foreground mb-1.5 block">Buổi * (bắt buộc)</label>
+                <div className="flex gap-2 flex-wrap items-center">
+                  {sessions.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedSession(selectedSession === s.id ? '' : s.id)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all',
+                        selectedSession === s.id
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border hover:border-primary/50',
+                        showWarnings && !selectedSession && 'border-red-300'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-4 h-4 border-2 rounded flex items-center justify-center',
+                        selectedSession === s.id ? 'border-primary bg-primary' : 'border-muted-foreground'
+                      )}>
+                        {selectedSession === s.id && (
+                          <CheckCircle2 className="h-3 w-3 text-white" />
+                        )}
+                      </div>
+                      {s.label}
+                    </button>
+                  ))}
                   <Button variant="outline" size="icon" onClick={() => setIsAddSessionOpen(true)}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -650,49 +661,51 @@ export default function Boarding() {
               </Button>
             </div>
 
-            {/* Students Grid */}
+            {/* Students Grid with fixed height scroll */}
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {filteredStudents.map((student) => {
-                  const status = attendance[student.id];
-                  const isAbsent = status === 'absent' || status === 'excused';
-                  const excuse = excuseInfo[student.id];
-                  return (
-                    <button
-                      key={student.id}
-                      onClick={() => handleToggleAbsent(student)}
-                      className={cn(
-                        'flex items-center gap-2 p-3 rounded-lg border text-left transition-all',
-                        isAbsent
-                          ? 'border-red-300 bg-red-50'
-                          : 'border-border hover:border-primary/50'
-                      )}
-                    >
-                      <div className={cn(
-                        'w-5 h-5 rounded-full border-2 flex-shrink-0',
-                        isAbsent ? 'border-red-500 bg-red-500' : 'border-muted-foreground'
-                      )} />
-                      <div className="flex-1 min-w-0">
-                        <span className={cn("truncate text-sm block", isAbsent && "text-red-700")}>{student.full_name}</span>
-                        <span className="text-xs text-muted-foreground">{student.class?.name}</span>
-                        {isAbsent && excuse && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Badge variant={excuse.excused ? 'secondary' : 'destructive'} className="text-[10px] px-1 py-0">
-                              {excuse.excused ? 'P' : 'KP'}
-                            </Badge>
-                            {excuse.reason && (
-                              <span className="text-[10px] text-muted-foreground truncate">{excuse.reason}</span>
-                            )}
-                          </div>
+              <div className="max-h-[400px] overflow-y-auto border rounded-lg p-2">
+                <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {filteredStudents.map((student) => {
+                    const status = attendance[student.id];
+                    const isAbsent = status === 'absent' || status === 'excused';
+                    const excuse = excuseInfo[student.id];
+                    return (
+                      <button
+                        key={student.id}
+                        onClick={() => handleToggleAbsent(student)}
+                        className={cn(
+                          'flex items-center gap-2 p-3 rounded-lg border text-left transition-all',
+                          isAbsent
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-border hover:border-primary/50'
                         )}
-                      </div>
-                    </button>
-                  );
-                })}
+                      >
+                        <div className={cn(
+                          'w-5 h-5 rounded-full border-2 flex-shrink-0',
+                          isAbsent ? 'border-red-500 bg-red-500' : 'border-muted-foreground'
+                        )} />
+                        <div className="flex-1 min-w-0">
+                          <span className={cn("truncate text-sm block", isAbsent && "text-red-700")}>{student.full_name}</span>
+                          <span className="text-xs text-muted-foreground">{student.class?.name}</span>
+                          {isAbsent && excuse && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Badge variant={excuse.excused ? 'secondary' : 'destructive'} className="text-[10px] px-1 py-0">
+                                {excuse.excused ? 'P' : 'KP'}
+                              </Badge>
+                              {excuse.reason && (
+                                <span className="text-[10px] text-muted-foreground truncate">{excuse.reason}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
