@@ -50,7 +50,7 @@ import {
   Utensils,
   Edit,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, naturalSort } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
 import { exportStudentsToExcel, StudentImportRow } from '@/lib/excel-utils';
 
@@ -90,17 +90,17 @@ export default function Students() {
   const [selectedMealFilter, setSelectedMealFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('students');
   
-  // Room and meal group lists derived from students
+  // Room and meal group lists derived from students - using natural sort
   const roomNumbers = useMemo(() => {
     const rooms = new Set<string>();
     students.forEach(s => s.room_number && rooms.add(s.room_number));
-    return Array.from(rooms).sort();
+    return naturalSort(Array.from(rooms));
   }, [students]);
   
   const mealGroups = useMemo(() => {
     const groups = new Set<string>();
     students.forEach(s => s.meal_group && groups.add(s.meal_group));
-    return Array.from(groups).sort();
+    return naturalSort(Array.from(groups));
   }, [students]);
 
   // Form state with new fields
