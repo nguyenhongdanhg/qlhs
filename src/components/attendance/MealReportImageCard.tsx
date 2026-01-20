@@ -33,6 +33,14 @@ interface MealReportImageCardProps {
 
 export const MealReportImageCard = forwardRef<HTMLDivElement, MealReportImageCardProps>(
   ({ schoolName, date, reporter, breakfast, lunch, dinner, totalRice }, ref) => {
+    const baseTextStyle: React.CSSProperties = {
+      letterSpacing: '0.02em',
+      wordSpacing: '0.1em',
+      fontKerning: 'normal',
+      textRendering: 'geometricPrecision',
+      WebkitFontSmoothing: 'antialiased',
+    };
+
     const renderMealSection = (
       title: string,
       icon: React.ReactNode,
@@ -49,19 +57,45 @@ export const MealReportImageCard = forwardRef<HTMLDivElement, MealReportImageCar
       });
 
       return (
-        <div className="rounded-lg border border-gray-200 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {icon}
-              <span className="font-semibold text-gray-700">{title}</span>
+        <div style={{ 
+          borderRadius: '8px', 
+          border: '1px solid #e5e7eb', 
+          padding: '12px',
+          marginBottom: '12px'
+        }}>
+          <div style={{ 
+            marginBottom: '8px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between' 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ marginRight: '8px' }}>{icon}</span>
+              <span style={{ fontWeight: 600, color: '#374151', ...baseTextStyle }}>{title}</span>
             </div>
             {stats.hasReport ? (
-              <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                Đã báo cáo
+              <span style={{ 
+                borderRadius: '4px', 
+                backgroundColor: '#dcfce7', 
+                padding: '2px 8px', 
+                fontSize: '12px', 
+                fontWeight: 500, 
+                color: '#15803d',
+                ...baseTextStyle
+              }}>
+                {'Đã báo cáo'}
               </span>
             ) : (
-              <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                Chưa báo cáo
+              <span style={{ 
+                borderRadius: '4px', 
+                backgroundColor: '#fee2e2', 
+                padding: '2px 8px', 
+                fontSize: '12px', 
+                fontWeight: 500, 
+                color: '#b91c1c',
+                ...baseTextStyle
+              }}>
+                {'Chưa báo cáo'}
               </span>
             )}
           </div>
@@ -69,50 +103,95 @@ export const MealReportImageCard = forwardRef<HTMLDivElement, MealReportImageCar
           {stats.hasReport && (
             <>
               {/* Stats row */}
-              <div className="mb-2 grid grid-cols-3 gap-2 text-center text-sm">
-                <div className="rounded bg-gray-50 p-1.5">
-                  <div className="text-xs text-gray-500">Tổng</div>
-                  <div className="font-bold text-gray-700">{stats.total}</div>
+              <div style={{ 
+                marginBottom: '8px', 
+                display: 'flex', 
+                textAlign: 'center', 
+                fontSize: '14px' 
+              }}>
+                <div style={{ 
+                  flex: 1, 
+                  borderRadius: '4px', 
+                  backgroundColor: '#f9fafb', 
+                  padding: '6px',
+                  marginRight: '8px'
+                }}>
+                  <div style={{ fontSize: '12px', color: '#6b7280', ...baseTextStyle }}>{'Tổng'}</div>
+                  <div style={{ fontWeight: 700, color: '#374151' }}>{stats.total}</div>
                 </div>
-                <div className="rounded bg-green-50 p-1.5">
-                  <div className="flex items-center justify-center gap-0.5 text-xs text-green-600">
-                    <CheckCircle2 className="h-3 w-3" />
-                    <span>Ăn</span>
+                <div style={{ 
+                  flex: 1, 
+                  borderRadius: '4px', 
+                  backgroundColor: '#f0fdf4', 
+                  padding: '6px',
+                  marginRight: '8px'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: '12px', 
+                    color: '#16a34a' 
+                  }}>
+                    <CheckCircle2 style={{ width: '12px', height: '12px', marginRight: '4px' }} />
+                    <span style={baseTextStyle}>{'Ăn'}</span>
                   </div>
-                  <div className="font-bold text-green-600">{stats.present}</div>
+                  <div style={{ fontWeight: 700, color: '#16a34a' }}>{stats.present}</div>
                 </div>
-                <div className="rounded bg-red-50 p-1.5">
-                  <div className="flex items-center justify-center gap-0.5 text-xs text-red-600">
-                    <XCircle className="h-3 w-3" />
-                    <span>Vắng</span>
+                <div style={{ 
+                  flex: 1, 
+                  borderRadius: '4px', 
+                  backgroundColor: '#fef2f2', 
+                  padding: '6px' 
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: '12px', 
+                    color: '#dc2626' 
+                  }}>
+                    <XCircle style={{ width: '12px', height: '12px', marginRight: '4px' }} />
+                    <span style={baseTextStyle}>{'Vắng'}</span>
                   </div>
-                  <div className="font-bold text-red-600">{stats.absent}</div>
+                  <div style={{ fontWeight: 700, color: '#dc2626' }}>{stats.absent}</div>
                 </div>
               </div>
 
               {/* Absent students */}
               {stats.absent > 0 && (
-                <div className="rounded bg-red-50/50 p-2">
-                  <div className="mb-1 text-xs font-medium text-red-600">
-                    Vắng ({stats.absent}):
+                <div style={{ 
+                  borderRadius: '4px', 
+                  backgroundColor: '#fef2f2', 
+                  padding: '8px' 
+                }}>
+                  <div style={{ 
+                    marginBottom: '4px', 
+                    fontSize: '12px', 
+                    fontWeight: 500, 
+                    color: '#dc2626',
+                    ...baseTextStyle
+                  }}>
+                    {'Vắng'}{` (${stats.absent}):`}
                   </div>
-                  <div className="max-h-24 space-y-1 overflow-y-auto text-xs">
+                  <div style={{ maxHeight: '96px', overflowY: 'auto', fontSize: '12px' }}>
                     {Array.from(groupedByClass.entries())
                       .sort((a, b) => {
                         const gradeA = a[1][0]?.classGrade || 0;
                         const gradeB = b[1][0]?.classGrade || 0;
                         return gradeA - gradeB;
                       })
-                      .map(([className, students]) => (
-                        <div key={className}>
-                          <span className="font-medium text-gray-600">{className}:</span>{' '}
-                          <span className="text-gray-700">
+                      .map(([className, students], idx) => (
+                        <div key={className} style={{ marginTop: idx > 0 ? '4px' : 0 }}>
+                          <span style={{ fontWeight: 500, color: '#4b5563', ...baseTextStyle }}>{className}{':'}</span>
+                          {' '}
+                          <span style={{ color: '#374151', ...baseTextStyle }}>
                             {students.map((s, i) => (
                               <span key={s.id}>
                                 {s.name}
-                                {s.excused && <sup className="text-yellow-600">P</sup>}
+                                {s.excused && <sup style={{ color: '#ca8a04' }}>{'P'}</sup>}
                                 {showMealGroup && s.mealGroup && (
-                                  <span className="text-gray-400">({s.mealGroup})</span>
+                                  <span style={{ color: '#9ca3af' }}>{`(${s.mealGroup})`}</span>
                                 )}
                                 {i < students.length - 1 && ', '}
                               </span>
@@ -132,52 +211,71 @@ export const MealReportImageCard = forwardRef<HTMLDivElement, MealReportImageCar
     return (
       <div
         ref={ref}
-        className="w-[420px] bg-white p-5 font-sans"
-        style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+        style={{ 
+          width: '420px',
+          backgroundColor: 'white',
+          padding: '20px',
+          fontFamily: '"Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif',
+          fontSize: '14px',
+          lineHeight: '1.5',
+          ...baseTextStyle
+        }}
       >
         {/* Header */}
-        <div className="mb-4 text-center">
-          <h2 className="text-sm font-medium text-gray-600">{schoolName}</h2>
-          <h1 className="mt-1 text-lg font-bold text-sky-600">THỐNG KÊ BỮA ĂN</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Ngày {format(date, 'EEEE, dd/MM/yyyy', { locale: vi })}
+        <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: 500, color: '#4b5563', margin: 0, ...baseTextStyle }}>{schoolName}</h2>
+          <h1 style={{ marginTop: '4px', fontSize: '18px', fontWeight: 700, color: '#0284c7', marginBottom: 0, ...baseTextStyle }}>{'THỐNG KÊ BỮA ĂN'}</h1>
+          <p style={{ marginTop: '4px', fontSize: '14px', color: '#6b7280', marginBottom: 0, ...baseTextStyle }}>
+            {'Ngày '}{format(date, 'EEEE, dd/MM/yyyy', { locale: vi })}
           </p>
         </div>
 
         {/* Meal sections */}
-        <div className="mb-4 space-y-3">
+        <div style={{ marginBottom: '16px' }}>
           {renderMealSection(
             'Bữa sáng',
-            <Coffee className="h-4 w-4 text-orange-500" />,
+            <Coffee style={{ width: '16px', height: '16px', color: '#f97316' }} />,
             breakfast
           )}
           {renderMealSection(
             'Bữa trưa',
-            <UtensilsCrossed className="h-4 w-4 text-green-500" />,
+            <UtensilsCrossed style={{ width: '16px', height: '16px', color: '#22c55e' }} />,
             lunch,
             true
           )}
           {renderMealSection(
             'Bữa tối',
-            <Moon className="h-4 w-4 text-indigo-500" />,
+            <Moon style={{ width: '16px', height: '16px', color: '#6366f1' }} />,
             dinner,
             true
           )}
         </div>
 
         {/* Rice summary */}
-        <div className="mb-4 rounded-lg bg-amber-50 p-3 text-center">
-          <div className="text-xs text-amber-600">Tổng lượng gạo (trưa + tối)</div>
-          <div className="text-xl font-bold text-amber-700">{totalRice.toFixed(1)} kg</div>
-          <div className="text-xs text-amber-500">
-            ({lunch.present + dinner.present} suất × 0.2kg)
+        <div style={{ 
+          marginBottom: '16px', 
+          borderRadius: '8px', 
+          backgroundColor: '#fffbeb', 
+          padding: '12px', 
+          textAlign: 'center' 
+        }}>
+          <div style={{ fontSize: '12px', color: '#d97706', ...baseTextStyle }}>{'Tổng lượng gạo (trưa + tối)'}</div>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: '#b45309' }}>{totalRice.toFixed(1)}{' kg'}</div>
+          <div style={{ fontSize: '12px', color: '#f59e0b', ...baseTextStyle }}>
+            {'('}{lunch.present + dinner.present}{' suất × 0.2kg)'}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t pt-3 text-center text-xs text-gray-400">
-          <p>Người báo cáo: {reporter}</p>
-          <p>Xuất lúc: {format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}</p>
+        <div style={{ 
+          borderTop: '1px solid #e5e7eb', 
+          paddingTop: '12px', 
+          textAlign: 'center', 
+          fontSize: '12px', 
+          color: '#9ca3af' 
+        }}>
+          <p style={{ margin: 0, ...baseTextStyle }}>{'Người báo cáo: '}{reporter}</p>
+          <p style={{ margin: '4px 0 0 0', ...baseTextStyle }}>{'Xuất lúc: '}{format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}</p>
         </div>
       </div>
     );
