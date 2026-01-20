@@ -37,9 +37,12 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
 
     const formattedDate = format(new Date(date), 'dd/MM/yyyy', { locale: vi });
 
-    const baseTextStyle = {
-      letterSpacing: '0.01em',
-      wordSpacing: '0.05em',
+    const baseTextStyle: React.CSSProperties = {
+      letterSpacing: '0.02em',
+      wordSpacing: '0.1em',
+      fontKerning: 'normal',
+      textRendering: 'geometricPrecision',
+      WebkitFontSmoothing: 'antialiased',
     };
 
     return (
@@ -49,7 +52,9 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
           width: '400px',
           backgroundColor: 'white',
           padding: '20px',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontFamily: '"Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif',
+          fontSize: '14px',
+          lineHeight: '1.5',
           ...baseTextStyle
         }}
       >

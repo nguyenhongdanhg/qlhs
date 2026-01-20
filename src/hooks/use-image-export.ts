@@ -8,13 +8,40 @@ export function useImageExport() {
 
   const captureElement = useCallback(async (element: HTMLElement): Promise<string | null> => {
     try {
-      const canvas = await html2canvas(element, {
+      // Clone the element to avoid modifying the original
+      const clone = element.cloneNode(true) as HTMLElement;
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      document.body.appendChild(clone);
+      
+      // Wait for fonts and layout to settle
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const canvas = await html2canvas(clone, {
         backgroundColor: '#ffffff',
-        scale: 2,
+        scale: 3, // Higher scale for better quality
         useCORS: true,
         logging: false,
+        allowTaint: true,
+        removeContainer: true,
+        // Force pixel-perfect rendering
+        imageTimeout: 0,
+        onclone: (clonedDoc, clonedElement) => {
+          // Ensure all text elements have proper styling
+          const allElements = clonedElement.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            if (htmlEl.style) {
+              htmlEl.style.fontKerning = 'normal';
+              htmlEl.style.textRendering = 'geometricPrecision';
+            }
+          });
+        }
       });
-      return canvas.toDataURL('image/png');
+      
+      document.body.removeChild(clone);
+      return canvas.toDataURL('image/png', 1.0);
     } catch (error) {
       console.error('Error capturing element:', error);
       return null;
