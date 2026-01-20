@@ -82,10 +82,10 @@ Deno.serve(async (req) => {
       console.log("Created school:", school.id);
     }
 
-    // 2. Create Super Admin
+    // 2. Create Super Admin (using phone format for login)
     const superAdminId = await getOrCreateUser(
-      "superadmin@test.com",
-      "SuperAdmin123!",
+      "0901234567@phone.local",  // Phone-based email format for login
+      "123456",
       "Super Administrator",
       "superadmin",
       "0901234567"
@@ -97,10 +97,10 @@ Deno.serve(async (req) => {
       .upsert({ user_id: superAdminId, role: "super_admin" }, { onConflict: "user_id" });
     console.log("Super admin global role ensured");
 
-    // 3. Create School Admin
+    // 3. Create School Admin (using phone format for login)
     const schoolAdminId = await getOrCreateUser(
-      "admin@thptnguyen-trai.edu.vn",
-      "SchoolAdmin123!",
+      "0912345678@phone.local",  // Phone-based email format for login
+      "123456",
       "Nguyễn Văn Admin",
       "nguyenadmin",
       "0912345678"
@@ -117,10 +117,10 @@ Deno.serve(async (req) => {
       }, { onConflict: "school_id,user_id" });
     console.log("School admin membership ensured");
 
-    // 4. Create Teacher
+    // 4. Create Teacher (using phone format for login)
     const teacherId = await getOrCreateUser(
-      "teacher@thptnguyen-trai.edu.vn",
-      "Teacher123!",
+      "0923456789@phone.local",  // Phone-based email format for login
+      "123456",
       "Trần Thị Giáo Viên",
       "trantgv",
       "0923456789"
@@ -247,9 +247,9 @@ Deno.serve(async (req) => {
         message: "Seed data created/verified successfully",
         data: {
           school: { id: school.id, name: school.name },
-          superAdmin: { email: "superadmin@test.com", password: "SuperAdmin123!" },
-          schoolAdmin: { email: "admin@thptnguyen-trai.edu.vn", password: "SchoolAdmin123!" },
-          teacher: { email: "teacher@thptnguyen-trai.edu.vn", password: "Teacher123!" },
+          superAdmin: { phone: "0901234567", password: "123456" },
+          schoolAdmin: { phone: "0912345678", password: "123456" },
+          teacher: { phone: "0923456789", password: "123456" },
           classesCount: classes.length,
           studentsCount: studentsCount
         }
