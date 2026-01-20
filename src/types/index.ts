@@ -25,6 +25,7 @@ export interface Profile {
   full_name: string;
   username?: string;
   phone?: string;
+  position?: string;
   avatar_url?: string;
   created_at: string;
   updated_at: string;

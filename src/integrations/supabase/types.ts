@@ -432,6 +432,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          position: string | null
           updated_at: string | null
           username: string | null
         }
@@ -441,6 +442,7 @@ export type Database = {
           full_name: string
           id: string
           phone?: string | null
+          position?: string | null
           updated_at?: string | null
           username?: string | null
         }
@@ -450,6 +452,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          position?: string | null
           updated_at?: string | null
           username?: string | null
         }
