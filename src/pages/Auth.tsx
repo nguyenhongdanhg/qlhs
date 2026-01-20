@@ -246,14 +246,19 @@ export default function Auth() {
                   <SelectTrigger className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm">
                     <SelectValue placeholder={isLoadingSchools ? "Đang tải..." : "Chọn trường"} />
                   </SelectTrigger>
-                  <SelectContent className="bg-white">
+                  <SelectContent className="bg-white z-50 border shadow-lg">
                     <SelectItem value={SUPER_ADMIN_OPTION} className="text-primary font-medium">
                       <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4" />
                         Quản trị hệ thống (Super Admin)
                       </div>
                     </SelectItem>
-                    <div className="h-px bg-border my-1" />
+                    {schools.length > 0 && <div className="h-px bg-border my-1" />}
+                    {schools.length === 0 && !isLoadingSchools && (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                        Không có trường nào
+                      </div>
+                    )}
                     {schools.map((school) => (
                       <SelectItem key={school.id} value={school.id}>
                         {school.name}
