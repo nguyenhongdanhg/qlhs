@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User, Building2, ChevronDown } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User, Building2, Shield } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { ForgotPasswordDialog } from '@/components/auth/ForgotPasswordDialog';
@@ -30,10 +30,12 @@ const phoneToEmail = (phone: string) => {
   return `${cleanPhone}@phone.local`;
 };
 
+const SUPER_ADMIN_OPTION = '__SUPER_ADMIN__';
+
 const loginSchema = z.object({
   phone: z.string().min(9, 'Số điện thoại phải có ít nhất 9 số').regex(/^[0-9\s\-+()]+$/, 'Số điện thoại không hợp lệ'),
   password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
-  schoolId: z.string().min(1, 'Vui lòng chọn trường'),
+  schoolId: z.string().min(1, 'Vui lòng chọn trường hoặc quyền truy cập'),
 });
 
 const signupSchema = z.object({
@@ -130,18 +132,22 @@ export default function Auth() {
       return;
     }
 
-    // Set the selected school after login
-    const selectedSchool = schools.find(s => s.id === selectedSchoolId);
-    if (selectedSchool) {
-      selectSchool(selectedSchool as any);
-    }
-
     toast({
       title: 'Đăng nhập thành công',
       description: 'Chào mừng bạn quay trở lại!',
     });
 
-    navigate('/dashboard', { replace: true });
+    // If Super Admin option selected, redirect to superadmin page
+    if (selectedSchoolId === SUPER_ADMIN_OPTION) {
+      navigate('/superadmin', { replace: true });
+    } else {
+      // Set the selected school after login
+      const selectedSchool = schools.find(s => s.id === selectedSchoolId);
+      if (selectedSchool) {
+        selectSchool(selectedSchool as any);
+      }
+      navigate('/dashboard', { replace: true });
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -241,6 +247,13 @@ export default function Auth() {
                     <SelectValue placeholder={isLoadingSchools ? "Đang tải..." : "Chọn trường"} />
                   </SelectTrigger>
                   <SelectContent className="bg-white">
+                    <SelectItem value={SUPER_ADMIN_OPTION} className="text-primary font-medium">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Quản trị hệ thống (Super Admin)
+                      </div>
+                    </SelectItem>
+                    <div className="h-px bg-border my-1" />
                     {schools.map((school) => (
                       <SelectItem key={school.id} value={school.id}>
                         {school.name}
