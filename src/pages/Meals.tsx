@@ -90,7 +90,7 @@ interface HistoryRecord {
 }
 
 export default function Meals() {
-  const { currentSchool, user, profile, currentMembership } = useAuth();
+  const { currentSchool, user, profile, currentMembership, isSuperAdmin, isSchoolAdmin } = useAuth();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'register' | 'history'>('register');
@@ -108,6 +108,10 @@ export default function Meals() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [mealDeadlines, setMealDeadlines] = useState<MealDeadline[]>(DEFAULT_MEAL_DEADLINES);
+
+  // Check if user is class teacher and get their class
+  const isClassTeacher = currentMembership?.role === 'class_teacher';
+  const teacherClassId = currentMembership?.class_id;
 
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
@@ -587,10 +591,29 @@ export default function Meals() {
     }
   };
 
+  // For class teachers, only show their class students
+  // For admins/super admins, show all students or filter by selected class
   const filteredStudents = useMemo(() => {
-    if (selectedClass === 'all') return students;
-    return students.filter(s => s.class?.name === selectedClass);
-  }, [students, selectedClass]);
+    let filtered = students;
+    
+    // If class teacher, always filter to their class only
+    if (isClassTeacher && teacherClassId) {
+      filtered = students.filter(s => s.class_id === teacherClassId);
+    } else if (selectedClass !== 'all') {
+      filtered = students.filter(s => s.class?.name === selectedClass);
+    }
+    
+    return filtered;
+  }, [students, selectedClass, isClassTeacher, teacherClassId]);
+
+  // Get the teacher's class name for display
+  const teacherClassName = useMemo(() => {
+    if (!isClassTeacher || !teacherClassId) return null;
+    return classes.find(c => c.id === teacherClassId)?.name;
+  }, [isClassTeacher, teacherClassId, classes]);
+
+  // Check if user can report meals
+  const canReportMeals = isSuperAdmin || isSchoolAdmin() || isClassTeacher;
 
   const presentCount = useMemo(() => {
     return filteredStudents.filter(s => attendance[s.id] === 'present').length;
@@ -677,17 +700,44 @@ export default function Meals() {
               </div>
               <div>
                 <label className="text-sm text-muted-foreground mb-1.5 block">Lớp</label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger><SelectValue placeholder="Tất cả lớp" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả lớp</SelectItem>
-                    {sortedClasses.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.name}>{cls.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isClassTeacher && teacherClassName ? (
+                  <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
+                    <span className="font-medium text-primary">{teacherClassName}</span>
+                    <Badge variant="secondary" className="text-xs">Lớp của bạn</Badge>
+                  </div>
+                ) : (
+                  <Select value={selectedClass} onValueChange={setSelectedClass} disabled={isClassTeacher}>
+                    <SelectTrigger><SelectValue placeholder="Tất cả lớp" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả lớp</SelectItem>
+                      {sortedClasses.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.name}>{cls.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
+
+            {/* Class Teacher Notice */}
+            {isClassTeacher && teacherClassName && (
+              <Alert className="border-blue-200 bg-blue-50">
+                <Users className="h-4 w-4 text-blue-500" />
+                <AlertDescription className="text-blue-700">
+                  Bạn đang báo bữa ăn cho lớp <strong>{teacherClassName}</strong> - lớp bạn chủ nhiệm.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Not Class Teacher Notice */}
+            {!canReportMeals && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Bạn không có quyền báo bữa ăn. Chỉ giáo viên chủ nhiệm và quản trị viên mới có thể báo bữa ăn.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Meal Tabs with Deadline Status */}
             <div className="flex gap-2 flex-wrap">
@@ -734,17 +784,17 @@ export default function Meals() {
             {/* Quick Actions */}
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={handleMarkAllPresent} disabled={currentMealDeadline.isExpired}>
+                <Button variant="outline" size="sm" onClick={handleMarkAllPresent} disabled={currentMealDeadline.isExpired || !canReportMeals}>
                   <CheckCircle2 className="h-4 w-4 mr-1" />Đủ tất cả
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleMarkAllAbsent} disabled={currentMealDeadline.isExpired}>
+                <Button variant="outline" size="sm" onClick={handleMarkAllAbsent} disabled={currentMealDeadline.isExpired || !canReportMeals}>
                   <XCircle className="h-4 w-4 mr-1" />Vắng tất cả
                 </Button>
                 <Button 
                   variant="default" 
                   size="sm" 
                   onClick={() => handleMarkAll3Meals(true)} 
-                  disabled={isSaving}
+                  disabled={isSaving || !canReportMeals}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle2 className="h-4 w-4 mr-1" />Đủ 3 bữa
@@ -753,7 +803,7 @@ export default function Meals() {
                   variant="destructive" 
                   size="sm" 
                   onClick={() => handleMarkAll3Meals(false)} 
-                  disabled={isSaving}
+                  disabled={isSaving || !canReportMeals}
                 >
                   <XCircle className="h-4 w-4 mr-1" />Vắng 3 bữa
                 </Button>
@@ -761,40 +811,42 @@ export default function Meals() {
               <span className="text-sm text-green-600 font-medium">{presentCount}/{filteredStudents.length} ăn</span>
             </div>
 
-            {/* Students Grid */}
+            {/* Students Grid with fixed height scroll */}
             {isLoading ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
-              <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {filteredStudents.map((student) => (
-                  <button 
-                    key={student.id} 
-                    onClick={() => !currentMealDeadline.isExpired && handleToggleAbsent(student.id)}
-                    disabled={currentMealDeadline.isExpired}
-                    className={cn(
-                      'flex items-center gap-2 p-3 rounded-lg border text-left transition-all',
-                      attendance[student.id] === 'absent' 
-                        ? 'border-red-300 bg-red-50 text-red-700' 
-                        : 'border-border hover:border-primary/50',
-                      currentMealDeadline.isExpired && 'opacity-50 cursor-not-allowed'
-                    )}
-                  >
-                    <div className={cn(
-                      'w-5 h-5 rounded-full border-2 flex-shrink-0',
-                      attendance[student.id] === 'absent' ? 'border-red-500 bg-red-500' : 'border-muted-foreground'
-                    )} />
-                    <div className="flex-1 min-w-0">
-                      <span className="truncate text-sm block">{student.full_name}</span>
-                      <span className="text-xs text-muted-foreground">{student.class?.name}</span>
-                    </div>
-                  </button>
-                ))}
+              <div className="max-h-[400px] overflow-y-auto border rounded-lg p-2">
+                <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {filteredStudents.map((student) => (
+                    <button 
+                      key={student.id} 
+                      onClick={() => !currentMealDeadline.isExpired && canReportMeals && handleToggleAbsent(student.id)}
+                      disabled={currentMealDeadline.isExpired || !canReportMeals}
+                      className={cn(
+                        'flex items-center gap-2 p-3 rounded-lg border text-left transition-all',
+                        attendance[student.id] === 'absent' 
+                          ? 'border-red-300 bg-red-50 text-red-700' 
+                          : 'border-border hover:border-primary/50',
+                        (currentMealDeadline.isExpired || !canReportMeals) && 'opacity-50 cursor-not-allowed'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-5 h-5 rounded-full border-2 flex-shrink-0',
+                        attendance[student.id] === 'absent' ? 'border-red-500 bg-red-500' : 'border-muted-foreground'
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <span className="truncate text-sm block">{student.full_name}</span>
+                        <span className="text-xs text-muted-foreground">{student.class?.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
             <Button 
               onClick={handleSave} 
-              disabled={isSaving || currentMealDeadline.isExpired} 
+              disabled={isSaving || currentMealDeadline.isExpired || !canReportMeals} 
               className="w-full"
             >
               {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
