@@ -706,12 +706,12 @@ export default function DutySchedule() {
         memberCounts[member.id] = 0;
       });
 
-      // Sort females by age (estimate from profile, older first)
-      // Since we don't have birth date, we'll use member order or ID as fallback
+      // Sort females by age (older first based on birth_date)
       const sortedFemalesByAge = [...femaleMembers].sort((a, b) => {
-        // If we had birth date, we'd sort by age here
-        // For now, sort by ID as stable ordering (first created = older)
-        return a.id.localeCompare(b.id);
+        // If both have birth_date, older (earlier birth_date) comes first
+        const aBirth = a.birth_date || '9999-12-31';
+        const bBirth = b.birth_date || '9999-12-31';
+        return aBirth.localeCompare(bBirth);
       });
 
       const newSchedules: { school_id: string; user_id: string; duty_date: string }[] = [];
