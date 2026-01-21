@@ -11,14 +11,16 @@ import { SuperAdminGuard } from "@/components/guards/SuperAdminGuard";
 import { FeatureGuard } from "@/components/guards/FeatureGuard";
 import { Loader2 } from "lucide-react";
 
-// Lazy load pages for better performance
+// Core pages - load immediately for fast navigation
+import Dashboard from "@/pages/Dashboard";
+import Students from "@/pages/Students";
+import Boarding from "@/pages/Boarding";
+import Meals from "@/pages/Meals";
+
+// Secondary pages - lazy load
 const Auth = lazy(() => import("@/pages/Auth"));
 const SelectSchool = lazy(() => import("@/pages/SelectSchool"));
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Students = lazy(() => import("@/pages/Students"));
 const EveningStudy = lazy(() => import("@/pages/EveningStudy"));
-const Boarding = lazy(() => import("@/pages/Boarding"));
-const Meals = lazy(() => import("@/pages/Meals"));
 const Statistics = lazy(() => import("@/pages/Statistics"));
 const DutySchedule = lazy(() => import("@/pages/DutySchedule"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));

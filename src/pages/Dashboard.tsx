@@ -1,8 +1,9 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { useQuery } from '@tanstack/react-query';
 import { 
   Users, 
   Home, 
@@ -18,7 +19,6 @@ import {
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 interface DashboardStats {
@@ -32,18 +32,17 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { currentSchool } = useAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
   const today = useMemo(() => new Date(), []);
   const dateStr = useMemo(() => format(today, 'yyyy-MM-dd'), [today]);
   const dayName = useMemo(() => format(today, 'EEEE', { locale: vi }), [today]);
   const formattedDate = useMemo(() => format(today, 'dd/MM/yyyy'), [today]);
 
-  const fetchStats = useCallback(async () => {
-    if (!currentSchool) return;
+  // Fetch dashboard stats with React Query for caching
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['dashboard-stats', currentSchool?.id, dateStr],
+    queryFn: async (): Promise<DashboardStats> => {
+      if (!currentSchool) throw new Error('No school selected');
 
-    try {
       // Parallel fetch all basic stats
       const [studentsResult, boardingResult, classesResult, teachersResult, attendanceResult] = await Promise.all([
         supabase
@@ -114,24 +113,18 @@ export default function Dashboard() {
         })
       );
 
-      setStats({
+      return {
         totalStudents: studentsResult.count || 0,
         boardingStudents: boardingResult.count || 0,
         totalTeachers: teachersResult.count || 0,
         totalClasses: classesResult.count || 0,
         mealStats,
         gradeStats,
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentSchool, dateStr]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+      };
+    },
+    enabled: !!currentSchool,
+    staleTime: 1000 * 60 * 2, // 2 minutes cache
+  });
 
   const quickActions = useMemo(() => [
     { label: 'Điểm danh nội trú', icon: Home, path: '/boarding', color: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-100 text-sky-600' },
@@ -373,7 +366,9 @@ export default function Dashboard() {
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">{format(today, 'dd/MM')}</span>
               </div>
               <div className="flex items-center gap-3">
-                <Progress value={99} className="flex-1 h-2.5" />
+                <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-success rounded-full" style={{ width: '99%' }} />
+                </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-lg font-bold text-success">483</span>
                   <span className="text-xs text-muted-foreground">/486</span>
