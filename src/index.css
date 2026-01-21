@@ -216,11 +216,17 @@
   }
   
   .nav-item-active {
-    @apply bg-sidebar-accent text-white font-semibold;
+    @apply bg-sidebar-accent font-semibold;
+    color: white !important;
   }
   
   .nav-item-inactive {
-    @apply text-white/90 hover:bg-sidebar-accent hover:text-white;
+    @apply hover:bg-sidebar-accent;
+    color: rgba(255, 255, 255, 0.9) !important;
+  }
+  
+  .nav-item-inactive:hover {
+    color: white !important;
   }
   
   /* Mobile bottom nav - Enhanced */
