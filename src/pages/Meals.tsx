@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeaturePermission } from '@/components/guards/FeatureGuard';
 import { supabase } from '@/integrations/supabase/client';
 import { Student, Class, AttendanceStatus, AttendanceType } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -93,6 +94,7 @@ interface HistoryRecord {
 
 export default function Meals() {
   const { currentSchool, user, profile, currentMembership, isSuperAdmin, isSchoolAdmin } = useAuth();
+  const { canView, canCreate, canEdit, canDelete } = useFeaturePermission('meals');
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'register' | 'history'>('register');
@@ -747,8 +749,8 @@ export default function Meals() {
     return classes.find(c => c.id === teacherClassId)?.name;
   }, [isClassTeacher, teacherClassId, classes]);
 
-  // Check if user can report meals
-  const canReportMeals = isSuperAdmin || isSchoolAdmin() || isClassTeacher;
+  // Check if user can report meals - use permission system
+  const canReportMeals = canCreate || isSuperAdmin || isSchoolAdmin() || isClassTeacher;
 
   const presentCount = useMemo(() => {
     return filteredStudents.filter(s => attendance[s.id] === 'present').length;
