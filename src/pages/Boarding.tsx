@@ -677,12 +677,12 @@ export default function Boarding() {
                 <label className="text-sm text-muted-foreground mb-1.5 block">
                   Buổi {!selectedSession && <span className="text-xs text-muted-foreground">(tự động nhận: {sessions.find(s => s.id === detectSessionByTime())?.label})</span>}
                 </label>
-                <Select value={selectedSession} onValueChange={setSelectedSession}>
+                <Select value={selectedSession || '__auto__'} onValueChange={(v) => setSelectedSession(v === '__auto__' ? '' : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Tự động theo giờ" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tự động theo giờ</SelectItem>
+                    <SelectItem value="__auto__">Tự động theo giờ</SelectItem>
                     {sessions.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.label}
