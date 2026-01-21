@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeaturePermission } from '@/components/guards/FeatureGuard';
 import { supabase } from '@/integrations/supabase/client';
 import { Student, Class, AttendanceStatus } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -96,6 +97,7 @@ interface SavedReport {
 
 export default function Boarding() {
   const { currentSchool, user, profile } = useAuth();
+  const { canView, canCreate, canEdit, canDelete } = useFeaturePermission('boarding');
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'attendance' | 'history'>('attendance');
@@ -663,15 +665,27 @@ export default function Boarding() {
               </Card>
             </div>
 
+            {/* Permission Warning */}
+            {!canCreate && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Bạn không có quyền tạo báo cáo điểm danh nội trú. Liên hệ quản trị viên để được cấp quyền.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Quick Actions */}
-            <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
-                <CheckCircle2 className="h-4 w-4 mr-1" />Đủ tất cả
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleMarkAllAbsent}>
-                <XCircle className="h-4 w-4 mr-1" />Vắng tất cả
-              </Button>
-            </div>
+            {canCreate && (
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
+                  <CheckCircle2 className="h-4 w-4 mr-1" />Đủ tất cả
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleMarkAllAbsent}>
+                  <XCircle className="h-4 w-4 mr-1" />Vắng tất cả
+                </Button>
+              </div>
+            )}
 
             {/* Students List - Compact for mobile */}
             {isLoading ? (
@@ -693,10 +707,12 @@ export default function Boarding() {
                     return (
                       <button
                         key={student.id}
-                        onClick={() => handleToggleAbsent(student)}
+                        onClick={() => canCreate && handleToggleAbsent(student)}
+                        disabled={!canCreate}
                         className={cn(
                           'w-full flex items-center gap-2 px-3 py-2 text-left transition-all',
-                          isAbsent ? 'bg-destructive/10' : 'hover:bg-muted/50'
+                          isAbsent ? 'bg-destructive/10' : 'hover:bg-muted/50',
+                          !canCreate && 'opacity-60 cursor-not-allowed'
                         )}
                       >
                         <div className={cn(
@@ -729,10 +745,12 @@ export default function Boarding() {
             )}
 
             {/* Save Button */}
-            <Button onClick={handleSave} disabled={isSaving} className="w-full">
-              {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Lưu báo cáo
-            </Button>
+            {canCreate && (
+              <Button onClick={handleSave} disabled={isSaving} className="w-full">
+                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Lưu báo cáo
+              </Button>
+            )}
           </TabsContent>
 
           <TabsContent value="history" className="p-4 space-y-4">
@@ -828,9 +846,11 @@ export default function Boarding() {
                                   <Download className="h-4 w-4 mr-1" />
                                   Excel
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => handleDeleteReport(report.id)}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {canDelete && (
+                                  <Button variant="outline" size="sm" onClick={() => handleDeleteReport(report.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
 
