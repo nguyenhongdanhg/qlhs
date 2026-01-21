@@ -67,9 +67,16 @@ Deno.serve(async (req) => {
     // Parse request body
     const body: CreateUserRequest = await req.json();
     
-    // Determine email - use provided email or convert phone to email
-    const userEmail = body.email || (body.phone ? phoneToEmail(body.phone) : '');
-    if (!userEmail) {
+    // IMPORTANT: Always use phone@phone.local format when phone is provided
+    // This ensures login by phone number works correctly
+    // Only use provided email if phone is not available
+    let userEmail: string;
+    if (body.phone) {
+      // Always prioritize phone-based email for login consistency
+      userEmail = phoneToEmail(body.phone);
+    } else if (body.email) {
+      userEmail = body.email;
+    } else {
       return new Response(
         JSON.stringify({ error: 'Email or phone is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
