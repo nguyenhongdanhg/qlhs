@@ -654,6 +654,11 @@ export default function Meals() {
     try {
       const days = eachDayOfInterval({ start: historyDateRange.start, end: historyDateRange.end });
       
+      // For class teachers, only export their class students
+      const studentsToExport = isClassTeacher && teacherClassId 
+        ? students.filter(s => s.class_id === teacherClassId)
+        : students;
+
       // Fetch all attendance records for the date range
       const { data: recordsData } = await supabase
         .from('attendance_records')
@@ -680,7 +685,7 @@ export default function Meals() {
       });
 
       // Build student data with null for unreported meals
-      const studentData: MealStudentData[] = students.map(student => {
+      const studentData: MealStudentData[] = studentsToExport.map(student => {
         const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
         
         days.forEach(day => {
@@ -712,9 +717,17 @@ export default function Meals() {
         };
       });
 
+      // For class teachers, include class name in the title
+      const teacherClass = isClassTeacher && teacherClassId 
+        ? classes.find(c => c.id === teacherClassId)?.name 
+        : null;
+      const exportTitle = teacherClass 
+        ? `THỐNG KÊ BỮA ĂN LỚP ${teacherClass}`
+        : 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ';
+
       exportMealStatistics(studentData, {
         schoolName: currentSchool.name,
-        title: 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ',
+        title: exportTitle,
         dateRange: historyDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
