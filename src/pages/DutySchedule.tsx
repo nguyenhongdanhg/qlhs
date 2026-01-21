@@ -919,158 +919,155 @@ export default function DutySchedule() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <Card className="overflow-hidden">
               <CardContent className="p-0">
-                <ScrollArea className="w-full">
-                  <div className="min-w-max">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="w-10 text-center sticky left-0 bg-muted/50 z-20 border-r px-1">STT</TableHead>
-                          <TableHead className="min-w-[180px] sticky left-10 bg-muted/50 z-20 border-r">Họ tên</TableHead>
-                          <TableHead className="w-14 text-center sticky left-[220px] bg-muted/50 z-20 border-r px-1">Lần</TableHead>
-                          <TableHead className="w-10 text-center sticky left-[276px] bg-muted/50 z-20 border-r px-0"></TableHead>
-                          {daysInMonth.map((day, i) => {
-                            const dayName = getDayName(day);
-                            const dayCount = dutiesPerDay[format(day, 'yyyy-MM-dd')] || 0;
-                            const isFull = dayCount >= MAX_PER_DAY;
-                            const today = isToday(day);
-                            const isWeekend = dayName === "CN" || dayName === "T7";
-                            
-                            return (
-                              <TableHead 
-                                key={i} 
-                                className={cn(
-                                  "w-11 text-center p-0",
-                                  today && "bg-primary/10",
-                                  isWeekend && !today && "bg-orange-50 dark:bg-orange-950/20"
-                                )}
-                              >
-                                <div className="flex flex-col items-center py-1.5">
-                                  <span className={cn(
-                                    "text-[10px] font-semibold",
-                                    isWeekend ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground",
-                                    today && "text-primary"
-                                  )}>
-                                    {dayName}
-                                  </span>
-                                  <span className={cn(
-                                    "text-base font-bold leading-tight",
-                                    isWeekend && "text-orange-600 dark:text-orange-400",
-                                    today && "text-primary"
-                                  )}>
-                                    {format(day, 'd')}
-                                  </span>
-                                  <Badge 
-                                    variant={isFull ? "destructive" : "secondary"} 
-                                    className="text-[9px] px-1 py-0 h-4 min-w-[22px] mt-0.5"
-                                  >
-                                    {dayCount}/{MAX_PER_DAY}
-                                  </Badge>
-                                </div>
-                              </TableHead>
-                            );
-                          })}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {dutyMembers.map((member, idx) => {
-                          const memberDutyCount = dutiesPerMember[member.id] || 0;
-                          const isFull = memberDutyCount >= MAX_PER_PERSON;
-
+                <div className="overflow-x-auto">
+                  <Table className="relative">
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-10 text-center sticky left-0 bg-muted z-20 border-r px-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">STT</TableHead>
+                        <TableHead className="min-w-[180px] sticky left-10 bg-muted z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Họ tên</TableHead>
+                        <TableHead className="w-14 text-center sticky left-[220px] bg-muted z-20 border-r px-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Lần</TableHead>
+                        <TableHead className="w-10 text-center sticky left-[276px] bg-muted z-20 border-r px-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableHead>
+                        {daysInMonth.map((day, i) => {
+                          const dayName = getDayName(day);
+                          const dayCount = dutiesPerDay[format(day, 'yyyy-MM-dd')] || 0;
+                          const isFull = dayCount >= MAX_PER_DAY;
+                          const today = isToday(day);
+                          const isWeekend = dayName === "CN" || dayName === "T7";
+                          
                           return (
-                            <TableRow key={member.id} className={cn(isFull && "bg-yellow-50/50 dark:bg-yellow-950/10")}>
-                              <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r px-1 text-xs">
-                                {idx + 1}
-                              </TableCell>
-                              <TableCell className="sticky left-10 bg-background z-10 border-r py-1">
-                                <div className="flex items-center gap-1.5">
-                                  <Avatar className="h-5 w-5 shrink-0">
-                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                                      {getInitials(member.full_name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="font-medium text-sm whitespace-nowrap">
-                                    {member.full_name}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center sticky left-[220px] bg-background z-10 border-r px-1">
-                                <Badge variant={isFull ? "destructive" : "outline"} className="text-[10px] px-1.5 py-0">
-                                  {memberDutyCount}/{MAX_PER_PERSON}
+                            <TableHead 
+                              key={i} 
+                              className={cn(
+                                "w-11 text-center p-0",
+                                today && "bg-primary/10",
+                                isWeekend && !today && "bg-orange-50 dark:bg-orange-950/20"
+                              )}
+                            >
+                              <div className="flex flex-col items-center py-1.5">
+                                <span className={cn(
+                                  "text-[10px] font-semibold",
+                                  isWeekend ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground",
+                                  today && "text-primary"
+                                )}>
+                                  {dayName}
+                                </span>
+                                <span className={cn(
+                                  "text-base font-bold leading-tight",
+                                  isWeekend && "text-orange-600 dark:text-orange-400",
+                                  today && "text-primary"
+                                )}>
+                                  {format(day, 'd')}
+                                </span>
+                                <Badge 
+                                  variant={isFull ? "destructive" : "secondary"} 
+                                  className="text-[9px] px-1 py-0 h-4 min-w-[22px] mt-0.5"
+                                >
+                                  {dayCount}/{MAX_PER_DAY}
                                 </Badge>
-                              </TableCell>
-                              <TableCell className="text-center sticky left-[276px] bg-background z-10 border-r px-0">
-                                {isSchoolAdmin() && (
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-5 w-5"
-                                        disabled={isSaving}
-                                      >
-                                        <Trash2 className="h-3 w-3 text-destructive" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Xóa người trực</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Xóa {member.full_name} khỏi danh sách trực? Các lượt phân công của người này trong tháng cũng sẽ bị xóa.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                        <AlertDialogAction 
-                                          onClick={() => removeDutyMember(member.id)}
-                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        >
-                                          Xóa
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                )}
-                              </TableCell>
-                              {daysInMonth.map((day, i) => {
-                                const assigned = isAssigned(member.id, day);
-                                const canCheck = canAssign(member.id, day);
-                                const today = isToday(day);
-                                const dayName = getDayName(day);
-                                const isWeekend = dayName === "CN" || dayName === "T7";
-
-                                return (
-                                  <TableCell 
-                                    key={i} 
-                                    className={cn(
-                                      "text-center p-1",
-                                      today && "bg-primary/5",
-                                      isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10"
-                                    )}
-                                  >
-                                    <div className="flex justify-center">
-                                      <Checkbox
-                                        checked={assigned}
-                                        disabled={!isSchoolAdmin() || isSaving || (!assigned && !canCheck)}
-                                        onCheckedChange={() => toggleAssignment(member.id, day)}
-                                        className={cn(
-                                          "h-5 w-5",
-                                          assigned && "bg-primary border-primary"
-                                        )}
-                                      />
-                                    </div>
-                                  </TableCell>
-                                );
-                              })}
-                            </TableRow>
+                              </div>
+                            </TableHead>
                           );
                         })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dutyMembers.map((member, idx) => {
+                        const memberDutyCount = dutiesPerMember[member.id] || 0;
+                        const isFull = memberDutyCount >= MAX_PER_PERSON;
+
+                        return (
+                          <TableRow key={member.id} className={cn(isFull && "bg-yellow-50/50 dark:bg-yellow-950/10")}>
+                            <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell className="sticky left-10 bg-background z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                              <div className="flex items-center gap-1.5">
+                                <Avatar className="h-5 w-5 shrink-0">
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                    {getInitials(member.full_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium text-sm whitespace-nowrap">
+                                  {member.full_name}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center sticky left-[220px] bg-background z-10 border-r px-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                              <Badge variant={isFull ? "destructive" : "outline"} className="text-[10px] px-1.5 py-0">
+                                {memberDutyCount}/{MAX_PER_PERSON}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center sticky left-[276px] bg-background z-10 border-r px-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                              {isSchoolAdmin() && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-5 w-5"
+                                      disabled={isSaving}
+                                    >
+                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Xóa người trực</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Xóa {member.full_name} khỏi danh sách trực? Các lượt phân công của người này trong tháng cũng sẽ bị xóa.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => removeDutyMember(member.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Xóa
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </TableCell>
+                            {daysInMonth.map((day, i) => {
+                              const assigned = isAssigned(member.id, day);
+                              const canCheck = canAssign(member.id, day);
+                              const today = isToday(day);
+                              const dayName = getDayName(day);
+                              const isWeekend = dayName === "CN" || dayName === "T7";
+
+                              return (
+                                <TableCell 
+                                  key={i} 
+                                  className={cn(
+                                    "text-center p-1",
+                                    today && "bg-primary/5",
+                                    isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10"
+                                  )}
+                                >
+                                  <div className="flex justify-center">
+                                    <Checkbox
+                                      checked={assigned}
+                                      disabled={!isSchoolAdmin() || isSaving || (!assigned && !canCheck)}
+                                      onCheckedChange={() => toggleAssignment(member.id, day)}
+                                      className={cn(
+                                        "h-5 w-5",
+                                        assigned && "bg-primary border-primary"
+                                      )}
+                                    />
+                                  </div>
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           )}
