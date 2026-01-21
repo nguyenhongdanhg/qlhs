@@ -71,10 +71,28 @@ type ExcuseMap = Record<string, ExcuseInfo>;
 type BoardingSession = { id: string; label: string };
 
 const DEFAULT_SESSIONS: BoardingSession[] = [
-  { id: 'exercise', label: 'Thể dục' },
-  { id: 'noon', label: 'Ngủ trưa' },
-  { id: 'night', label: 'Ngủ tối' },
+  { id: 'morning', label: 'Sáng' },
+  { id: 'noon', label: 'Trưa' },
+  { id: 'night', label: 'Tối' },
+  { id: 'emergency', label: 'Đột xuất' },
 ];
+
+// Auto-detect session based on time
+const detectSessionByTime = (): string => {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const time = hours * 60 + minutes; // Convert to minutes for easier comparison
+  
+  // 6:00 - 7:00 (360 - 420 minutes) -> Sáng
+  if (time >= 360 && time <= 420) return 'morning';
+  // 11:00 - 13:00 (660 - 780 minutes) -> Trưa
+  if (time >= 660 && time <= 780) return 'noon';
+  // 21:30 - 23:00 (1290 - 1380 minutes) -> Tối
+  if (time >= 1290 && time <= 1380) return 'night';
+  // Other times -> Đột xuất
+  return 'emergency';
+};
 
 interface SavedReport {
   id: string;
@@ -310,22 +328,19 @@ export default function Boarding() {
     setAttendance(prev => ({ ...prev, ...newAttendance }));
   };
 
-  const validateBeforeSave = (): boolean => {
-    if (!selectedSession) {
-      setShowWarnings(true);
-      toast({
-        title: 'Chưa chọn buổi',
-        description: 'Vui lòng chọn buổi điểm danh trước khi lưu',
-        variant: 'destructive',
-      });
-      return false;
+  const validateBeforeSave = (): string => {
+    // Auto-detect session if not selected
+    let sessionToUse = selectedSession;
+    if (!sessionToUse) {
+      sessionToUse = detectSessionByTime();
+      setSelectedSession(sessionToUse);
     }
-    return true;
+    return sessionToUse;
   };
 
   const handleSave = async () => {
     if (!currentSchool || !user) return;
-    if (!validateBeforeSave()) return;
+    const sessionToUse = validateBeforeSave();
 
     setIsSaving(true);
     setShowWarnings(false);
@@ -366,12 +381,12 @@ export default function Boarding() {
           reason: excuseInfo[s.id]?.reason || '',
         }));
 
-      const sessionLabel = sessions.find(s => s.id === selectedSession)?.label || selectedSession;
+      const sessionLabel = sessions.find(s => s.id === sessionToUse)?.label || sessionToUse;
 
       const newReport: SavedReport = {
-        id: `${dateStr}_${selectedSession}_${Date.now()}`,
+        id: `${dateStr}_${sessionToUse}_${Date.now()}`,
         date: dateStr,
-        session: selectedSession,
+        session: sessionToUse,
         sessionLabel,
         total: students.length,
         present: presentCount,
@@ -554,16 +569,6 @@ export default function Boarding() {
           </TabsList>
 
           <TabsContent value="attendance" className="p-4 space-y-4">
-            {/* Validation Warnings */}
-            {showWarnings && !selectedSession && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Vui lòng chọn buổi điểm danh trước khi lưu báo cáo
-                </AlertDescription>
-              </Alert>
-            )}
-
             {/* Filters */}
             <div className="grid gap-4 md:grid-cols-4">
               <div>
@@ -588,35 +593,22 @@ export default function Boarding() {
               </div>
 
               <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Buổi * (bắt buộc)</label>
-                <div className="flex gap-2 flex-wrap items-center">
-                  {sessions.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => setSelectedSession(selectedSession === s.id ? '' : s.id)}
-                      className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all',
-                        selectedSession === s.id
-                          ? 'border-primary bg-primary/10 text-primary font-medium'
-                          : 'border-border hover:border-primary/50',
-                        showWarnings && !selectedSession && 'border-red-300'
-                      )}
-                    >
-                      <div className={cn(
-                        'w-4 h-4 border-2 rounded flex items-center justify-center',
-                        selectedSession === s.id ? 'border-primary bg-primary' : 'border-muted-foreground'
-                      )}>
-                        {selectedSession === s.id && (
-                          <CheckCircle2 className="h-3 w-3 text-white" />
-                        )}
-                      </div>
-                      {s.label}
-                    </button>
-                  ))}
-                  <Button variant="outline" size="icon" onClick={() => setIsAddSessionOpen(true)}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">
+                  Buổi {!selectedSession && <span className="text-xs text-muted-foreground">(tự động nhận: {sessions.find(s => s.id === detectSessionByTime())?.label})</span>}
+                </label>
+                <Select value={selectedSession} onValueChange={setSelectedSession}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tự động theo giờ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Tự động theo giờ</SelectItem>
+                    {sessions.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
