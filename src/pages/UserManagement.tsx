@@ -114,6 +114,7 @@ export default function UserManagement() {
     phone: '',
     position: '',
     gender: '' as 'male' | 'female' | 'other' | '',
+    birth_date: '',
   });
 
   useEffect(() => {
@@ -196,6 +197,7 @@ export default function UserManagement() {
       phone: membership.profile?.phone || '',
       position: membership.profile?.position || '',
       gender: (membership.profile as any)?.gender || '',
+      birth_date: (membership.profile as any)?.birth_date || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -216,7 +218,7 @@ export default function UserManagement() {
 
       if (membershipError) throw membershipError;
 
-      // Update profile (name, phone, position, gender)
+      // Update profile (name, phone, position, gender, birth_date)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -224,6 +226,7 @@ export default function UserManagement() {
           phone: formData.phone || null,
           position: formData.position || null,
           gender: formData.gender || null,
+          birth_date: formData.birth_date || null,
         })
         .eq('id', editingMembership.user_id);
 
@@ -638,6 +641,17 @@ export default function UserManagement() {
                 />
               </div>
 
+              <div className="grid gap-2">
+                <Label>Ngày sinh</Label>
+                <Input
+                  type="date"
+                  value={formData.birth_date}
+                  onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Giới tính</Label>
                 <Select

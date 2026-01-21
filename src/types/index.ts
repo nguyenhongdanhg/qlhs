@@ -28,6 +28,7 @@ export interface Profile {
   position?: string;
   avatar_url?: string;
   gender?: 'male' | 'female' | 'other';
+  birth_date?: string;
   created_at: string;
   updated_at: string;
 }
