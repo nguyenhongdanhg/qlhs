@@ -67,6 +67,7 @@ import {
   ArrowRight,
   UserPlus,
   Save,
+  BarChart3,
 } from 'lucide-react';
 import {
   Dialog,
@@ -78,6 +79,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import DutyStatisticsTab from '@/components/duty/DutyStatisticsTab';
 
 const MAX_PER_DAY = 3;
 const MAX_PER_PERSON = 5;
@@ -87,6 +89,7 @@ interface DutyMember extends Profile {
   dutyCount: number;
   isFixed: boolean;
   fixedDays: number[];
+  gender?: 'male' | 'female' | 'other';
 }
 
 export default function DutySchedule() {
@@ -604,8 +607,46 @@ export default function DutySchedule() {
       return;
     }
 
+    // Check if there's at least one male member
+    const maleMembers = dutyMembers.filter(m => m.gender === 'male');
+    const femaleMembers = dutyMembers.filter(m => m.gender !== 'male');
+    
+    if (maleMembers.length === 0) {
+      toast({
+        title: 'Cảnh báo',
+        description: 'Không có thành viên nam trong danh sách. Tiếp tục phân công bình thường.',
+      });
+    }
+
     setIsSaving(true);
     try {
+      // Get previous month's schedules to analyze last duty dates
+      const prevMonth = subMonths(currentMonth, 1);
+      const prevMonthStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
+      const prevMonthEnd = format(endOfMonth(prevMonth), 'yyyy-MM-dd');
+
+      const { data: prevSchedules } = await supabase
+        .from('duty_schedules')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .gte('duty_date', prevMonthStart)
+        .lte('duty_date', prevMonthEnd)
+        .order('duty_date', { ascending: false });
+
+      // Calculate last duty date and weekend counts from previous month
+      const lastDutyDate: Record<string, string> = {};
+      const prevWeekendCounts: Record<string, number> = {};
+      
+      (prevSchedules || []).forEach(s => {
+        if (!lastDutyDate[s.user_id]) {
+          lastDutyDate[s.user_id] = s.duty_date;
+        }
+        const dayOfWeek = getDay(new Date(s.duty_date));
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          prevWeekendCounts[s.user_id] = (prevWeekendCounts[s.user_id] || 0) + 1;
+        }
+      });
+
       // Clear current month
       const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
       const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
@@ -617,42 +658,188 @@ export default function DutySchedule() {
         .gte('duty_date', monthStart)
         .lte('duty_date', monthEnd);
 
-      // Auto-assign: round-robin style
+      // Sort members by last duty date (earliest first) and previous weekend count (less first for fairness)
+      const sortedMembers = [...dutyMembers].sort((a, b) => {
+        const aLastDate = lastDutyDate[a.id] || '1900-01-01';
+        const bLastDate = lastDutyDate[b.id] || '1900-01-01';
+        if (aLastDate !== bLastDate) return aLastDate < bLastDate ? -1 : 1;
+        const aWeekend = prevWeekendCounts[a.id] || 0;
+        const bWeekend = prevWeekendCounts[b.id] || 0;
+        return aWeekend - bWeekend;
+      });
+
+      const sortedMales = sortedMembers.filter(m => m.gender === 'male');
+      const sortedOthers = sortedMembers.filter(m => m.gender !== 'male');
+
+      // Track assignments
       const newSchedules: { school_id: string; user_id: string; duty_date: string }[] = [];
       const memberCounts: Record<string, number> = {};
-      let memberIndex = 0;
+      const memberLastDate: Record<string, string> = { ...lastDutyDate };
+      const weekendCounts: Record<string, number> = {};
+      
+      let maleIndex = 0;
+      let otherIndex = 0;
+
+      // Calculate ideal gap between duties
+      const totalDays = daysInMonth.length;
+      const totalDutySlots = totalDays * MAX_PER_DAY;
+      const idealGap = Math.max(1, Math.floor(totalDays / (MAX_PER_PERSON + 1)));
 
       for (const day of daysInMonth) {
         const dateStr = format(day, 'yyyy-MM-dd');
-        let dayCount = 0;
-
-        // Try to assign MAX_PER_DAY people per day
-        while (dayCount < MAX_PER_DAY) {
-          const startIndex = memberIndex;
+        const dayOfWeek = getDay(day);
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        
+        const dayAssignments: string[] = [];
+        
+        // Rule: Always assign 1 male first (if available)
+        if (sortedMales.length > 0) {
+          // Find best male candidate (respecting gap and limit)
           let assigned = false;
-
-          do {
-            const member = dutyMembers[memberIndex % dutyMembers.length];
+          for (let attempts = 0; attempts < sortedMales.length; attempts++) {
+            const member = sortedMales[maleIndex % sortedMales.length];
             const count = memberCounts[member.id] || 0;
-
-            if (count < MAX_PER_PERSON) {
+            const lastDate = memberLastDate[member.id];
+            
+            // Check gap from last duty
+            let daysSinceLastDuty = idealGap + 1;
+            if (lastDate) {
+              const lastDutyDay = new Date(lastDate);
+              daysSinceLastDuty = Math.floor((day.getTime() - lastDutyDay.getTime()) / (1000 * 60 * 60 * 24));
+            }
+            
+            if (count < MAX_PER_PERSON && daysSinceLastDuty >= Math.max(1, idealGap - 1)) {
               newSchedules.push({
                 school_id: currentSchool.id,
                 user_id: member.id,
                 duty_date: dateStr,
               });
               memberCounts[member.id] = count + 1;
-              dayCount++;
-              memberIndex = (memberIndex + 1) % dutyMembers.length;
+              memberLastDate[member.id] = dateStr;
+              dayAssignments.push(member.id);
+              if (isWeekend) {
+                weekendCounts[member.id] = (weekendCounts[member.id] || 0) + 1;
+              }
+              maleIndex = (maleIndex + 1) % sortedMales.length;
               assigned = true;
               break;
             }
+            maleIndex = (maleIndex + 1) % sortedMales.length;
+          }
+          
+          // Fallback: if no male available with ideal gap, pick any available male
+          if (!assigned) {
+            for (let attempts = 0; attempts < sortedMales.length; attempts++) {
+              const member = sortedMales[maleIndex % sortedMales.length];
+              const count = memberCounts[member.id] || 0;
+              
+              if (count < MAX_PER_PERSON && !dayAssignments.includes(member.id)) {
+                newSchedules.push({
+                  school_id: currentSchool.id,
+                  user_id: member.id,
+                  duty_date: dateStr,
+                });
+                memberCounts[member.id] = count + 1;
+                memberLastDate[member.id] = dateStr;
+                dayAssignments.push(member.id);
+                if (isWeekend) {
+                  weekendCounts[member.id] = (weekendCounts[member.id] || 0) + 1;
+                }
+                maleIndex = (maleIndex + 1) % sortedMales.length;
+                break;
+              }
+              maleIndex = (maleIndex + 1) % sortedMales.length;
+            }
+          }
+        }
 
-            memberIndex = (memberIndex + 1) % dutyMembers.length;
-          } while (memberIndex !== startIndex);
-
+        // Assign remaining slots (up to MAX_PER_DAY total)
+        const allMembers = [...sortedOthers, ...sortedMales];
+        let generalIndex = otherIndex;
+        
+        while (dayAssignments.length < MAX_PER_DAY) {
+          let assigned = false;
+          const startIndex = generalIndex;
+          
+          do {
+            const member = allMembers[generalIndex % allMembers.length];
+            const count = memberCounts[member.id] || 0;
+            const lastDate = memberLastDate[member.id];
+            
+            // Skip if already assigned today
+            if (dayAssignments.includes(member.id)) {
+              generalIndex = (generalIndex + 1) % allMembers.length;
+              continue;
+            }
+            
+            // Check gap and limit
+            let daysSinceLastDuty = idealGap + 1;
+            if (lastDate) {
+              const lastDutyDay = new Date(lastDate);
+              daysSinceLastDuty = Math.floor((day.getTime() - lastDutyDay.getTime()) / (1000 * 60 * 60 * 24));
+            }
+            
+            // For weekends, prioritize those with fewer weekend duties
+            const memberWeekendCount = weekendCounts[member.id] || 0;
+            const avgWeekendCount = Object.values(weekendCounts).length > 0 
+              ? Object.values(weekendCounts).reduce((a, b) => a + b, 0) / Object.values(weekendCounts).length 
+              : 0;
+            
+            const gapThreshold = isWeekend && memberWeekendCount > avgWeekendCount + 1 
+              ? idealGap 
+              : Math.max(1, idealGap - 1);
+            
+            if (count < MAX_PER_PERSON && daysSinceLastDuty >= gapThreshold) {
+              newSchedules.push({
+                school_id: currentSchool.id,
+                user_id: member.id,
+                duty_date: dateStr,
+              });
+              memberCounts[member.id] = count + 1;
+              memberLastDate[member.id] = dateStr;
+              dayAssignments.push(member.id);
+              if (isWeekend) {
+                weekendCounts[member.id] = (weekendCounts[member.id] || 0) + 1;
+              }
+              generalIndex = (generalIndex + 1) % allMembers.length;
+              assigned = true;
+              break;
+            }
+            
+            generalIndex = (generalIndex + 1) % allMembers.length;
+          } while (generalIndex !== startIndex);
+          
+          // Fallback without gap restriction
+          if (!assigned) {
+            const startFallback = generalIndex;
+            do {
+              const member = allMembers[generalIndex % allMembers.length];
+              const count = memberCounts[member.id] || 0;
+              
+              if (count < MAX_PER_PERSON && !dayAssignments.includes(member.id)) {
+                newSchedules.push({
+                  school_id: currentSchool.id,
+                  user_id: member.id,
+                  duty_date: dateStr,
+                });
+                memberCounts[member.id] = count + 1;
+                memberLastDate[member.id] = dateStr;
+                dayAssignments.push(member.id);
+                if (isWeekend) {
+                  weekendCounts[member.id] = (weekendCounts[member.id] || 0) + 1;
+                }
+                generalIndex = (generalIndex + 1) % allMembers.length;
+                assigned = true;
+                break;
+              }
+              generalIndex = (generalIndex + 1) % allMembers.length;
+            } while (generalIndex !== startFallback);
+          }
+          
           if (!assigned) break;
         }
+        
+        otherIndex = (otherIndex + 1) % Math.max(1, sortedOthers.length);
       }
 
       if (newSchedules.length > 0) {
@@ -663,9 +850,12 @@ export default function DutySchedule() {
         if (error) throw error;
       }
 
+      // Summary statistics
+      const weekendTotal = Object.values(weekendCounts).reduce((a, b) => a + b, 0);
+      
       toast({
         title: 'Thành công',
-        description: `Đã tự động phân công ${newSchedules.length} lịch trực`,
+        description: `Đã phân công ${newSchedules.length} lượt trực (${weekendTotal} lượt cuối tuần)`,
       });
 
       fetchSchedules();
@@ -799,14 +989,18 @@ export default function DutySchedule() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="assignment" className="gap-2">
             <Users className="h-4 w-4" />
-            Phân công trực
+            Phân công
           </TabsTrigger>
           <TabsTrigger value="calendar" className="gap-2">
             <Calendar className="h-4 w-4" />
             Lịch trực
+          </TabsTrigger>
+          <TabsTrigger value="statistics" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Thống kê
           </TabsTrigger>
         </TabsList>
 
@@ -1236,6 +1430,15 @@ export default function DutySchedule() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        {/* Statistics Tab */}
+        <TabsContent value="statistics">
+          <DutyStatisticsTab
+            schedules={schedules}
+            dutyMembers={dutyMembers}
+            currentMonth={currentMonth}
+          />
         </TabsContent>
       </Tabs>
 
