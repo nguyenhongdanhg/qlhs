@@ -63,14 +63,14 @@
     
     /* Sidebar: Rich Deep Blue */
     --sidebar-background: 210 80% 18%;
-    --sidebar-foreground: 200 50% 98%;
+    --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 175 85% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 70% 25%;
-    --sidebar-accent-foreground: 200 50% 98%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 210 70% 25%;
     --sidebar-ring: 175 85% 50%;
-    --sidebar-muted: 200 25% 70%;
+    --sidebar-muted: 0 0% 75%;
     
     /* Chart colors - Vibrant palette */
     --chart-1: 199 95% 45%;
@@ -131,14 +131,14 @@
     --ring: 199 90% 55%;
     
     --sidebar-background: 210 60% 6%;
-    --sidebar-foreground: 200 40% 98%;
+    --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 175 80% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 55% 12%;
-    --sidebar-accent-foreground: 200 40% 98%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 210 55% 12%;
     --sidebar-ring: 175 80% 50%;
-    --sidebar-muted: 200 25% 55%;
+    --sidebar-muted: 0 0% 70%;
   }
 }
 
