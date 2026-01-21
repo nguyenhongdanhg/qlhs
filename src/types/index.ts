@@ -27,6 +27,7 @@ export interface Profile {
   phone?: string;
   position?: string;
   avatar_url?: string;
+  gender?: 'male' | 'female' | 'other';
   created_at: string;
   updated_at: string;
 }

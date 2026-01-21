@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (profileError) throw profileError;
-      setProfile(profileData);
+      setProfile(profileData as Profile);
 
       // Check if super admin
       const { data: globalRole } = await supabase
