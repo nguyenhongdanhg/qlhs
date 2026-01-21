@@ -188,6 +188,7 @@ export default function Boarding() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchClasses();
+    fetchSessions();
     loadSavedReports();
   }, [currentSchool]);
 
@@ -196,6 +197,41 @@ export default function Boarding() {
     fetchStudentsAndAttendance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSchool, date]);
+
+  const fetchSessions = async () => {
+    if (!currentSchool) return;
+    
+    const { data, error } = await supabase
+      .from('attendance_sessions')
+      .select('*')
+      .eq('school_id', currentSchool.id)
+      .eq('session_type', 'boarding')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching sessions:', error);
+      // Fallback to defaults if no sessions exist
+      setSessions(DEFAULT_SESSIONS);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      setSessions(data.map(s => ({ id: s.session_id, label: s.label })));
+    } else {
+      // Initialize default sessions in database for this school
+      const defaultInserts = DEFAULT_SESSIONS.map((s, index) => ({
+        school_id: currentSchool.id,
+        session_type: 'boarding',
+        session_id: s.id,
+        label: s.label,
+        display_order: index,
+      }));
+      
+      await supabase.from('attendance_sessions').insert(defaultInserts);
+      setSessions(DEFAULT_SESSIONS);
+    }
+  };
 
   const fetchClasses = async () => {
     if (!currentSchool) return;
@@ -426,12 +462,33 @@ export default function Boarding() {
     }
   };
 
-  const handleAddSession = () => {
-    if (!newSessionLabel.trim()) return;
+  const handleAddSession = async () => {
+    if (!newSessionLabel.trim() || !currentSchool) return;
+    
+    const newSessionId = `session_${Date.now()}`;
     const newSession: BoardingSession = {
-      id: `session_${Date.now()}`,
+      id: newSessionId,
       label: newSessionLabel.trim(),
     };
+
+    // Save to database
+    const { error } = await supabase.from('attendance_sessions').insert({
+      school_id: currentSchool.id,
+      session_type: 'boarding',
+      session_id: newSessionId,
+      label: newSessionLabel.trim(),
+      display_order: sessions.length,
+    });
+
+    if (error) {
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể thêm buổi điểm danh',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSessions([...sessions, newSession]);
     setNewSessionLabel('');
     setIsAddSessionOpen(false);
@@ -441,7 +498,9 @@ export default function Boarding() {
     });
   };
 
-  const handleDeleteSession = (sessionId: string) => {
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!currentSchool) return;
+    
     if (sessions.length <= 1) {
       toast({
         title: 'Không thể xóa',
@@ -450,10 +509,32 @@ export default function Boarding() {
       });
       return;
     }
+
+    // Delete from database
+    const { error } = await supabase
+      .from('attendance_sessions')
+      .delete()
+      .eq('school_id', currentSchool.id)
+      .eq('session_type', 'boarding')
+      .eq('session_id', sessionId);
+
+    if (error) {
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xóa buổi điểm danh',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSessions(sessions.filter(s => s.id !== sessionId));
     if (selectedSession === sessionId) {
       setSelectedSession('');
     }
+    toast({
+      title: 'Đã xóa',
+      description: 'Đã xóa buổi điểm danh',
+    });
   };
 
   const handleExportSingleReport = (report: SavedReport) => {

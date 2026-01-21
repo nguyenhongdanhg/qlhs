@@ -168,6 +168,7 @@ export default function EveningStudy() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchClasses();
+    fetchSessions();
     loadSavedReports();
   }, [currentSchool]);
 
@@ -176,6 +177,49 @@ export default function EveningStudy() {
     fetchStudentsAndAttendance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSchool, date]);
+
+  const fetchSessions = async () => {
+    if (!currentSchool) return;
+    
+    const { data, error } = await supabase
+      .from('attendance_sessions')
+      .select('*')
+      .eq('school_id', currentSchool.id)
+      .eq('session_type', 'evening_study')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching sessions:', error);
+      setSessions(DEFAULT_SESSIONS);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const loadedSessions = data.map(s => ({ id: s.session_id, label: s.label }));
+      setSessions(loadedSessions);
+      // Auto-select if only 1 session
+      if (loadedSessions.length === 1) {
+        setSelectedSession(loadedSessions[0].id);
+      }
+    } else {
+      // Initialize default sessions in database for this school
+      const defaultInserts = DEFAULT_SESSIONS.map((s, index) => ({
+        school_id: currentSchool.id,
+        session_type: 'evening_study',
+        session_id: s.id,
+        label: s.label,
+        display_order: index,
+      }));
+      
+      await supabase.from('attendance_sessions').insert(defaultInserts);
+      setSessions(DEFAULT_SESSIONS);
+      // Auto-select if only 1 default session
+      if (DEFAULT_SESSIONS.length === 1) {
+        setSelectedSession(DEFAULT_SESSIONS[0].id);
+      }
+    }
+  };
 
   const fetchClasses = async () => {
     if (!currentSchool) return;
@@ -415,34 +459,80 @@ export default function EveningStudy() {
     }
   };
 
-  const handleAddSession = () => {
-    if (!newSessionLabel.trim()) return;
+  const handleAddSession = async () => {
+    if (!newSessionLabel.trim() || !currentSchool) return;
+    
+    const newSessionId = `session_${Date.now()}`;
     const newSession: StudySession = {
-      id: `session_${Date.now()}`,
+      id: newSessionId,
       label: newSessionLabel.trim(),
     };
-    setSessions([...sessions, newSession]);
-    setNewSessionLabel('');
-    setIsAddSessionOpen(false);
-    toast({
-      title: 'Đã thêm buổi',
-      description: `Buổi "${newSession.label}" đã được thêm`,
-    });
-  };
 
-  const handleDeleteSession = (sessionId: string) => {
-    if (sessions.length <= 1) {
+    // Save to database
+    const { error } = await supabase.from('attendance_sessions').insert({
+      school_id: currentSchool.id,
+      session_type: 'evening_study',
+      session_id: newSessionId,
+      label: newSessionLabel.trim(),
+      display_order: sessions.length,
+    });
+
+    if (error) {
       toast({
-        title: 'Không thể xóa',
-        description: 'Phải có ít nhất một buổi điểm danh',
+        title: 'Lỗi',
+        description: 'Không thể thêm ca học',
         variant: 'destructive',
       });
       return;
     }
-    setSessions(sessions.filter(s => s.id !== sessionId));
-    if (selectedSession === sessionId) {
-      setSelectedSession('');
+
+    setSessions([...sessions, newSession]);
+    setNewSessionLabel('');
+    setIsAddSessionOpen(false);
+    toast({
+      title: 'Đã thêm ca học',
+      description: `Ca "${newSession.label}" đã được thêm`,
+    });
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!currentSchool) return;
+    
+    if (sessions.length <= 1) {
+      toast({
+        title: 'Không thể xóa',
+        description: 'Phải có ít nhất một ca học',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    // Delete from database
+    const { error } = await supabase
+      .from('attendance_sessions')
+      .delete()
+      .eq('school_id', currentSchool.id)
+      .eq('session_type', 'evening_study')
+      .eq('session_id', sessionId);
+
+    if (error) {
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xóa ca học',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const newSessions = sessions.filter(s => s.id !== sessionId);
+    setSessions(newSessions);
+    if (selectedSession === sessionId) {
+      setSelectedSession(newSessions.length === 1 ? newSessions[0].id : '');
+    }
+    toast({
+      title: 'Đã xóa',
+      description: 'Đã xóa ca học',
+    });
   };
 
   const handleExportSingleReport = (report: SavedReport) => {
