@@ -2,12 +2,12 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
+import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { 
   Users, 
   Home, 
   GraduationCap,
   Building2,
-  Loader2,
   BookOpen,
   UtensilsCrossed,
   BarChart3,
@@ -185,12 +185,7 @@ export default function Dashboard() {
       </Card>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Đang tải dữ liệu...</p>
-          </div>
-        </div>
+        <DashboardSkeleton />
       ) : (
         <>
           {/* Stats Cards - Enhanced with gradients */}
