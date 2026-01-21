@@ -220,7 +220,7 @@
   }
   
   .nav-item-inactive {
-    @apply text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-foreground;
+    @apply text-white/90 hover:bg-sidebar-accent hover:text-white;
   }
   
   /* Mobile bottom nav - Enhanced */
