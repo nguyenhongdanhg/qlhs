@@ -630,7 +630,6 @@ export default function DutySchedule() {
     // Separate members by gender
     const maleMembers = dutyMembers.filter(m => m.gender === 'male');
     const femaleMembers = dutyMembers.filter(m => m.gender === 'female');
-    const otherMembers = dutyMembers.filter(m => m.gender !== 'male' && m.gender !== 'female');
     
     if (maleMembers.length === 0) {
       toast({
@@ -657,13 +656,19 @@ export default function DutySchedule() {
       // Calculate last duty date and weekend counts from previous month
       const lastDutyDate: Record<string, string> = {};
       const prevWeekendCounts: Record<string, number> = {};
+      const prevSatCounts: Record<string, number> = {};
+      const prevSunCounts: Record<string, number> = {};
       
       (prevSchedules || []).forEach(s => {
         if (!lastDutyDate[s.user_id]) {
           lastDutyDate[s.user_id] = s.duty_date;
         }
         const dayOfWeek = getDay(new Date(s.duty_date));
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
+        if (dayOfWeek === 6) {
+          prevSatCounts[s.user_id] = (prevSatCounts[s.user_id] || 0) + 1;
+          prevWeekendCounts[s.user_id] = (prevWeekendCounts[s.user_id] || 0) + 1;
+        } else if (dayOfWeek === 0) {
+          prevSunCounts[s.user_id] = (prevSunCounts[s.user_id] || 0) + 1;
           prevWeekendCounts[s.user_id] = (prevWeekendCounts[s.user_id] || 0) + 1;
         }
       });
@@ -684,17 +689,30 @@ export default function DutySchedule() {
       const totalMembers = dutyMembers.length;
       const totalSlots = totalDays * MAX_PER_DAY;
       
+      // Count weekends in this month
+      const saturdaysInMonth = daysInMonth.filter(d => getDay(d) === 6).length;
+      const sundaysInMonth = daysInMonth.filter(d => getDay(d) === 0).length;
+      const weekendDays = saturdaysInMonth + sundaysInMonth;
+      const weekendSlots = weekendDays * MAX_PER_DAY;
+      
       // Calculate duties per person for even distribution
       const baseDutiesPerPerson = Math.floor(totalSlots / totalMembers);
       const extraDuties = totalSlots % totalMembers;
       
-      // Initialize member quotas
-      const memberQuota: Record<string, number> = {};
-      const memberCounts: Record<string, number> = {};
-      const memberLastDate: Record<string, string> = { ...lastDutyDate };
-      const weekendCounts: Record<string, number> = {};
+      // Calculate weekend duties per person for even rotation
+      const baseWeekendPerPerson = Math.floor(weekendSlots / totalMembers);
+      const extraWeekend = weekendSlots % totalMembers;
       
-      // Assign quotas - members with fewer previous weekend duties get extra
+      // Initialize member tracking
+      const memberQuota: Record<string, number> = {};
+      const memberWeekendQuota: Record<string, number> = {};
+      const memberCounts: Record<string, number> = {};
+      const memberWeekendCounts: Record<string, number> = {};
+      const memberSatCounts: Record<string, number> = {};
+      const memberSunCounts: Record<string, number> = {};
+      const memberLastDate: Record<string, string> = { ...lastDutyDate };
+      
+      // Sort members by previous weekend counts (fewer first for rotation fairness)
       const sortedByPrevWeekend = [...dutyMembers].sort((a, b) => {
         const aWeekend = prevWeekendCounts[a.id] || 0;
         const bWeekend = prevWeekendCounts[b.id] || 0;
@@ -703,12 +721,15 @@ export default function DutySchedule() {
       
       sortedByPrevWeekend.forEach((member, idx) => {
         memberQuota[member.id] = baseDutiesPerPerson + (idx < extraDuties ? 1 : 0);
+        memberWeekendQuota[member.id] = baseWeekendPerPerson + (idx < extraWeekend ? 1 : 0);
         memberCounts[member.id] = 0;
+        memberWeekendCounts[member.id] = 0;
+        memberSatCounts[member.id] = 0;
+        memberSunCounts[member.id] = 0;
       });
 
       // Sort females by age (older first based on birth_date)
       const sortedFemalesByAge = [...femaleMembers].sort((a, b) => {
-        // If both have birth_date, older (earlier birth_date) comes first
         const aBirth = a.birth_date || '9999-12-31';
         const bBirth = b.birth_date || '9999-12-31';
         return aBirth.localeCompare(bBirth);
@@ -722,34 +743,40 @@ export default function DutySchedule() {
         return quota > 0 ? Math.floor(totalDays / quota) : totalDays;
       };
       
-      // Track which members to use in rotation
+      // Helper to get days since last duty
+      const getDaysSinceLastDuty = (member: DutyMember, day: Date) => {
+        const lastDate = memberLastDate[member.id];
+        if (!lastDate) return 999;
+        return Math.floor((day.getTime() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24));
+      };
+      
+      // Track rotation indices
       let maleIndex = 0;
-      let femaleIndex = 0;
-      let otherIndex = 0;
 
       for (const day of daysInMonth) {
         const dateStr = format(day, 'yyyy-MM-dd');
         const dayOfWeek = getDay(day);
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const isSaturday = dayOfWeek === 6;
+        const isSunday = dayOfWeek === 0;
+        const isWeekend = isSaturday || isSunday;
         
         const dayAssignments: string[] = [];
         
         // Helper to check if member can be assigned
-        const canAssignMember = (member: DutyMember, relaxGap: boolean = false) => {
+        const canAssignMember = (member: DutyMember, relaxGap: boolean = false, checkWeekendQuota: boolean = true) => {
           if (dayAssignments.includes(member.id)) return false;
           if (memberCounts[member.id] >= memberQuota[member.id]) return false;
           
-          const lastDate = memberLastDate[member.id];
-          if (!lastDate) return true;
+          // Check weekend quota for weekend days
+          if (isWeekend && checkWeekendQuota && memberWeekendCounts[member.id] >= memberWeekendQuota[member.id]) {
+            return false;
+          }
           
-          const daysSinceLastDuty = Math.floor(
-            (day.getTime() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24)
-          );
-          
+          const daysSince = getDaysSinceLastDuty(member, day);
           const idealGap = getIdealGap(member.id);
           const minGap = relaxGap ? 1 : Math.max(1, idealGap - 2);
           
-          return daysSinceLastDuty >= minGap;
+          return daysSince >= minGap;
         };
         
         // Helper to assign a member
@@ -763,38 +790,75 @@ export default function DutySchedule() {
           memberLastDate[member.id] = dateStr;
           dayAssignments.push(member.id);
           if (isWeekend) {
-            weekendCounts[member.id] = (weekendCounts[member.id] || 0) + 1;
+            memberWeekendCounts[member.id]++;
           }
+          if (isSaturday) {
+            memberSatCounts[member.id]++;
+          }
+          if (isSunday) {
+            memberSunCounts[member.id]++;
+          }
+        };
+        
+        // For weekends, sort candidates by weekend rotation fairness
+        const getWeekendPriority = (member: DutyMember) => {
+          const prevCount = prevWeekendCounts[member.id] || 0;
+          const currCount = memberWeekendCounts[member.id] || 0;
+          // For Saturday, prefer those with fewer Saturdays
+          if (isSaturday) {
+            return (prevSatCounts[member.id] || 0) + (memberSatCounts[member.id] || 0);
+          }
+          // For Sunday, prefer those with fewer Sundays
+          if (isSunday) {
+            return (prevSunCounts[member.id] || 0) + (memberSunCounts[member.id] || 0);
+          }
+          return prevCount + currCount;
         };
 
         // Rule: Each group of 3 should have at least 1 male
-        // If no male available, replace with oldest female
         let maleAssigned = false;
         
         if (maleMembers.length > 0) {
+          // Sort males by gap (longest gap first) and weekend fairness
+          const sortedMales = [...maleMembers].sort((a, b) => {
+            const aGap = getDaysSinceLastDuty(a, day);
+            const bGap = getDaysSinceLastDuty(b, day);
+            if (Math.abs(aGap - bGap) > 2) return bGap - aGap;
+            
+            if (isWeekend) {
+              return getWeekendPriority(a) - getWeekendPriority(b);
+            }
+            return bGap - aGap;
+          });
+          
           // Try to assign a male with ideal gap
-          for (let attempts = 0; attempts < maleMembers.length; attempts++) {
-            const member = maleMembers[maleIndex % maleMembers.length];
+          for (const member of sortedMales) {
             if (canAssignMember(member)) {
               assignMember(member);
-              maleIndex = (maleIndex + 1) % maleMembers.length;
               maleAssigned = true;
               break;
             }
-            maleIndex = (maleIndex + 1) % maleMembers.length;
           }
           
           // Fallback: try with relaxed gap
           if (!maleAssigned) {
-            for (let attempts = 0; attempts < maleMembers.length; attempts++) {
-              const member = maleMembers[maleIndex % maleMembers.length];
+            for (const member of sortedMales) {
               if (canAssignMember(member, true)) {
                 assignMember(member);
-                maleIndex = (maleIndex + 1) % maleMembers.length;
                 maleAssigned = true;
                 break;
               }
-              maleIndex = (maleIndex + 1) % maleMembers.length;
+            }
+          }
+          
+          // Last resort: ignore weekend quota
+          if (!maleAssigned) {
+            for (const member of sortedMales) {
+              if (canAssignMember(member, true, false)) {
+                assignMember(member);
+                maleAssigned = true;
+                break;
+              }
             }
           }
         }
@@ -802,7 +866,7 @@ export default function DutySchedule() {
         // If no male was assigned, use oldest available female
         if (!maleAssigned && sortedFemalesByAge.length > 0) {
           for (const female of sortedFemalesByAge) {
-            if (canAssignMember(female, true)) {
+            if (canAssignMember(female, true, false)) {
               assignMember(female);
               break;
             }
@@ -810,25 +874,21 @@ export default function DutySchedule() {
         }
 
         // Fill remaining slots (up to MAX_PER_DAY)
-        // Prioritize members with fewer duties and better gaps
+        // Sort by: gap priority, then weekend fairness, then remaining quota
+        const getCandidatePriority = (member: DutyMember) => {
+          const daysSince = getDaysSinceLastDuty(member, day);
+          const idealGap = getIdealGap(member.id);
+          const gapScore = Math.min(daysSince / idealGap, 2); // Normalized gap score
+          const remainingQuota = memberQuota[member.id] - memberCounts[member.id];
+          const weekendScore = isWeekend ? getWeekendPriority(member) : 0;
+          
+          // Higher score = higher priority
+          return gapScore * 10 + remainingQuota - weekendScore * 0.5;
+        };
+        
         const remainingMembers = [...dutyMembers]
           .filter(m => !dayAssignments.includes(m.id))
-          .sort((a, b) => {
-            // Prioritize by: quota remaining, then weekend balance, then last duty gap
-            const aRemaining = memberQuota[a.id] - memberCounts[a.id];
-            const bRemaining = memberQuota[b.id] - memberCounts[b.id];
-            if (aRemaining !== bRemaining) return bRemaining - aRemaining;
-            
-            if (isWeekend) {
-              const aWeekend = (weekendCounts[a.id] || 0) + (prevWeekendCounts[a.id] || 0);
-              const bWeekend = (weekendCounts[b.id] || 0) + (prevWeekendCounts[b.id] || 0);
-              if (aWeekend !== bWeekend) return aWeekend - bWeekend;
-            }
-            
-            const aLastDate = memberLastDate[a.id] || '1900-01-01';
-            const bLastDate = memberLastDate[b.id] || '1900-01-01';
-            return aLastDate.localeCompare(bLastDate);
-          });
+          .sort((a, b) => getCandidatePriority(b) - getCandidatePriority(a));
 
         for (const member of remainingMembers) {
           if (dayAssignments.length >= MAX_PER_DAY) break;
@@ -848,6 +908,17 @@ export default function DutySchedule() {
             }
           }
         }
+        
+        // Last resort: ignore weekend quota
+        if (dayAssignments.length < MAX_PER_DAY) {
+          for (const member of remainingMembers) {
+            if (dayAssignments.length >= MAX_PER_DAY) break;
+            
+            if (canAssignMember(member, true, false)) {
+              assignMember(member);
+            }
+          }
+        }
       }
 
       if (newSchedules.length > 0) {
@@ -859,12 +930,13 @@ export default function DutySchedule() {
       }
 
       // Summary statistics
-      const weekendTotal = Object.values(weekendCounts).reduce((a, b) => a + b, 0);
+      const weekendTotal = Object.values(memberWeekendCounts).reduce((a, b) => a + b, 0);
       const avgDuties = totalMembers > 0 ? (newSchedules.length / totalMembers).toFixed(1) : 0;
+      const avgWeekend = totalMembers > 0 ? (weekendTotal / totalMembers).toFixed(1) : 0;
       
       toast({
         title: 'Thành công',
-        description: `Đã phân công ${newSchedules.length} lượt (TB ${avgDuties}/người, ${weekendTotal} lượt cuối tuần)`,
+        description: `Đã phân công ${newSchedules.length} lượt (TB ${avgDuties}/người, ${avgWeekend} cuối tuần/người)`,
       });
 
       fetchSchedules();
