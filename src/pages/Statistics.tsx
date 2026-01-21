@@ -120,6 +120,10 @@ export default function Statistics() {
   // Check if user can supplement reports (admin or accountant)
   const canSupplementReports = isSuperAdmin || isSchoolAdmin() || currentMembership?.role === 'accountant';
 
+  // Check if user is class teacher and get their class
+  const isClassTeacher = currentMembership?.role === 'class_teacher';
+  const teacherClassId = currentMembership?.class_id;
+
   // Expand/collapse states
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     breakfast: false,
@@ -136,6 +140,61 @@ export default function Statistics() {
       return a.name.localeCompare(b.name, 'vi');
     });
   }, [classes]);
+
+  // Get teacher's class name for display
+  const teacherClassName = useMemo(() => {
+    if (!isClassTeacher || !teacherClassId) return null;
+    return classes.find(c => c.id === teacherClassId)?.name;
+  }, [isClassTeacher, teacherClassId, classes]);
+
+  // Filter students for class teachers - they can only see their class
+  const filteredStudents = useMemo(() => {
+    if (isClassTeacher && teacherClassId) {
+      return students.filter(s => s.class_id === teacherClassId);
+    }
+    return students;
+  }, [students, isClassTeacher, teacherClassId]);
+
+  // For class teachers, filter meal stats to only show their class
+  const filteredMealStats = useMemo((): DailyMealSummary | null => {
+    if (!dailyMealStats) return null;
+    
+    // If not a class teacher, return all stats
+    if (!isClassTeacher || !teacherClassName) return dailyMealStats;
+    
+    // Filter meal stats for class teacher's class
+    const filterMealForClass = (stats: MealStats): MealStats => {
+      const classAbsentStudents = stats.absentStudents.filter(s => s.className === teacherClassName);
+      const classTotal = filteredStudents.length;
+      
+      if (!stats.hasReport) {
+        return {
+          ...stats,
+          total: classTotal,
+          classesNotReported: stats.classesNotReported.filter(c => c === teacherClassName),
+        };
+      }
+      
+      // Calculate class-specific counts from attendance records
+      const classPresent = classTotal - classAbsentStudents.length;
+      
+      return {
+        total: classTotal,
+        present: classPresent,
+        absent: classAbsentStudents.length,
+        absentStudents: classAbsentStudents,
+        classesNotReported: stats.classesNotReported.filter(c => c === teacherClassName),
+        hasReport: stats.hasReport,
+      };
+    };
+
+    return {
+      breakfast: filterMealForClass(dailyMealStats.breakfast),
+      lunch: filterMealForClass(dailyMealStats.lunch),
+      dinner: filterMealForClass(dailyMealStats.dinner),
+      totalRice: (filterMealForClass(dailyMealStats.lunch).present + filterMealForClass(dailyMealStats.dinner).present) * 0.2,
+    };
+  }, [dailyMealStats, isClassTeacher, teacherClassName, filteredStudents]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -603,7 +662,7 @@ export default function Statistics() {
   };
 
   const handleExportMealStats = async () => {
-    if (!currentSchool || students.length === 0) return;
+    if (!currentSchool || filteredStudents.length === 0) return;
     setIsExporting(true);
 
     try {
@@ -627,8 +686,8 @@ export default function Statistics() {
         }
       });
 
-      // Build student data
-      const studentData: MealStudentData[] = students.map(student => {
+      // Build student data - use filteredStudents for class teachers
+      const studentData: MealStudentData[] = filteredStudents.map(student => {
         const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
 
         days.forEach(day => {
@@ -655,9 +714,14 @@ export default function Statistics() {
         };
       });
 
+      // For class teachers, include class name in the title
+      const exportTitle = teacherClassName 
+        ? `THỐNG KÊ BỮA ĂN LỚP ${teacherClassName}`
+        : 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ';
+
       exportMealStatistics(studentData, {
         schoolName: currentSchool.name,
-        title: 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ',
+        title: exportTitle,
         dateRange: riceDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
@@ -898,139 +962,144 @@ export default function Statistics() {
         </div>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-            <TabsTrigger value="rice">Thống kê gạo</TabsTrigger>
+            {!isClassTeacher && <TabsTrigger value="rice">Thống kê gạo</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            {/* Boarding and Evening Study */}
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Latest Boarding Report */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Home className="h-5 w-5 text-primary" />
-                    Điểm danh nội trú gần nhất
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {latestBoardingReport ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Người báo:</span>
-                        <span className="font-medium">{latestBoardingReport.reporter}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Thời gian:</span>
-                        <span>{latestBoardingReport.reportTime}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-lg bg-muted p-2">
-                          <div className="text-xs text-muted-foreground">Tổng</div>
-                          <div className="text-lg font-bold">{latestBoardingReport.total}</div>
+            {/* Boarding and Evening Study - only for non-class teachers */}
+            {!isClassTeacher && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Latest Boarding Report */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Home className="h-5 w-5 text-primary" />
+                      Điểm danh nội trú gần nhất
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {latestBoardingReport ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Người báo:</span>
+                          <span className="font-medium">{latestBoardingReport.reporter}</span>
                         </div>
-                        <div className="rounded-lg bg-success/10 p-2">
-                          <div className="text-xs text-success">Có mặt</div>
-                          <div className="text-lg font-bold text-success">{latestBoardingReport.present}</div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Thời gian:</span>
+                          <span>{latestBoardingReport.reportTime}</span>
                         </div>
-                        <div className="rounded-lg bg-destructive/10 p-2">
-                          <div className="text-xs text-destructive">Vắng</div>
-                          <div className="text-lg font-bold text-destructive">{latestBoardingReport.absent}</div>
-                        </div>
-                      </div>
-                      {latestBoardingReport.absent > 0 && (
-                        <div className="rounded-lg border p-2">
-                          <div className="mb-1 text-xs font-medium text-muted-foreground">
-                            Học sinh vắng:
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-lg bg-muted p-2">
+                            <div className="text-xs text-muted-foreground">Tổng</div>
+                            <div className="text-lg font-bold">{latestBoardingReport.total}</div>
                           </div>
-                          <div className="max-h-32 space-y-1 overflow-y-auto text-sm">
-                            {latestBoardingReport.absentStudents.map(s => (
-                              <div key={s.id} className="flex items-center gap-2">
-                                <span>{s.name}</span>
-                                <span className="text-xs text-muted-foreground">({s.className})</span>
-                                {s.excused && <Badge variant="outline" className="text-xs">P</Badge>}
-                              </div>
-                            ))}
+                          <div className="rounded-lg bg-success/10 p-2">
+                            <div className="text-xs text-success">Có mặt</div>
+                            <div className="text-lg font-bold text-success">{latestBoardingReport.present}</div>
+                          </div>
+                          <div className="rounded-lg bg-destructive/10 p-2">
+                            <div className="text-xs text-destructive">Vắng</div>
+                            <div className="text-lg font-bold text-destructive">{latestBoardingReport.absent}</div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center text-sm text-muted-foreground">
-                      Chưa có báo cáo ngày này
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        {latestBoardingReport.absent > 0 && (
+                          <div className="rounded-lg border p-2">
+                            <div className="mb-1 text-xs font-medium text-muted-foreground">
+                              Học sinh vắng:
+                            </div>
+                            <div className="max-h-32 space-y-1 overflow-y-auto text-sm">
+                              {latestBoardingReport.absentStudents.map(s => (
+                                <div key={s.id} className="flex items-center gap-2">
+                                  <span>{s.name}</span>
+                                  <span className="text-xs text-muted-foreground">({s.className})</span>
+                                  {s.excused && <Badge variant="outline" className="text-xs">P</Badge>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="py-4 text-center text-sm text-muted-foreground">
+                        Chưa có báo cáo ngày này
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-              {/* Latest Evening Study Report */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <BookOpen className="h-5 w-5 text-primary" />
-                    Điểm danh tự học gần nhất
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {latestStudyReport ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Người báo:</span>
-                        <span className="font-medium">{latestStudyReport.reporter}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Thời gian:</span>
-                        <span>{latestStudyReport.reportTime}</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-lg bg-muted p-2">
-                          <div className="text-xs text-muted-foreground">Tổng</div>
-                          <div className="text-lg font-bold">{latestStudyReport.total}</div>
+                {/* Latest Evening Study Report */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <BookOpen className="h-5 w-5 text-primary" />
+                      Điểm danh tự học gần nhất
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {latestStudyReport ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Người báo:</span>
+                          <span className="font-medium">{latestStudyReport.reporter}</span>
                         </div>
-                        <div className="rounded-lg bg-success/10 p-2">
-                          <div className="text-xs text-success">Có mặt</div>
-                          <div className="text-lg font-bold text-success">{latestStudyReport.present}</div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Thời gian:</span>
+                          <span>{latestStudyReport.reportTime}</span>
                         </div>
-                        <div className="rounded-lg bg-destructive/10 p-2">
-                          <div className="text-xs text-destructive">Vắng</div>
-                          <div className="text-lg font-bold text-destructive">{latestStudyReport.absent}</div>
-                        </div>
-                      </div>
-                      {latestStudyReport.absent > 0 && (
-                        <div className="rounded-lg border p-2">
-                          <div className="mb-1 text-xs font-medium text-muted-foreground">
-                            Học sinh vắng:
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-lg bg-muted p-2">
+                            <div className="text-xs text-muted-foreground">Tổng</div>
+                            <div className="text-lg font-bold">{latestStudyReport.total}</div>
                           </div>
-                          <div className="max-h-32 space-y-1 overflow-y-auto text-sm">
-                            {latestStudyReport.absentStudents.map(s => (
-                              <div key={s.id} className="flex items-center gap-2">
-                                <span>{s.name}</span>
-                                <span className="text-xs text-muted-foreground">({s.className})</span>
-                                {s.excused && <Badge variant="outline" className="text-xs">P</Badge>}
-                              </div>
-                            ))}
+                          <div className="rounded-lg bg-success/10 p-2">
+                            <div className="text-xs text-success">Có mặt</div>
+                            <div className="text-lg font-bold text-success">{latestStudyReport.present}</div>
+                          </div>
+                          <div className="rounded-lg bg-destructive/10 p-2">
+                            <div className="text-xs text-destructive">Vắng</div>
+                            <div className="text-lg font-bold text-destructive">{latestStudyReport.absent}</div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center text-sm text-muted-foreground">
-                      Chưa có báo cáo ngày này
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                        {latestStudyReport.absent > 0 && (
+                          <div className="rounded-lg border p-2">
+                            <div className="mb-1 text-xs font-medium text-muted-foreground">
+                              Học sinh vắng:
+                            </div>
+                            <div className="max-h-32 space-y-1 overflow-y-auto text-sm">
+                              {latestStudyReport.absentStudents.map(s => (
+                                <div key={s.id} className="flex items-center gap-2">
+                                  <span>{s.name}</span>
+                                  <span className="text-xs text-muted-foreground">({s.className})</span>
+                                  {s.excused && <Badge variant="outline" className="text-xs">P</Badge>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="py-4 text-center text-sm text-muted-foreground">
+                        Chưa có báo cáo ngày này
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Daily Meal Stats */}
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="flex items-center gap-2 text-lg font-semibold">
                   <UtensilsCrossed className="h-5 w-5 text-primary" />
-                  Báo cơm cả trường - {format(selectedDate, 'dd/MM/yyyy')}
+                  {isClassTeacher && teacherClassName 
+                    ? `Báo cơm lớp ${teacherClassName} - ${format(selectedDate, 'dd/MM/yyyy')}`
+                    : `Báo cơm cả trường - ${format(selectedDate, 'dd/MM/yyyy')}`
+                  }
                 </h2>
-                {dailyMealStats && (dailyMealStats.breakfast.hasReport || dailyMealStats.lunch.hasReport || dailyMealStats.dinner.hasReport) && (
+                {filteredMealStats && (filteredMealStats.breakfast.hasReport || filteredMealStats.lunch.hasReport || filteredMealStats.dinner.hasReport) && !isClassTeacher && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1042,18 +1111,18 @@ export default function Statistics() {
                 )}
               </div>
 
-              {dailyMealStats && (
+              {filteredMealStats && (
                 <>
-                  {renderMealSection('breakfast', dailyMealStats.breakfast as MealStats, 'Bữa sáng', UtensilsCrossed)}
-                  {renderMealSection('lunch', dailyMealStats.lunch as MealStats, 'Bữa trưa', UtensilsCrossed)}
-                  {renderMealSection('dinner', dailyMealStats.dinner as MealStats, 'Bữa tối', UtensilsCrossed)}
+                  {renderMealSection('breakfast', filteredMealStats.breakfast as MealStats, 'Bữa sáng', UtensilsCrossed)}
+                  {renderMealSection('lunch', filteredMealStats.lunch as MealStats, 'Bữa trưa', UtensilsCrossed)}
+                  {renderMealSection('dinner', filteredMealStats.dinner as MealStats, 'Bữa tối', UtensilsCrossed)}
 
-                  {/* Classes not reported */}
-                  {(() => {
+                  {/* Classes not reported - only show for admins */}
+                  {!isClassTeacher && (() => {
                     const allNotReported = new Set([
-                      ...((dailyMealStats.breakfast as MealStats).classesNotReported || []),
-                      ...((dailyMealStats.lunch as MealStats).classesNotReported || []),
-                      ...((dailyMealStats.dinner as MealStats).classesNotReported || []),
+                      ...((dailyMealStats?.breakfast as MealStats)?.classesNotReported || []),
+                      ...((dailyMealStats?.lunch as MealStats)?.classesNotReported || []),
+                      ...((dailyMealStats?.dinner as MealStats)?.classesNotReported || []),
                     ]);
 
                     if (allNotReported.size > 0) {
@@ -1081,7 +1150,7 @@ export default function Statistics() {
                               {expandedSections.notReported ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </Button>
                             
-                            {expandedSections.notReported && (
+                            {expandedSections.notReported && dailyMealStats && (
                               <div className="mt-2 space-y-2">
                                 {['breakfast', 'lunch', 'dinner'].map(meal => {
                                   const stats = dailyMealStats[meal as keyof DailyMealSummary] as MealStats;
@@ -1118,13 +1187,18 @@ export default function Statistics() {
                   <Card className="mt-4 bg-primary/5">
                     <CardContent className="flex items-center justify-between p-4">
                       <div>
-                        <div className="text-sm text-muted-foreground">Tổng gạo cần ăn trong ngày</div>
+                        <div className="text-sm text-muted-foreground">
+                          {isClassTeacher && teacherClassName 
+                            ? `Tổng gạo lớp ${teacherClassName} trong ngày`
+                            : 'Tổng gạo cần ăn trong ngày'
+                          }
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          (Trưa: {(dailyMealStats.lunch as MealStats).present} + Tối: {(dailyMealStats.dinner as MealStats).present}) × 0.2kg
+                          (Trưa: {(filteredMealStats.lunch as MealStats).present} + Tối: {(filteredMealStats.dinner as MealStats).present}) × 0.2kg
                         </div>
                       </div>
                       <div className="text-2xl font-bold text-primary">
-                        {dailyMealStats.totalRice.toFixed(1)} kg
+                        {filteredMealStats.totalRice.toFixed(1)} kg
                       </div>
                     </CardContent>
                   </Card>
