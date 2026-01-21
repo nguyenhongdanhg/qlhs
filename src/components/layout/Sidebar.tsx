@@ -91,15 +91,15 @@ export function Sidebar() {
       <div className="flex h-16 items-center justify-between px-4">
         <div className={cn('flex items-center gap-3', isCollapsed && 'justify-center')}>
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary">
-            <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
+            <Building2 className="h-5 w-5 text-white" />
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <h1 className="font-heading text-base font-bold text-sidebar-foreground truncate">
+              <h1 className="font-heading text-base font-bold text-white truncate">
                 Quản lý Nội trú
               </h1>
               {currentSchool && (
-                <p className="text-xs text-sidebar-muted truncate">{currentSchool.code || currentSchool.name}</p>
+                <p className="text-xs text-white/70 truncate">{currentSchool.code || currentSchool.name}</p>
               )}
             </div>
           )}
@@ -109,7 +109,7 @@ export function Sidebar() {
           size="icon"
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(
-            'h-7 w-7 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
+            'h-7 w-7 text-white/70 hover:bg-sidebar-accent hover:text-white',
             isCollapsed && 'absolute -right-3 top-6 rounded-full bg-sidebar border border-sidebar-border'
           )}
         >
@@ -123,15 +123,15 @@ export function Sidebar() {
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
               <AvatarImage src={profile?.avatar_url || undefined} />
-              <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-sm">
+              <AvatarFallback className="bg-sidebar-accent text-white text-sm">
                 {profile?.full_name ? getInitials(profile.full_name) : 'U'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">
+              <p className="text-sm font-medium text-white truncate">
                 {profile?.full_name || 'Người dùng'}
               </p>
-              <Badge variant="secondary" className="mt-0.5 bg-sidebar-primary text-sidebar-primary-foreground text-[10px] px-1.5 py-0">
+              <Badge variant="secondary" className="mt-0.5 bg-sidebar-primary text-white text-[10px] px-1.5 py-0">
                 {getRoleBadge()}
               </Badge>
             </div>
@@ -140,7 +140,7 @@ export function Sidebar() {
           <div className="flex justify-center">
             <Avatar className="h-9 w-9">
               <AvatarImage src={profile?.avatar_url || undefined} />
-              <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-sm">
+              <AvatarFallback className="bg-sidebar-accent text-white text-sm">
                 {profile?.full_name ? getInitials(profile.full_name) : 'U'}
               </AvatarFallback>
             </Avatar>
@@ -160,7 +160,7 @@ export function Sidebar() {
             )}
             title={isCollapsed ? 'Quản trị hệ thống' : undefined}
           >
-            <Building2 className="h-5 w-5 flex-shrink-0" />
+            <Building2 className="h-5 w-5 flex-shrink-0 text-white/90" />
             {!isCollapsed && <span>Quản trị hệ thống</span>}
           </Link>
         </div>
@@ -184,7 +184,7 @@ export function Sidebar() {
                   )}
                   title={isCollapsed ? item.label : undefined}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <Icon className="h-5 w-5 flex-shrink-0 text-white/90" />
                   {!isCollapsed && <span>{item.label}</span>}
                 </Link>
               </li>
@@ -203,7 +203,7 @@ export function Sidebar() {
           )}
           title={isCollapsed ? 'Đăng xuất' : undefined}
         >
-          <LogOut className="h-5 w-5 flex-shrink-0" />
+          <LogOut className="h-5 w-5 flex-shrink-0 text-white/90" />
           {!isCollapsed && <span>Đăng xuất</span>}
         </button>
       </div>
@@ -211,13 +211,13 @@ export function Sidebar() {
       {/* Footer */}
       {!isCollapsed && (
         <div className="border-t border-sidebar-border px-4 py-3 bg-sidebar-accent/30">
-          <p className="text-[11px] text-sidebar-muted">Thiết kế bởi</p>
-          <p className="text-xs font-medium text-sidebar-foreground">Thầy Nguyễn Hồng Dân</p>
+          <p className="text-[11px] text-white/60">Thiết kế bởi</p>
+          <p className="text-xs font-medium text-white">Thầy Nguyễn Hồng Dân</p>
           <a 
             href="https://zalo.me/0888770699" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-xs text-sidebar-primary hover:underline"
+            className="text-xs text-cyan-300 hover:underline"
           >
             Zalo: 0888 770 699
           </a>
