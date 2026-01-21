@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User, Building2, Shield } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User, Building2, Shield, Sparkles } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { ForgotPasswordDialog } from '@/components/auth/ForgotPasswordDialog';
@@ -25,18 +25,11 @@ interface School {
 
 // Helper to convert phone to email format for Supabase auth
 const phoneToEmail = (phone: string) => {
-  // Remove all non-digit characters
   const cleanPhone = phone.replace(/\D/g, '');
   return `${cleanPhone}@phone.local`;
 };
 
 const SUPER_ADMIN_OPTION = '__SUPER_ADMIN__';
-
-const loginSchema = z.object({
-  phone: z.string().min(9, 'Số điện thoại phải có ít nhất 9 số').regex(/^[0-9\s\-+()]+$/, 'Số điện thoại không hợp lệ'),
-  password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
-  schoolId: z.string().min(1, 'Vui lòng chọn trường hoặc quyền truy cập'),
-});
 
 const signupSchema = z.object({
   phone: z.string().min(9, 'Số điện thoại phải có ít nhất 9 số').regex(/^[0-9\s\-+()]+$/, 'Số điện thoại không hợp lệ'),
@@ -69,6 +62,18 @@ export default function Auth() {
   const [signupPassword, setSignupPassword] = useState('');
   const [signupFullName, setSignupFullName] = useState('');
 
+  // Check if phone number is valid (9+ digits)
+  const isPhoneValid = useMemo(() => {
+    const cleanPhone = loginPhone.replace(/\D/g, '');
+    return cleanPhone.length >= 9;
+  }, [loginPhone]);
+
+  // Determine if school selection is required
+  const requireSchoolSelection = useMemo(() => {
+    // Only require school selection if phone is valid and there are multiple schools
+    return isPhoneValid && schools.length > 1;
+  }, [isPhoneValid, schools.length]);
+
   // Fetch schools list
   useEffect(() => {
     const fetchSchools = async () => {
@@ -93,30 +98,46 @@ export default function Auth() {
   }, []);
 
   // Redirect if already logged in
-  if (user) {
-    const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
-    navigate(from, { replace: true });
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
+    }
+  }, [user, location.state, navigate]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
-    try {
-      loginSchema.parse({ phone: loginPhone, password: loginPassword, schoolId: selectedSchoolId });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast({
-          title: 'Lỗi',
-          description: error.errors[0].message,
-          variant: 'destructive',
-        });
-        return;
-      }
+    const cleanPhone = loginPhone.replace(/\D/g, '');
+    if (cleanPhone.length < 9) {
+      toast({
+        title: 'Lỗi',
+        description: 'Số điện thoại phải có ít nhất 9 số',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (loginPassword.length < 6) {
+      toast({
+        title: 'Lỗi',
+        description: 'Mật khẩu phải có ít nhất 6 ký tự',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Only validate school selection if there are multiple schools
+    if (schools.length > 1 && !selectedSchoolId) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng chọn trường hoặc quyền truy cập',
+        variant: 'destructive',
+      });
+      return;
     }
 
     setIsLoading(true);
-    // Convert phone to email format for Supabase auth
     const email = phoneToEmail(loginPhone);
     const { error } = await signIn(email, loginPassword);
     setIsLoading(false);
@@ -148,9 +169,9 @@ export default function Auth() {
       }
       navigate('/dashboard', { replace: true });
     }
-  };
+  }, [loginPhone, loginPassword, selectedSchoolId, schools, signIn, selectSchool, navigate, toast]);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
@@ -167,7 +188,6 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    // Convert phone to email format for Supabase auth
     const email = phoneToEmail(signupPhone);
     const { error } = await signUp(email, signupPassword, signupFullName);
     setIsLoading(false);
@@ -187,31 +207,50 @@ export default function Auth() {
       title: 'Đăng ký thành công',
       description: 'Tài khoản của bạn đã được tạo. Vui lòng liên hệ quản trị viên để được thêm vào trường.',
     });
-  };
+  }, [signupPhone, signupPassword, signupFullName, signUp, toast]);
+
+  if (user) {
+    return null;
+  }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-sky-50 via-blue-50 to-cyan-50">
+      {/* Decorative background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-sky-200/20 rounded-full blur-3xl" />
+      </div>
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
         {/* Logo */}
-        <div className="mb-8 flex flex-col items-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary shadow-lg mb-4">
-            <GraduationCap className="h-10 w-10 text-primary-foreground" />
+        <div className="mb-8 flex flex-col items-center animate-fade-in">
+          <div className="relative">
+            <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-accent shadow-xl shadow-primary/25 mb-4">
+              <GraduationCap className="h-12 w-12 text-white" />
+            </div>
+            <div className="absolute -top-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-warning shadow-lg">
+              <Sparkles className="h-4 w-4 text-white" />
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-primary">Quản lý Nội trú</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Quản lý Nội trú
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">Hệ thống quản lý học sinh hiện đại</p>
         </div>
 
         {/* Tab Switcher */}
         <div className="w-full max-w-sm mb-6">
-          <div className="flex rounded-full bg-white shadow-sm p-1">
+          <div className="flex rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg shadow-black/5 p-1.5">
             <button
               type="button"
               onClick={() => setActiveTab('login')}
               className={cn(
-                'flex-1 py-2.5 rounded-full text-sm font-medium transition-all',
+                'flex-1 py-3 rounded-xl text-sm font-semibold transition-all duration-300',
                 activeTab === 'login'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-gradient-to-r from-primary to-primary/90 text-white shadow-md shadow-primary/25'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               )}
             >
               Đăng nhập
@@ -220,10 +259,10 @@ export default function Auth() {
               type="button"
               onClick={() => setActiveTab('signup')}
               className={cn(
-                'flex-1 py-2.5 rounded-full text-sm font-medium transition-all',
+                'flex-1 py-3 rounded-xl text-sm font-semibold transition-all duration-300',
                 activeTab === 'signup'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-gradient-to-r from-primary to-primary/90 text-white shadow-md shadow-primary/25'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               )}
             >
               Đăng ký
@@ -234,44 +273,10 @@ export default function Auth() {
         {/* Login Form */}
         {activeTab === 'login' && (
           <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4 animate-fade-in">
-            {/* School Selection */}
+            {/* Phone Input First */}
             <div className="space-y-2">
-              <div className="relative">
-                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10" />
-                <Select
-                  value={selectedSchoolId}
-                  onValueChange={setSelectedSchoolId}
-                  disabled={isLoading || isLoadingSchools}
-                >
-                  <SelectTrigger className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm">
-                    <SelectValue placeholder={isLoadingSchools ? "Đang tải..." : "Chọn trường"} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white z-50 border shadow-lg">
-                    <SelectItem value={SUPER_ADMIN_OPTION} className="text-primary font-medium">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        Quản trị hệ thống (Super Admin)
-                      </div>
-                    </SelectItem>
-                    {schools.length > 0 && <div className="h-px bg-border my-1" />}
-                    {schools.length === 0 && !isLoadingSchools && (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                        Không có trường nào
-                      </div>
-                    )}
-                    {schools.map((school) => (
-                      <SelectItem key={school.id} value={school.id}>
-                        {school.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="relative group">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   type="tel"
                   placeholder="Số điện thoại"
@@ -279,13 +284,53 @@ export default function Auth() {
                   onChange={(e) => setLoginPhone(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                  className="pl-12 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-0 shadow-lg shadow-black/5 text-base focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
+
+            {/* School Selection - Only show when phone is valid and multiple schools exist */}
+            {schools.length > 1 && (
+              <div className="space-y-2 animate-fade-in">
+                <div className="relative group">
+                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10 group-focus-within:text-primary transition-colors" />
+                  <Select
+                    value={selectedSchoolId}
+                    onValueChange={setSelectedSchoolId}
+                    disabled={isLoading || isLoadingSchools}
+                  >
+                    <SelectTrigger className="pl-12 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-0 shadow-lg shadow-black/5 text-base">
+                      <SelectValue placeholder={isLoadingSchools ? "Đang tải..." : "Chọn trường học"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white/95 backdrop-blur-lg z-50 border-0 shadow-xl rounded-xl">
+                      <SelectItem value={SUPER_ADMIN_OPTION} className="text-primary font-semibold py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                            <Shield className="h-4 w-4 text-primary" />
+                          </div>
+                          <span>Quản trị hệ thống</span>
+                        </div>
+                      </SelectItem>
+                      {schools.length > 0 && <div className="h-px bg-border my-1" />}
+                      {schools.map((school) => (
+                        <SelectItem key={school.id} value={school.id} className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <span>{school.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Mật khẩu"
@@ -293,29 +338,31 @@ export default function Auth() {
                   onChange={(e) => setLoginPassword(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="pl-12 pr-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                  className="pl-12 pr-12 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-0 shadow-lg shadow-black/5 text-base focus:ring-2 focus:ring-primary/20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
+
             <Button 
               type="submit" 
-              className="w-full h-12 rounded-xl text-base font-semibold shadow-lg" 
-              disabled={isLoading || !selectedSchoolId}
+              className="w-full h-14 rounded-2xl text-base font-bold shadow-xl shadow-primary/25 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary transition-all duration-300" 
+              disabled={isLoading}
             >
               {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
               Đăng nhập
             </Button>
+
             <button
               type="button"
               onClick={() => setShowForgotPassword(true)}
-              className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="w-full text-sm text-muted-foreground hover:text-primary transition-colors font-medium"
             >
               Quên mật khẩu?
             </button>
@@ -331,8 +378,8 @@ export default function Auth() {
         {activeTab === 'signup' && (
           <form onSubmit={handleSignup} className="w-full max-w-sm space-y-4 animate-fade-in">
             <div className="space-y-2">
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="relative group">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   type="text"
                   placeholder="Họ và tên"
@@ -340,13 +387,13 @@ export default function Auth() {
                   onChange={(e) => setSignupFullName(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                  className="pl-12 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-0 shadow-lg shadow-black/5 text-base focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="relative group">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   type="tel"
                   placeholder="Số điện thoại"
@@ -354,13 +401,13 @@ export default function Auth() {
                   onChange={(e) => setSignupPhone(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="pl-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                  className="pl-12 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-0 shadow-lg shadow-black/5 text-base focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Mật khẩu"
@@ -368,12 +415,12 @@ export default function Auth() {
                   onChange={(e) => setSignupPassword(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="pl-12 pr-12 h-12 rounded-xl bg-white border-0 shadow-sm"
+                  className="pl-12 pr-12 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-0 shadow-lg shadow-black/5 text-base focus:ring-2 focus:ring-primary/20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -381,25 +428,27 @@ export default function Auth() {
             </div>
             <Button 
               type="submit" 
-              className="w-full h-12 rounded-xl text-base font-semibold shadow-lg" 
+              className="w-full h-14 rounded-2xl text-base font-bold shadow-xl shadow-primary/25 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary transition-all duration-300" 
               disabled={isLoading}
             >
               {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-              Đăng ký
+              Đăng ký tài khoản
             </Button>
           </form>
         )}
       </div>
 
       {/* Footer */}
-      <div className="p-6 text-center">
+      <div className="p-6 text-center relative z-10">
         <a 
           href="https://zalo.me/0888770699" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-sm text-muted-foreground hover:text-primary"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
         >
-          Thiết kế bởi <span className="font-semibold text-primary">Thầy giáo Nguyễn Hồng Dân</span> - Zalo: 0888 770 699
+          <span>Thiết kế bởi</span>
+          <span className="font-bold text-primary">Thầy Nguyễn Hồng Dân</span>
+          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Zalo: 0888 770 699</span>
         </a>
       </div>
     </div>
