@@ -299,8 +299,8 @@ export default function UserImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
             Nhập tài khoản từ Excel
@@ -310,121 +310,123 @@ export default function UserImportDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {importStep === 'upload' ? (
-          <div className="space-y-6 py-4">
-            <div className="rounded-lg border-2 border-dashed p-8 text-center">
-              <Upload className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-4 text-lg font-medium">Upload file Excel</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Hỗ trợ định dạng .xlsx, .xls
-              </p>
-              <div className="mt-4 flex justify-center gap-3">
-                <Button variant="outline" onClick={handleDownloadTemplate}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Tải mẫu Excel
-                </Button>
-                <Button onClick={() => fileInputRef.current?.click()} disabled={isProcessing}>
-                  {isProcessing ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  Chọn file
-                </Button>
+        <div className="flex-1 overflow-hidden">
+          {importStep === 'upload' ? (
+            <div className="space-y-6 py-4">
+              <div className="rounded-lg border-2 border-dashed p-8 text-center">
+                <Upload className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                <h3 className="mt-4 text-lg font-medium">Upload file Excel</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Hỗ trợ định dạng .xlsx, .xls
+                </p>
+                <div className="mt-4 flex justify-center gap-3">
+                  <Button variant="outline" onClick={handleDownloadTemplate}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Tải mẫu Excel
+                  </Button>
+                  <Button onClick={() => fileInputRef.current?.click()} disabled={isProcessing}>
+                    {isProcessing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
+                    Chọn file
+                  </Button>
+                </div>
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
               </div>
-              <Input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </div>
 
-            <div className="rounded-lg bg-muted p-4">
-              <h4 className="font-medium mb-2">Hướng dẫn:</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• <strong>Họ và tên:</strong> Bắt buộc</li>
-                <li>• <strong>Chức vụ:</strong> Quản trị / Giáo viên / GVCN / Kế toán / Nhà bếp</li>
-                <li>• <strong>GVCN Lớp:</strong> Chỉ điền nếu là Giáo viên chủ nhiệm</li>
-                <li>• <strong>Số điện thoại:</strong> Dùng để đăng nhập</li>
-                <li>• <strong>Mật khẩu:</strong> Tối thiểu 6 ký tự</li>
-                <li>• <strong>Email:</strong> Tùy chọn</li>
-              </ul>
+              <div className="rounded-lg bg-muted p-4">
+                <h4 className="font-medium mb-2">Hướng dẫn:</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Họ và tên:</strong> Bắt buộc</li>
+                  <li>• <strong>Chức vụ:</strong> Quản trị / Giáo viên / GVCN / Kế toán / Nhà bếp</li>
+                  <li>• <strong>GVCN Lớp:</strong> Chỉ điền nếu là Giáo viên chủ nhiệm</li>
+                  <li>• <strong>Số điện thoại:</strong> Dùng để đăng nhập</li>
+                  <li>• <strong>Mật khẩu:</strong> Tối thiểu 6 ký tự</li>
+                  <li>• <strong>Email:</strong> Tùy chọn</li>
+                </ul>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-4">
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-success" />
-                  {validCount} hợp lệ
-                </Badge>
-                {invalidCount > 0 && (
-                  <Badge variant="destructive" className="flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {invalidCount} lỗi
+          ) : (
+            <div className="space-y-4 py-4 h-full flex flex-col">
+              <div className="flex items-center justify-between flex-shrink-0">
+                <div className="flex gap-4">
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-success" />
+                    {validCount} hợp lệ
                   </Badge>
-                )}
+                  {invalidCount > 0 && (
+                    <Badge variant="destructive" className="flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {invalidCount} lỗi
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setImportStep('upload');
+                    setImportData([]);
+                  }}
+                >
+                  Chọn file khác
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setImportStep('upload');
-                  setImportData([]);
-                }}
-              >
-                Chọn file khác
-              </Button>
-            </div>
 
-            <ScrollArea className="h-[400px] rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[60px]">STT</TableHead>
-                    <TableHead>Họ và tên</TableHead>
-                    <TableHead>Chức vụ</TableHead>
-                    <TableHead>Lớp CN</TableHead>
-                    <TableHead>Điện thoại</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="w-[100px]">Trạng thái</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {importData.map((user, index) => (
-                    <TableRow
-                      key={index}
-                      className={!user.isValid ? 'bg-destructive/10' : ''}
-                    >
-                      <TableCell>{user.stt}</TableCell>
-                      <TableCell className="font-medium">{user.full_name}</TableCell>
-                      <TableCell>{user.position}</TableCell>
-                      <TableCell>{user.class_teacher || '-'}</TableCell>
-                      <TableCell>{user.phone || '-'}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{user.email || '-'}</TableCell>
-                      <TableCell>
-                        {user.isValid ? (
-                          <Badge variant="secondary" className="bg-success/10 text-success">
-                            Hợp lệ
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs">
-                            {user.error}
-                          </Badge>
-                        )}
-                      </TableCell>
+              <ScrollArea className="flex-1 min-h-0 max-h-[50vh] rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[60px]">STT</TableHead>
+                      <TableHead>Họ và tên</TableHead>
+                      <TableHead>Chức vụ</TableHead>
+                      <TableHead>Lớp CN</TableHead>
+                      <TableHead>Điện thoại</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead className="w-[100px]">Trạng thái</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </div>
-        )}
+                  </TableHeader>
+                  <TableBody>
+                    {importData.map((user, index) => (
+                      <TableRow
+                        key={index}
+                        className={!user.isValid ? 'bg-destructive/10' : ''}
+                      >
+                        <TableCell>{user.stt}</TableCell>
+                        <TableCell className="font-medium">{user.full_name}</TableCell>
+                        <TableCell>{user.position}</TableCell>
+                        <TableCell>{user.class_teacher || '-'}</TableCell>
+                        <TableCell>{user.phone || '-'}</TableCell>
+                        <TableCell className="max-w-[150px] truncate">{user.email || '-'}</TableCell>
+                        <TableCell>
+                          {user.isValid ? (
+                            <Badge variant="secondary" className="bg-success/10 text-success">
+                              Hợp lệ
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">
+                              {user.error}
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
+          )}
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Hủy
           </Button>
