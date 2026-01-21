@@ -39,6 +39,7 @@ import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } fr
 import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDialog';
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
 import { useToast } from '@/hooks/use-toast';
+import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
 
 interface AbsentStudent {
   id: string;
@@ -916,6 +917,20 @@ export default function Statistics() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Vui lòng chọn trường để tiếp tục</p>
+      </div>
+    );
+  }
+
+  // For class teachers, render dedicated class meal statistics view
+  if (isClassTeacher && teacherClassId && teacherClassName) {
+    return (
+      <div className="content-wrapper animate-fade-in">
+        <ClassMealStatistics
+          students={students}
+          classes={classes}
+          teacherClassId={teacherClassId}
+          teacherClassName={teacherClassName}
+        />
       </div>
     );
   }
