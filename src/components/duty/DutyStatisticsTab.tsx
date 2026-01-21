@@ -11,8 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { DutySchedule as DutyScheduleType, Profile } from '@/types';
-import { format, getDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
-import { BarChart3, Calendar, Sun, Trophy } from 'lucide-react';
+import { format, getDay, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
+import { BarChart3, Calendar, Sun, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DutyMember extends Profile {
@@ -23,12 +23,14 @@ interface DutyMember extends Profile {
 
 interface DutyStatisticsTabProps {
   schedules: DutyScheduleType[];
+  previousMonthSchedules: DutyScheduleType[];
   dutyMembers: DutyMember[];
   currentMonth: Date;
 }
 
 export default function DutyStatisticsTab({
   schedules,
+  previousMonthSchedules,
   dutyMembers,
   currentMonth,
 }: DutyStatisticsTabProps) {
@@ -38,12 +40,18 @@ export default function DutyStatisticsTab({
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  // Calculate statistics per member
+  // Calculate statistics per member for current month
   const memberStats = useMemo(() => {
     const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
     const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
 
+    // Previous month stats
+    const prevMonth = subMonths(currentMonth, 1);
+    const prevMonthStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
+    const prevMonthEnd = format(endOfMonth(prevMonth), 'yyyy-MM-dd');
+
     return dutyMembers.map((member) => {
+      // Current month
       const memberSchedules = schedules.filter(
         (s) =>
           s.user_id === member.id &&
@@ -51,9 +59,20 @@ export default function DutyStatisticsTab({
           s.duty_date <= monthEnd
       );
 
+      // Previous month
+      const prevMemberSchedules = previousMonthSchedules.filter(
+        (s) =>
+          s.user_id === member.id &&
+          s.duty_date >= prevMonthStart &&
+          s.duty_date <= prevMonthEnd
+      );
+
       let saturdayCount = 0;
       let sundayCount = 0;
       let weekdayCount = 0;
+      let prevSaturdayCount = 0;
+      let prevSundayCount = 0;
+      let prevWeekdayCount = 0;
 
       memberSchedules.forEach((s) => {
         const date = new Date(s.duty_date);
@@ -63,6 +82,17 @@ export default function DutyStatisticsTab({
         else weekdayCount++;
       });
 
+      prevMemberSchedules.forEach((s) => {
+        const date = new Date(s.duty_date);
+        const dayOfWeek = getDay(date);
+        if (dayOfWeek === 6) prevSaturdayCount++;
+        else if (dayOfWeek === 0) prevSundayCount++;
+        else prevWeekdayCount++;
+      });
+
+      const prevTotalDuties = prevMemberSchedules.length;
+      const prevWeekendCount = prevSaturdayCount + prevSundayCount;
+
       return {
         ...member,
         totalDuties: memberSchedules.length,
@@ -71,27 +101,46 @@ export default function DutyStatisticsTab({
         weekendCount: saturdayCount + sundayCount,
         weekdayCount,
         dutyDates: memberSchedules.map((s) => s.duty_date),
+        // Previous month comparison
+        prevTotalDuties,
+        prevWeekendCount,
+        prevWeekdayCount,
+        totalChange: memberSchedules.length - prevTotalDuties,
+        weekendChange: (saturdayCount + sundayCount) - prevWeekendCount,
       };
     }).sort((a, b) => b.totalDuties - a.totalDuties);
-  }, [schedules, dutyMembers, currentMonth]);
+  }, [schedules, previousMonthSchedules, dutyMembers, currentMonth]);
 
-  // Calculate day-of-week distribution
-  const dayOfWeekStats = useMemo(() => {
+  // Calculate day-of-week distribution for current and previous month
+  const { dayOfWeekStats, prevDayOfWeekStats } = useMemo(() => {
     const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
     const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+    const prevMonth = subMonths(currentMonth, 1);
+    const prevMonthStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
+    const prevMonthEnd = format(endOfMonth(prevMonth), 'yyyy-MM-dd');
 
     const filtered = schedules.filter(
       (s) => s.duty_date >= monthStart && s.duty_date <= monthEnd
     );
+    const prevFiltered = previousMonthSchedules.filter(
+      (s) => s.duty_date >= prevMonthStart && s.duty_date <= prevMonthEnd
+    );
 
-    const counts = [0, 0, 0, 0, 0, 0, 0]; // Sun, Mon, Tue, Wed, Thu, Fri, Sat
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    const prevCounts = [0, 0, 0, 0, 0, 0, 0];
+    
     filtered.forEach((s) => {
       const dayOfWeek = getDay(new Date(s.duty_date));
       counts[dayOfWeek]++;
     });
 
-    return counts;
-  }, [schedules, currentMonth]);
+    prevFiltered.forEach((s) => {
+      const dayOfWeek = getDay(new Date(s.duty_date));
+      prevCounts[dayOfWeek]++;
+    });
+
+    return { dayOfWeekStats: counts, prevDayOfWeekStats: prevCounts };
+  }, [schedules, previousMonthSchedules, currentMonth]);
 
   const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
@@ -105,7 +154,38 @@ export default function DutyStatisticsTab({
   };
 
   const totalDuties = memberStats.reduce((sum, m) => sum + m.totalDuties, 0);
+  const prevTotalDuties = memberStats.reduce((sum, m) => sum + m.prevTotalDuties, 0);
   const avgDuties = dutyMembers.length > 0 ? (totalDuties / dutyMembers.length).toFixed(1) : 0;
+  const prevAvgDuties = dutyMembers.length > 0 ? (prevTotalDuties / dutyMembers.length).toFixed(1) : 0;
+  
+  const totalChange = totalDuties - prevTotalDuties;
+  const weekendTotal = dayOfWeekStats[0] + dayOfWeekStats[6];
+  const prevWeekendTotal = prevDayOfWeekStats[0] + prevDayOfWeekStats[6];
+  const weekendChange = weekendTotal - prevWeekendTotal;
+
+  const renderChange = (change: number) => {
+    if (change > 0) {
+      return (
+        <span className="flex items-center gap-0.5 text-xs text-green-600">
+          <TrendingUp className="h-3 w-3" />
+          +{change}
+        </span>
+      );
+    } else if (change < 0) {
+      return (
+        <span className="flex items-center gap-0.5 text-xs text-red-600">
+          <TrendingDown className="h-3 w-3" />
+          {change}
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+        <Minus className="h-3 w-3" />
+        0
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -119,7 +199,10 @@ export default function DutyStatisticsTab({
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Tổng lượt trực</p>
-                <p className="text-2xl font-bold">{totalDuties}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-bold">{totalDuties}</p>
+                  {renderChange(totalChange)}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -133,7 +216,12 @@ export default function DutyStatisticsTab({
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">TB/người</p>
-                <p className="text-2xl font-bold">{avgDuties}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-bold">{avgDuties}</p>
+                  <span className="text-xs text-muted-foreground">
+                    (T.trước: {prevAvgDuties})
+                  </span>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -147,9 +235,10 @@ export default function DutyStatisticsTab({
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Cuối tuần</p>
-                <p className="text-2xl font-bold">
-                  {dayOfWeekStats[0] + dayOfWeekStats[6]}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-bold">{weekendTotal}</p>
+                  {renderChange(weekendChange)}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -233,15 +322,18 @@ export default function DutyStatisticsTab({
                   <TableHead className="w-16 text-center">
                     <span className="text-orange-600">CN</span>
                   </TableHead>
-                  <TableHead className="w-20 text-center">
-                    <span className="text-orange-600">Cuối tuần</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
+                      <TableHead className="w-20 text-center">
+                        <span className="text-orange-600">Cuối tuần</span>
+                      </TableHead>
+                      <TableHead className="w-20 text-center hidden md:table-cell">
+                        So tháng trước
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
               <TableBody>
                 {memberStats.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       Chưa có dữ liệu thống kê
                     </TableCell>
                   </TableRow>
@@ -303,6 +395,19 @@ export default function DutyStatisticsTab({
                         >
                           {member.weekendCount}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        <div className="flex flex-col items-center gap-1">
+                          {renderChange(member.totalChange)}
+                          {member.weekendChange !== 0 && (
+                            <span className={cn(
+                              "text-[10px]",
+                              member.weekendChange > 0 ? "text-orange-500" : "text-orange-400"
+                            )}>
+                              CT: {member.weekendChange > 0 ? '+' : ''}{member.weekendChange}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
