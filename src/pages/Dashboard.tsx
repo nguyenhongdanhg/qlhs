@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,12 +7,13 @@ import {
   Home, 
   GraduationCap,
   Building2,
-  ArrowRight,
   Loader2,
   BookOpen,
   UtensilsCrossed,
   BarChart3,
   Calendar,
+  TrendingUp,
+  Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -25,142 +26,126 @@ interface DashboardStats {
   boardingStudents: number;
   totalTeachers: number;
   totalClasses: number;
-  todayProgress: {
-    meals: { breakfast: boolean; lunch: boolean; dinner: boolean };
-    boarding: { exercise: boolean; noon: boolean; night: boolean };
-    study: boolean;
-  };
   mealStats: { breakfast: number; lunch: number; dinner: number };
-  boardingStats: { exercise: number; noon: number; night: number };
   gradeStats: { grade: number; total: number; boarding: number }[];
 }
 
 export default function Dashboard() {
-  const { currentSchool, profile, currentMembership } = useAuth();
+  const { currentSchool } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const today = new Date();
-  const dateStr = format(today, 'yyyy-MM-dd');
-  const dayName = format(today, 'EEEE', { locale: vi });
-  const formattedDate = format(today, 'dd/MM/yyyy');
+  const today = useMemo(() => new Date(), []);
+  const dateStr = useMemo(() => format(today, 'yyyy-MM-dd'), [today]);
+  const dayName = useMemo(() => format(today, 'EEEE', { locale: vi }), [today]);
+  const formattedDate = useMemo(() => format(today, 'dd/MM/yyyy'), [today]);
 
-  useEffect(() => {
+  const fetchStats = useCallback(async () => {
     if (!currentSchool) return;
 
-    const fetchStats = async () => {
-      try {
-        // Fetch students count
-        const { count: totalStudents } = await supabase
+    try {
+      // Parallel fetch all basic stats
+      const [studentsResult, boardingResult, classesResult, teachersResult, attendanceResult] = await Promise.all([
+        supabase
           .from('students')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', currentSchool.id)
-          .eq('is_active', true);
-
-        const { count: boardingStudents } = await supabase
+          .eq('is_active', true),
+        supabase
           .from('students')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', currentSchool.id)
           .eq('is_active', true)
-          .eq('is_boarding', true);
-
-        const { count: totalClasses } = await supabase
+          .eq('is_boarding', true),
+        supabase
           .from('classes')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', currentSchool.id)
-          .eq('is_active', true);
-
-        const { count: totalTeachers } = await supabase
+          .eq('is_active', true),
+        supabase
           .from('school_memberships')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', currentSchool.id)
-          .eq('status', 'active');
-
-        // Fetch today's attendance records
-        const { data: attendanceData } = await supabase
+          .eq('status', 'active'),
+        supabase
           .from('attendance_records')
           .select('attendance_type, status')
           .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr);
+          .eq('attendance_date', dateStr),
+      ]);
 
-        const mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
-        const boardingStats = { exercise: 0, noon: 0, night: 0 };
-        
-        (attendanceData || []).forEach(record => {
-          if (record.status === 'present') {
-            if (record.attendance_type === 'breakfast') mealStats.breakfast++;
-            if (record.attendance_type === 'lunch') mealStats.lunch++;
-            if (record.attendance_type === 'dinner') mealStats.dinner++;
-          }
-        });
+      const mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
+      (attendanceResult.data || []).forEach(record => {
+        if (record.status === 'present') {
+          if (record.attendance_type === 'breakfast') mealStats.breakfast++;
+          if (record.attendance_type === 'lunch') mealStats.lunch++;
+          if (record.attendance_type === 'dinner') mealStats.dinner++;
+        }
+      });
 
-        // Get grade stats
-        const { data: classesData } = await supabase
-          .from('classes')
-          .select('grade')
-          .eq('school_id', currentSchool.id)
-          .eq('is_active', true);
+      // Get grade stats
+      const { data: classesData } = await supabase
+        .from('classes')
+        .select('grade')
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true);
 
-        const grades = [...new Set((classesData || []).map(c => c.grade))].sort((a, b) => a - b);
-        
-        const gradeStats = await Promise.all(
-          grades.map(async (grade) => {
-            const { count: total } = await supabase
+      const grades = [...new Set((classesData || []).map(c => c.grade))].sort((a, b) => a - b);
+      
+      const gradeStats = await Promise.all(
+        grades.map(async (grade) => {
+          const [totalResult, boardingGradeResult] = await Promise.all([
+            supabase
               .from('students')
               .select('*, class:classes!inner(*)', { count: 'exact', head: true })
               .eq('school_id', currentSchool.id)
               .eq('is_active', true)
-              .eq('classes.grade', grade);
-
-            const { count: boarding } = await supabase
+              .eq('classes.grade', grade),
+            supabase
               .from('students')
               .select('*, class:classes!inner(*)', { count: 'exact', head: true })
               .eq('school_id', currentSchool.id)
               .eq('is_active', true)
               .eq('is_boarding', true)
-              .eq('classes.grade', grade);
+              .eq('classes.grade', grade),
+          ]);
 
-            return { grade, total: total || 0, boarding: boarding || 0 };
-          })
-        );
+          return { grade, total: totalResult.count || 0, boarding: boardingGradeResult.count || 0 };
+        })
+      );
 
-        setStats({
-          totalStudents: totalStudents || 0,
-          boardingStudents: boardingStudents || 0,
-          totalTeachers: totalTeachers || 0,
-          totalClasses: totalClasses || 0,
-          todayProgress: {
-            meals: { breakfast: false, lunch: false, dinner: false },
-            boarding: { exercise: false, noon: false, night: false },
-            study: false,
-          },
-          mealStats,
-          boardingStats: { exercise: 99, noon: 96, night: 90 },
-          gradeStats,
-        });
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStats();
+      setStats({
+        totalStudents: studentsResult.count || 0,
+        boardingStudents: boardingResult.count || 0,
+        totalTeachers: teachersResult.count || 0,
+        totalClasses: classesResult.count || 0,
+        mealStats,
+        gradeStats,
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [currentSchool, dateStr]);
 
-  const quickActions = [
-    { label: 'Điểm danh nội trú', icon: Home, path: '/boarding', color: 'text-sky-600 bg-sky-100' },
-    { label: 'Điểm danh giờ học', icon: BookOpen, path: '/evening-study', color: 'text-amber-600 bg-amber-100' },
-    { label: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals', color: 'text-violet-600 bg-violet-100' },
-    { label: 'Xem thống kê', icon: BarChart3, path: '/statistics', color: 'text-emerald-600 bg-emerald-100' },
-  ];
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
-  const statCards = [
-    { label: 'Học sinh', value: stats?.totalStudents || 0, icon: Users, color: 'bg-sky-50 text-sky-600 border-sky-200' },
-    { label: 'Nội trú', value: stats?.boardingStudents || 0, icon: Home, color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-    { label: 'Giáo viên', value: stats?.totalTeachers || 0, icon: GraduationCap, color: 'bg-amber-50 text-amber-600 border-amber-200' },
-    { label: 'Lớp học', value: stats?.totalClasses || 0, icon: Building2, color: 'bg-violet-50 text-violet-600 border-violet-200' },
-  ];
+  const quickActions = useMemo(() => [
+    { label: 'Điểm danh nội trú', icon: Home, path: '/boarding', color: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-100 text-sky-600' },
+    { label: 'Điểm danh giờ học', icon: BookOpen, path: '/evening-study', color: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-100 text-amber-600' },
+    { label: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals', color: 'from-violet-500 to-purple-500', iconBg: 'bg-violet-100 text-violet-600' },
+    { label: 'Xem thống kê', icon: BarChart3, path: '/statistics', color: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-100 text-emerald-600' },
+  ], []);
+
+  const statCards = useMemo(() => [
+    { label: 'Học sinh', value: stats?.totalStudents || 0, icon: Users, gradient: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-500' },
+    { label: 'Nội trú', value: stats?.boardingStudents || 0, icon: Home, gradient: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-500' },
+    { label: 'Giáo viên', value: stats?.totalTeachers || 0, icon: GraduationCap, gradient: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-500' },
+    { label: 'Lớp học', value: stats?.totalClasses || 0, icon: Building2, gradient: 'from-violet-500 to-purple-500', iconBg: 'bg-violet-500' },
+  ], [stats]);
 
   if (!currentSchool) {
     return (
@@ -172,91 +157,97 @@ export default function Dashboard() {
 
   return (
     <div className="content-wrapper animate-fade-in">
-      {/* School Banner */}
-      <Card className="mb-6 overflow-hidden bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-        <CardContent className="flex items-center justify-between p-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20">
-              <Building2 className="h-6 w-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold">{currentSchool.name}</h2>
-              <div className="flex items-center gap-2 text-sm opacity-90">
-                <Calendar className="h-4 w-4" />
-                <span className="capitalize">{dayName}, {formattedDate}</span>
+      {/* School Banner - Enhanced gradient */}
+      <Card className="mb-4 sm:mb-6 overflow-hidden border-0 shadow-lg">
+        <div className="bg-gradient-to-r from-primary via-primary/90 to-accent text-primary-foreground">
+          <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shadow-lg">
+                <Building2 className="h-6 w-6 sm:h-7 sm:w-7" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold">{currentSchool.name}</h2>
+                <div className="flex items-center gap-2 text-xs sm:text-sm opacity-90">
+                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="capitalize">{dayName}, {formattedDate}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="text-right">
-            <p className="text-4xl font-bold">0%</p>
-            <p className="text-sm opacity-90">hoàn thành</p>
-          </div>
-        </CardContent>
+            <div className="flex items-center gap-2 sm:gap-3 bg-white/10 rounded-xl px-3 sm:px-4 py-2 backdrop-blur-sm self-end sm:self-auto">
+              <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
+              <div className="text-right">
+                <p className="text-2xl sm:text-3xl font-bold">0%</p>
+                <p className="text-[10px] sm:text-xs opacity-90">hoàn thành</p>
+              </div>
+            </div>
+          </CardContent>
+        </div>
       </Card>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Đang tải dữ liệu...</p>
+          </div>
         </div>
       ) : (
         <>
-          {/* Stats Cards - Compact */}
-          <div className="grid gap-3 grid-cols-4 mb-4">
-            {statCards.map(({ label, value, icon: Icon, color }) => {
-              const colors = color.split(' ');
-              const bgColor = colors[0];
-              const textColor = colors[1];
-              return (
-                <Card key={label} className={cn('border', colors[2])}>
-                  <CardContent className="p-3 flex flex-col items-center text-center">
-                    <div className={cn('rounded-lg p-1.5 mb-1', bgColor)}>
-                      <Icon className={cn('h-4 w-4', textColor)} />
-                    </div>
-                    <p className="text-lg font-bold leading-none">{value}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          {/* Stats Cards - Enhanced with gradients */}
+          <div className="grid gap-2 sm:gap-3 grid-cols-2 md:grid-cols-4 mb-4">
+            {statCards.map(({ label, value, icon: Icon, gradient, iconBg }) => (
+              <Card key={label} className="group border-0 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden">
+                <CardContent className="p-3 sm:p-4 flex flex-col items-center text-center relative">
+                  <div className={cn('rounded-xl p-2 sm:p-2.5 mb-2 shadow-md', iconBg)}>
+                    <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                  </div>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{value}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">{label}</p>
+                  <div className={cn('absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r opacity-60', gradient)} />
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
-          {/* Quick Actions - Compact 2x2 grid on mobile */}
-          <div className="grid gap-2 grid-cols-2 lg:grid-cols-4 mb-4">
-            {quickActions.map(({ label, icon: Icon, path, color }) => (
+          {/* Quick Actions - Enhanced */}
+          <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4 mb-4">
+            {quickActions.map(({ label, icon: Icon, path, iconBg }) => (
               <Link key={path} to={path}>
-                <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/50 h-full">
-                  <CardContent className="flex items-center gap-2 p-3">
-                    <div className={cn('rounded-lg p-2 shrink-0', color)}>
-                      <Icon className="h-4 w-4" />
+                <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 h-full border-0 shadow-md">
+                  <CardContent className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
+                    <div className={cn('rounded-xl p-2.5 sm:p-3 shrink-0 transition-transform group-hover:scale-105', iconBg)}>
+                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
-                    <span className="font-medium text-xs leading-tight">{label}</span>
+                    <span className="font-semibold text-xs sm:text-sm leading-tight text-foreground">{label}</span>
                   </CardContent>
                 </Card>
               </Link>
             ))}
           </div>
 
-          {/* Today Progress - Compact */}
-          <Card className="mb-4">
-            <CardContent className="p-3">
+          {/* Today Progress - Enhanced */}
+          <Card className="mb-4 border-0 shadow-md">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-sm">Tiến độ hôm nay</h3>
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Tiến độ hôm nay</h3>
                 </div>
-                <span className="text-xs text-muted-foreground">0/7</span>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full font-medium">0/7</span>
               </div>
 
-              <div className="grid gap-3 grid-cols-3">
+              <div className="grid gap-4 grid-cols-3">
                 {/* Meals */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
                     <UtensilsCrossed className="h-3.5 w-3.5 text-accent" />
-                    <span className="text-xs font-medium">Bữa ăn</span>
+                    <span className="text-xs font-semibold text-foreground">Bữa ăn</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {['Sáng', 'Trưa', 'Tối'].map((meal) => (
-                      <span key={meal} className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
+                      <span key={meal} className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground font-medium">
                         {meal}
                       </span>
                     ))}
@@ -264,14 +255,14 @@ export default function Dashboard() {
                 </div>
 
                 {/* Boarding */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
                     <Home className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-xs font-medium">Nội trú</span>
+                    <span className="text-xs font-semibold text-foreground">Nội trú</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {['TD', 'Trưa', 'Tối'].map((item) => (
-                      <span key={item} className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
+                      <span key={item} className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground font-medium">
                         {item}
                       </span>
                     ))}
@@ -279,12 +270,12 @@ export default function Dashboard() {
                 </div>
 
                 {/* Study */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
                     <BookOpen className="h-3.5 w-3.5 text-warning" />
-                    <span className="text-xs font-medium">Tự học</span>
+                    <span className="text-xs font-semibold text-foreground">Tự học</span>
                   </div>
-                  <span className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground">
+                  <span className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground font-medium inline-block">
                     Chưa điểm
                   </span>
                 </div>
@@ -292,14 +283,16 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Bottom Grid - Compact */}
+          {/* Bottom Grid - Enhanced */}
           <div className="grid gap-3 lg:grid-cols-2">
             {/* Meals Today */}
-            <Card>
-              <CardContent className="p-3">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <UtensilsCrossed className="h-4 w-4 text-accent" />
-                  <h3 className="font-semibold text-sm">Bữa ăn hôm nay</h3>
+                  <div className="p-1.5 rounded-lg bg-accent/10">
+                    <UtensilsCrossed className="h-4 w-4 text-accent" />
+                  </div>
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Bữa ăn hôm nay</h3>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -307,9 +300,9 @@ export default function Dashboard() {
                     { label: 'Trưa', value: stats?.mealStats.lunch || '--' },
                     { label: 'Tối', value: stats?.mealStats.dinner || '--' },
                   ].map(({ label, value }) => (
-                    <div key={label} className="text-center p-2 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">{label}</p>
-                      <p className="text-base font-semibold">{value}</p>
+                    <div key={label} className="text-center p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30">
+                      <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                      <p className="text-lg sm:text-xl font-bold text-foreground">{value}</p>
                     </div>
                   ))}
                 </div>
@@ -317,11 +310,13 @@ export default function Dashboard() {
             </Card>
 
             {/* Boarding Stats */}
-            <Card>
-              <CardContent className="p-3">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Home className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-sm">Nội trú gần nhất</h3>
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <Home className="h-4 w-4 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Nội trú gần nhất</h3>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -329,9 +324,9 @@ export default function Dashboard() {
                     { label: 'Ngủ trưa', value: 96, total: 48, max: 50 },
                     { label: 'Ngủ tối', value: 90, total: 45, max: 50 },
                   ].map(({ label, value, total, max }) => (
-                    <div key={label} className="text-center">
-                      <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-                      <p className={cn('text-lg font-bold', value >= 95 ? 'text-success' : value >= 90 ? 'text-warning' : 'text-destructive')}>
+                    <div key={label} className="text-center p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30">
+                      <p className="text-xs text-muted-foreground font-medium mb-0.5">{label}</p>
+                      <p className={cn('text-lg sm:text-xl font-bold', value >= 95 ? 'text-success' : value >= 90 ? 'text-warning' : 'text-destructive')}>
                         {value}%
                       </p>
                       <p className="text-[10px] text-muted-foreground">{total}/{max}</p>
@@ -342,20 +337,22 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Grade Stats - Compact */}
+          {/* Grade Stats - Enhanced */}
           {stats?.gradeStats && stats.gradeStats.length > 0 && (
-            <Card className="mt-4">
-              <CardContent className="p-3">
+            <Card className="mt-4 border-0 shadow-md">
+              <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-sm">Thống kê theo khối</h3>
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <Users className="h-4 w-4 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Thống kê theo khối</h3>
                 </div>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                   {stats.gradeStats.map(({ grade, total, boarding }) => (
-                    <div key={grade} className="text-center p-2 rounded-lg bg-muted/30">
-                      <p className="text-xs text-muted-foreground">Khối {grade}</p>
-                      <p className="text-base font-bold">{total}</p>
-                      <p className="text-[10px] text-primary">{boarding} nội trú</p>
+                    <div key={grade} className="text-center p-2 sm:p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 hover:from-primary/5 hover:to-primary/10 transition-colors">
+                      <p className="text-xs text-muted-foreground font-medium">Khối {grade}</p>
+                      <p className="text-base sm:text-lg font-bold text-foreground">{total}</p>
+                      <p className="text-[10px] text-primary font-medium">{boarding} nội trú</p>
                     </div>
                   ))}
                 </div>
@@ -368,20 +365,22 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Evening Study Progress - Compact */}
-          <Card className="mt-4">
-            <CardContent className="p-3">
+          {/* Evening Study Progress - Enhanced */}
+          <Card className="mt-4 border-0 shadow-md">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-warning" />
-                  <h3 className="font-semibold text-sm">Tự học tối gần nhất</h3>
+                  <div className="p-1.5 rounded-lg bg-warning/10">
+                    <BookOpen className="h-4 w-4 text-warning" />
+                  </div>
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Tự học tối gần nhất</h3>
                 </div>
-                <span className="text-xs text-muted-foreground">{format(today, 'dd/MM')}</span>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">{format(today, 'dd/MM')}</span>
               </div>
               <div className="flex items-center gap-3">
-                <Progress value={99} className="flex-1 h-2" />
+                <Progress value={99} className="flex-1 h-2.5" />
                 <div className="flex items-baseline gap-1">
-                  <span className="text-base font-bold text-success">483</span>
+                  <span className="text-lg font-bold text-success">483</span>
                   <span className="text-xs text-muted-foreground">/486</span>
                 </div>
               </div>
@@ -390,7 +389,7 @@ export default function Dashboard() {
 
           {/* Footer */}
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            Thiết kế bởi <span className="font-medium text-foreground">Thầy giáo Nguyễn Hồng Dân</span> - Zalo: 0888 770 699
+            Thiết kế bởi <span className="font-semibold text-foreground">Thầy giáo Nguyễn Hồng Dân</span> - Zalo: 0888 770 699
           </div>
         </>
       )}

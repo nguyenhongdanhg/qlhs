@@ -71,14 +71,19 @@ export function MobileNav() {
             key={item.code}
             to={item.path}
             className={cn(
-              'mobile-nav-item',
+              'mobile-nav-item tap-target',
               isActive
-                ? 'text-primary'
+                ? 'text-primary font-semibold'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Icon className="h-5 w-5" />
-            <span>{item.label}</span>
+            <div className={cn(
+              'rounded-xl p-1.5 transition-all duration-200',
+              isActive ? 'bg-primary/10' : 'bg-transparent'
+            )}>
+              <Icon className={cn('h-5 w-5', isActive && 'scale-110')} />
+            </div>
+            <span className="font-medium">{item.label}</span>
           </Link>
         );
       })}

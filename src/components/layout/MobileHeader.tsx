@@ -25,11 +25,11 @@ export function MobileHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-lg lg:hidden">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/50 bg-background/95 px-3 sm:px-4 backdrop-blur-xl lg:hidden shadow-sm">
       {/* Logo & School */}
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <GraduationCap className="h-5 w-5 text-primary-foreground" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-md">
+          <GraduationCap className="h-5 w-5 text-white" />
         </div>
         
         {memberships.length > 1 ? (

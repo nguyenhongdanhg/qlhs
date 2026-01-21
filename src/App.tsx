@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,30 +9,53 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { SuperAdminGuard } from "@/components/guards/SuperAdminGuard";
 import { FeatureGuard } from "@/components/guards/FeatureGuard";
+import { Loader2 } from "lucide-react";
 
-// Pages
-import Auth from "@/pages/Auth";
-import SelectSchool from "@/pages/SelectSchool";
-import Dashboard from "@/pages/Dashboard";
-import Students from "@/pages/Students";
-import EveningStudy from "@/pages/EveningStudy";
-import Boarding from "@/pages/Boarding";
-import Meals from "@/pages/Meals";
-import Statistics from "@/pages/Statistics";
-import DutySchedule from "@/pages/DutySchedule";
-import UserManagement from "@/pages/UserManagement";
-import Settings from "@/pages/Settings";
-import SuperAdmin from "@/pages/SuperAdmin";
-import MobileMenu from "@/pages/MobileMenu";
-import Install from "@/pages/Install";
-import NotFound from "@/pages/NotFound";
+// Lazy load pages for better performance
+const Auth = lazy(() => import("@/pages/Auth"));
+const SelectSchool = lazy(() => import("@/pages/SelectSchool"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Students = lazy(() => import("@/pages/Students"));
+const EveningStudy = lazy(() => import("@/pages/EveningStudy"));
+const Boarding = lazy(() => import("@/pages/Boarding"));
+const Meals = lazy(() => import("@/pages/Meals"));
+const Statistics = lazy(() => import("@/pages/Statistics"));
+const DutySchedule = lazy(() => import("@/pages/DutySchedule"));
+const UserManagement = lazy(() => import("@/pages/UserManagement"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
+const MobileMenu = lazy(() => import("@/pages/MobileMenu"));
+const Install = lazy(() => import("@/pages/Install"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
 
-const queryClient = new QueryClient();
+// Optimized QueryClient with better caching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes (formerly cacheTime)
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+// Loading fallback component
+function PageLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Đang tải...</p>
+      </div>
+    </div>
+  );
+}
 
 function RootRedirect() {
   const { user, isLoading, memberships, currentSchool, isSuperAdmin } = useAuth();
 
-  if (isLoading) return null;
+  if (isLoading) return <PageLoader />;
   if (!user) return <Navigate to="/auth" replace />;
   if (isSuperAdmin) return <Navigate to="/superadmin" replace />;
   if (memberships.length > 1 && !currentSchool) return <Navigate to="/select-school" replace />;
@@ -45,114 +69,116 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Root redirect */}
-            <Route path="/" element={<RootRedirect />} />
-            
-            {/* Select school (when user has multiple schools) */}
-            <Route
-              path="/select-school"
-              element={
-                <AuthGuard>
-                  <SelectSchool />
-                </AuthGuard>
-              }
-            />
-            
-            {/* Super Admin route (outside app layout) */}
-            <Route
-              path="/superadmin"
-              element={
-                <SuperAdminGuard>
-                  <SuperAdmin />
-                </SuperAdminGuard>
-              }
-            />
-            
-            {/* Protected routes with app layout */}
-            <Route
-              element={
-                <AuthGuard>
-                  <AppLayout />
-                </AuthGuard>
-              }
-            >
-              <Route path="/dashboard" element={<Dashboard />} />
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/auth" element={<Auth />} />
               
+              {/* Root redirect */}
+              <Route path="/" element={<RootRedirect />} />
+              
+              {/* Select school (when user has multiple schools) */}
               <Route
-                path="/students"
+                path="/select-school"
                 element={
-                  <FeatureGuard featureCode="students">
-                    <Students />
-                  </FeatureGuard>
+                  <AuthGuard>
+                    <SelectSchool />
+                  </AuthGuard>
                 }
               />
               
+              {/* Super Admin route (outside app layout) */}
               <Route
-                path="/evening-study"
+                path="/superadmin"
                 element={
-                  <FeatureGuard featureCode="evening_study">
-                    <EveningStudy />
-                  </FeatureGuard>
+                  <SuperAdminGuard>
+                    <SuperAdmin />
+                  </SuperAdminGuard>
                 }
               />
               
+              {/* Protected routes with app layout */}
               <Route
-                path="/boarding"
                 element={
-                  <FeatureGuard featureCode="boarding">
-                    <Boarding />
-                  </FeatureGuard>
+                  <AuthGuard>
+                    <AppLayout />
+                  </AuthGuard>
                 }
-              />
+              >
+                <Route path="/dashboard" element={<Dashboard />} />
+                
+                <Route
+                  path="/students"
+                  element={
+                    <FeatureGuard featureCode="students">
+                      <Students />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/evening-study"
+                  element={
+                    <FeatureGuard featureCode="evening_study">
+                      <EveningStudy />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/boarding"
+                  element={
+                    <FeatureGuard featureCode="boarding">
+                      <Boarding />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/meals"
+                  element={
+                    <FeatureGuard featureCode="meals">
+                      <Meals />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/statistics"
+                  element={
+                    <FeatureGuard featureCode="statistics">
+                      <Statistics />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/duty-schedule"
+                  element={
+                    <FeatureGuard featureCode="duty_schedule">
+                      <DutySchedule />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/user-management"
+                  element={
+                    <FeatureGuard featureCode="user_management" adminOnly>
+                      <UserManagement />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/menu" element={<MobileMenu />} />
+                <Route path="/install" element={<Install />} />
+              </Route>
               
-              <Route
-                path="/meals"
-                element={
-                  <FeatureGuard featureCode="meals">
-                    <Meals />
-                  </FeatureGuard>
-                }
-              />
-              
-              <Route
-                path="/statistics"
-                element={
-                  <FeatureGuard featureCode="statistics">
-                    <Statistics />
-                  </FeatureGuard>
-                }
-              />
-              
-              <Route
-                path="/duty-schedule"
-                element={
-                  <FeatureGuard featureCode="duty_schedule">
-                    <DutySchedule />
-                  </FeatureGuard>
-                }
-              />
-              
-              <Route
-                path="/user-management"
-                element={
-                  <FeatureGuard featureCode="user_management" adminOnly>
-                    <UserManagement />
-                  </FeatureGuard>
-                }
-              />
-              
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/menu" element={<MobileMenu />} />
-              <Route path="/install" element={<Install />} />
-            </Route>
-            
-            {/* Catch-all */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              {/* Catch-all */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
