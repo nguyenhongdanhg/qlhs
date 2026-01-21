@@ -165,9 +165,9 @@
     @apply font-semibold tracking-tight text-foreground;
   }
 
-  /* Better text rendering */
+  /* Better text rendering - increased contrast */
   p, span, label {
-    @apply text-foreground/90;
+    @apply text-foreground;
   }
 }
 
@@ -216,7 +216,7 @@
   }
   
   .nav-item-active {
-    @apply bg-sidebar-accent text-sidebar-primary font-semibold;
+    @apply bg-sidebar-accent text-white font-semibold;
   }
   
   .nav-item-inactive {
