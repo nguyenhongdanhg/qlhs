@@ -1002,9 +1002,9 @@ export default function Meals() {
                           <span className="text-destructive-foreground text-[8px]">✕</span>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="truncate text-xs block font-medium">{student.full_name}</span>
-                        <span className="text-[10px] text-muted-foreground">{student.class?.name}</span>
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                        <span className="truncate text-xs font-medium">{student.full_name}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{student.class?.name}</span>
                       </div>
                     </button>
                   ))}
