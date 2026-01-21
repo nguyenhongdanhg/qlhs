@@ -72,7 +72,6 @@ type StudySession = { id: string; label: string };
 
 const DEFAULT_SESSIONS: StudySession[] = [
   { id: 'session_1', label: 'Ca 1' },
-  { id: 'session_2', label: 'Ca 2' },
 ];
 
 interface SavedReport {
@@ -309,22 +308,28 @@ export default function EveningStudy() {
     setAttendance(prev => ({ ...prev, ...newAttendance }));
   };
 
-  const validateBeforeSave = (): boolean => {
-    // For evening study, session is optional - just show reminder
-    if (!selectedSession) {
-      setShowWarnings(true);
+  const validateBeforeSave = (): string => {
+    // Auto-select if only 1 session exists
+    let sessionToUse = selectedSession;
+    if (!sessionToUse && sessions.length === 1) {
+      sessionToUse = sessions[0].id;
+      setSelectedSession(sessionToUse);
+    }
+    // If still no session selected, use first available or empty
+    if (!sessionToUse && sessions.length > 0) {
+      sessionToUse = sessions[0].id;
+      setSelectedSession(sessionToUse);
       toast({
         title: 'Nhắc nhở',
-        description: 'Bạn chưa chọn buổi điểm danh. Báo cáo sẽ được lưu mà không có thông tin buổi.',
+        description: 'Tự động chọn ca đầu tiên. Bạn có thể chọn lại ca khác trước khi lưu.',
       });
-      // Don't block save - just warn
     }
-    return true;
+    return sessionToUse || '';
   };
 
   const handleSave = async () => {
     if (!currentSchool || !user) return;
-    if (!validateBeforeSave()) return;
+    const sessionToUse = validateBeforeSave();
 
     setIsSaving(true);
     setShowWarnings(false);
@@ -365,12 +370,12 @@ export default function EveningStudy() {
           reason: excuseInfo[s.id]?.reason || '',
         }));
 
-      const sessionLabel = sessions.find(s => s.id === selectedSession)?.label || selectedSession;
+      const sessionLabel = sessions.find(s => s.id === sessionToUse)?.label || sessionToUse || 'Không có ca';
 
       const newReport: SavedReport = {
-        id: `${dateStr}_${selectedSession}_${Date.now()}`,
+        id: `${dateStr}_${sessionToUse || 'default'}_${Date.now()}`,
         date: dateStr,
-        session: selectedSession,
+        session: sessionToUse || '',
         sessionLabel,
         total: students.length,
         present: presentCount,
@@ -553,16 +558,6 @@ export default function EveningStudy() {
           </TabsList>
 
           <TabsContent value="attendance" className="p-4 space-y-4">
-            {/* Validation Warnings - Info style instead of destructive */}
-            {showWarnings && !selectedSession && (
-              <Alert className="border-yellow-300 bg-yellow-50">
-                <AlertCircle className="h-4 w-4 text-yellow-600" />
-                <AlertDescription className="text-yellow-700">
-                  Bạn chưa chọn buổi điểm danh. Hãy chọn buổi để báo cáo được phân loại rõ ràng hơn.
-                </AlertDescription>
-              </Alert>
-            )}
-
             {/* Filters */}
             <div className="grid gap-4 md:grid-cols-4">
               <div>
@@ -587,51 +582,36 @@ export default function EveningStudy() {
               </div>
 
               <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Buổi (tùy chọn)</label>
-                <div className="flex gap-2 flex-wrap items-center">
-                  {sessions.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => setSelectedSession(selectedSession === s.id ? '' : s.id)}
-                      className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all',
-                        selectedSession === s.id
-                          ? 'border-primary bg-primary/10 text-primary font-medium'
-                          : 'border-border hover:border-primary/50'
-                      )}
-                    >
-                      <div className={cn(
-                        'w-4 h-4 border-2 rounded flex items-center justify-center',
-                        selectedSession === s.id ? 'border-primary bg-primary' : 'border-muted-foreground'
-                      )}>
-                        {selectedSession === s.id && (
-                          <CheckCircle2 className="h-3 w-3 text-white" />
-                        )}
-                      </div>
-                      {s.label}
-                    </button>
-                  ))}
-                  <Button variant="outline" size="icon" onClick={() => setIsAddSessionOpen(true)}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">
+                  Ca học {sessions.length === 1 && <span className="text-xs text-green-600">(tự động)</span>}
+                </label>
+                {sessions.length === 1 ? (
+                  <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">{sessions[0].label}</span>
+                  </div>
+                ) : (
+                  <Select value={selectedSession} onValueChange={setSelectedSession}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn ca học" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sessions.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Lớp</label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tất cả lớp" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả lớp</SelectItem>
-                    {sortedClasses.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.name}>
-                        {cls.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm text-muted-foreground mb-1.5 block">Quản lý ca</label>
+                <Button variant="outline" className="w-full" onClick={() => setIsAddSessionOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm ca học
+                </Button>
               </div>
 
               <div>
