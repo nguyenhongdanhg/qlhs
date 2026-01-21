@@ -113,6 +113,7 @@ export default function UserManagement() {
     full_name: '',
     phone: '',
     position: '',
+    gender: '' as 'male' | 'female' | 'other' | '',
   });
 
   useEffect(() => {
@@ -194,6 +195,7 @@ export default function UserManagement() {
       full_name: membership.profile?.full_name || '',
       phone: membership.profile?.phone || '',
       position: membership.profile?.position || '',
+      gender: (membership.profile as any)?.gender || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -214,13 +216,14 @@ export default function UserManagement() {
 
       if (membershipError) throw membershipError;
 
-      // Update profile (name, phone, position)
+      // Update profile (name, phone, position, gender)
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
           full_name: formData.full_name,
           phone: formData.phone || null,
           position: formData.position || null,
+          gender: formData.gender || null,
         })
         .eq('id', editingMembership.user_id);
 
@@ -478,6 +481,7 @@ export default function UserManagement() {
                         </TableHead>
                         <TableHead className="w-[60px]">STT</TableHead>
                         <TableHead>Họ và tên</TableHead>
+                        <TableHead className="hidden lg:table-cell w-[70px]">Giới tính</TableHead>
                         <TableHead className="hidden md:table-cell">Chức vụ</TableHead>
                         <TableHead>Vai trò</TableHead>
                         <TableHead className="hidden md:table-cell">Lớp CN</TableHead>
@@ -511,6 +515,15 @@ export default function UserManagement() {
                                 {membership.profile?.phone || '-'}
                               </p>
                             </div>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            {(membership.profile as any)?.gender === 'male' ? (
+                              <Badge variant="outline" className="border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-950/30 text-xs">Nam</Badge>
+                            ) : (membership.profile as any)?.gender === 'female' ? (
+                              <Badge variant="outline" className="border-pink-300 text-pink-600 bg-pink-50 dark:bg-pink-950/30 text-xs">Nữ</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
                           </TableCell>
                           <TableCell className="hidden md:table-cell text-muted-foreground">
                             {(membership.profile as any)?.position || '-'}
@@ -615,13 +628,32 @@ export default function UserManagement() {
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label>Chức vụ</Label>
-              <Input
-                value={formData.position}
-                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                placeholder="VD: Hiệu trưởng, Phó hiệu trưởng, Tổ trưởng..."
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Chức vụ</Label>
+                <Input
+                  value={formData.position}
+                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                  placeholder="VD: Tổ trưởng..."
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Giới tính</Label>
+                <Select
+                  value={formData.gender}
+                  onValueChange={(v) => setFormData({ ...formData, gender: v as 'male' | 'female' | 'other' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Nam</SelectItem>
+                    <SelectItem value="female">Nữ</SelectItem>
+                    <SelectItem value="other">Khác</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="border-t pt-4">
