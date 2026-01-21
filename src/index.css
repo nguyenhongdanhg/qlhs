@@ -216,11 +216,11 @@
   }
   
   .nav-item-active {
-    @apply bg-sidebar-accent text-sidebar-primary;
+    @apply bg-sidebar-accent text-sidebar-primary font-semibold;
   }
   
   .nav-item-inactive {
-    @apply text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground;
+    @apply text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-foreground;
   }
   
   /* Mobile bottom nav - Enhanced */
