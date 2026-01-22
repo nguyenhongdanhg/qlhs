@@ -299,7 +299,28 @@ export default function Statistics() {
 
       const allRecords = records || [];
 
-      // Helper function to get latest report batch (grouped by reporter session)
+      // NEW LOGIC: Get latest report per CLASS per meal type
+      // This aggregates reports from all class teachers, taking the latest report for each class
+      const getLatestRecordsPerClass = (records: any[]) => {
+        if (records.length === 0) return [];
+        
+        // Group by class_id and student_id, keep the latest record for each student
+        const latestByStudent = new Map<string, any>();
+        
+        records.forEach(r => {
+          const key = `${r.class_id || 'unknown'}-${r.student_id}`;
+          const existing = latestByStudent.get(key);
+          const currentTime = new Date(r.created_at || 0).getTime();
+          
+          if (!existing || currentTime > new Date(existing.created_at || 0).getTime()) {
+            latestByStudent.set(key, r);
+          }
+        });
+        
+        return Array.from(latestByStudent.values());
+      };
+
+      // Helper function to get latest report batch for boarding/study (single reporter for whole school)
       const getLatestReportBatch = (records: any[]) => {
         if (records.length === 0) return [];
         
@@ -428,7 +449,8 @@ export default function Statistics() {
       
       for (const mealType of mealTypes) {
         const mealRecords = allRecords.filter(r => r.attendance_type === mealType);
-        const latestRecords = getLatestReportBatch(mealRecords);
+        // Use new logic: get latest records per class (aggregated from all class reports)
+        const latestRecords = getLatestRecordsPerClass(mealRecords);
         
         if (latestRecords.length > 0) {
           const presentCount = latestRecords.filter(r => r.status === 'present').length;
