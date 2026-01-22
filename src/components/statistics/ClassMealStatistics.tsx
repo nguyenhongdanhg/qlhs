@@ -148,10 +148,11 @@ export function ClassMealStatistics({
           const present = mealRecords.filter((r) => r.status === 'present').length;
           const absent = mealRecords.filter((r) => r.status !== 'present').length;
 
+          // Always show total as class size, not just reported records
           return {
             present,
             absent,
-            total: mealRecords.length,
+            total: classStudents.length,
             hasReport: true,
           };
         };

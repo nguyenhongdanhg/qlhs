@@ -390,6 +390,7 @@ export default function Meals() {
   };
 
   // Handler for mark all 3 meals with custom absent list
+  // For class teachers: only save records for their class students
   const handleSave3MealsWithAbsent = async (absentStudentIds: string[]) => {
     if (!currentSchool || !user) return;
     setIsSaving(true);
@@ -416,16 +417,24 @@ export default function Meals() {
 
       const validMeals = mealTypesToSave.filter(meal => !expiredMeals.includes(meal));
       const absentSet = new Set(absentStudentIds);
+      
+      // Use filteredStudents (class-specific for GVCN, all for admin)
+      const studentsToReport = filteredStudents;
 
       for (const meal of validMeals) {
-        await supabase
-          .from('attendance_records')
-          .delete()
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', meal);
+        // Only delete records for the students being reported (class-specific for GVCN)
+        const studentIds = studentsToReport.map(s => s.id);
+        if (studentIds.length > 0) {
+          await supabase
+            .from('attendance_records')
+            .delete()
+            .eq('school_id', currentSchool.id)
+            .eq('attendance_date', dateStr)
+            .eq('attendance_type', meal)
+            .in('student_id', studentIds);
+        }
 
-        const records = students.map((student) => ({
+        const records = studentsToReport.map((student) => ({
           school_id: currentSchool.id,
           student_id: student.id,
           class_id: student.class_id,
@@ -455,7 +464,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      students.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -465,6 +474,7 @@ export default function Meals() {
   };
 
   // Handler for save single meal with custom absent list
+  // For class teachers: only save records for their class students
   const handleSaveSingleMealWithAbsent = async (absentStudentIds: string[]) => {
     if (!currentSchool || !user) return;
     setIsSaving(true);
@@ -474,14 +484,22 @@ export default function Meals() {
       const dateStr = format(date, 'yyyy-MM-dd');
       const absentSet = new Set(absentStudentIds);
       
-      await supabase
-        .from('attendance_records')
-        .delete()
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_date', dateStr)
-        .eq('attendance_type', selectedMeal);
+      // Use filteredStudents (class-specific for GVCN, all for admin)
+      const studentsToReport = filteredStudents;
+      const studentIds = studentsToReport.map(s => s.id);
+      
+      // Only delete records for the students being reported
+      if (studentIds.length > 0) {
+        await supabase
+          .from('attendance_records')
+          .delete()
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', selectedMeal)
+          .in('student_id', studentIds);
+      }
 
-      const records = students.map((student) => ({
+      const records = studentsToReport.map((student) => ({
         school_id: currentSchool.id,
         student_id: student.id,
         class_id: student.class_id,
@@ -501,7 +519,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      students.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -534,16 +552,24 @@ export default function Meals() {
       }
 
       const validMeals = mealTypesToSave.filter(meal => !expiredMeals.includes(meal));
+      
+      // Use filteredStudents (class-specific for GVCN, all for admin)
+      const studentsToReport = filteredStudents;
+      const studentIds = studentsToReport.map(s => s.id);
 
       for (const meal of validMeals) {
-        await supabase
-          .from('attendance_records')
-          .delete()
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', meal);
+        // Only delete records for the students being reported
+        if (studentIds.length > 0) {
+          await supabase
+            .from('attendance_records')
+            .delete()
+            .eq('school_id', currentSchool.id)
+            .eq('attendance_date', dateStr)
+            .eq('attendance_type', meal)
+            .in('student_id', studentIds);
+        }
 
-        const records = students.map((student) => ({
+        const records = studentsToReport.map((student) => ({
           school_id: currentSchool.id,
           student_id: student.id,
           class_id: student.class_id,
@@ -573,7 +599,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      students.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -597,14 +623,23 @@ export default function Meals() {
     setIsSaving(true);
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
-      await supabase
-        .from('attendance_records')
-        .delete()
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_date', dateStr)
-        .eq('attendance_type', selectedMeal);
+      
+      // Use filteredStudents (class-specific for GVCN, all for admin)
+      const studentsToReport = filteredStudents;
+      const studentIds = studentsToReport.map(s => s.id);
+      
+      // Only delete records for the students being reported
+      if (studentIds.length > 0) {
+        await supabase
+          .from('attendance_records')
+          .delete()
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', selectedMeal)
+          .in('student_id', studentIds);
+      }
 
-      const records = students.map((student) => ({
+      const records = studentsToReport.map((student) => ({
         school_id: currentSchool.id,
         student_id: student.id,
         class_id: student.class_id,
@@ -621,7 +656,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      students.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -1173,12 +1208,14 @@ export default function Meals() {
       <MealAbsentSelectionDialog
         open={absent3MealsDialogOpen}
         onOpenChange={setAbsent3MealsDialogOpen}
-        students={students}
+        students={filteredStudents}
         classes={classes}
         onConfirm={handleSave3MealsWithAbsent}
         isLoading={isSaving}
         title="Báo 3 bữa - Chọn học sinh vắng"
-        description="Chọn học sinh vắng cho cả 3 bữa (Sáng, Trưa, Tối). Các học sinh không chọn sẽ được báo đủ."
+        description={isClassTeacher && teacherClassName 
+          ? `Chọn học sinh vắng cho cả 3 bữa (Sáng, Trưa, Tối) - Lớp ${teacherClassName}.`
+          : "Chọn học sinh vắng cho cả 3 bữa (Sáng, Trưa, Tối). Các học sinh không chọn sẽ được báo đủ."}
       />
 
       {/* Dialog for selecting absent students for single meal */}
