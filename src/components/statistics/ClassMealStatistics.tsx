@@ -34,11 +34,19 @@ import { Badge } from '@/components/ui/badge';
 import { Student, Class, AttendanceType } from '@/types';
 import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
 
+interface MealStatWithReReport {
+  present: number;
+  absent: number;
+  total: number;
+  hasReport: boolean;
+  isReReport: boolean;
+}
+
 interface DailyMealRecord {
   date: string;
-  breakfast: { present: number; absent: number; total: number; hasReport: boolean };
-  lunch: { present: number; absent: number; total: number; hasReport: boolean };
-  dinner: { present: number; absent: number; total: number; hasReport: boolean };
+  breakfast: MealStatWithReReport;
+  lunch: MealStatWithReReport;
+  dinner: MealStatWithReReport;
 }
 
 interface ClassMealStatisticsProps {
@@ -132,17 +140,32 @@ export function ClassMealStatistics({
         }
       });
 
+      // Track report counts per date/meal to detect re-reports
+      const reportCountByDateMeal = new Map<string, Set<string>>();
+      (records || []).forEach((record: any) => {
+        const key = `${record.attendance_date}-${record.attendance_type}`;
+        const reportTime = (record.created_at || '').substring(0, 16); // Round to minute
+        if (!reportCountByDateMeal.has(key)) {
+          reportCountByDateMeal.set(key, new Set());
+        }
+        reportCountByDateMeal.get(key)!.add(reportTime);
+      });
+
       // Build daily records
       const dailyData: DailyMealRecord[] = days.map((day) => {
         const dateStr = format(day, 'yyyy-MM-dd');
 
-        const getMealStats = (mealType: AttendanceType) => {
+        const getMealStats = (mealType: AttendanceType): MealStatWithReReport => {
           const mealRecords = classStudents
             .map((s) => latestByKey.get(`${s.id}-${dateStr}-${mealType}`))
             .filter(Boolean);
 
+          const reportKey = `${dateStr}-${mealType}`;
+          const reportCount = reportCountByDateMeal.get(reportKey)?.size || 0;
+          const isReReport = reportCount > 1;
+
           if (mealRecords.length === 0) {
-            return { present: 0, absent: 0, total: classStudents.length, hasReport: false };
+            return { present: 0, absent: 0, total: classStudents.length, hasReport: false, isReReport: false };
           }
 
           const present = mealRecords.filter((r) => r.status === 'present').length;
@@ -154,6 +177,7 @@ export function ClassMealStatistics({
             absent,
             total: classStudents.length,
             hasReport: true,
+            isReReport,
           };
         };
 
@@ -393,16 +417,19 @@ export function ClassMealStatistics({
                         {record.breakfast.hasReport && (
                           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
                             S: {record.breakfast.present}/{record.breakfast.total}
+                            {record.breakfast.isReReport && <span className="ml-1 text-warning">⟳</span>}
                           </Badge>
                         )}
                         {record.lunch.hasReport && (
                           <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
                             T: {record.lunch.present}/{record.lunch.total}
+                            {record.lunch.isReReport && <span className="ml-1 text-warning">⟳</span>}
                           </Badge>
                         )}
                         {record.dinner.hasReport && (
                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                             C: {record.dinner.present}/{record.dinner.total}
+                            {record.dinner.isReReport && <span className="ml-1 text-warning">⟳</span>}
                           </Badge>
                         )}
                       </div>
@@ -419,7 +446,14 @@ export function ClassMealStatistics({
                       <div className="grid grid-cols-3 gap-2 text-center text-sm">
                         {/* Breakfast */}
                         <div className="rounded-lg bg-amber-50 p-2">
-                          <div className="font-medium text-amber-700 mb-1">Sáng</div>
+                          <div className="font-medium text-amber-700 mb-1 flex items-center justify-center gap-1">
+                            Sáng
+                            {record.breakfast.isReReport && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 border-warning text-warning">
+                                Lại
+                              </Badge>
+                            )}
+                          </div>
                           {record.breakfast.hasReport ? (
                             <div className="space-y-1">
                               <div className="text-success font-medium">
@@ -438,7 +472,14 @@ export function ClassMealStatistics({
 
                         {/* Lunch */}
                         <div className="rounded-lg bg-orange-50 p-2">
-                          <div className="font-medium text-orange-700 mb-1">Trưa</div>
+                          <div className="font-medium text-orange-700 mb-1 flex items-center justify-center gap-1">
+                            Trưa
+                            {record.lunch.isReReport && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 border-warning text-warning">
+                                Lại
+                              </Badge>
+                            )}
+                          </div>
                           {record.lunch.hasReport ? (
                             <div className="space-y-1">
                               <div className="text-success font-medium">
@@ -457,7 +498,14 @@ export function ClassMealStatistics({
 
                         {/* Dinner */}
                         <div className="rounded-lg bg-purple-50 p-2">
-                          <div className="font-medium text-purple-700 mb-1">Tối</div>
+                          <div className="font-medium text-purple-700 mb-1 flex items-center justify-center gap-1">
+                            Tối
+                            {record.dinner.isReReport && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 border-warning text-warning">
+                                Lại
+                              </Badge>
+                            )}
+                          </div>
                           {record.dinner.hasReport ? (
                             <div className="space-y-1">
                               <div className="text-success font-medium">
