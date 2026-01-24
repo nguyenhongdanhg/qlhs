@@ -50,6 +50,13 @@ import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSel
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
+interface ClassReportInfo {
+  className: string;
+  classId: string;
+  reportCount: number;
+  latestReportTime: string;
+}
+
 interface MealDeadline {
   type: AttendanceType;
   deadlineHour: number;

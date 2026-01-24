@@ -40,6 +40,7 @@ import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDi
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
 import { useToast } from '@/hooks/use-toast';
 import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
+import { cn } from '@/lib/utils';
 
 interface AbsentStudent {
   id: string;
@@ -51,12 +52,20 @@ interface AbsentStudent {
   mealGroup?: string;
 }
 
+interface ClassReportInfo {
+  className: string;
+  classId: string;
+  reportCount: number;
+  latestReportTime: string;
+}
+
 interface MealStats {
   total: number;
   present: number;
   absent: number;
   absentStudents: AbsentStudent[];
   classesNotReported: string[];
+  classReportInfos: ClassReportInfo[];
   hasReport: boolean;
 }
 
@@ -167,12 +176,14 @@ export default function Statistics() {
     const filterMealForClass = (stats: MealStats): MealStats => {
       const classAbsentStudents = stats.absentStudents.filter(s => s.className === teacherClassName);
       const classTotal = filteredStudents.length;
+      const classReportInfos = stats.classReportInfos.filter(info => info.className === teacherClassName);
       
       if (!stats.hasReport) {
         return {
           ...stats,
           total: classTotal,
           classesNotReported: stats.classesNotReported.filter(c => c === teacherClassName),
+          classReportInfos: [],
         };
       }
       
@@ -185,6 +196,7 @@ export default function Statistics() {
         absent: classAbsentStudents.length,
         absentStudents: classAbsentStudents,
         classesNotReported: stats.classesNotReported.filter(c => c === teacherClassName),
+        classReportInfos,
         hasReport: stats.hasReport,
       };
     };
@@ -439,9 +451,9 @@ export default function Statistics() {
 
       // Process meal statistics
       const mealStats: DailyMealSummary = {
-        breakfast: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], hasReport: false },
-        lunch: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], hasReport: false },
-        dinner: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], hasReport: false },
+        breakfast: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], classReportInfos: [], hasReport: false },
+        lunch: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], classReportInfos: [], hasReport: false },
+        dinner: { total: 0, present: 0, absent: 0, absentStudents: [], classesNotReported: [], classReportInfos: [], hasReport: false },
         totalRice: 0,
       };
 
@@ -463,6 +475,46 @@ export default function Statistics() {
             .filter(c => !classesWithReports.has(c.id))
             .filter(c => students.some(s => s.class_id === c.id))
             .map(c => c.name);
+
+          // Calculate report count per class (how many times each class reported)
+          const classReportInfos: ClassReportInfo[] = [];
+          const classReportTracking = new Map<string, { timestamps: Set<string>; latestTime: string }>();
+          
+          mealRecords.forEach(r => {
+            if (!r.class_id) return;
+            const classId = r.class_id;
+            const reportTime = r.created_at || '';
+            // Use rounded time (to nearest minute) as unique identifier for a report session
+            const roundedTime = reportTime ? reportTime.substring(0, 16) : '';
+            
+            if (!classReportTracking.has(classId)) {
+              classReportTracking.set(classId, { timestamps: new Set(), latestTime: reportTime });
+            }
+            const tracking = classReportTracking.get(classId)!;
+            tracking.timestamps.add(roundedTime);
+            if (reportTime > tracking.latestTime) {
+              tracking.latestTime = reportTime;
+            }
+          });
+          
+          classReportTracking.forEach((tracking, classId) => {
+            const cls = sortedClasses.find(c => c.id === classId);
+            if (cls) {
+              classReportInfos.push({
+                classId,
+                className: cls.name,
+                reportCount: tracking.timestamps.size,
+                latestReportTime: tracking.latestTime,
+              });
+            }
+          });
+          
+          // Sort by class grade
+          classReportInfos.sort((a, b) => {
+            const clsA = sortedClasses.find(c => c.id === a.classId);
+            const clsB = sortedClasses.find(c => c.id === b.classId);
+            return (clsA?.grade || 0) - (clsB?.grade || 0);
+          });
 
           // Build absent students list sorted by class (for breakfast) or by class + meal group (for lunch/dinner)
           const absentStudents: AbsentStudent[] = absentRecords.map(record => {
@@ -493,6 +545,7 @@ export default function Statistics() {
             absent: absentRecords.length,
             absentStudents,
             classesNotReported,
+            classReportInfos,
             hasReport: true,
           };
         } else {
@@ -507,6 +560,7 @@ export default function Statistics() {
             absent: 0,
             absentStudents: [],
             classesNotReported: allClassNames,
+            classReportInfos: [],
             hasReport: false,
           };
         }
@@ -804,6 +858,27 @@ export default function Statistics() {
         <CardContent>
           {stats.hasReport ? (
             <div className="space-y-3">
+              {/* Classes that reported - show with report count */}
+              {!isClassTeacher && stats.classReportInfos.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {stats.classReportInfos.map(info => (
+                    <Badge 
+                      key={info.classId} 
+                      variant="outline" 
+                      className={cn(
+                        "text-xs",
+                        info.reportCount > 1 && "border-warning text-warning bg-warning/10"
+                      )}
+                    >
+                      {info.className}
+                      {info.reportCount > 1 && (
+                        <span className="ml-1 font-semibold">(Lần {info.reportCount})</span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              
               {/* Summary */}
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-lg bg-muted p-2">
