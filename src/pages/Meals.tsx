@@ -336,7 +336,8 @@ export default function Meals() {
       const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
       const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
 
-      const { data: recordsData } = await supabase
+      // Build query - for class teachers, only fetch their class records
+      let query = supabase
         .from('attendance_records')
         .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
         .eq('school_id', currentSchool.id)
@@ -345,12 +346,24 @@ export default function Meals() {
         .lte('attendance_date', endDate)
         .order('created_at', { ascending: false });
 
-      // Group by date and meal, take latest report for each
-      const grouped = new Map<string, HistoryRecord>();
+      // Class teachers only see their class
+      if (isClassTeacher && teacherClassId) {
+        query = query.eq('class_id', teacherClassId);
+      }
+
+      const { data: recordsData } = await query;
+
+      // Group by date, meal, AND reporter session (rounded to minute)
+      // Each unique report session is a separate entry
+      const reportSessions = new Map<string, HistoryRecord>();
+      
       (recordsData || []).forEach((record: any) => {
-        const key = `${record.attendance_date}-${record.attendance_type}`;
-        if (!grouped.has(key)) {
-          grouped.set(key, {
+        // Create unique key: date + meal + reporter + rounded time (to minute)
+        const reportTime = record.created_at ? record.created_at.substring(0, 16) : '';
+        const sessionKey = `${record.attendance_date}-${record.attendance_type}-${record.reporter_id}-${reportTime}`;
+        
+        if (!reportSessions.has(sessionKey)) {
+          reportSessions.set(sessionKey, {
             date: record.attendance_date,
             meal: record.attendance_type,
             reportedAt: record.created_at,
@@ -361,14 +374,33 @@ export default function Meals() {
             absent: 0,
           });
         }
-        const entry = grouped.get(key)!;
+        const entry = reportSessions.get(sessionKey)!;
         entry.total++;
         if (record.status === 'present') entry.present++;
         else entry.absent++;
       });
 
-      setHistoryRecords(Array.from(grouped.values()).sort((a, b) => 
-        b.date.localeCompare(a.date) || mealTypes.findIndex(m => m.type === b.meal) - mealTypes.findIndex(m => m.type === a.meal)
+      // Convert to array and sort by date (newest first), then meal order
+      const allRecords = Array.from(reportSessions.values());
+      
+      // For display: Group by date+meal and only show the LATEST session
+      // But keep track of how many sessions exist (for re-report indicator)
+      const latestByDateMeal = new Map<string, HistoryRecord>();
+      const reportCountByDateMeal = new Map<string, number>();
+      
+      allRecords.forEach(record => {
+        const key = `${record.date}-${record.meal}`;
+        reportCountByDateMeal.set(key, (reportCountByDateMeal.get(key) || 0) + 1);
+        
+        const existing = latestByDateMeal.get(key);
+        if (!existing || new Date(record.reportedAt) > new Date(existing.reportedAt)) {
+          latestByDateMeal.set(key, record);
+        }
+      });
+
+      setHistoryRecords(Array.from(latestByDateMeal.values()).sort((a, b) => 
+        b.date.localeCompare(a.date) || 
+        new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
       ));
     } catch (error) {
       console.error('Error fetching history:', error);
