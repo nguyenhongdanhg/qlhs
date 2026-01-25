@@ -166,28 +166,40 @@ export default function Statistics() {
   }, [students, isClassTeacher, teacherClassId]);
 
   // For class teachers, filter meal stats to only show their class
+  // IMPORTANT: This uses the SAME data source as admin stats, which already takes the latest report per class
+  // The class teacher view just filters to show only their class's data
   const filteredMealStats = useMemo((): DailyMealSummary | null => {
     if (!dailyMealStats) return null;
     
-    // If not a class teacher, return all stats
+    // If not a class teacher, return all stats (admin aggregated view)
     if (!isClassTeacher || !teacherClassName) return dailyMealStats;
     
     // Filter meal stats for class teacher's class
+    // The data in dailyMealStats already has the latest report per student (no cumulative)
     const filterMealForClass = (stats: MealStats): MealStats => {
+      // Get absent students for this class only
       const classAbsentStudents = stats.absentStudents.filter(s => s.className === teacherClassName);
-      const classTotal = filteredStudents.length;
       const classReportInfos = stats.classReportInfos.filter(info => info.className === teacherClassName);
       
-      if (!stats.hasReport) {
+      // Check if this class has reported
+      const classHasReported = classReportInfos.length > 0;
+      const classTotal = filteredStudents.length;
+      
+      if (!classHasReported) {
+        // Class hasn't reported
         return {
-          ...stats,
           total: classTotal,
-          classesNotReported: stats.classesNotReported.filter(c => c === teacherClassName),
+          present: 0,
+          absent: 0,
+          absentStudents: [],
+          classesNotReported: stats.classesNotReported.includes(teacherClassName) ? [teacherClassName] : [],
           classReportInfos: [],
+          hasReport: false,
         };
       }
       
-      // Calculate class-specific counts from attendance records
+      // Class has reported - calculate present count
+      // Present = total class students - absent students in the latest report
       const classPresent = classTotal - classAbsentStudents.length;
       
       return {
@@ -195,9 +207,9 @@ export default function Statistics() {
         present: classPresent,
         absent: classAbsentStudents.length,
         absentStudents: classAbsentStudents,
-        classesNotReported: stats.classesNotReported.filter(c => c === teacherClassName),
+        classesNotReported: [],
         classReportInfos,
-        hasReport: stats.hasReport,
+        hasReport: true,
       };
     };
 
@@ -332,42 +344,37 @@ export default function Statistics() {
         return Array.from(latestByStudent.values());
       };
 
-      // Helper function to get latest report batch for boarding/study (single reporter for whole school)
+      // Helper function to get latest report batch for boarding/study
+      // Each report is a distinct data point - only take the latest one (by reporter session)
+      // Logic: Group by reporter, find the reporter with the latest report time, 
+      // then get all their records from that session (within 5 minute window)
       const getLatestReportBatch = (records: any[]) => {
         if (records.length === 0) return [];
         
-        // Group records by reporter_id and find the latest session per reporter
-        const reporterSessions: Map<string, { reporter: string; maxTime: number; minTime: number }> = new Map();
-        
+        // First, get the absolute latest record
+        let latestRecord: any = null;
         records.forEach(r => {
-          const reporterId = r.reporter_id || 'unknown';
           const time = new Date(r.created_at || 0).getTime();
-          const existing = reporterSessions.get(reporterId);
-          
-          if (!existing) {
-            reporterSessions.set(reporterId, { 
-              reporter: reporterId, 
-              maxTime: time, 
-              minTime: time 
-            });
-          } else {
-            if (time > existing.maxTime) existing.maxTime = time;
-            if (time < existing.minTime) existing.minTime = time;
+          if (!latestRecord || time > new Date(latestRecord.created_at || 0).getTime()) {
+            latestRecord = r;
           }
         });
         
-        // Find the reporter with the latest max time
-        let latestReporter = '';
-        let latestMaxTime = 0;
-        reporterSessions.forEach((session, reporterId) => {
-          if (session.maxTime > latestMaxTime) {
-            latestMaxTime = session.maxTime;
-            latestReporter = reporterId;
-          }
-        });
+        if (!latestRecord) return [];
         
-        // Get all records from the latest reporter
-        return records.filter(r => (r.reporter_id || 'unknown') === latestReporter);
+        // Get the latest record's reporter and time
+        const latestReporterId = latestRecord.reporter_id || 'unknown';
+        const latestTime = new Date(latestRecord.created_at || 0).getTime();
+        
+        // Get all records from the same reporter within a 5-minute window of the latest
+        // This ensures we capture the full batch of a single report submission
+        const fiveMinutes = 5 * 60 * 1000;
+        return records.filter(r => {
+          const reporterId = r.reporter_id || 'unknown';
+          const recordTime = new Date(r.created_at || 0).getTime();
+          return reporterId === latestReporterId && 
+                 Math.abs(recordTime - latestTime) <= fiveMinutes;
+        });
       };
 
       // Process boarding report (latest reporter batch)
