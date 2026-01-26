@@ -649,7 +649,7 @@ export default function EveningStudy() {
 
           <TabsContent value="attendance" className="p-4 space-y-4">
             {/* Filters */}
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
               <div>
                 <label className="text-sm text-muted-foreground mb-1.5 block">Ngày</label>
                 <Popover>
@@ -694,6 +694,26 @@ export default function EveningStudy() {
                     </SelectContent>
                   </Select>
                 )}
+              </div>
+
+              <div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">Chọn lớp</label>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tất cả lớp" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả lớp ({students.length} HS)</SelectItem>
+                    {sortedClasses.map((cls) => {
+                      const count = students.filter(s => s.class?.name === cls.name).length;
+                      return (
+                        <SelectItem key={cls.id} value={cls.name}>
+                          {cls.name} ({count} HS)
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
