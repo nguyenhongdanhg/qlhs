@@ -344,14 +344,33 @@ export default function Statistics() {
         return Array.from(latestByStudent.values());
       };
 
-      // Helper function to get latest report batch for boarding/study
-      // Each report is a distinct data point - only take the latest one (by reporter session)
-      // Logic: Group by reporter, find the reporter with the latest report time, 
-      // then get all their records from that session (within 5 minute window)
-      const getLatestReportBatch = (records: any[]) => {
+      // Helper function to get latest record per STUDENT for boarding/study
+      // IMPORTANT: Boarding and Evening Study are SCHOOL-WIDE - any account can report
+      // Multiple reporters may report different students, so we take the latest record per student
+      const getLatestRecordsPerStudent = (records: any[]) => {
         if (records.length === 0) return [];
         
-        // First, get the absolute latest record
+        // Group by student_id, keep the latest record for each student
+        const latestByStudent = new Map<string, any>();
+        
+        records.forEach(r => {
+          const studentId = r.student_id;
+          const existing = latestByStudent.get(studentId);
+          const currentTime = new Date(r.created_at || 0).getTime();
+          
+          if (!existing || currentTime > new Date(existing.created_at || 0).getTime()) {
+            latestByStudent.set(studentId, r);
+          }
+        });
+        
+        return Array.from(latestByStudent.values());
+      };
+
+      // Get the latest reporter info (for display purposes)
+      const getLatestReporter = (records: any[]) => {
+        if (records.length === 0) return null;
+        
+        // Find the most recent record
         let latestRecord: any = null;
         records.forEach(r => {
           const time = new Date(r.created_at || 0).getTime();
@@ -360,28 +379,15 @@ export default function Statistics() {
           }
         });
         
-        if (!latestRecord) return [];
-        
-        // Get the latest record's reporter and time
-        const latestReporterId = latestRecord.reporter_id || 'unknown';
-        const latestTime = new Date(latestRecord.created_at || 0).getTime();
-        
-        // Get all records from the same reporter within a 5-minute window of the latest
-        // This ensures we capture the full batch of a single report submission
-        const fiveMinutes = 5 * 60 * 1000;
-        return records.filter(r => {
-          const reporterId = r.reporter_id || 'unknown';
-          const recordTime = new Date(r.created_at || 0).getTime();
-          return reporterId === latestReporterId && 
-                 Math.abs(recordTime - latestTime) <= fiveMinutes;
-        });
+        return latestRecord;
       };
 
-      // Process boarding report (latest reporter batch)
+      // Process boarding report (school-wide - get latest per student)
       const boardingRecords = allRecords.filter(r => r.attendance_type === 'boarding');
-      const latestBoardingRecords = getLatestReportBatch(boardingRecords);
+      const latestBoardingRecords = getLatestRecordsPerStudent(boardingRecords);
+      const latestBoardingReporter = getLatestReporter(boardingRecords);
       
-      if (latestBoardingRecords.length > 0) {
+      if (latestBoardingRecords.length > 0 && latestBoardingReporter) {
         const presentCount = latestBoardingRecords.filter(r => r.status === 'present').length;
         const absentRecords = latestBoardingRecords.filter(r => r.status === 'absent' || r.status === 'excused');
         
@@ -397,17 +403,12 @@ export default function Statistics() {
           };
         }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
-        // Find the most recent record for time display
-        const sortedByTime = [...latestBoardingRecords].sort((a, b) => 
-          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        );
-
         setLatestBoardingReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Nội trú',
-          reporter: (sortedByTime[0] as any).reporter?.full_name || 'N/A',
-          reportTime: format(new Date(sortedByTime[0].created_at || new Date()), 'HH:mm dd/MM/yyyy'),
+          reporter: (latestBoardingReporter as any).reporter?.full_name || 'N/A',
+          reportTime: format(new Date(latestBoardingReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
           total: latestBoardingRecords.length,
           present: presentCount,
           absent: absentRecords.length,
@@ -417,11 +418,12 @@ export default function Statistics() {
         setLatestBoardingReport(null);
       }
 
-      // Process evening study report (latest reporter batch)
+      // Process evening study report (school-wide - get latest per student)
       const studyRecords = allRecords.filter(r => r.attendance_type === 'evening_study');
-      const latestStudyRecords = getLatestReportBatch(studyRecords);
+      const latestStudyRecords = getLatestRecordsPerStudent(studyRecords);
+      const latestStudyReporter = getLatestReporter(studyRecords);
       
-      if (latestStudyRecords.length > 0) {
+      if (latestStudyRecords.length > 0 && latestStudyReporter) {
         const presentCount = latestStudyRecords.filter(r => r.status === 'present').length;
         const absentRecords = latestStudyRecords.filter(r => r.status === 'absent' || r.status === 'excused');
         
@@ -437,16 +439,12 @@ export default function Statistics() {
           };
         }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
-        const sortedByTime = [...latestStudyRecords].sort((a, b) => 
-          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        );
-
         setLatestStudyReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Tự học tối',
-          reporter: (sortedByTime[0] as any).reporter?.full_name || 'N/A',
-          reportTime: format(new Date(sortedByTime[0].created_at || new Date()), 'HH:mm dd/MM/yyyy'),
+          reporter: (latestStudyReporter as any).reporter?.full_name || 'N/A',
+          reportTime: format(new Date(latestStudyReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
           total: latestStudyRecords.length,
           present: presentCount,
           absent: absentRecords.length,
