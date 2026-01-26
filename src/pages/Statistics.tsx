@@ -409,8 +409,8 @@ export default function Statistics() {
           sessionLabel: 'Nội trú',
           reporter: (latestBoardingReporter as any).reporter?.full_name || 'N/A',
           reportTime: format(new Date(latestBoardingReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: latestBoardingRecords.length,
-          present: presentCount,
+          total: students.length,
+          present: students.length - absentRecords.length,
           absent: absentRecords.length,
           absentStudents,
         });
@@ -445,8 +445,8 @@ export default function Statistics() {
           sessionLabel: 'Tự học tối',
           reporter: (latestStudyReporter as any).reporter?.full_name || 'N/A',
           reportTime: format(new Date(latestStudyReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: latestStudyRecords.length,
-          present: presentCount,
+          total: students.length,
+          present: students.length - absentRecords.length,
           absent: absentRecords.length,
           absentStudents,
         });
