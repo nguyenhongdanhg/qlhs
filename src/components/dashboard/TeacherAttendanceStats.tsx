@@ -94,11 +94,11 @@ export function TeacherAttendanceStats() {
         }
       } else if (isClassTeacher && teacherClassId) {
         // Class teacher: Fetch only their class students
+        // teacherClassId is already the class UUID from currentMembership.class_id
         const { data: classData } = await supabase
           .from('classes')
           .select('id, name')
-          .eq('school_id', currentSchool.id)
-          .eq('name', teacherClassId)
+          .eq('id', teacherClassId)
           .eq('is_active', true)
           .maybeSingle();
 
@@ -226,7 +226,7 @@ export function TeacherAttendanceStats() {
 
   const title = isAdmin 
     ? 'Thống kê điểm danh toàn trường' 
-    : `Thống kê lớp ${teacherClassId}`;
+    : `Thống kê lớp ${classInfo?.name || ''}`;
   
   const TitleIcon = isAdmin ? Building2 : Users;
   const studentLabel = isAdmin 
