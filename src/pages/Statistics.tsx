@@ -324,30 +324,37 @@ export default function Statistics() {
 
       const allRecords = records || [];
 
-      // NEW LOGIC for Admin Statistics:
-      // Show the LATEST SINGLE REPORT from the most recent reporter
-      // NOT aggregated from multiple reporters
+      // SIMPLIFIED LOGIC for Admin Statistics:
+      // Show the LATEST REPORT based on the most recent created_at timestamp
+      // A "report" is a batch of records submitted together (within 10 seconds)
       
-      // Get the latest reporter and their records ONLY
-      const getLatestReporterRecords = (records: any[]) => {
-        if (records.length === 0) return { records: [], reporter: null };
+      const getLatestReport = (records: any[]) => {
+        if (records.length === 0) return { records: [], reporter: null, reportTime: null };
         
-        // Find the most recent record to identify the latest reporter
-        let latestRecord: any = null;
-        records.forEach(r => {
-          const time = new Date(r.created_at || 0).getTime();
-          if (!latestRecord || time > new Date(latestRecord.created_at || 0).getTime()) {
-            latestRecord = r;
-          }
+        // Sort by created_at descending to find the most recent record
+        const sortedRecords = [...records].sort((a, b) => 
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+        
+        const latestRecord = sortedRecords[0];
+        if (!latestRecord) return { records: [], reporter: null, reportTime: null };
+        
+        const latestTime = new Date(latestRecord.created_at || 0).getTime();
+        const latestReporterId = latestRecord.reporter_id;
+        
+        // Get all records from the same reporter within 10 seconds of the latest record
+        // This captures the entire "batch" of the latest report
+        const batchRecords = records.filter(r => {
+          const recordTime = new Date(r.created_at || 0).getTime();
+          const timeDiff = Math.abs(latestTime - recordTime);
+          return r.reporter_id === latestReporterId && timeDiff <= 10000; // 10 seconds
         });
         
-        if (!latestRecord) return { records: [], reporter: null };
-        
-        // Filter to get only records from that reporter
-        const latestReporterId = latestRecord.reporter_id;
-        const latestReporterRecords = records.filter(r => r.reporter_id === latestReporterId);
-        
-        return { records: latestReporterRecords, reporter: latestRecord };
+        return { 
+          records: batchRecords, 
+          reporter: latestRecord,
+          reportTime: latestRecord.created_at
+        };
       };
 
       // Get latest report per CLASS per meal type (for meal statistics)
@@ -370,9 +377,9 @@ export default function Statistics() {
         return Array.from(latestByStudent.values());
       };
 
-      // Process boarding report - show ONLY the latest reporter's report
+      // Process boarding report - show ONLY the latest report
       const boardingRecords = allRecords.filter(r => r.attendance_type === 'boarding');
-      const { records: latestBoardingRecords, reporter: latestBoardingReporter } = getLatestReporterRecords(boardingRecords);
+      const { records: latestBoardingRecords, reporter: latestBoardingReporter } = getLatestReport(boardingRecords);
       
       if (latestBoardingRecords.length > 0 && latestBoardingReporter) {
         // Count from the latest reporter's data only
@@ -409,9 +416,9 @@ export default function Statistics() {
         setLatestBoardingReport(null);
       }
 
-      // Process evening study report - show ONLY the latest reporter's report
+      // Process evening study report - show ONLY the latest report
       const studyRecords = allRecords.filter(r => r.attendance_type === 'evening_study');
-      const { records: latestStudyRecords, reporter: latestStudyReporter } = getLatestReporterRecords(studyRecords);
+      const { records: latestStudyRecords, reporter: latestStudyReporter } = getLatestReport(studyRecords);
       
       if (latestStudyRecords.length > 0 && latestStudyReporter) {
         // Count from the latest reporter's data only
