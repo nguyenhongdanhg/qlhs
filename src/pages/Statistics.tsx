@@ -30,6 +30,7 @@ import {
   Plus,
   Package,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -1107,10 +1108,21 @@ export default function Statistics() {
                 {/* Latest Boarding Report */}
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Home className="h-5 w-5 text-primary" />
-                      Điểm danh nội trú gần nhất
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Home className="h-5 w-5 text-primary" />
+                        Điểm danh nội trú gần nhất
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => fetchDailyData()}
+                        disabled={isLoading}
+                      >
+                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {latestBoardingReport ? (
@@ -1165,10 +1177,21 @@ export default function Statistics() {
                 {/* Latest Evening Study Report */}
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <BookOpen className="h-5 w-5 text-primary" />
-                      Điểm danh tự học gần nhất
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <BookOpen className="h-5 w-5 text-primary" />
+                        Điểm danh tự học gần nhất
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => fetchDailyData()}
+                        disabled={isLoading}
+                      >
+                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {latestStudyReport ? (
