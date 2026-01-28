@@ -388,7 +388,8 @@ export default function Statistics() {
       const latestBoardingReporter = getLatestReporter(boardingRecords);
       
       if (latestBoardingRecords.length > 0 && latestBoardingReporter) {
-        const presentCount = latestBoardingRecords.filter(r => r.status === 'present').length;
+        // Count present and absent from actual records
+        const presentRecords = latestBoardingRecords.filter(r => r.status === 'present');
         const absentRecords = latestBoardingRecords.filter(r => r.status === 'absent' || r.status === 'excused');
         
         const absentStudents: AbsentStudent[] = absentRecords.map(record => {
@@ -403,14 +404,16 @@ export default function Statistics() {
           };
         }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
+        // Total = total records (each student counted once)
+        // Present = present records, Absent = absent/excused records
         setLatestBoardingReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Nội trú',
           reporter: (latestBoardingReporter as any).reporter?.full_name || 'N/A',
           reportTime: format(new Date(latestBoardingReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: students.length,
-          present: students.length - absentRecords.length,
+          total: latestBoardingRecords.length, // Total students that were reported
+          present: presentRecords.length, // Actual present count from records
           absent: absentRecords.length,
           absentStudents,
         });
@@ -424,7 +427,8 @@ export default function Statistics() {
       const latestStudyReporter = getLatestReporter(studyRecords);
       
       if (latestStudyRecords.length > 0 && latestStudyReporter) {
-        const presentCount = latestStudyRecords.filter(r => r.status === 'present').length;
+        // Count present and absent from actual records
+        const presentRecords = latestStudyRecords.filter(r => r.status === 'present');
         const absentRecords = latestStudyRecords.filter(r => r.status === 'absent' || r.status === 'excused');
         
         const absentStudents: AbsentStudent[] = absentRecords.map(record => {
@@ -439,14 +443,16 @@ export default function Statistics() {
           };
         }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
+        // Total = total records (each student counted once)
+        // Present = present records, Absent = absent/excused records
         setLatestStudyReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Tự học tối',
           reporter: (latestStudyReporter as any).reporter?.full_name || 'N/A',
           reportTime: format(new Date(latestStudyReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: students.length,
-          present: students.length - absentRecords.length,
+          total: latestStudyRecords.length, // Total students that were reported
+          present: presentRecords.length, // Actual present count from records
           absent: absentRecords.length,
           absentStudents,
         });
