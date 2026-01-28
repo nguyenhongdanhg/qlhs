@@ -29,22 +29,92 @@ interface DashboardStats {
   totalClasses: number;
   mealStats: { breakfast: number; lunch: number; dinner: number };
   gradeStats: { grade: number; total: number; boarding: number }[];
+  className?: string; // For class teachers
 }
 
 export default function Dashboard() {
-  const { currentSchool } = useAuth();
+  const { currentSchool, currentMembership, isSchoolAdmin, isSuperAdmin } = useAuth();
   const today = useMemo(() => new Date(), []);
   const dateStr = useMemo(() => format(today, 'yyyy-MM-dd'), [today]);
   const dayName = useMemo(() => format(today, 'EEEE', { locale: vi }), [today]);
   const formattedDate = useMemo(() => format(today, 'dd/MM/yyyy'), [today]);
 
+  // Determine if user is admin or class teacher
+  const isAdmin = isSuperAdmin || isSchoolAdmin();
+  const isClassTeacher = currentMembership?.role === 'class_teacher';
+  const teacherClassId = currentMembership?.class_id;
+
   // Fetch dashboard stats with React Query for caching
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['dashboard-stats', currentSchool?.id, dateStr],
+    queryKey: ['dashboard-stats', currentSchool?.id, dateStr, isAdmin, teacherClassId],
     queryFn: async (): Promise<DashboardStats> => {
       if (!currentSchool) throw new Error('No school selected');
 
-      // Parallel fetch all basic stats
+      // For class teachers, fetch only their class data
+      if (isClassTeacher && teacherClassId) {
+        const { data: classData } = await supabase
+          .from('classes')
+          .select('id, name')
+          .eq('id', teacherClassId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (!classData) {
+          return {
+            totalStudents: 0,
+            boardingStudents: 0,
+            totalTeachers: 1,
+            totalClasses: 1,
+            mealStats: { breakfast: 0, lunch: 0, dinner: 0 },
+            gradeStats: [],
+            className: teacherClassId,
+          };
+        }
+
+        // Fetch class-specific data
+        const [studentsResult, boardingResult, attendanceResult] = await Promise.all([
+          supabase
+            .from('students')
+            .select('*', { count: 'exact', head: true })
+            .eq('school_id', currentSchool.id)
+            .eq('class_id', classData.id)
+            .eq('is_active', true),
+          supabase
+            .from('students')
+            .select('*', { count: 'exact', head: true })
+            .eq('school_id', currentSchool.id)
+            .eq('class_id', classData.id)
+            .eq('is_active', true)
+            .eq('is_boarding', true),
+          supabase
+            .from('attendance_records')
+            .select('attendance_type, status, student_id')
+            .eq('school_id', currentSchool.id)
+            .eq('class_id', classData.id)
+            .eq('attendance_date', dateStr),
+        ]);
+
+        const mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
+        (attendanceResult.data || []).forEach(record => {
+          if (record.status === 'present') {
+            if (record.attendance_type === 'breakfast') mealStats.breakfast++;
+            if (record.attendance_type === 'lunch') mealStats.lunch++;
+            if (record.attendance_type === 'dinner') mealStats.dinner++;
+          }
+        });
+
+        return {
+          totalStudents: studentsResult.count || 0,
+          boardingStudents: boardingResult.count || 0,
+          totalTeachers: 1, // GVCN is the teacher of their class
+          totalClasses: 1,  // Only their class
+          mealStats,
+          gradeStats: [],
+          className: classData.name,
+        };
+      }
+
+      // Admin/Other roles: Fetch all school data
       const [studentsResult, boardingResult, classesResult, teachersResult, attendanceResult] = await Promise.all([
         supabase
           .from('students')
@@ -134,12 +204,21 @@ export default function Dashboard() {
     { label: 'Xem thống kê', icon: BarChart3, path: '/statistics', color: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-100 text-emerald-600' },
   ], []);
 
-  const statCards = useMemo(() => [
-    { label: 'Học sinh', value: stats?.totalStudents || 0, icon: Users, gradient: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-500' },
-    { label: 'Nội trú', value: stats?.boardingStudents || 0, icon: Home, gradient: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-500' },
-    { label: 'Giáo viên', value: stats?.totalTeachers || 0, icon: GraduationCap, gradient: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-500' },
-    { label: 'Lớp học', value: stats?.totalClasses || 0, icon: Building2, gradient: 'from-violet-500 to-purple-500', iconBg: 'bg-violet-500' },
-  ], [stats]);
+  // For class teachers, show different card labels
+  const statCards = useMemo(() => {
+    if (isClassTeacher && stats?.className) {
+      return [
+        { label: `Lớp ${stats.className}`, value: stats.totalStudents || 0, icon: Users, gradient: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-500' },
+        { label: 'Nội trú', value: stats.boardingStudents || 0, icon: Home, gradient: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-500' },
+      ];
+    }
+    return [
+      { label: 'Học sinh', value: stats?.totalStudents || 0, icon: Users, gradient: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-500' },
+      { label: 'Nội trú', value: stats?.boardingStudents || 0, icon: Home, gradient: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-500' },
+      { label: 'Giáo viên', value: stats?.totalTeachers || 0, icon: GraduationCap, gradient: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-500' },
+      { label: 'Lớp học', value: stats?.totalClasses || 0, icon: Building2, gradient: 'from-violet-500 to-purple-500', iconBg: 'bg-violet-500' },
+    ];
+  }, [stats, isClassTeacher]);
 
   if (!currentSchool) {
     return (
@@ -331,8 +410,8 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Grade Stats - Enhanced */}
-          {stats?.gradeStats && stats.gradeStats.length > 0 && (
+          {/* Grade Stats - Only for admins */}
+          {!isClassTeacher && stats?.gradeStats && stats.gradeStats.length > 0 && (
             <Card className="mt-4 border-0 shadow-md">
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-3">
