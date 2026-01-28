@@ -5,11 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Home, BookOpen, Users, AlertCircle, CheckCircle2, Clock, RefreshCw, Building2 } from 'lucide-react';
+import { Home, BookOpen, Users, AlertCircle, CheckCircle2, Clock, RefreshCw, Building2, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface AttendanceRecord {
   id: string;
@@ -49,6 +50,8 @@ export function TeacherAttendanceStats() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isAbsentListOpen, setIsAbsentListOpen] = useState(false);
 
   // Determine view mode
   const isAdmin = isSuperAdmin || isSchoolAdmin();
@@ -313,145 +316,175 @@ export function TeacherAttendanceStats() {
           </div>
         </div>
 
-        {/* Weekly Stats Table */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs font-semibold text-muted-foreground">7 ngày gần nhất</span>
-          </div>
-          <div className="rounded-lg border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="text-xs py-2 px-2 w-24">Ngày</TableHead>
-                  <TableHead className="text-xs py-2 px-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Home className="h-3 w-3" />
-                      <span>Nội trú</span>
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-xs py-2 px-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <BookOpen className="h-3 w-3" />
-                      <span>Tự học</span>
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dailyStats.map((day) => {
-                  const isCurrentDay = isToday(new Date(day.date));
-                  return (
-                    <TableRow 
-                      key={day.date} 
-                      className={cn(isCurrentDay && "bg-primary/5")}
-                    >
-                      <TableCell className="py-2 px-2">
-                        <div className="flex flex-col">
-                          <span className={cn(
-                            "text-xs font-medium",
-                            isCurrentDay && "text-primary"
-                          )}>
-                            {format(new Date(day.date), 'dd/MM')}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground capitalize">
-                            {day.dayName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-2 px-2 text-center">
-                        {day.boarding.total > 0 ? (
-                          <div className="flex flex-col items-center">
-                            <div className="flex items-center gap-1">
-                              {day.boarding.absent === 0 ? (
-                                <CheckCircle2 className="h-3 w-3 text-success" />
-                              ) : (
-                                <AlertCircle className="h-3 w-3 text-destructive" />
-                              )}
-                              <span className={cn(
-                                "text-xs font-semibold",
-                                day.boarding.absent === 0 ? "text-success" : "text-foreground"
-                              )}>
-                                {day.boarding.present}/{day.boarding.total}
-                              </span>
-                            </div>
-                            {day.boarding.absent > 0 && (
-                              <span className="text-[10px] text-destructive">
-                                -{day.boarding.absent}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">--</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2 px-2 text-center">
-                        {day.eveningStudy.total > 0 ? (
-                          <div className="flex flex-col items-center">
-                            <div className="flex items-center gap-1">
-                              {day.eveningStudy.absent === 0 ? (
-                                <CheckCircle2 className="h-3 w-3 text-success" />
-                              ) : (
-                                <AlertCircle className="h-3 w-3 text-destructive" />
-                              )}
-                              <span className={cn(
-                                "text-xs font-semibold",
-                                day.eveningStudy.absent === 0 ? "text-success" : "text-foreground"
-                              )}>
-                                {day.eveningStudy.present}/{day.eveningStudy.total}
-                              </span>
-                            </div>
-                            {day.eveningStudy.absent > 0 && (
-                              <span className="text-[10px] text-destructive">
-                                -{day.eveningStudy.absent}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">--</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-
-        {/* Absent students list for today - only for class teacher */}
-        {!isAdmin && todayStats && (todayStats.boarding.absent > 0 || todayStats.eveningStudy.absent > 0) && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-              <span className="text-xs font-semibold text-muted-foreground">Học sinh vắng hôm nay</span>
-            </div>
-            <div className="rounded-lg border p-2 space-y-1 max-h-32 overflow-y-auto">
-              {attendanceRecords
-                .filter(r => 
-                  r.attendance_date === format(today, 'yyyy-MM-dd') && 
-                  r.status === 'absent'
-                )
-                .map(record => {
-                  const student = students.find(s => s.id === record.student_id);
-                  return (
-                    <div key={record.id} className="flex items-center justify-between text-xs">
-                      <span className="font-medium">{student?.full_name}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] py-0">
-                          {record.attendance_type === 'boarding' ? 'Nội trú' : 'Tự học'}
-                        </Badge>
-                        {record.excused_reason && (
-                          <span className="text-muted-foreground truncate max-w-20">
-                            {record.excused_reason}
-                          </span>
-                        )}
+        {/* Weekly Stats Table - Collapsible */}
+        <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-full flex items-center justify-between p-2 h-auto hover:bg-muted/50"
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground">7 ngày gần nhất</span>
+              </div>
+              {isHistoryOpen ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="text-xs py-2 px-2 w-24">Ngày</TableHead>
+                    <TableHead className="text-xs py-2 px-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Home className="h-3 w-3" />
+                        <span>Nội trú</span>
                       </div>
-                    </div>
-                  );
-                })}
+                    </TableHead>
+                    <TableHead className="text-xs py-2 px-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <BookOpen className="h-3 w-3" />
+                        <span>Tự học</span>
+                      </div>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dailyStats.map((day) => {
+                    const isCurrentDay = isToday(new Date(day.date));
+                    return (
+                      <TableRow 
+                        key={day.date} 
+                        className={cn(isCurrentDay && "bg-primary/5")}
+                      >
+                        <TableCell className="py-2 px-2">
+                          <div className="flex flex-col">
+                            <span className={cn(
+                              "text-xs font-medium",
+                              isCurrentDay && "text-primary"
+                            )}>
+                              {format(new Date(day.date), 'dd/MM')}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground capitalize">
+                              {day.dayName}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-2 px-2 text-center">
+                          {day.boarding.total > 0 ? (
+                            <div className="flex flex-col items-center">
+                              <div className="flex items-center gap-1">
+                                {day.boarding.absent === 0 ? (
+                                  <CheckCircle2 className="h-3 w-3 text-success" />
+                                ) : (
+                                  <AlertCircle className="h-3 w-3 text-destructive" />
+                                )}
+                                <span className={cn(
+                                  "text-xs font-semibold",
+                                  day.boarding.absent === 0 ? "text-success" : "text-foreground"
+                                )}>
+                                  {day.boarding.present}/{day.boarding.total}
+                                </span>
+                              </div>
+                              {day.boarding.absent > 0 && (
+                                <span className="text-[10px] text-destructive">
+                                  -{day.boarding.absent}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">--</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-2 px-2 text-center">
+                          {day.eveningStudy.total > 0 ? (
+                            <div className="flex flex-col items-center">
+                              <div className="flex items-center gap-1">
+                                {day.eveningStudy.absent === 0 ? (
+                                  <CheckCircle2 className="h-3 w-3 text-success" />
+                                ) : (
+                                  <AlertCircle className="h-3 w-3 text-destructive" />
+                                )}
+                                <span className={cn(
+                                  "text-xs font-semibold",
+                                  day.eveningStudy.absent === 0 ? "text-success" : "text-foreground"
+                                )}>
+                                  {day.eveningStudy.present}/{day.eveningStudy.total}
+                                </span>
+                              </div>
+                              {day.eveningStudy.absent > 0 && (
+                                <span className="text-[10px] text-destructive">
+                                  -{day.eveningStudy.absent}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">--</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
-          </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Absent students list for today - only for class teacher - Collapsible */}
+        {!isAdmin && todayStats && (todayStats.boarding.absent > 0 || todayStats.eveningStudy.absent > 0) && (
+          <Collapsible open={isAbsentListOpen} onOpenChange={setIsAbsentListOpen}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full flex items-center justify-between p-2 h-auto hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Học sinh vắng hôm nay ({todayStats.boarding.absent + todayStats.eveningStudy.absent})
+                  </span>
+                </div>
+                {isAbsentListOpen ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <div className="rounded-lg border p-2 space-y-1 max-h-32 overflow-y-auto">
+                {attendanceRecords
+                  .filter(r => 
+                    r.attendance_date === format(today, 'yyyy-MM-dd') && 
+                    r.status === 'absent'
+                  )
+                  .map(record => {
+                    const student = students.find(s => s.id === record.student_id);
+                    return (
+                      <div key={record.id} className="flex items-center justify-between text-xs">
+                        <span className="font-medium">{student?.full_name}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px] py-0">
+                            {record.attendance_type === 'boarding' ? 'Nội trú' : 'Tự học'}
+                          </Badge>
+                          {record.excused_reason && (
+                            <span className="text-muted-foreground truncate max-w-20">
+                              {record.excused_reason}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         )}
       </CardContent>
     </Card>
