@@ -315,54 +315,14 @@ export default function Statistics() {
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      // Fetch attendance records by type to avoid hitting 1000 row limit
-      // Each attendance_type is fetched separately with increased limit to ensure complete data
-      const fetchLimit = 5000; // Max records per attendance type (school-wide)
-      const [boardingRes, studyRes, breakfastRes, lunchRes, dinnerRes] = await Promise.all([
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'boarding')
-          .limit(fetchLimit),
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'evening_study')
-          .limit(fetchLimit),
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'breakfast')
-          .limit(fetchLimit),
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'lunch')
-          .limit(fetchLimit),
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'dinner')
-          .limit(fetchLimit),
-      ]);
+      // Fetch all attendance records for the date
+      const { data: records } = await supabase
+        .from('attendance_records')
+        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+        .eq('school_id', currentSchool.id)
+        .eq('attendance_date', dateStr);
 
-      const allRecords = [
-        ...(boardingRes.data || []),
-        ...(studyRes.data || []),
-        ...(breakfastRes.data || []),
-        ...(lunchRes.data || []),
-        ...(dinnerRes.data || []),
-      ];
+      const allRecords = records || [];
 
       // NEW LOGIC: Get latest report per CLASS per meal type
       // This aggregates reports from all class teachers, taking the latest report for each class
