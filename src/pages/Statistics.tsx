@@ -315,8 +315,9 @@ export default function Statistics() {
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      // PARALLEL FETCH: Fetch each attendance type separately to bypass 1000 row limit
-      // This ensures we get ALL records for large schools
+      // PARALLEL FETCH: Fetch each attendance type separately
+      // Use ORDER BY created_at DESC to prioritize getting the LATEST reports first
+      // This ensures we always get the most recent report even if hitting row limits
       const [boardingRes, studyRes, breakfastRes, lunchRes, dinnerRes] = await Promise.all([
         supabase
           .from('attendance_records')
@@ -324,35 +325,40 @@ export default function Statistics() {
           .eq('school_id', currentSchool.id)
           .eq('attendance_date', dateStr)
           .eq('attendance_type', 'boarding')
-          .limit(10000),
+          .order('created_at', { ascending: false })
+          .limit(5000),
         supabase
           .from('attendance_records')
           .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
           .eq('school_id', currentSchool.id)
           .eq('attendance_date', dateStr)
           .eq('attendance_type', 'evening_study')
-          .limit(10000),
+          .order('created_at', { ascending: false })
+          .limit(5000),
         supabase
           .from('attendance_records')
           .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
           .eq('school_id', currentSchool.id)
           .eq('attendance_date', dateStr)
           .eq('attendance_type', 'breakfast')
-          .limit(10000),
+          .order('created_at', { ascending: false })
+          .limit(5000),
         supabase
           .from('attendance_records')
           .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
           .eq('school_id', currentSchool.id)
           .eq('attendance_date', dateStr)
           .eq('attendance_type', 'lunch')
-          .limit(10000),
+          .order('created_at', { ascending: false })
+          .limit(5000),
         supabase
           .from('attendance_records')
           .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
           .eq('school_id', currentSchool.id)
           .eq('attendance_date', dateStr)
           .eq('attendance_type', 'dinner')
-          .limit(10000),
+          .order('created_at', { ascending: false })
+          .limit(5000),
       ]);
 
       // Combine all records
@@ -364,39 +370,48 @@ export default function Statistics() {
         ...(dinnerRes.data || []),
       ];
       
-      console.log('Fetched attendance records:', {
-        boarding: boardingRes.data?.length || 0,
-        evening_study: studyRes.data?.length || 0,
-        breakfast: breakfastRes.data?.length || 0,
-        lunch: lunchRes.data?.length || 0,
-        dinner: dinnerRes.data?.length || 0,
-        total: allRecords.length,
-      });
+      // Debug: log the latest record from each type to verify correct fetching
+      const latestBoarding = boardingRes.data?.[0];
+      const latestStudy = studyRes.data?.[0];
+      console.log('Statistics - Latest Boarding:', latestBoarding ? {
+        reporter: (latestBoarding as any).reporter?.full_name,
+        created_at: latestBoarding.created_at,
+        count: boardingRes.data?.length
+      } : 'No data');
+      console.log('Statistics - Latest Evening Study:', latestStudy ? {
+        reporter: (latestStudy as any).reporter?.full_name,
+        created_at: latestStudy.created_at,
+        count: studyRes.data?.length
+      } : 'No data');
 
       // SIMPLIFIED LOGIC for Admin Statistics:
       // Show the LATEST REPORT based on the most recent created_at timestamp
-      // A "report" is a batch of records submitted together (within 10 seconds)
+      // A "report" is a batch of records submitted together by the same reporter
       
       const getLatestReport = (records: any[]) => {
         if (records.length === 0) return { records: [], reporter: null, reportTime: null };
         
-        // Sort by created_at descending to find the most recent record
-        const sortedRecords = [...records].sort((a, b) => 
-          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        );
-        
-        const latestRecord = sortedRecords[0];
+        // Since data is already sorted by created_at DESC from the query,
+        // the first record is the most recent
+        const latestRecord = records[0];
         if (!latestRecord) return { records: [], reporter: null, reportTime: null };
         
         const latestTime = new Date(latestRecord.created_at || 0).getTime();
         const latestReporterId = latestRecord.reporter_id;
         
-        // Get all records from the same reporter within 10 seconds of the latest record
-        // This captures the entire "batch" of the latest report
+        // Get all records from the same reporter within 60 seconds of the latest record
+        // This captures the entire "batch" of the latest report (larger schools need more time)
         const batchRecords = records.filter(r => {
           const recordTime = new Date(r.created_at || 0).getTime();
           const timeDiff = Math.abs(latestTime - recordTime);
-          return r.reporter_id === latestReporterId && timeDiff <= 10000; // 10 seconds
+          return r.reporter_id === latestReporterId && timeDiff <= 60000; // 60 seconds for large batches
+        });
+        
+        console.log('getLatestReport:', {
+          latestReporter: (latestRecord as any).reporter?.full_name,
+          latestTime: latestRecord.created_at,
+          batchSize: batchRecords.length,
+          totalRecords: records.length
         });
         
         return { 
