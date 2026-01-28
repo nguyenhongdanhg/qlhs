@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { TeacherAttendanceStats } from '@/components/dashboard/TeacherAttendanceStats';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Users, 
@@ -211,6 +212,11 @@ export default function Dashboard() {
                 </Card>
               </Link>
             ))}
+          </div>
+
+          {/* Teacher Attendance Stats - Only for class teachers */}
+          <div className="mb-4">
+            <TeacherAttendanceStats />
           </div>
 
           {/* Today Progress - Enhanced */}
