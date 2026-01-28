@@ -382,14 +382,13 @@ export default function Statistics() {
         return latestRecord;
       };
 
-      // Process boarding report (school-wide - get latest per student)
+      // Process boarding report (school-wide - get latest per student from ALL reporters)
       const boardingRecords = allRecords.filter(r => r.attendance_type === 'boarding');
       const latestBoardingRecords = getLatestRecordsPerStudent(boardingRecords);
       const latestBoardingReporter = getLatestReporter(boardingRecords);
       
       if (latestBoardingRecords.length > 0 && latestBoardingReporter) {
-        // Count present and absent from actual records
-        const presentRecords = latestBoardingRecords.filter(r => r.status === 'present');
+        // Get unique absent students from the latest records per student
         const absentRecords = latestBoardingRecords.filter(r => r.status === 'absent' || r.status === 'excused');
         
         const absentStudents: AbsentStudent[] = absentRecords.map(record => {
@@ -404,16 +403,22 @@ export default function Statistics() {
           };
         }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
-        // Total = total records (each student counted once)
-        // Present = present records, Absent = absent/excused records
+        // Get unique reporters count for display
+        const uniqueReporters = new Set(boardingRecords.map(r => r.reporter_id)).size;
+        const reporterLabel = uniqueReporters > 1 
+          ? `${(latestBoardingReporter as any).reporter?.full_name || 'N/A'} (+${uniqueReporters - 1})`
+          : (latestBoardingReporter as any).reporter?.full_name || 'N/A';
+
+        // Total = total boarding students in school
+        // Present = total - unique absent count (from latest records per student)
         setLatestBoardingReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Nội trú',
-          reporter: (latestBoardingReporter as any).reporter?.full_name || 'N/A',
+          reporter: reporterLabel,
           reportTime: format(new Date(latestBoardingReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: latestBoardingRecords.length, // Total students that were reported
-          present: presentRecords.length, // Actual present count from records
+          total: students.length, // Total boarding students in school
+          present: students.length - absentRecords.length, // Total - unique absent
           absent: absentRecords.length,
           absentStudents,
         });
@@ -421,14 +426,13 @@ export default function Statistics() {
         setLatestBoardingReport(null);
       }
 
-      // Process evening study report (school-wide - get latest per student)
+      // Process evening study report (school-wide - get latest per student from ALL reporters)
       const studyRecords = allRecords.filter(r => r.attendance_type === 'evening_study');
       const latestStudyRecords = getLatestRecordsPerStudent(studyRecords);
       const latestStudyReporter = getLatestReporter(studyRecords);
       
       if (latestStudyRecords.length > 0 && latestStudyReporter) {
-        // Count present and absent from actual records
-        const presentRecords = latestStudyRecords.filter(r => r.status === 'present');
+        // Get unique absent students from the latest records per student
         const absentRecords = latestStudyRecords.filter(r => r.status === 'absent' || r.status === 'excused');
         
         const absentStudents: AbsentStudent[] = absentRecords.map(record => {
@@ -443,16 +447,22 @@ export default function Statistics() {
           };
         }).sort((a, b) => a.classGrade - b.classGrade || a.name.localeCompare(b.name, 'vi'));
 
-        // Total = total records (each student counted once)
-        // Present = present records, Absent = absent/excused records
+        // Get unique reporters count for display
+        const uniqueReporters = new Set(studyRecords.map(r => r.reporter_id)).size;
+        const reporterLabel = uniqueReporters > 1 
+          ? `${(latestStudyReporter as any).reporter?.full_name || 'N/A'} (+${uniqueReporters - 1})`
+          : (latestStudyReporter as any).reporter?.full_name || 'N/A';
+
+        // Total = total boarding students in school
+        // Present = total - unique absent count (from latest records per student)
         setLatestStudyReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Tự học tối',
-          reporter: (latestStudyReporter as any).reporter?.full_name || 'N/A',
+          reporter: reporterLabel,
           reportTime: format(new Date(latestStudyReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: latestStudyRecords.length, // Total students that were reported
-          present: presentRecords.length, // Actual present count from records
+          total: students.length, // Total boarding students in school
+          present: students.length - absentRecords.length, // Total - unique absent
           absent: absentRecords.length,
           absentStudents,
         });

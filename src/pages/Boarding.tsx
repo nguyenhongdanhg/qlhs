@@ -384,12 +384,15 @@ export default function Boarding() {
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
       
+      // Only delete records created by the current reporter (not all records)
+      // This allows multiple teachers to report without overwriting each other
       await supabase
         .from('attendance_records')
         .delete()
         .eq('school_id', currentSchool.id)
         .eq('attendance_date', dateStr)
-        .eq('attendance_type', 'boarding');
+        .eq('attendance_type', 'boarding')
+        .eq('reporter_id', user.id);
 
       const records = students.map((student) => ({
         school_id: currentSchool.id,
