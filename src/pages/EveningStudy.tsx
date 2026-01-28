@@ -28,6 +28,7 @@ import {
   FileText,
   Plus,
   Trash2,
+  Edit3,
   AlertCircle,
   MessageSquare,
   Users,
@@ -599,6 +600,65 @@ export default function EveningStudy() {
     });
   };
 
+  const handleEditReport = async (report: SavedReport) => {
+    if (!currentSchool) return;
+    
+    // Set the date to the report's date
+    const reportDate = new Date(report.date);
+    setDate(reportDate);
+    setSelectedSession(report.session);
+    
+    // Load attendance data from database for this date
+    try {
+      setIsLoading(true);
+      const dateStr = report.date;
+      const { data: recordsData } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .eq('attendance_date', dateStr)
+        .eq('attendance_type', 'evening_study');
+
+      const attendanceMap: AttendanceMap = {};
+      const excuseMap: ExcuseMap = {};
+      
+      // First, set all students as present
+      students.forEach((student) => {
+        attendanceMap[student.id] = 'present';
+      });
+      
+      // Then apply saved records
+      (recordsData || []).forEach((record: any) => {
+        attendanceMap[record.student_id] = record.status;
+        if (record.status === 'absent' || record.status === 'excused') {
+          excuseMap[record.student_id] = {
+            excused: record.status === 'excused',
+            reason: record.excused_reason || '',
+          };
+        }
+      });
+
+      setAttendance(attendanceMap);
+      setExcuseInfo(excuseMap);
+      setReportNotes(report.notes || '');
+      setActiveTab('attendance');
+      
+      toast({
+        title: 'Đang sửa báo cáo',
+        description: `Ngày ${format(reportDate, 'dd/MM/yyyy')} - ${report.sessionLabel}. Nhấn "Lưu báo cáo" khi hoàn tất.`,
+      });
+    } catch (error) {
+      console.error('Error loading report data:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể tải dữ liệu báo cáo',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredStudents = useMemo(() => {
     if (selectedClass === 'all' || selectedClass === 'Tất cả') return students;
     return students.filter(s => s.class?.name === selectedClass);
@@ -922,7 +982,13 @@ export default function EveningStudy() {
                                   Người báo cáo: {report.reporter} - Lúc {report.time}
                                 </p>
                               </div>
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 flex-wrap">
+                                {canEdit && (
+                                  <Button variant="outline" size="sm" onClick={() => handleEditReport(report)}>
+                                    <Edit3 className="h-4 w-4 mr-1" />
+                                    Sửa
+                                  </Button>
+                                )}
                                 <Button variant="outline" size="sm" onClick={() => {
                                   setReportToShare(report);
                                   setShareDialogOpen(true);
