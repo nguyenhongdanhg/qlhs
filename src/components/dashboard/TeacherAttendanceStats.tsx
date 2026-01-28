@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Home, BookOpen, Users, AlertCircle, CheckCircle2, Clock, RefreshCw } from 'lucide-react';
+import { Home, BookOpen, Users, AlertCircle, CheckCircle2, Clock, RefreshCw, Building2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,12 @@ interface Student {
   full_name: string;
   student_code: string;
   is_boarding: boolean;
+  class_id: string | null;
+}
+
+interface ClassInfo {
+  id: string;
+  name: string;
 }
 
 interface DailyStats {
@@ -37,66 +43,99 @@ interface DailyStats {
 }
 
 export function TeacherAttendanceStats() {
-  const { currentSchool, currentMembership } = useAuth();
+  const { currentSchool, currentMembership, isSchoolAdmin, isSuperAdmin } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [classInfo, setClassInfo] = useState<ClassInfo | null>(null);
 
-  // Only show for class teachers
+  // Determine view mode
+  const isAdmin = isSuperAdmin || isSchoolAdmin();
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const teacherClassId = currentMembership?.class_id;
+
+  // Only show for admin or class teachers
+  const shouldShow = isAdmin || (isClassTeacher && teacherClassId);
 
   const today = useMemo(() => new Date(), []);
   const monthStart = useMemo(() => startOfMonth(today), [today]);
   const monthEnd = useMemo(() => endOfMonth(today), [today]);
 
   const fetchData = async () => {
-    if (!currentSchool || !teacherClassId) return;
+    if (!currentSchool) return;
 
     try {
-      // Get class info
-      const { data: classData } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('school_id', currentSchool.id)
-        .eq('name', teacherClassId)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (!classData) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Fetch students in this class
-      const { data: studentsData } = await supabase
-        .from('students')
-        .select('id, full_name, student_code, is_boarding')
-        .eq('school_id', currentSchool.id)
-        .eq('class_id', classData.id)
-        .eq('is_active', true)
-        .order('full_name');
-
-      setStudents(studentsData || []);
-
-      // Fetch attendance records for this month
-      const studentIds = (studentsData || []).map(s => s.id);
-      if (studentIds.length > 0) {
-        const { data: attendanceData } = await supabase
-          .from('attendance_records')
-          .select('*')
+      if (isAdmin) {
+        // Admin: Fetch all boarding students in the school
+        const { data: studentsData } = await supabase
+          .from('students')
+          .select('id, full_name, student_code, is_boarding, class_id')
           .eq('school_id', currentSchool.id)
-          .in('student_id', studentIds)
-          .in('attendance_type', ['boarding', 'evening_study'])
-          .gte('attendance_date', format(monthStart, 'yyyy-MM-dd'))
-          .lte('attendance_date', format(monthEnd, 'yyyy-MM-dd'))
-          .order('attendance_date', { ascending: false });
+          .eq('is_active', true)
+          .order('full_name');
 
-        setAttendanceRecords(attendanceData || []);
+        setStudents(studentsData || []);
+
+        // Fetch all attendance records for this month
+        const studentIds = (studentsData || []).map(s => s.id);
+        if (studentIds.length > 0) {
+          const { data: attendanceData } = await supabase
+            .from('attendance_records')
+            .select('*')
+            .eq('school_id', currentSchool.id)
+            .in('attendance_type', ['boarding', 'evening_study'])
+            .gte('attendance_date', format(monthStart, 'yyyy-MM-dd'))
+            .lte('attendance_date', format(monthEnd, 'yyyy-MM-dd'))
+            .order('attendance_date', { ascending: false })
+            .limit(5000);
+
+          setAttendanceRecords(attendanceData || []);
+        }
+      } else if (isClassTeacher && teacherClassId) {
+        // Class teacher: Fetch only their class students
+        const { data: classData } = await supabase
+          .from('classes')
+          .select('id, name')
+          .eq('school_id', currentSchool.id)
+          .eq('name', teacherClassId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (!classData) {
+          setIsLoading(false);
+          return;
+        }
+
+        setClassInfo(classData);
+
+        const { data: studentsData } = await supabase
+          .from('students')
+          .select('id, full_name, student_code, is_boarding, class_id')
+          .eq('school_id', currentSchool.id)
+          .eq('class_id', classData.id)
+          .eq('is_active', true)
+          .order('full_name');
+
+        setStudents(studentsData || []);
+
+        const studentIds = (studentsData || []).map(s => s.id);
+        if (studentIds.length > 0) {
+          const { data: attendanceData } = await supabase
+            .from('attendance_records')
+            .select('*')
+            .eq('school_id', currentSchool.id)
+            .in('student_id', studentIds)
+            .in('attendance_type', ['boarding', 'evening_study'])
+            .gte('attendance_date', format(monthStart, 'yyyy-MM-dd'))
+            .lte('attendance_date', format(monthEnd, 'yyyy-MM-dd'))
+            .order('attendance_date', { ascending: false });
+
+          setAttendanceRecords(attendanceData || []);
+        }
       }
     } catch (error) {
-      console.error('Error fetching teacher attendance stats:', error);
+      console.error('Error fetching attendance stats:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -104,12 +143,12 @@ export function TeacherAttendanceStats() {
   };
 
   useEffect(() => {
-    if (isClassTeacher && teacherClassId) {
+    if (shouldShow) {
       fetchData();
     } else {
       setIsLoading(false);
     }
-  }, [currentSchool, teacherClassId, isClassTeacher]);
+  }, [currentSchool, teacherClassId, isAdmin, isClassTeacher]);
 
   // Calculate daily stats for the last 7 days
   const dailyStats = useMemo((): DailyStats[] => {
@@ -126,13 +165,13 @@ export function TeacherAttendanceStats() {
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayRecords = attendanceRecords.filter(r => r.attendance_date === dateStr);
 
-      // Boarding stats
+      // Boarding stats - get unique absent students
       const boardingRecords = dayRecords.filter(r => r.attendance_type === 'boarding');
       const boardingAbsent = new Set(
         boardingRecords.filter(r => r.status === 'absent').map(r => r.student_id)
       ).size;
 
-      // Evening study stats
+      // Evening study stats - get unique absent students
       const studyRecords = dayRecords.filter(r => r.attendance_type === 'evening_study');
       const studyAbsent = new Set(
         studyRecords.filter(r => r.status === 'absent').map(r => r.student_id)
@@ -165,7 +204,7 @@ export function TeacherAttendanceStats() {
     await fetchData();
   };
 
-  if (!isClassTeacher || !teacherClassId) {
+  if (!shouldShow) {
     return null;
   }
 
@@ -185,21 +224,30 @@ export function TeacherAttendanceStats() {
     );
   }
 
+  const title = isAdmin 
+    ? 'Thống kê điểm danh toàn trường' 
+    : `Thống kê lớp ${teacherClassId}`;
+  
+  const TitleIcon = isAdmin ? Building2 : Users;
+  const studentLabel = isAdmin 
+    ? `${students.length} HS | ${students.filter(s => s.is_boarding).length} NT`
+    : `${students.length} học sinh`;
+
   return (
     <Card className="border-0 shadow-md">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-primary/10">
-              <Users className="h-4 w-4 text-primary" />
+              <TitleIcon className="h-4 w-4 text-primary" />
             </div>
             <CardTitle className="text-sm sm:text-base font-semibold">
-              Thống kê lớp {teacherClassId}
+              {title}
             </CardTitle>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              {students.length} học sinh
+              {studentLabel}
             </Badge>
             <Button
               variant="ghost"
@@ -371,8 +419,8 @@ export function TeacherAttendanceStats() {
           </div>
         </div>
 
-        {/* Absent students list for today */}
-        {todayStats && (todayStats.boarding.absent > 0 || todayStats.eveningStudy.absent > 0) && (
+        {/* Absent students list for today - only for class teacher */}
+        {!isAdmin && todayStats && (todayStats.boarding.absent > 0 || todayStats.eveningStudy.absent > 0) && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-destructive" />
