@@ -153,36 +153,29 @@ export default function Dashboard() {
         }
       });
 
-      // Get grade stats
-      const { data: classesData } = await supabase
-        .from('classes')
-        .select('grade')
+      // Get grade stats - optimized: fetch all students with their class grades in ONE query
+      const { data: studentsWithGrades } = await supabase
+        .from('students')
+        .select('is_boarding, class:classes!inner(grade)')
         .eq('school_id', currentSchool.id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('classes.is_active', true);
 
-      const grades = [...new Set((classesData || []).map(c => c.grade))].sort((a, b) => a - b);
-      
-      const gradeStats = await Promise.all(
-        grades.map(async (grade) => {
-          const [totalResult, boardingGradeResult] = await Promise.all([
-            supabase
-              .from('students')
-              .select('*, class:classes!inner(*)', { count: 'exact', head: true })
-              .eq('school_id', currentSchool.id)
-              .eq('is_active', true)
-              .eq('classes.grade', grade),
-            supabase
-              .from('students')
-              .select('*, class:classes!inner(*)', { count: 'exact', head: true })
-              .eq('school_id', currentSchool.id)
-              .eq('is_active', true)
-              .eq('is_boarding', true)
-              .eq('classes.grade', grade),
-          ]);
+      // Group by grade in memory - much faster than N queries
+      const gradeMap = new Map<number, { total: number; boarding: number }>();
+      (studentsWithGrades || []).forEach((student: any) => {
+        const grade = student.class?.grade;
+        if (grade !== undefined) {
+          const current = gradeMap.get(grade) || { total: 0, boarding: 0 };
+          current.total++;
+          if (student.is_boarding) current.boarding++;
+          gradeMap.set(grade, current);
+        }
+      });
 
-          return { grade, total: totalResult.count || 0, boarding: boardingGradeResult.count || 0 };
-        })
-      );
+      const gradeStats = Array.from(gradeMap.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([grade, stats]) => ({ grade, ...stats }));
 
       return {
         totalStudents: studentsResult.count || 0,
