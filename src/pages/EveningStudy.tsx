@@ -55,6 +55,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -95,7 +106,7 @@ interface SavedReport {
 }
 
 export default function EveningStudy() {
-  const { currentSchool, user, profile } = useAuth();
+  const { currentSchool, user, profile, isSchoolAdmin, isSuperAdmin } = useAuth();
   const { canView, canCreate, canEdit, canDelete } = useFeaturePermission('evening_study');
   const { toast } = useToast();
 
@@ -273,34 +284,14 @@ export default function EveningStudy() {
       })) as Student[];
       setStudents(typedStudents);
 
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const { data: recordsData } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_date', dateStr)
-        .eq('attendance_type', 'evening_study');
-
-      const attendanceMap: AttendanceMap = {};
-      const excuseMap: ExcuseMap = {};
-      (recordsData || []).forEach((record: any) => {
-        attendanceMap[record.student_id] = record.status;
-        if (record.status === 'absent' || record.status === 'excused') {
-          excuseMap[record.student_id] = {
-            excused: record.status === 'excused',
-            reason: record.excused_reason || '',
-          };
-        }
-      });
-      
+      // Always start with all students marked as 'present' (no absent by default)
+      const freshAttendance: AttendanceMap = {};
       typedStudents.forEach((student) => {
-        if (!attendanceMap[student.id]) {
-          attendanceMap[student.id] = 'present';
-        }
+        freshAttendance[student.id] = 'present';
       });
 
-      setAttendance(attendanceMap);
-      setExcuseInfo(excuseMap);
+      setAttendance(freshAttendance);
+      setExcuseInfo({});
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -595,12 +586,45 @@ export default function EveningStudy() {
     }
   };
 
-  const handleDeleteReport = (reportId: string) => {
+  const handleDeleteReport = async (reportId: string) => {
+    // Delete from localStorage
     const updatedReports = savedReports.filter(r => r.id !== reportId);
     saveReportsToStorage(updatedReports);
     toast({
       title: 'Đã xóa báo cáo',
     });
+  };
+
+  // Admin function to delete attendance records from database for a specific date
+  const handleDeleteDatabaseRecords = async (dateStr: string) => {
+    if (!currentSchool || !user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('attendance_records')
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .eq('attendance_date', dateStr)
+        .eq('attendance_type', 'evening_study');
+      
+      if (error) throw error;
+      
+      // Also remove from localStorage
+      const updatedReports = savedReports.filter(r => r.date !== dateStr);
+      saveReportsToStorage(updatedReports);
+      
+      toast({
+        title: 'Đã xóa dữ liệu',
+        description: `Đã xóa tất cả báo cáo ngày ${format(new Date(dateStr), 'dd/MM/yyyy')}`,
+      });
+    } catch (error: any) {
+      console.error('Error deleting database records:', error);
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể xóa dữ liệu',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleEditReport = async (report: SavedReport) => {
@@ -972,9 +996,35 @@ export default function EveningStudy() {
                   .sort(([a], [b]) => b.localeCompare(a))
                   .map(([dateStr, reports]) => (
                     <div key={dateStr} className="space-y-3">
-                      <h4 className="font-medium text-muted-foreground">
-                        {format(new Date(dateStr), 'EEEE, dd/MM/yyyy', { locale: vi })}
-                      </h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-muted-foreground">
+                          {format(new Date(dateStr), 'EEEE, dd/MM/yyyy', { locale: vi })}
+                        </h4>
+                        {(isSchoolAdmin() || isSuperAdmin) && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Xóa ngày này
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Xóa dữ liệu ngày {format(new Date(dateStr), 'dd/MM/yyyy')}?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Thao tác này sẽ xóa tất cả báo cáo điểm danh tự học ngày {format(new Date(dateStr), 'dd/MM/yyyy')} khỏi hệ thống. Hành động này không thể hoàn tác.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteDatabaseRecords(dateStr)} className="bg-destructive hover:bg-destructive/90">
+                                  Xóa dữ liệu
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
                       {reports.map((report) => (
                         <Card key={report.id} className="border">
                           <CardContent className="p-4">
