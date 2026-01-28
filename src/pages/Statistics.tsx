@@ -345,26 +345,50 @@ export default function Statistics() {
         return Array.from(latestByStudent.values());
       };
 
-      // Helper function to get latest record per STUDENT for boarding/study
+      // Helper function to get UNIQUE ABSENT students for boarding/study
       // IMPORTANT: Boarding and Evening Study are SCHOOL-WIDE - any account can report
-      // Multiple reporters may report different students, so we take the latest record per student
-      const getLatestRecordsPerStudent = (records: any[]) => {
+      // Multiple reporters may report different students as absent throughout the day
+      // We aggregate ALL absent/excused records and take the latest status per student
+      // For students with conflicting reports, we prioritize absent/excused over present
+      const getAbsentStudentsUnique = (records: any[]) => {
         if (records.length === 0) return [];
         
-        // Group by student_id, keep the latest record for each student
-        const latestByStudent = new Map<string, any>();
+        // Group by student_id, prioritize absent/excused status
+        // If same student has both absent and present records, take the one with absent/excused
+        const studentStatusMap = new Map<string, { record: any; isAbsent: boolean; time: number }>();
         
         records.forEach(r => {
           const studentId = r.student_id;
-          const existing = latestByStudent.get(studentId);
+          const isAbsent = r.status === 'absent' || r.status === 'excused';
           const currentTime = new Date(r.created_at || 0).getTime();
+          const existing = studentStatusMap.get(studentId);
           
-          if (!existing || currentTime > new Date(existing.created_at || 0).getTime()) {
-            latestByStudent.set(studentId, r);
+          if (!existing) {
+            // First record for this student
+            studentStatusMap.set(studentId, { record: r, isAbsent, time: currentTime });
+          } else if (isAbsent && !existing.isAbsent) {
+            // Current is absent but existing is present - prioritize absent
+            studentStatusMap.set(studentId, { record: r, isAbsent, time: currentTime });
+          } else if (isAbsent && existing.isAbsent && currentTime > existing.time) {
+            // Both are absent - take the more recent one
+            studentStatusMap.set(studentId, { record: r, isAbsent, time: currentTime });
+          } else if (!isAbsent && !existing.isAbsent && currentTime > existing.time) {
+            // Both are present - take the more recent one
+            studentStatusMap.set(studentId, { record: r, isAbsent, time: currentTime });
           }
+          // If current is present but existing is absent, keep existing (absent has priority)
         });
         
-        return Array.from(latestByStudent.values());
+        // Return only the unique absent students
+        return Array.from(studentStatusMap.values())
+          .filter(s => s.isAbsent)
+          .map(s => s.record);
+      };
+      
+      // Get count of students that have been reported (any status) - for determining if report exists
+      const getReportedStudentCount = (records: any[]) => {
+        const uniqueStudents = new Set(records.map(r => r.student_id));
+        return uniqueStudents.size;
       };
 
       // Get the latest reporter info (for display purposes)
@@ -383,16 +407,14 @@ export default function Statistics() {
         return latestRecord;
       };
 
-      // Process boarding report (school-wide - get latest per student from ALL reporters)
+      // Process boarding report (school-wide - aggregate absent from ALL reporters)
       const boardingRecords = allRecords.filter(r => r.attendance_type === 'boarding');
-      const latestBoardingRecords = getLatestRecordsPerStudent(boardingRecords);
+      const absentBoardingRecords = getAbsentStudentsUnique(boardingRecords);
+      const hasAnyBoardingReport = getReportedStudentCount(boardingRecords) > 0;
       const latestBoardingReporter = getLatestReporter(boardingRecords);
       
-      if (latestBoardingRecords.length > 0 && latestBoardingReporter) {
-        // Get unique absent students from the latest records per student
-        const absentRecords = latestBoardingRecords.filter(r => r.status === 'absent' || r.status === 'excused');
-        
-        const absentStudents: AbsentStudent[] = absentRecords.map(record => {
+      if (hasAnyBoardingReport && latestBoardingReporter) {
+        const absentStudents: AbsentStudent[] = absentBoardingRecords.map(record => {
           const student = students.find(s => s.id === record.student_id);
           return {
             id: record.student_id,
@@ -411,7 +433,7 @@ export default function Statistics() {
           : (latestBoardingReporter as any).reporter?.full_name || 'N/A';
 
         // Total = total boarding students in school
-        // Present = total - unique absent count (from latest records per student)
+        // Present = total - unique absent count (aggregated from all reporters)
         setLatestBoardingReport({
           date: dateStr,
           session: '',
@@ -419,24 +441,22 @@ export default function Statistics() {
           reporter: reporterLabel,
           reportTime: format(new Date(latestBoardingReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
           total: students.length, // Total boarding students in school
-          present: students.length - absentRecords.length, // Total - unique absent
-          absent: absentRecords.length,
+          present: students.length - absentBoardingRecords.length, // Total - unique absent
+          absent: absentBoardingRecords.length,
           absentStudents,
         });
       } else {
         setLatestBoardingReport(null);
       }
 
-      // Process evening study report (school-wide - get latest per student from ALL reporters)
+      // Process evening study report (school-wide - aggregate absent from ALL reporters)
       const studyRecords = allRecords.filter(r => r.attendance_type === 'evening_study');
-      const latestStudyRecords = getLatestRecordsPerStudent(studyRecords);
+      const absentStudyRecords = getAbsentStudentsUnique(studyRecords);
+      const hasAnyStudyReport = getReportedStudentCount(studyRecords) > 0;
       const latestStudyReporter = getLatestReporter(studyRecords);
       
-      if (latestStudyRecords.length > 0 && latestStudyReporter) {
-        // Get unique absent students from the latest records per student
-        const absentRecords = latestStudyRecords.filter(r => r.status === 'absent' || r.status === 'excused');
-        
-        const absentStudents: AbsentStudent[] = absentRecords.map(record => {
+      if (hasAnyStudyReport && latestStudyReporter) {
+        const absentStudents: AbsentStudent[] = absentStudyRecords.map(record => {
           const student = students.find(s => s.id === record.student_id);
           return {
             id: record.student_id,
@@ -455,7 +475,7 @@ export default function Statistics() {
           : (latestStudyReporter as any).reporter?.full_name || 'N/A';
 
         // Total = total boarding students in school
-        // Present = total - unique absent count (from latest records per student)
+        // Present = total - unique absent count (aggregated from all reporters)
         setLatestStudyReport({
           date: dateStr,
           session: '',
@@ -463,8 +483,8 @@ export default function Statistics() {
           reporter: reporterLabel,
           reportTime: format(new Date(latestStudyReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
           total: students.length, // Total boarding students in school
-          present: students.length - absentRecords.length, // Total - unique absent
-          absent: absentRecords.length,
+          present: students.length - absentStudyRecords.length, // Total - unique absent
+          absent: absentStudyRecords.length,
           absentStudents,
         });
       } else {
