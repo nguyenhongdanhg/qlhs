@@ -315,14 +315,63 @@ export default function Statistics() {
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      // Fetch all attendance records for the date
-      const { data: records } = await supabase
-        .from('attendance_records')
-        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_date', dateStr);
+      // PARALLEL FETCH: Fetch each attendance type separately to bypass 1000 row limit
+      // This ensures we get ALL records for large schools
+      const [boardingRes, studyRes, breakfastRes, lunchRes, dinnerRes] = await Promise.all([
+        supabase
+          .from('attendance_records')
+          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', 'boarding')
+          .limit(10000),
+        supabase
+          .from('attendance_records')
+          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', 'evening_study')
+          .limit(10000),
+        supabase
+          .from('attendance_records')
+          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', 'breakfast')
+          .limit(10000),
+        supabase
+          .from('attendance_records')
+          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', 'lunch')
+          .limit(10000),
+        supabase
+          .from('attendance_records')
+          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', 'dinner')
+          .limit(10000),
+      ]);
 
-      const allRecords = records || [];
+      // Combine all records
+      const allRecords = [
+        ...(boardingRes.data || []),
+        ...(studyRes.data || []),
+        ...(breakfastRes.data || []),
+        ...(lunchRes.data || []),
+        ...(dinnerRes.data || []),
+      ];
+      
+      console.log('Fetched attendance records:', {
+        boarding: boardingRes.data?.length || 0,
+        evening_study: studyRes.data?.length || 0,
+        breakfast: breakfastRes.data?.length || 0,
+        lunch: lunchRes.data?.length || 0,
+        dinner: dinnerRes.data?.length || 0,
+        total: allRecords.length,
+      });
 
       // SIMPLIFIED LOGIC for Admin Statistics:
       // Show the LATEST REPORT based on the most recent created_at timestamp
@@ -378,7 +427,8 @@ export default function Statistics() {
       };
 
       // Process boarding report - show ONLY the latest report
-      const boardingRecords = allRecords.filter(r => r.attendance_type === 'boarding');
+      // Use directly from parallel fetch (boardingRes.data) instead of filtering allRecords
+      const boardingRecords = boardingRes.data || [];
       const { records: latestBoardingRecords, reporter: latestBoardingReporter } = getLatestReport(boardingRecords);
       
       if (latestBoardingRecords.length > 0 && latestBoardingReporter) {
@@ -417,7 +467,8 @@ export default function Statistics() {
       }
 
       // Process evening study report - show ONLY the latest report
-      const studyRecords = allRecords.filter(r => r.attendance_type === 'evening_study');
+      // Use directly from parallel fetch (studyRes.data) instead of filtering allRecords
+      const studyRecords = studyRes.data || [];
       const { records: latestStudyRecords, reporter: latestStudyReporter } = getLatestReport(studyRecords);
       
       if (latestStudyRecords.length > 0 && latestStudyReporter) {
@@ -464,9 +515,16 @@ export default function Statistics() {
       };
 
       const mealTypes: AttendanceType[] = ['breakfast', 'lunch', 'dinner'];
+      const mealDataMap: Record<AttendanceType, any[]> = {
+        'breakfast': breakfastRes.data || [],
+        'lunch': lunchRes.data || [],
+        'dinner': dinnerRes.data || [],
+        'boarding': [],
+        'evening_study': [],
+      };
       
       for (const mealType of mealTypes) {
-        const mealRecords = allRecords.filter(r => r.attendance_type === mealType);
+        const mealRecords = mealDataMap[mealType];
         // Use new logic: get latest records per class (aggregated from all class reports)
         const latestRecords = getLatestRecordsPerClass(mealRecords);
         
