@@ -529,6 +529,44 @@ export default function DutySchedule() {
     }
   };
 
+  // Delete all schedules for current month
+  const deleteAllMonthSchedules = async () => {
+    if (!currentSchool) return;
+    
+    setIsSaving(true);
+    try {
+      const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+      
+      const { error } = await supabase
+        .from('duty_schedules')
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .gte('duty_date', monthStart)
+        .lte('duty_date', monthEnd);
+      
+      if (error) throw error;
+      
+      setSchedules(prev => prev.filter(s => 
+        s.duty_date < monthStart || s.duty_date > monthEnd
+      ));
+      
+      toast({ 
+        title: 'Thành công', 
+        description: `Đã xóa toàn bộ lịch trực tháng ${format(currentMonth, 'MM/yyyy')}` 
+      });
+    } catch (error: any) {
+      console.error('Error deleting month schedules:', error);
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể xóa lịch trực',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const copyFromPreviousMonth = async () => {
     if (!currentSchool) return;
 
@@ -1166,6 +1204,28 @@ export default function DutySchedule() {
                             <AlertDialogCancel>Hủy</AlertDialogCancel>
                             <AlertDialogAction onClick={autoAssign}>
                               Xác nhận
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive" disabled={isSaving || schedules.length === 0}>
+                            <Trash2 className="h-4 w-4" />
+                            Xóa cả tháng
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Xóa toàn bộ lịch trực tháng này?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Thao tác này sẽ xóa tất cả {schedules.length} lịch trực trong tháng {format(currentMonth, 'MM/yyyy')}. Hành động này không thể hoàn tác.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Hủy</AlertDialogCancel>
+                            <AlertDialogAction onClick={deleteAllMonthSchedules} className="bg-destructive hover:bg-destructive/90">
+                              Xóa tất cả
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
