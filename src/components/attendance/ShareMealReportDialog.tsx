@@ -1,4 +1,4 @@
-import { useRef, memo, lazy, Suspense } from 'react';
+import { useRef, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,8 +9,8 @@ import {
 import { Download, Share2, Loader2, Image } from 'lucide-react';
 import { useImageExport } from '@/hooks/use-image-export';
 
-// Lazy load heavy component
-const MealReportImageCard = lazy(() => import('./MealReportImageCard').then(m => ({ default: m.MealReportImageCard })));
+// Import normally - the component is already memoized
+import { MealReportImageCard } from './MealReportImageCard';
 import { format } from 'date-fns';
 
 interface AbsentStudent {
@@ -91,18 +91,16 @@ export const ShareMealReportDialog = memo(function ShareMealReportDialog({
         {open && (
           <div className="flex justify-center overflow-x-auto py-4">
             <div className="scale-[0.7] origin-top">
-              <Suspense fallback={<div className="h-96 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
-                <MealReportImageCard
-                  ref={imageRef}
-                  schoolName={schoolName}
-                  date={date}
-                  reporter={reporter}
-                  breakfast={breakfast}
-                  lunch={lunch}
-                  dinner={dinner}
-                  totalRice={totalRice}
-                />
-              </Suspense>
+              <MealReportImageCard
+                ref={imageRef}
+                schoolName={schoolName}
+                date={date}
+                reporter={reporter}
+                breakfast={breakfast}
+                lunch={lunch}
+                dinner={dinner}
+                totalRice={totalRice}
+              />
             </div>
           </div>
         )}
