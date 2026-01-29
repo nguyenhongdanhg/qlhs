@@ -237,51 +237,93 @@ export function TeacherAttendanceStats() {
     return latestMap;
   }, []);
 
-  // Calculate daily stats for the last 7 days using latest record per student
-  const dailyStats = useMemo((): DailyStats[] => {
+  // Helper: Get snapshot stats from latest report batch (60-second window)
+  const getSnapshotStats = useCallback((
+    records: AttendanceRecord[],
+    date: string,
+    type: string,
+    studentPool: Student[]
+  ): { present: number; absent: number; total: number; hasReport: boolean } => {
+    const total = studentPool.length;
+    
+    // Filter records by date and type
+    const dayRecords = records.filter(r => 
+      r.attendance_date === date && r.attendance_type === type
+    );
+    
+    if (dayRecords.length === 0) {
+      return { present: 0, absent: 0, total, hasReport: false };
+    }
+    
+    // Sort by created_at descending to find the latest submission time
+    dayRecords.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    // Get the latest submission time and create a 60-second window
+    const latestTime = new Date(dayRecords[0].created_at).getTime();
+    const windowStart = latestTime - 60 * 1000;
+    
+    // Get records within the snapshot window
+    const snapshotRecords = dayRecords.filter(r => {
+      const recordTime = new Date(r.created_at).getTime();
+      return recordTime >= windowStart && recordTime <= latestTime;
+    });
+    
+    // Get latest record per student within snapshot
+    const latestByStudent = new Map<string, AttendanceRecord>();
+    for (const record of snapshotRecords) {
+      if (!latestByStudent.has(record.student_id)) {
+        latestByStudent.set(record.student_id, record);
+      }
+    }
+    
+    // Count present/absent from the snapshot
+    let present = 0;
+    let absent = 0;
+    latestByStudent.forEach(record => {
+      if (record.status === 'present') present++;
+      else absent++;
+    });
+    
+    return { present, absent, total, hasReport: true };
+  }, []);
+
+  // Calculate daily stats for the last 7 days using snapshot logic
+  const dailyStats = useMemo((): (DailyStats & { boardingHasReport: boolean; studyHasReport: boolean })[] => {
     const last7Days = eachDayOfInterval({
       start: new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000),
       end: today
     }).reverse();
 
     const boardingStudents = students.filter(s => s.is_boarding);
-    const totalBoarding = boardingStudents.length;
-    const totalStudents = students.length;
 
     return last7Days.map(date => {
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      // Get latest records per student for each type
-      const boardingLatest = getLatestRecordsPerStudent(attendanceRecords, dateStr, 'boarding');
-      const studyLatest = getLatestRecordsPerStudent(attendanceRecords, dateStr, 'evening_study');
-      
-      // Count unique absent students from latest records only
-      let boardingAbsent = 0;
-      boardingLatest.forEach(record => {
-        if (record.status === 'absent') boardingAbsent++;
-      });
-      
-      let studyAbsent = 0;
-      studyLatest.forEach(record => {
-        if (record.status === 'absent') studyAbsent++;
-      });
+      // Get snapshot stats for boarding (only boarding students)
+      const boardingStats = getSnapshotStats(attendanceRecords, dateStr, 'boarding', boardingStudents);
+      // Get snapshot stats for evening study (all students)
+      const studyStats = getSnapshotStats(attendanceRecords, dateStr, 'evening_study', students);
 
       return {
         date: dateStr,
         dayName: format(date, 'EEEE', { locale: vi }),
         boarding: {
-          present: totalBoarding - boardingAbsent,
-          absent: boardingAbsent,
-          total: totalBoarding
+          present: boardingStats.present,
+          absent: boardingStats.absent,
+          total: boardingStats.total
         },
         eveningStudy: {
-          present: totalStudents - studyAbsent,
-          absent: studyAbsent,
-          total: totalStudents
-        }
+          present: studyStats.present,
+          absent: studyStats.absent,
+          total: studyStats.total
+        },
+        boardingHasReport: boardingStats.hasReport,
+        studyHasReport: studyStats.hasReport
       };
     });
-  }, [students, attendanceRecords, today, getLatestRecordsPerStudent]);
+  }, [students, attendanceRecords, today, getSnapshotStats]);
 
   // Today's summary
   const todayStats = useMemo(() => {
@@ -405,20 +447,28 @@ export function TeacherAttendanceStats() {
               <Home className="h-3.5 w-3.5 text-sky-600" />
               <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-400">Nội trú</span>
             </div>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-xl font-bold text-sky-700 dark:text-sky-300">
-                {todayStats?.boarding.present || 0}
-              </span>
-              <span className="text-xs text-sky-600 dark:text-sky-400">
-                /{todayStats?.boarding.total || students.filter(s => s.is_boarding).length}
-              </span>
-            </div>
-            {todayStats && todayStats.boarding.absent > 0 && (
-              <div className="flex items-center gap-1 mt-1">
-                <AlertCircle className="h-2.5 w-2.5 text-destructive" />
-                <span className="text-[10px] text-destructive font-medium">
-                  {todayStats.boarding.absent} vắng
-                </span>
+            {todayStats?.boardingHasReport ? (
+              <>
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-xl font-bold text-sky-700 dark:text-sky-300">
+                    {todayStats.boarding.present}
+                  </span>
+                  <span className="text-xs text-sky-600 dark:text-sky-400">
+                    /{todayStats.boarding.total}
+                  </span>
+                </div>
+                {todayStats.boarding.absent > 0 && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <AlertCircle className="h-2.5 w-2.5 text-destructive" />
+                    <span className="text-[10px] text-destructive font-medium">
+                      {todayStats.boarding.absent} vắng
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-xs text-muted-foreground italic">
+                Chưa báo cáo
               </div>
             )}
           </div>
@@ -429,20 +479,28 @@ export function TeacherAttendanceStats() {
               <BookOpen className="h-3.5 w-3.5 text-amber-600" />
               <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Tự học</span>
             </div>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-xl font-bold text-amber-700 dark:text-amber-300">
-                {todayStats?.eveningStudy.present || 0}
-              </span>
-              <span className="text-xs text-amber-600 dark:text-amber-400">
-                /{todayStats?.eveningStudy.total || students.length}
-              </span>
-            </div>
-            {todayStats && todayStats.eveningStudy.absent > 0 && (
-              <div className="flex items-center gap-1 mt-1">
-                <AlertCircle className="h-2.5 w-2.5 text-destructive" />
-                <span className="text-[10px] text-destructive font-medium">
-                  {todayStats.eveningStudy.absent} vắng
-                </span>
+            {todayStats?.studyHasReport ? (
+              <>
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-xl font-bold text-amber-700 dark:text-amber-300">
+                    {todayStats.eveningStudy.present}
+                  </span>
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    /{todayStats.eveningStudy.total}
+                  </span>
+                </div>
+                {todayStats.eveningStudy.absent > 0 && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <AlertCircle className="h-2.5 w-2.5 text-destructive" />
+                    <span className="text-[10px] text-destructive font-medium">
+                      {todayStats.eveningStudy.absent} vắng
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-xs text-muted-foreground italic">
+                Chưa báo cáo
               </div>
             )}
           </div>
