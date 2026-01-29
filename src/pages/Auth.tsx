@@ -235,9 +235,9 @@ export default function Auth() {
             </div>
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Quản lý Nội trú
+            QUẢN LÝ HỌC SINH
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">Hệ thống quản lý học sinh hiện đại</p>
+          <p className="text-muted-foreground mt-1 text-sm">Ứng dụng thông tin quản lý học sinh</p>
         </div>
 
         {/* Tab Switcher */}
