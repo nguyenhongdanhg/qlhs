@@ -328,63 +328,70 @@ export function TeacherAttendanceStats() {
   }
 
   const title = isAdmin 
-    ? 'Thống kê điểm danh toàn trường' 
+    ? 'Thống kê điểm danh' 
     : `Thống kê lớp ${classInfo?.name || ''}`;
   
   const TitleIcon = isAdmin ? Building2 : Users;
+  const dataSourceLabel = isAdmin ? 'Toàn trường' : `Lớp ${classInfo?.name || ''}`;
   const studentLabel = isAdmin 
     ? `${students.length} HS | ${students.filter(s => s.is_boarding).length} NT`
-    : `${students.length} học sinh`;
+    : `${students.length} HS | ${students.filter(s => s.is_boarding).length} NT`;
 
   return (
     <Card className="border-0 shadow-md">
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-primary/10">
               <TitleIcon className="h-4 w-4 text-primary" />
             </div>
-            <CardTitle className="text-sm sm:text-base font-semibold">
-              {title}
-            </CardTitle>
+            <div className="flex flex-col">
+              <CardTitle className="text-sm sm:text-base font-semibold">
+                {title}
+              </CardTitle>
+              <span className="text-[10px] text-muted-foreground">
+                {dataSourceLabel} • Cập nhật real-time
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
+          <div className="flex items-center gap-1.5">
+            <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
               {studentLabel}
             </Badge>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-6 w-6"
               onClick={handleRefresh}
               disabled={isRefreshing}
+              title="Làm mới dữ liệu"
             >
-              <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
+              <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Today's Summary */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           {/* Boarding Today */}
-          <div className="p-3 rounded-xl bg-gradient-to-br from-sky-50 to-sky-100 dark:from-sky-900/20 dark:to-sky-800/20">
-            <div className="flex items-center gap-2 mb-2">
-              <Home className="h-4 w-4 text-sky-600" />
-              <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Nội trú hôm nay</span>
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-sky-50 to-sky-100 dark:from-sky-900/20 dark:to-sky-800/20">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Home className="h-3.5 w-3.5 text-sky-600" />
+              <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-400">Nội trú</span>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-sky-700 dark:text-sky-300">
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-xl font-bold text-sky-700 dark:text-sky-300">
                 {todayStats?.boarding.present || 0}
               </span>
-              <span className="text-sm text-sky-600 dark:text-sky-400">
+              <span className="text-xs text-sky-600 dark:text-sky-400">
                 /{todayStats?.boarding.total || students.filter(s => s.is_boarding).length}
               </span>
             </div>
             {todayStats && todayStats.boarding.absent > 0 && (
               <div className="flex items-center gap-1 mt-1">
-                <AlertCircle className="h-3 w-3 text-destructive" />
-                <span className="text-xs text-destructive font-medium">
+                <AlertCircle className="h-2.5 w-2.5 text-destructive" />
+                <span className="text-[10px] text-destructive font-medium">
                   {todayStats.boarding.absent} vắng
                 </span>
               </div>
@@ -392,23 +399,23 @@ export function TeacherAttendanceStats() {
           </div>
 
           {/* Evening Study Today */}
-          <div className="p-3 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20">
-            <div className="flex items-center gap-2 mb-2">
-              <BookOpen className="h-4 w-4 text-amber-600" />
-              <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Tự học hôm nay</span>
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <BookOpen className="h-3.5 w-3.5 text-amber-600" />
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Tự học</span>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-xl font-bold text-amber-700 dark:text-amber-300">
                 {todayStats?.eveningStudy.present || 0}
               </span>
-              <span className="text-sm text-amber-600 dark:text-amber-400">
+              <span className="text-xs text-amber-600 dark:text-amber-400">
                 /{todayStats?.eveningStudy.total || students.length}
               </span>
             </div>
             {todayStats && todayStats.eveningStudy.absent > 0 && (
               <div className="flex items-center gap-1 mt-1">
-                <AlertCircle className="h-3 w-3 text-destructive" />
-                <span className="text-xs text-destructive font-medium">
+                <AlertCircle className="h-2.5 w-2.5 text-destructive" />
+                <span className="text-[10px] text-destructive font-medium">
                   {todayStats.eveningStudy.absent} vắng
                 </span>
               </div>
