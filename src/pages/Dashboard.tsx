@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { TeacherAttendanceStats } from '@/components/dashboard/TeacherAttendanceStats';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Users, 
   Home, 
@@ -30,10 +30,12 @@ interface DashboardStats {
   mealStats: { breakfast: number; lunch: number; dinner: number };
   gradeStats: { grade: number; total: number; boarding: number }[];
   className?: string; // For class teachers
+  classId?: string; // UUID of class for teachers
 }
 
 export default function Dashboard() {
   const { currentSchool, currentMembership, isSchoolAdmin, isSuperAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const today = useMemo(() => new Date(), []);
   const dateStr = useMemo(() => format(today, 'yyyy-MM-dd'), [today]);
   const dayName = useMemo(() => format(today, 'EEEE', { locale: vi }), [today]);
@@ -42,7 +44,34 @@ export default function Dashboard() {
   // Determine if user is admin or class teacher
   const isAdmin = isSuperAdmin || isSchoolAdmin();
   const isClassTeacher = currentMembership?.role === 'class_teacher';
+  // class_id in school_memberships is stored as text but contains UUID
   const teacherClassId = currentMembership?.class_id;
+
+  // Real-time subscription for attendance updates
+  useEffect(() => {
+    if (!currentSchool) return;
+
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance_records',
+          filter: `school_id=eq.${currentSchool.id}`,
+        },
+        () => {
+          // Invalidate query to refetch
+          queryClient.invalidateQueries({ queryKey: ['dashboard-stats', currentSchool.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentSchool?.id, queryClient]);
 
   // Fetch dashboard stats with React Query for caching
   const { data: stats, isLoading } = useQuery({
@@ -52,6 +81,7 @@ export default function Dashboard() {
 
       // For class teachers, fetch only their class data
       if (isClassTeacher && teacherClassId) {
+        // teacherClassId is stored as text but contains UUID of the class
         const { data: classData } = await supabase
           .from('classes')
           .select('id, name')
@@ -67,50 +97,63 @@ export default function Dashboard() {
             totalClasses: 1,
             mealStats: { breakfast: 0, lunch: 0, dinner: 0 },
             gradeStats: [],
-            className: teacherClassId,
+            className: 'N/A',
           };
         }
 
-        // Fetch class-specific data
-        const [studentsResult, boardingResult, attendanceResult] = await Promise.all([
-          supabase
-            .from('students')
-            .select('*', { count: 'exact', head: true })
-            .eq('school_id', currentSchool.id)
-            .eq('class_id', classData.id)
-            .eq('is_active', true),
-          supabase
-            .from('students')
-            .select('*', { count: 'exact', head: true })
-            .eq('school_id', currentSchool.id)
-            .eq('class_id', classData.id)
-            .eq('is_active', true)
-            .eq('is_boarding', true),
-          supabase
+        // Fetch class-specific data - get students first, then filter attendance by student IDs
+        const { data: classStudents } = await supabase
+          .from('students')
+          .select('id, is_boarding')
+          .eq('school_id', currentSchool.id)
+          .eq('class_id', classData.id)
+          .eq('is_active', true);
+
+        const studentIds = (classStudents || []).map(s => s.id);
+        const totalStudents = classStudents?.length || 0;
+        const boardingStudents = classStudents?.filter(s => s.is_boarding).length || 0;
+
+        // Fetch attendance by student IDs (not class_id since class_id in attendance_records might be NULL)
+        let mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
+        
+        if (studentIds.length > 0) {
+          const { data: attendanceData } = await supabase
             .from('attendance_records')
             .select('attendance_type, status, student_id')
             .eq('school_id', currentSchool.id)
-            .eq('class_id', classData.id)
-            .eq('attendance_date', dateStr),
-        ]);
+            .in('student_id', studentIds)
+            .eq('attendance_date', dateStr)
+            .in('attendance_type', ['breakfast', 'lunch', 'dinner']);
 
-        const mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
-        (attendanceResult.data || []).forEach(record => {
-          if (record.status === 'present') {
-            if (record.attendance_type === 'breakfast') mealStats.breakfast++;
-            if (record.attendance_type === 'lunch') mealStats.lunch++;
-            if (record.attendance_type === 'dinner') mealStats.dinner++;
-          }
-        });
+          // Get unique present students per meal type
+          const breakfastPresent = new Set<string>();
+          const lunchPresent = new Set<string>();
+          const dinnerPresent = new Set<string>();
+
+          (attendanceData || []).forEach(record => {
+            if (record.status === 'present') {
+              if (record.attendance_type === 'breakfast') breakfastPresent.add(record.student_id);
+              if (record.attendance_type === 'lunch') lunchPresent.add(record.student_id);
+              if (record.attendance_type === 'dinner') dinnerPresent.add(record.student_id);
+            }
+          });
+
+          mealStats = {
+            breakfast: breakfastPresent.size,
+            lunch: lunchPresent.size,
+            dinner: dinnerPresent.size,
+          };
+        }
 
         return {
-          totalStudents: studentsResult.count || 0,
-          boardingStudents: boardingResult.count || 0,
-          totalTeachers: 1, // GVCN is the teacher of their class
-          totalClasses: 1,  // Only their class
+          totalStudents,
+          boardingStudents,
+          totalTeachers: 1,
+          totalClasses: 1,
           mealStats,
           gradeStats: [],
           className: classData.name,
+          classId: classData.id,
         };
       }
 
