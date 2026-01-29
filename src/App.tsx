@@ -21,6 +21,7 @@ import Meals from "@/pages/Meals";
 const Auth = lazy(() => import("@/pages/Auth"));
 const SelectSchool = lazy(() => import("@/pages/SelectSchool"));
 const EveningStudy = lazy(() => import("@/pages/EveningStudy"));
+const Emulation = lazy(() => import("@/pages/Emulation"));
 const Statistics = lazy(() => import("@/pages/Statistics"));
 const DutySchedule = lazy(() => import("@/pages/DutySchedule"));
 const UserManagement = lazy(() => import("@/pages/UserManagement"));
@@ -141,6 +142,15 @@ const App = () => (
                   element={
                     <FeatureGuard featureCode="meals">
                       <Meals />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/emulation"
+                  element={
+                    <FeatureGuard featureCode="emulation">
+                      <Emulation />
                     </FeatureGuard>
                   }
                 />

@@ -14,6 +14,7 @@ import {
   LogOut,
   ChevronLeft,
   Building2,
+  Trophy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   CalendarDays,
   UserCog,
   Settings,
+  Trophy,
 };
 
 interface NavItem {
@@ -48,6 +50,7 @@ const navItems: NavItem[] = [
   { code: 'boarding', label: 'Điểm danh nội trú', icon: 'Home', path: '/boarding' },
   { code: 'evening_study', label: 'Điểm danh giờ học', icon: 'BookOpen', path: '/evening-study' },
   { code: 'meals', label: 'Báo cáo bữa ăn', icon: 'UtensilsCrossed', path: '/meals' },
+  { code: 'emulation', label: 'Thi đua', icon: 'Trophy', path: '/emulation' },
   { code: 'statistics', label: 'Thống kê', icon: 'BarChart3', path: '/statistics' },
   { code: 'user_management', label: 'Quản lý tài khoản', icon: 'UserCog', path: '/user-management', adminOnly: true },
   { code: 'settings', label: 'Cài đặt', icon: 'Settings', path: '/settings' },
