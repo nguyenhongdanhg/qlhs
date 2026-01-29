@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { Student, AttendanceStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,7 @@ interface StudentCardProps {
   onExcuseChange?: (excused: boolean) => void;
 }
 
-export function StudentCard({ 
+export const StudentCard = memo(function StudentCard({ 
   student, 
   status, 
   showDetails = false,
@@ -98,4 +99,4 @@ export function StudentCard({
       )}
     </div>
   );
-}
+});

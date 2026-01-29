@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { useState } from 'react';
+import { memo, useState, useMemo, useCallback } from 'react';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
@@ -56,32 +56,33 @@ const navItems: NavItem[] = [
   { code: 'settings', label: 'Cài đặt', icon: 'Settings', path: '/settings' },
 ];
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   const location = useLocation();
   const { profile, currentSchool, signOut, isSuperAdmin, isSchoolAdmin } = useAuth();
   const { isFeatureEnabled } = useSchool();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const getInitials = (name: string) => {
+  const getInitials = useCallback((name: string) => {
     return name
       .split(' ')
       .map((n) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  };
+  }, []);
 
-  const getRoleBadge = () => {
+  const roleBadge = useMemo(() => {
     if (isSuperAdmin) return 'Super Admin';
     if (isSchoolAdmin()) return 'Quản trị viên';
     return 'Giáo viên';
-  };
+  }, [isSuperAdmin, isSchoolAdmin]);
 
-  const filteredNavItems = navItems.filter((item) => {
+  const filteredNavItems = useMemo(() => navItems.filter((item) => {
     if (!isFeatureEnabled(item.code)) return false;
     if (item.adminOnly && !isSchoolAdmin()) return false;
     return true;
-  });
+  }), [isFeatureEnabled, isSchoolAdmin]);
+
 
   return (
     <aside
@@ -135,7 +136,7 @@ export function Sidebar() {
                 {profile?.full_name || 'Người dùng'}
               </p>
               <Badge variant="secondary" className="mt-0.5 bg-primary/10 text-primary text-[10px] px-1.5 py-0 font-medium">
-                {getRoleBadge()}
+                {roleBadge}
               </Badge>
             </div>
           </div>
@@ -228,4 +229,4 @@ export function Sidebar() {
       )}
     </aside>
   );
-}
+});

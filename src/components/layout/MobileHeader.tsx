@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { GraduationCap, Bell, ChevronDown, Building2, LogOut, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,17 +13,17 @@ import {
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 
-export function MobileHeader() {
+export const MobileHeader = memo(function MobileHeader() {
   const { profile, currentSchool, memberships, signOut, isSuperAdmin, selectSchool } = useAuth();
 
-  const getInitials = (name: string) => {
+  const getInitials = useCallback((name: string) => {
     return name
       .split(' ')
       .map((n) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  };
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/50 bg-background/95 px-3 sm:px-4 backdrop-blur-xl lg:hidden shadow-sm">
@@ -113,4 +114,4 @@ export function MobileHeader() {
       </div>
     </header>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -56,7 +56,7 @@ interface ClassMealStatisticsProps {
   teacherClassName: string;
 }
 
-export function ClassMealStatistics({
+export const ClassMealStatistics = memo(function ClassMealStatistics({
   students,
   classes,
   teacherClassId,
@@ -542,4 +542,4 @@ export function ClassMealStatistics({
       )}
     </div>
   );
-}
+});

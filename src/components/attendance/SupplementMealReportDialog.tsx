@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +22,7 @@ interface SupplementMealReportDialogProps {
   isLoading?: boolean;
 }
 
-export function SupplementMealReportDialog({
+export const SupplementMealReportDialog = memo(function SupplementMealReportDialog({
   open,
   onOpenChange,
   students,
@@ -220,4 +220,4 @@ export function SupplementMealReportDialog({
       </DialogContent>
     </Dialog>
   );
-}
+});

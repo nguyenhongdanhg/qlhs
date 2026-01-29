@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, memo, useMemo } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Coffee, UtensilsCrossed, Moon, CheckCircle2, XCircle } from 'lucide-react';
@@ -31,7 +31,7 @@ interface MealReportImageCardProps {
   totalRice: number;
 }
 
-export const MealReportImageCard = forwardRef<HTMLDivElement, MealReportImageCardProps>(
+export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportImageCardProps>(
   ({ schoolName, date, reporter, breakfast, lunch, dinner, totalRice }, ref) => {
     const baseTextStyle: React.CSSProperties = {
       letterSpacing: '0.02em',
@@ -280,6 +280,6 @@ export const MealReportImageCard = forwardRef<HTMLDivElement, MealReportImageCar
       </div>
     );
   }
-);
+));
 
 MealReportImageCard.displayName = 'MealReportImageCard';

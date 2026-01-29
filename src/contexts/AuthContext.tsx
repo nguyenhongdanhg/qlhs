@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, SchoolMembership, School, AppRole } from '@/types';
@@ -178,26 +178,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return currentMembership?.role === 'admin';
   };
 
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user,
+    session,
+    profile,
+    memberships,
+    currentSchool,
+    currentMembership,
+    isLoading,
+    isSuperAdmin,
+    signIn,
+    signUp,
+    signOut,
+    selectSchool,
+    refreshProfile,
+    hasRole,
+    isSchoolAdmin,
+  }), [
+    user,
+    session,
+    profile,
+    memberships,
+    currentSchool,
+    currentMembership,
+    isLoading,
+    isSuperAdmin,
+    hasRole,
+    isSchoolAdmin,
+  ]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        profile,
-        memberships,
-        currentSchool,
-        currentMembership,
-        isLoading,
-        isSuperAdmin,
-        signIn,
-        signUp,
-        signOut,
-        selectSchool,
-        refreshProfile,
-        hasRole,
-        isSchoolAdmin,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

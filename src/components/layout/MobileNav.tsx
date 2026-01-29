@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
@@ -48,17 +49,17 @@ const navItems: NavItem[] = [
 // Items already in bottom nav - to exclude from menu page
 export const bottomNavCodes = ['dashboard', 'students', 'meals', 'boarding', 'evening_study'];
 
-export function MobileNav() {
+export const MobileNav = memo(function MobileNav() {
   const location = useLocation();
   const { isSchoolAdmin } = useAuth();
   const { isFeatureEnabled } = useSchool();
 
-  const filteredNavItems = navItems.filter((item) => {
+  const filteredNavItems = useMemo(() => navItems.filter((item) => {
     if (item.code === 'menu') return true;
     if (!isFeatureEnabled(item.code)) return false;
     if (item.adminOnly && !isSchoolAdmin()) return false;
     return true;
-  }).slice(0, 6); // Max 6 items
+  }).slice(0, 6), [isFeatureEnabled, isSchoolAdmin]); // Max 6 items
 
   return (
     <nav className="mobile-nav lg:hidden">
@@ -89,4 +90,4 @@ export function MobileNav() {
       })}
     </nav>
   );
-}
+});

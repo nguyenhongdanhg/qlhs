@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function DashboardSkeleton() {
+export const DashboardSkeleton = memo(function DashboardSkeleton() {
   return (
     <div className="space-y-4">
       {/* Stats Cards - Simple skeleton */}
@@ -45,4 +46,4 @@ export function DashboardSkeleton() {
       </div>
     </div>
   );
-}
+});
