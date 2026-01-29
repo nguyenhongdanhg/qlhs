@@ -31,6 +31,8 @@ interface DashboardStats {
   gradeStats: { grade: number; total: number; boarding: number }[];
   className?: string; // For class teachers
   classId?: string; // UUID of class for teachers
+  classStudentCount?: number; // Number of students in teacher's class
+  classBoardingCount?: number; // Number of boarding students in teacher's class
   // Completion tracking for today
   hasBreakfast: boolean;
   hasLunch: boolean;
@@ -81,118 +83,13 @@ export default function Dashboard() {
     };
   }, [currentSchool?.id, queryClient]);
 
-  // Fetch dashboard stats with React Query for caching
+  // Fetch dashboard stats with React Query for caching - ALWAYS fetch full school data
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['dashboard-stats', currentSchool?.id, dateStr, isAdmin, teacherClassId],
+    queryKey: ['dashboard-stats', currentSchool?.id, dateStr],
     queryFn: async (): Promise<DashboardStats> => {
       if (!currentSchool) throw new Error('No school selected');
 
-      // For class teachers, fetch only their class data
-      if (isClassTeacher && teacherClassId) {
-        // teacherClassId is stored as text but contains UUID of the class
-        const { data: classData } = await supabase
-          .from('classes')
-          .select('id, name')
-          .eq('id', teacherClassId)
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (!classData) {
-          return {
-            totalStudents: 0,
-            boardingStudents: 0,
-            totalTeachers: 1,
-            totalClasses: 1,
-            mealStats: { breakfast: 0, lunch: 0, dinner: 0 },
-            gradeStats: [],
-            className: 'N/A',
-            hasBreakfast: false,
-            hasLunch: false,
-            hasDinner: false,
-            hasBoardingMorning: false,
-            hasBoardingNoon: false,
-            hasBoardingEvening: false,
-            hasEveningStudy: false,
-          };
-        }
-
-        // Fetch class-specific data - get students first, then filter attendance by student IDs
-        const { data: classStudents } = await supabase
-          .from('students')
-          .select('id, is_boarding')
-          .eq('school_id', currentSchool.id)
-          .eq('class_id', classData.id)
-          .eq('is_active', true);
-
-        const studentIds = (classStudents || []).map(s => s.id);
-        const totalStudents = classStudents?.length || 0;
-        const boardingStudents = classStudents?.filter(s => s.is_boarding).length || 0;
-
-        // Fetch ALL attendance types for today by student IDs
-        let mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
-        let hasBreakfast = false, hasLunch = false, hasDinner = false;
-        let hasBoardingMorning = false, hasBoardingNoon = false, hasBoardingEvening = false;
-        let hasEveningStudy = false;
-        
-        if (studentIds.length > 0) {
-          const { data: attendanceData } = await supabase
-            .from('attendance_records')
-            .select('attendance_type, status, student_id')
-            .eq('school_id', currentSchool.id)
-            .in('student_id', studentIds)
-            .eq('attendance_date', dateStr);
-
-          // Get unique present students per meal type
-          const breakfastPresent = new Set<string>();
-          const lunchPresent = new Set<string>();
-          const dinnerPresent = new Set<string>();
-
-          (attendanceData || []).forEach(record => {
-            // Check what attendance types exist (for completion tracking)
-            if (record.attendance_type === 'breakfast') hasBreakfast = true;
-            if (record.attendance_type === 'lunch') hasLunch = true;
-            if (record.attendance_type === 'dinner') hasDinner = true;
-            if (record.attendance_type === 'boarding') {
-              // Check time-based session: Sáng (6-7h), Trưa (11-13h), Tối (21:30-23h)
-              // We need to track these separately - for now just mark any boarding as done
-              hasBoardingMorning = true; // Simplified - any boarding record counts
-            }
-            if (record.attendance_type === 'evening_study') hasEveningStudy = true;
-            
-            if (record.status === 'present') {
-              if (record.attendance_type === 'breakfast') breakfastPresent.add(record.student_id);
-              if (record.attendance_type === 'lunch') lunchPresent.add(record.student_id);
-              if (record.attendance_type === 'dinner') dinnerPresent.add(record.student_id);
-            }
-          });
-
-          mealStats = {
-            breakfast: breakfastPresent.size,
-            lunch: lunchPresent.size,
-            dinner: dinnerPresent.size,
-          };
-        }
-
-        return {
-          totalStudents,
-          boardingStudents,
-          totalTeachers: 1,
-          totalClasses: 1,
-          mealStats,
-          gradeStats: [],
-          className: classData.name,
-          classId: classData.id,
-          hasBreakfast,
-          hasLunch,
-          hasDinner,
-          hasBoardingMorning,
-          hasBoardingNoon,
-          hasBoardingEvening,
-          hasEveningStudy,
-        };
-      }
-
-      // Admin/Other roles: Fetch all school data
+      // Always fetch ALL school data (same as admin view)
       const [studentsResult, boardingResult, classesResult, teachersResult, attendanceResult] = await Promise.all([
         supabase
           .from('students')
@@ -233,7 +130,6 @@ export default function Dashboard() {
         if (record.attendance_type === 'lunch') hasLunch = true;
         if (record.attendance_type === 'dinner') hasDinner = true;
         if (record.attendance_type === 'boarding') {
-          // For admin, just mark any boarding as done for now
           hasBoardingMorning = true;
         }
         if (record.attendance_type === 'evening_study') hasEveningStudy = true;
@@ -245,7 +141,7 @@ export default function Dashboard() {
         }
       });
 
-      // Get grade stats - optimized: fetch all students with their class grades in ONE query
+      // Get grade stats
       const { data: studentsWithGrades } = await supabase
         .from('students')
         .select('is_boarding, class:classes!inner(grade)')
@@ -253,7 +149,6 @@ export default function Dashboard() {
         .eq('is_active', true)
         .eq('classes.is_active', true);
 
-      // Group by grade in memory - much faster than N queries
       const gradeMap = new Map<number, { total: number; boarding: number }>();
       (studentsWithGrades || []).forEach((student: any) => {
         const grade = student.class?.grade;
@@ -269,6 +164,36 @@ export default function Dashboard() {
         .sort(([a], [b]) => a - b)
         .map(([grade, stats]) => ({ grade, ...stats }));
 
+      // For class teachers, also fetch their class-specific data
+      let className: string | undefined;
+      let classId: string | undefined;
+      let classStudentCount = 0;
+      let classBoardingCount = 0;
+
+      if (isClassTeacher && teacherClassId) {
+        const { data: classData } = await supabase
+          .from('classes')
+          .select('id, name')
+          .eq('id', teacherClassId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (classData) {
+          className = classData.name;
+          classId = classData.id;
+
+          const { data: classStudents } = await supabase
+            .from('students')
+            .select('id, is_boarding')
+            .eq('school_id', currentSchool.id)
+            .eq('class_id', classData.id)
+            .eq('is_active', true);
+
+          classStudentCount = classStudents?.length || 0;
+          classBoardingCount = classStudents?.filter(s => s.is_boarding).length || 0;
+        }
+      }
+
       return {
         totalStudents: studentsResult.count || 0,
         boardingStudents: boardingResult.count || 0,
@@ -276,6 +201,10 @@ export default function Dashboard() {
         totalClasses: classesResult.count || 0,
         mealStats,
         gradeStats,
+        className,
+        classId,
+        classStudentCount,
+        classBoardingCount,
         hasBreakfast,
         hasLunch,
         hasDinner,
@@ -316,21 +245,15 @@ export default function Dashboard() {
     return { completed, total, percentage };
   }, [stats]);
 
-  // For class teachers, show different card labels
+  // Always show all 4 cards like admin view
   const statCards = useMemo(() => {
-    if (isClassTeacher && stats?.className) {
-      return [
-        { label: `Lớp ${stats.className}`, value: stats.totalStudents || 0, icon: Users, gradient: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-500' },
-        { label: 'Nội trú', value: stats.boardingStudents || 0, icon: Home, gradient: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-500' },
-      ];
-    }
     return [
       { label: 'Học sinh', value: stats?.totalStudents || 0, icon: Users, gradient: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-500' },
       { label: 'Nội trú', value: stats?.boardingStudents || 0, icon: Home, gradient: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-500' },
       { label: 'Giáo viên', value: stats?.totalTeachers || 0, icon: GraduationCap, gradient: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-500' },
       { label: 'Lớp học', value: stats?.totalClasses || 0, icon: Building2, gradient: 'from-violet-500 to-purple-500', iconBg: 'bg-violet-500' },
     ];
-  }, [stats, isClassTeacher]);
+  }, [stats]);
 
   if (!currentSchool) {
     return (
@@ -389,6 +312,38 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {/* Class Teacher's Class Stats - Only for class teachers */}
+          {isClassTeacher && stats?.className && (
+            <Card className="mb-4 border-0 shadow-md bg-gradient-to-br from-primary/5 to-accent/5">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <GraduationCap className="h-4 w-4 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground">
+                    Lớp chủ nhiệm: <span className="text-primary">{stats.className}</span>
+                  </h3>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="text-center p-3 rounded-xl bg-background/80 shadow-sm">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <Users className="h-4 w-4 text-primary" />
+                    </div>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.classStudentCount || 0}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Học sinh</p>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-background/80 shadow-sm">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <Home className="h-4 w-4 text-success" />
+                    </div>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.classBoardingCount || 0}</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Nội trú</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Actions - Enhanced */}
           <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4 mb-4">
             {quickActions.map(({ label, icon: Icon, path, iconBg }) => (
@@ -405,7 +360,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Teacher Attendance Stats - Only for class teachers */}
+          {/* Teacher Attendance Stats */}
           <div className="mb-4">
             <TeacherAttendanceStats />
           </div>
