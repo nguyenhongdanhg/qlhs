@@ -503,54 +503,60 @@ export default function Dashboard() {
                 </span>
               </div>
 
-              <div className="grid gap-4 grid-cols-3">
+              <div className="grid grid-cols-3 divide-x divide-border">
                 {/* Meals with count */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
+                <div className="pr-3">
+                  <div className="flex items-center gap-1.5 mb-2">
                     <UtensilsCrossed className="h-3.5 w-3.5 text-accent" />
                     <span className="text-xs font-semibold text-foreground">Bữa ăn</span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
                       <span className={cn(
-                        "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
                         stats?.hasBreakfast ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
                       )}>Sáng</span>
-                      {stats?.hasBreakfast && <span className="text-xs font-medium">{stats.mealStats.breakfast}</span>}
+                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
+                        {stats?.hasBreakfast ? stats.mealStats.breakfast : '--'}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <span className={cn(
-                        "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
                         stats?.hasLunch ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
                       )}>Trưa</span>
-                      {stats?.hasLunch && <span className="text-xs font-medium">{stats.mealStats.lunch}</span>}
+                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
+                        {stats?.hasLunch ? stats.mealStats.lunch : '--'}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <span className={cn(
-                        "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
                         stats?.hasDinner ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
                       )}>Tối</span>
-                      {stats?.hasDinner && <span className="text-xs font-medium">{stats.mealStats.dinner}</span>}
+                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
+                        {stats?.hasDinner ? stats.mealStats.dinner : '--'}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Boarding with real data */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
+                <div className="px-3">
+                  <div className="flex items-center gap-1.5 mb-2">
                     <Home className="h-3.5 w-3.5 text-primary" />
                     <span className="text-xs font-semibold text-foreground">Nội trú</span>
                   </div>
                   {stats?.boardingStats && stats.boardingStats.length > 0 ? (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {stats.boardingStats.map((s, i) => {
                         const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
                         return (
-                          <div key={i} className="flex items-center justify-between">
-                            <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-success/20 text-success">
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium bg-success/20 text-success shrink-0">
                               {pct}%
                             </span>
-                            <span className="text-xs text-muted-foreground">{s.present}/{s.total}</span>
+                            <span className="text-xs text-muted-foreground min-w-[3rem] text-right">{s.present}/{s.total}</span>
                           </div>
                         );
                       })}
@@ -563,23 +569,21 @@ export default function Dashboard() {
                 </div>
 
                 {/* Evening Study with real data */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
+                <div className="pl-3">
+                  <div className="flex items-center gap-1.5 mb-2">
                     <BookOpen className="h-3.5 w-3.5 text-warning" />
                     <span className="text-xs font-semibold text-foreground">Tự học</span>
                   </div>
                   {stats?.hasEveningStudy && stats.eveningStudyStats ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-success/20 text-success">
-                          {stats.eveningStudyStats.total > 0 
-                            ? Math.round((stats.eveningStudyStats.present / stats.eveningStudyStats.total) * 100) 
-                            : 0}%
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {stats.eveningStudyStats.present}/{stats.eveningStudyStats.total}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium bg-success/20 text-success shrink-0">
+                        {stats.eveningStudyStats.total > 0 
+                          ? Math.round((stats.eveningStudyStats.present / stats.eveningStudyStats.total) * 100) 
+                          : 0}%
+                      </span>
+                      <span className="text-xs text-muted-foreground min-w-[3rem] text-right">
+                        {stats.eveningStudyStats.present}/{stats.eveningStudyStats.total}
+                      </span>
                     </div>
                   ) : (
                     <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-muted text-muted-foreground inline-block">

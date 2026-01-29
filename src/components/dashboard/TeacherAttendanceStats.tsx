@@ -184,6 +184,31 @@ export function TeacherAttendanceStats() {
     };
   }, [currentSchool?.id, shouldShow, fetchData]);
 
+  // Also listen to students table changes for accurate totals
+  useEffect(() => {
+    if (!currentSchool || !shouldShow) return;
+
+    const channel = supabase
+      .channel('teacher-students-stats')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'students',
+          filter: `school_id=eq.${currentSchool.id}`,
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentSchool?.id, shouldShow, fetchData]);
+
   // Helper: Get the latest record per student for a specific type and date
   const getLatestRecordsPerStudent = useCallback((
     records: AttendanceRecord[],
