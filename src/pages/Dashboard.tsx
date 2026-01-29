@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
   Trophy,
   UserCheck,
   CalendarCheck,
+  Quote,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, isWithinInterval, parseISO } from 'date-fns';
@@ -68,6 +69,36 @@ export default function Dashboard() {
   const isAdmin = isSuperAdmin || isSchoolAdmin();
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const teacherClassId = currentMembership?.class_id;
+
+  // Educational quotes/proverbs
+  const educationQuotes = useMemo(() => [
+    { quote: "Học tập là kho báu theo suốt đời người.", author: "Ngạn ngữ" },
+    { quote: "Không thầy đố mày làm nên.", author: "Tục ngữ Việt Nam" },
+    { quote: "Giáo dục là vũ khí mạnh nhất mà bạn có thể dùng để thay đổi thế giới.", author: "Nelson Mandela" },
+    { quote: "Đầu tư vào kiến thức mang lại lợi nhuận tốt nhất.", author: "Benjamin Franklin" },
+    { quote: "Học, học nữa, học mãi.", author: "V.I. Lenin" },
+    { quote: "Một người thầy tốt có thể tạo ra hy vọng, khơi dậy trí tưởng tượng và thắp lên niềm đam mê học tập.", author: "Brad Henry" },
+    { quote: "Cây ngay không sợ chết đứng, người ngay không sợ tiếng đời.", author: "Tục ngữ Việt Nam" },
+    { quote: "Học để biết, học để làm, học để chung sống, học để tự khẳng định mình.", author: "UNESCO" },
+    { quote: "Tri thức làm nên sức mạnh.", author: "Francis Bacon" },
+    { quote: "Việc học như đi thuyền ngược nước, không tiến ắt phải lùi.", author: "Ngạn ngữ Trung Hoa" },
+    { quote: "Giáo dục không phải là đổ đầy một cái thùng, mà là thắp sáng một ngọn lửa.", author: "W.B. Yeats" },
+    { quote: "Người không học như ngọc không mài.", author: "Ngạn ngữ" },
+    { quote: "Muốn sang thì bắc cầu kiều, muốn con hay chữ thì yêu lấy thầy.", author: "Ca dao Việt Nam" },
+    { quote: "Thành công không phải là chìa khóa dẫn đến hạnh phúc. Hạnh phúc mới là chìa khóa dẫn đến thành công.", author: "Albert Schweitzer" },
+    { quote: "Một ngày không học là một ngày bỏ phí.", author: "Khuyết danh" },
+    { quote: "Sách là ngọn đèn sáng bất diệt của trí tuệ.", author: "Ngạn ngữ" },
+    { quote: "Dạy học là nghề cao quý nhất trong các nghề cao quý.", author: "Phạm Văn Đồng" },
+    { quote: "Trẻ em hôm nay, thế giới ngày mai.", author: "Khuyết danh" },
+    { quote: "Giáo dục là sự chuẩn bị cho cuộc sống, chứ không chỉ là sự chuẩn bị cho việc mưu sinh.", author: "John Dewey" },
+    { quote: "Học thầy không tày học bạn.", author: "Tục ngữ Việt Nam" },
+  ], []);
+
+  // Random quote - changes on each page load
+  const [randomQuote] = useState(() => {
+    const randomIndex = Math.floor(Math.random() * educationQuotes.length);
+    return educationQuotes[randomIndex];
+  });
 
   // Real-time subscription
   useEffect(() => {
@@ -461,6 +492,18 @@ export default function Dashboard() {
         </div>
       </Card>
 
+      {/* Educational Quote */}
+      <div className="mb-4 px-1">
+        <div className="flex items-start gap-2 text-muted-foreground">
+          <Quote className="h-4 w-4 text-primary/60 shrink-0 mt-0.5" />
+          <p className="text-xs sm:text-sm italic leading-relaxed">
+            "{randomQuote.quote}" 
+            <span className="text-[10px] sm:text-xs not-italic font-medium ml-1">
+              — {randomQuote.author}
+            </span>
+          </p>
+        </div>
+      </div>
       {isLoading ? (
         <DashboardSkeleton />
       ) : (
