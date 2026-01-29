@@ -22,6 +22,19 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+interface PushSubscriptionRow {
+  id: string;
+  user_id: string;
+  school_id: string;
+  endpoint: string;
+  p256dh: string | null;
+  auth: string | null;
+  is_active: boolean;
+  reminder_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export function usePushNotifications() {
   const { user, currentSchool } = useAuth();
   const { toast } = useToast();
@@ -114,11 +127,12 @@ export function usePushNotifications() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
 
-      // Save subscription to database
+      // Save subscription to database using raw SQL via RPC or direct insert
       const subscriptionJSON = subscription.toJSON();
       
-      const { error } = await supabase
-        .from('push_subscriptions')
+      // Use from() with type assertion since table was just created
+      const { error } = await (supabase
+        .from('push_subscriptions' as any)
         .upsert({
           user_id: user.id,
           school_id: currentSchool.id,
@@ -128,7 +142,7 @@ export function usePushNotifications() {
           is_active: true,
         }, {
           onConflict: 'user_id,school_id',
-        });
+        }) as any);
 
       if (error) throw error;
 
@@ -165,12 +179,12 @@ export function usePushNotifications() {
         await subscription.unsubscribe();
       }
 
-      // Update database
-      const { error } = await supabase
-        .from('push_subscriptions')
+      // Update database with type assertion
+      const { error } = await (supabase
+        .from('push_subscriptions' as any)
         .update({ is_active: false })
         .eq('user_id', user.id)
-        .eq('school_id', currentSchool.id);
+        .eq('school_id', currentSchool.id) as any);
 
       if (error) throw error;
 
