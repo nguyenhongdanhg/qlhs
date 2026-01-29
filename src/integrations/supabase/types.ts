@@ -290,6 +290,70 @@ export type Database = {
           },
         ]
       }
+      emulation_scores: {
+        Row: {
+          academic_score: number | null
+          boarding_score: number | null
+          class_id: string
+          created_at: string
+          discipline_score: number | null
+          id: string
+          reporter_id: string | null
+          school_id: string
+          school_year: string
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          academic_score?: number | null
+          boarding_score?: number | null
+          class_id: string
+          created_at?: string
+          discipline_score?: number | null
+          id?: string
+          reporter_id?: string | null
+          school_id: string
+          school_year: string
+          updated_at?: string
+          week_number: number
+        }
+        Update: {
+          academic_score?: number | null
+          boarding_score?: number | null
+          class_id?: string
+          created_at?: string
+          discipline_score?: number | null
+          id?: string
+          reporter_id?: string | null
+          school_id?: string
+          school_year?: string
+          updated_at?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emulation_scores_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emulation_scores_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emulation_scores_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       global_roles: {
         Row: {
           created_at: string | null
