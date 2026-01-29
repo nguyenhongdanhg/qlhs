@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,6 +56,7 @@ export function TeacherAttendanceStats() {
   // Determine view mode
   const isAdmin = isSuperAdmin || isSchoolAdmin();
   const isClassTeacher = currentMembership?.role === 'class_teacher';
+  // class_id in school_memberships is stored as text but contains UUID
   const teacherClassId = currentMembership?.class_id;
 
   // Only show for admin or class teachers
@@ -65,7 +66,7 @@ export function TeacherAttendanceStats() {
   const monthStart = useMemo(() => startOfMonth(today), [today]);
   const monthEnd = useMemo(() => endOfMonth(today), [today]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!currentSchool) return;
 
     try {
@@ -97,7 +98,7 @@ export function TeacherAttendanceStats() {
         }
       } else if (isClassTeacher && teacherClassId) {
         // Class teacher: Fetch only their class students
-        // teacherClassId is already the class UUID from currentMembership.class_id
+        // teacherClassId contains the class UUID from currentMembership.class_id
         const { data: classData } = await supabase
           .from('classes')
           .select('id, name')
@@ -124,6 +125,7 @@ export function TeacherAttendanceStats() {
 
         const studentIds = (studentsData || []).map(s => s.id);
         if (studentIds.length > 0) {
+          // Fetch attendance by student IDs to ensure accuracy
           const { data: attendanceData } = await supabase
             .from('attendance_records')
             .select('*')
@@ -132,9 +134,12 @@ export function TeacherAttendanceStats() {
             .in('attendance_type', ['boarding', 'evening_study'])
             .gte('attendance_date', format(monthStart, 'yyyy-MM-dd'))
             .lte('attendance_date', format(monthEnd, 'yyyy-MM-dd'))
-            .order('attendance_date', { ascending: false });
+            .order('attendance_date', { ascending: false })
+            .order('created_at', { ascending: false });
 
           setAttendanceRecords(attendanceData || []);
+        } else {
+          setAttendanceRecords([]);
         }
       }
     } catch (error) {
@@ -143,7 +148,7 @@ export function TeacherAttendanceStats() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [currentSchool, isAdmin, isClassTeacher, teacherClassId, monthStart, monthEnd]);
 
   useEffect(() => {
     if (shouldShow) {
@@ -151,9 +156,63 @@ export function TeacherAttendanceStats() {
     } else {
       setIsLoading(false);
     }
-  }, [currentSchool, teacherClassId, isAdmin, isClassTeacher]);
+  }, [shouldShow, fetchData]);
 
-  // Calculate daily stats for the last 7 days
+  // Real-time subscription for attendance updates
+  useEffect(() => {
+    if (!currentSchool || !shouldShow) return;
+
+    const channel = supabase
+      .channel('teacher-attendance-stats')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance_records',
+          filter: `school_id=eq.${currentSchool.id}`,
+        },
+        () => {
+          // Refetch data when attendance changes
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentSchool?.id, shouldShow, fetchData]);
+
+  // Helper: Get the latest record per student for a specific type and date
+  const getLatestRecordsPerStudent = useCallback((
+    records: AttendanceRecord[],
+    date: string,
+    type: string
+  ): Map<string, AttendanceRecord> => {
+    const latestMap = new Map<string, AttendanceRecord>();
+    
+    // Filter records by date and type
+    const filtered = records.filter(r => 
+      r.attendance_date === date && r.attendance_type === type
+    );
+    
+    // Sort by created_at descending to get latest first
+    filtered.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    // Keep only the latest record per student
+    for (const record of filtered) {
+      if (!latestMap.has(record.student_id)) {
+        latestMap.set(record.student_id, record);
+      }
+    }
+    
+    return latestMap;
+  }, []);
+
+  // Calculate daily stats for the last 7 days using latest record per student
   const dailyStats = useMemo((): DailyStats[] => {
     const last7Days = eachDayOfInterval({
       start: new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000),
@@ -166,19 +225,21 @@ export function TeacherAttendanceStats() {
 
     return last7Days.map(date => {
       const dateStr = format(date, 'yyyy-MM-dd');
-      const dayRecords = attendanceRecords.filter(r => r.attendance_date === dateStr);
-
-      // Boarding stats - get unique absent students
-      const boardingRecords = dayRecords.filter(r => r.attendance_type === 'boarding');
-      const boardingAbsent = new Set(
-        boardingRecords.filter(r => r.status === 'absent').map(r => r.student_id)
-      ).size;
-
-      // Evening study stats - get unique absent students
-      const studyRecords = dayRecords.filter(r => r.attendance_type === 'evening_study');
-      const studyAbsent = new Set(
-        studyRecords.filter(r => r.status === 'absent').map(r => r.student_id)
-      ).size;
+      
+      // Get latest records per student for each type
+      const boardingLatest = getLatestRecordsPerStudent(attendanceRecords, dateStr, 'boarding');
+      const studyLatest = getLatestRecordsPerStudent(attendanceRecords, dateStr, 'evening_study');
+      
+      // Count unique absent students from latest records only
+      let boardingAbsent = 0;
+      boardingLatest.forEach(record => {
+        if (record.status === 'absent') boardingAbsent++;
+      });
+      
+      let studyAbsent = 0;
+      studyLatest.forEach(record => {
+        if (record.status === 'absent') studyAbsent++;
+      });
 
       return {
         date: dateStr,
@@ -195,12 +256,51 @@ export function TeacherAttendanceStats() {
         }
       };
     });
-  }, [students, attendanceRecords, today]);
+  }, [students, attendanceRecords, today, getLatestRecordsPerStudent]);
 
   // Today's summary
   const todayStats = useMemo(() => {
     return dailyStats.find(d => isSameDay(new Date(d.date), today));
   }, [dailyStats, today]);
+
+  // Get today's absent students using latest record per student logic
+  const todayAbsentStudents = useMemo(() => {
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const absentList: { student: Student; record: AttendanceRecord }[] = [];
+    const seenStudentTypes = new Set<string>(); // to prevent duplicates
+    
+    // Get latest boarding records
+    const boardingLatest = getLatestRecordsPerStudent(attendanceRecords, todayStr, 'boarding');
+    boardingLatest.forEach((record) => {
+      if (record.status === 'absent') {
+        const student = students.find(s => s.id === record.student_id);
+        if (student) {
+          const key = `${record.student_id}-${record.attendance_type}`;
+          if (!seenStudentTypes.has(key)) {
+            seenStudentTypes.add(key);
+            absentList.push({ student, record });
+          }
+        }
+      }
+    });
+    
+    // Get latest evening study records
+    const studyLatest = getLatestRecordsPerStudent(attendanceRecords, todayStr, 'evening_study');
+    studyLatest.forEach((record) => {
+      if (record.status === 'absent') {
+        const student = students.find(s => s.id === record.student_id);
+        if (student) {
+          const key = `${record.student_id}-${record.attendance_type}`;
+          if (!seenStudentTypes.has(key)) {
+            seenStudentTypes.add(key);
+            absentList.push({ student, record });
+          }
+        }
+      }
+    });
+    
+    return absentList;
+  }, [students, attendanceRecords, today, getLatestRecordsPerStudent]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -437,7 +537,7 @@ export function TeacherAttendanceStats() {
         </Collapsible>
 
         {/* Absent students list for today - only for class teacher - Collapsible */}
-        {!isAdmin && todayStats && (todayStats.boarding.absent > 0 || todayStats.eveningStudy.absent > 0) && (
+        {!isAdmin && todayAbsentStudents.length > 0 && (
           <Collapsible open={isAbsentListOpen} onOpenChange={setIsAbsentListOpen}>
             <CollapsibleTrigger asChild>
               <Button
@@ -447,7 +547,7 @@ export function TeacherAttendanceStats() {
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-destructive" />
                   <span className="text-xs font-semibold text-muted-foreground">
-                    Học sinh vắng hôm nay ({todayStats.boarding.absent + todayStats.eveningStudy.absent})
+                    Học sinh vắng hôm nay ({todayAbsentStudents.length})
                   </span>
                 </div>
                 {isAbsentListOpen ? (
@@ -459,29 +559,21 @@ export function TeacherAttendanceStats() {
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
               <div className="rounded-lg border p-2 space-y-1 max-h-32 overflow-y-auto">
-                {attendanceRecords
-                  .filter(r => 
-                    r.attendance_date === format(today, 'yyyy-MM-dd') && 
-                    r.status === 'absent'
-                  )
-                  .map(record => {
-                    const student = students.find(s => s.id === record.student_id);
-                    return (
-                      <div key={record.id} className="flex items-center justify-between text-xs">
-                        <span className="font-medium">{student?.full_name}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[10px] py-0">
-                            {record.attendance_type === 'boarding' ? 'Nội trú' : 'Tự học'}
-                          </Badge>
-                          {record.excused_reason && (
-                            <span className="text-muted-foreground truncate max-w-20">
-                              {record.excused_reason}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                {todayAbsentStudents.map(({ student, record }) => (
+                  <div key={record.id} className="flex items-center justify-between text-xs">
+                    <span className="font-medium">{student.full_name}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] py-0">
+                        {record.attendance_type === 'boarding' ? 'Nội trú' : 'Tự học'}
+                      </Badge>
+                      {record.excused_reason && (
+                        <span className="text-muted-foreground truncate max-w-20">
+                          {record.excused_reason}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </CollapsibleContent>
           </Collapsible>
