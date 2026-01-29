@@ -298,6 +298,7 @@ export type Database = {
           created_at: string
           discipline_score: number | null
           id: string
+          notes: string | null
           reporter_id: string | null
           school_id: string
           school_year: string
@@ -311,6 +312,7 @@ export type Database = {
           created_at?: string
           discipline_score?: number | null
           id?: string
+          notes?: string | null
           reporter_id?: string | null
           school_id: string
           school_year: string
@@ -324,6 +326,7 @@ export type Database = {
           created_at?: string
           discipline_score?: number | null
           id?: string
+          notes?: string | null
           reporter_id?: string | null
           school_id?: string
           school_year?: string
