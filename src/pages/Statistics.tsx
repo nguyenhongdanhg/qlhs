@@ -465,14 +465,17 @@ export default function Statistics() {
 
         const reporterName = (latestBoardingReporter as any).reporter?.full_name || 'N/A';
 
-        // Use the actual counts from the latest reporter's report
+        // Use total boarding students for consistency with Dashboard
+        // Boarding students = students.length (query filters by is_boarding=true at line 296)
+        const totalBoardingStudents = students.length;
+        
         setLatestBoardingReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Nội trú',
           reporter: reporterName,
           reportTime: format(new Date(latestBoardingReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: latestBoardingRecords.length, // Total students in this report
+          total: totalBoardingStudents, // Total boarding students in school
           present: presentRecords.length,
           absent: absentRecords.length,
           absentStudents,
@@ -505,16 +508,21 @@ export default function Statistics() {
 
         const reporterName = (latestStudyReporter as any).reporter?.full_name || 'N/A';
 
-        // Use the actual counts from the latest reporter's report
+        // Use total student count for consistency with Dashboard
+        // Present = students in report with status 'present'
+        // Absent = total students - present (same logic as Dashboard)
+        const totalStudentsCount = students.length;
+        const absentCount = absentRecords.length;
+        
         setLatestStudyReport({
           date: dateStr,
           session: '',
           sessionLabel: 'Tự học tối',
           reporter: reporterName,
           reportTime: format(new Date(latestStudyReporter.created_at || new Date()), 'HH:mm dd/MM/yyyy'),
-          total: latestStudyRecords.length, // Total students in this report
+          total: totalStudentsCount, // Total boarding students
           present: presentRecords.length,
-          absent: absentRecords.length,
+          absent: absentCount,
           absentStudents,
         });
       } else {
