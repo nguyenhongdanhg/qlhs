@@ -24,6 +24,14 @@ import { format, isWithinInterval, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
+interface BoardingSessionStats {
+  session: 'morning' | 'noon' | 'evening';
+  label: string;
+  present: number;
+  total: number;
+  hasReport: boolean;
+}
+
 interface DashboardStats {
   totalStudents: number;
   boardingStudents: number;
@@ -43,9 +51,9 @@ interface DashboardStats {
   hasBoardingNoon: boolean;
   hasBoardingEvening: boolean;
   hasEveningStudy: boolean;
-  // Real stats from database
-  boardingStats: { session: string; present: number; total: number }[];
-  eveningStudyStats: { present: number; total: number };
+  // Real stats from database - now with 3 sessions
+  boardingSessionStats: BoardingSessionStats[];
+  eveningStudyStats: { present: number; total: number; hasReport: boolean };
 }
 
 interface EmulationData {
@@ -102,6 +110,15 @@ export default function Dashboard() {
     queryFn: async (): Promise<DashboardStats> => {
       if (!currentSchool) throw new Error('No school selected');
 
+      // First fetch students count
+      const { data: allStudents } = await supabase
+        .from('students')
+        .select('id')
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true);
+      
+      const totalStudentsCount = allStudents?.length || 0;
+
       const [studentsResult, boardingResult, classesResult, teachersResult, attendanceResult, boardingStudentsResult] = await Promise.all([
         supabase
           .from('students')
@@ -126,7 +143,7 @@ export default function Dashboard() {
           .eq('status', 'active'),
         supabase
           .from('attendance_records')
-          .select('attendance_type, status, created_at')
+          .select('attendance_type, status, created_at, student_id')
           .eq('school_id', currentSchool.id)
           .eq('attendance_date', dateStr),
         supabase
@@ -138,66 +155,98 @@ export default function Dashboard() {
       ]);
 
       const totalBoardingStudents = boardingStudentsResult.data?.length || 0;
+      const boardingStudentIds = new Set((boardingStudentsResult.data || []).map(s => s.id));
 
       const mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
       let hasBreakfast = false, hasLunch = false, hasDinner = false;
-      let hasBoardingMorning = false, hasBoardingNoon = false, hasBoardingEvening = false;
       let hasEveningStudy = false;
       
-      // Track boarding stats by finding latest batch
+      // Filter records by type
       const boardingRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'boarding');
       const eveningStudyRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'evening_study');
       
-      let boardingPresent = 0;
-      let eveningStudyPresent = 0;
-      
-      (attendanceResult.data || []).forEach(record => {
-        if (record.attendance_type === 'breakfast') hasBreakfast = true;
-        if (record.attendance_type === 'lunch') hasLunch = true;
-        if (record.attendance_type === 'dinner') hasDinner = true;
-        if (record.attendance_type === 'boarding') hasBoardingMorning = true;
-        if (record.attendance_type === 'evening_study') hasEveningStudy = true;
-        
-        if (record.status === 'present') {
-          if (record.attendance_type === 'breakfast') mealStats.breakfast++;
-          if (record.attendance_type === 'lunch') mealStats.lunch++;
-          if (record.attendance_type === 'dinner') mealStats.dinner++;
-          if (record.attendance_type === 'boarding') boardingPresent++;
-          if (record.attendance_type === 'evening_study') eveningStudyPresent++;
+      // Helper: Get snapshot stats from records using 60-second window
+      const getSnapshotFromRecords = (records: typeof attendanceResult.data, total: number) => {
+        if (!records || records.length === 0) {
+          return { present: 0, total, hasReport: false };
         }
-      });
-
-      // Get latest boarding snapshot
-      const boardingStats: { session: string; present: number; total: number }[] = [];
-      if (boardingRecords.length > 0) {
-        // Find latest batch by created_at
-        const sortedRecords = [...boardingRecords].sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        
+        // Sort by created_at descending
+        const sorted = [...records].sort((a, b) => 
+          new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime()
         );
-        const latestTime = new Date(sortedRecords[0].created_at).getTime();
-        const latestBatch = sortedRecords.filter(r => 
-          Math.abs(new Date(r.created_at).getTime() - latestTime) < 60000
-        );
-        const presentCount = latestBatch.filter(r => r.status === 'present').length;
-        boardingStats.push({
-          session: 'Nội trú',
-          present: presentCount,
-          total: totalBoardingStudents,
+        
+        // Get latest time and 60-second window
+        const latestTime = new Date(sorted[0].created_at!).getTime();
+        const windowStart = latestTime - 60 * 1000;
+        
+        // Get records within snapshot window
+        const snapshotRecords = sorted.filter(r => {
+          const recordTime = new Date(r.created_at!).getTime();
+          return recordTime >= windowStart && recordTime <= latestTime;
         });
-      }
-
-      // Get latest evening study snapshot
-      const eveningStudyStats = { present: 0, total: totalBoardingStudents };
-      if (eveningStudyRecords.length > 0) {
-        const sortedRecords = [...eveningStudyRecords].sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        const latestTime = new Date(sortedRecords[0].created_at).getTime();
-        const latestBatch = sortedRecords.filter(r => 
-          Math.abs(new Date(r.created_at).getTime() - latestTime) < 60000
-        );
-        eveningStudyStats.present = latestBatch.filter(r => r.status === 'present').length;
-      }
+        
+        // Count unique students (latest record per student)
+        const latestByStudent = new Map<string, string>();
+        for (const r of snapshotRecords) {
+          if (!latestByStudent.has(r.student_id)) {
+            latestByStudent.set(r.student_id, r.status);
+          }
+        }
+        
+        let present = 0;
+        latestByStudent.forEach(status => {
+          if (status === 'present') present++;
+        });
+        
+        return { present, total, hasReport: true };
+      };
+      
+      // Separate boarding records by time of day (morning: before 10am, noon: 10am-4pm, evening: after 4pm)
+      const classifyBoardingSession = (createdAt: string): 'morning' | 'noon' | 'evening' => {
+        const hour = new Date(createdAt).getHours();
+        if (hour < 10) return 'morning';
+        if (hour < 16) return 'noon';
+        return 'evening';
+      };
+      
+      const morningBoarding = boardingRecords.filter(r => classifyBoardingSession(r.created_at!) === 'morning');
+      const noonBoarding = boardingRecords.filter(r => classifyBoardingSession(r.created_at!) === 'noon');
+      const eveningBoarding = boardingRecords.filter(r => classifyBoardingSession(r.created_at!) === 'evening');
+      
+      const morningStats = getSnapshotFromRecords(morningBoarding, totalBoardingStudents);
+      const noonStats = getSnapshotFromRecords(noonBoarding, totalBoardingStudents);
+      const eveningStats = getSnapshotFromRecords(eveningBoarding, totalBoardingStudents);
+      
+      const boardingSessionStats: BoardingSessionStats[] = [
+        { session: 'morning', label: 'Sáng', ...morningStats },
+        { session: 'noon', label: 'Trưa', ...noonStats },
+        { session: 'evening', label: 'Tối', ...eveningStats },
+      ];
+      
+      const hasBoardingMorning = morningStats.hasReport;
+      const hasBoardingNoon = noonStats.hasReport;
+      const hasBoardingEvening = eveningStats.hasReport;
+      
+      // Get meal stats using snapshot logic - use totalStudentsCount from earlier fetch
+      const breakfastRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'breakfast');
+      const lunchRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'lunch');
+      const dinnerRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'dinner');
+      
+      const breakfastSnapshot = getSnapshotFromRecords(breakfastRecords, totalStudentsCount);
+      const lunchSnapshot = getSnapshotFromRecords(lunchRecords, totalStudentsCount);
+      const dinnerSnapshot = getSnapshotFromRecords(dinnerRecords, totalStudentsCount);
+      
+      hasBreakfast = breakfastSnapshot.hasReport;
+      hasLunch = lunchSnapshot.hasReport;
+      hasDinner = dinnerSnapshot.hasReport;
+      mealStats.breakfast = breakfastSnapshot.present;
+      mealStats.lunch = lunchSnapshot.present;
+      mealStats.dinner = dinnerSnapshot.present;
+      
+      // Get evening study stats
+      const eveningStudyStats = getSnapshotFromRecords(eveningStudyRecords, totalBoardingStudents);
+      hasEveningStudy = eveningStudyStats.hasReport;
 
       // Grade stats
       const { data: studentsWithGrades } = await supabase
@@ -270,7 +319,7 @@ export default function Dashboard() {
         hasBoardingNoon,
         hasBoardingEvening,
         hasEveningStudy,
-        boardingStats,
+        boardingSessionStats,
         eveningStudyStats,
       };
     },
@@ -547,19 +596,19 @@ export default function Dashboard() {
                     <Home className="h-3.5 w-3.5 text-primary" />
                     <span className="text-xs font-semibold text-foreground">Nội trú</span>
                   </div>
-                  {stats?.boardingStats && stats.boardingStats.length > 0 ? (
+                  {stats?.boardingSessionStats && stats.boardingSessionStats.some(s => s.hasReport) ? (
                     <div className="space-y-1.5">
-                      {stats.boardingStats.map((s, i) => {
-                        const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
-                        return (
-                          <div key={i} className="flex items-center gap-2">
-                            <span className="w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium bg-success/20 text-success shrink-0">
-                              {pct}%
-                            </span>
-                            <span className="text-xs text-muted-foreground min-w-[3rem] text-right">{s.present}/{s.total}</span>
-                          </div>
-                        );
-                      })}
+                      {stats.boardingSessionStats.map((s, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className={cn(
+                            "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
+                            s.hasReport ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
+                          )}>{s.label}</span>
+                          <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
+                            {s.hasReport ? s.present : '--'}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-muted text-muted-foreground inline-block">
@@ -574,15 +623,18 @@ export default function Dashboard() {
                     <BookOpen className="h-3.5 w-3.5 text-warning" />
                     <span className="text-xs font-semibold text-foreground">Tự học</span>
                   </div>
-                  {stats?.hasEveningStudy && stats.eveningStudyStats ? (
+                  {stats?.eveningStudyStats?.hasReport ? (
                     <div className="flex items-center gap-2">
-                      <span className="w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium bg-success/20 text-success shrink-0">
+                      <span className={cn(
+                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
+                        "bg-success/20 text-success"
+                      )}>
                         {stats.eveningStudyStats.total > 0 
                           ? Math.round((stats.eveningStudyStats.present / stats.eveningStudyStats.total) * 100) 
                           : 0}%
                       </span>
-                      <span className="text-xs text-muted-foreground min-w-[3rem] text-right">
-                        {stats.eveningStudyStats.present}/{stats.eveningStudyStats.total}
+                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
+                        {stats.eveningStudyStats.present}
                       </span>
                     </div>
                   ) : (
