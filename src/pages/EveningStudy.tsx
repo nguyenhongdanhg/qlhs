@@ -147,6 +147,10 @@ export default function EveningStudy() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [reportToShare, setReportToShare] = useState<SavedReport | null>(null);
 
+  // Edit mode tracking - prevents auto-refresh from overwriting data when editing a report
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editModeData, setEditModeData] = useState<{attendance: AttendanceMap, excuse: ExcuseMap, notes: string} | null>(null);
+
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
   // Sort classes by grade
@@ -630,12 +634,7 @@ export default function EveningStudy() {
   const handleEditReport = async (report: SavedReport) => {
     if (!currentSchool) return;
     
-    // Set the date to the report's date
-    const reportDate = new Date(report.date);
-    setDate(reportDate);
-    setSelectedSession(report.session);
-    
-    // Load attendance data from database for this date
+    // Load attendance data from database for this date BEFORE setting date
     try {
       setIsLoading(true);
       const dateStr = report.date;
@@ -665,9 +664,14 @@ export default function EveningStudy() {
         }
       });
 
-      setAttendance(attendanceMap);
-      setExcuseInfo(excuseMap);
-      setReportNotes(report.notes || '');
+      // Store edit mode data to apply after date change triggers effect
+      setEditModeData({ attendance: attendanceMap, excuse: excuseMap, notes: report.notes || '' });
+      setIsEditMode(true);
+      
+      // Now set the date (this will trigger fetchStudentsAndAttendance, but we'll override it)
+      const reportDate = new Date(report.date);
+      setDate(reportDate);
+      setSelectedSession(report.session);
       setActiveTab('attendance');
       
       toast({
@@ -685,6 +689,17 @@ export default function EveningStudy() {
       setIsLoading(false);
     }
   };
+
+  // Apply edit mode data after component updates
+  useEffect(() => {
+    if (isEditMode && editModeData) {
+      setAttendance(editModeData.attendance);
+      setExcuseInfo(editModeData.excuse);
+      setReportNotes(editModeData.notes);
+      setIsEditMode(false);
+      setEditModeData(null);
+    }
+  }, [isEditMode, editModeData]);
 
   const filteredStudents = useMemo(() => {
     if (selectedClass === 'all' || selectedClass === 'Tất cả') return students;
