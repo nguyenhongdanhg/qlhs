@@ -14,6 +14,7 @@ import {
   ChevronRight,
   LogOut,
   Menu,
+  Trophy,
 } from 'lucide-react';
 import { bottomNavCodes } from '@/components/layout/MobileNav';
 
@@ -28,6 +29,13 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  {
+    code: 'emulation',
+    label: 'Thi đua',
+    description: 'Quản lý điểm thi đua',
+    icon: Trophy,
+    path: '/emulation',
+  },
   {
     code: 'statistics',
     label: 'Thống kê',
