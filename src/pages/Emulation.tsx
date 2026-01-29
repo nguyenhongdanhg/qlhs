@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,9 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Save, Calculator, RefreshCw } from 'lucide-react';
+import { Trophy, Save, Calculator, RefreshCw, CalendarDays } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { naturalSortCompare } from '@/lib/utils';
+import { WeekSettingsDialog } from '@/components/emulation/WeekSettingsDialog';
+import { useCurrentWeek } from '@/hooks/useCurrentWeek';
 
 interface EmulationScore {
   id?: string;
@@ -52,6 +54,11 @@ export default function Emulation() {
   const currentYear = new Date().getFullYear();
   const schoolYear = `${currentYear}-${currentYear + 1}`;
   
+  const { currentWeek, weekSettings, getWeekDateRange, refetch: refetchWeekSettings } = useCurrentWeek(
+    currentSchool?.id,
+    schoolYear
+  );
+  
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [activeTab, setActiveTab] = useState('weekly');
   const [editingScores, setEditingScores] = useState<Record<string, Partial<EmulationScore>>>({});
@@ -62,6 +69,22 @@ export default function Emulation() {
   const [periodAverages, setPeriodAverages] = useState<ClassWithScore[] | null>(null);
 
   const canEdit = isSuperAdmin || isSchoolAdmin() || hasPermission('emulation', 'edit');
+  
+  // Auto-select current week when loaded
+  useEffect(() => {
+    if (currentWeek > 0) {
+      setSelectedWeek(currentWeek);
+    }
+  }, [currentWeek]);
+  
+  // Get date range for selected week
+  const selectedWeekDateRange = getWeekDateRange(selectedWeek);
+  
+  const formatWeekDateRange = (weekNum: number) => {
+    const range = getWeekDateRange(weekNum);
+    if (!range) return '';
+    return `${format(parseISO(range.start), 'dd/MM')} - ${format(parseISO(range.end), 'dd/MM')}`;
+  };
 
   // Fetch classes
   const { data: classes = [] } = useQuery({
@@ -326,28 +349,38 @@ export default function Emulation() {
         {/* Weekly Tab */}
         <TabsContent value="weekly" className="space-y-4">
           <Card>
-            <CardHeader className="pb-3">
+<CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <CardTitle className="text-lg">Bảng điểm thi đua</CardTitle>
                   <CardDescription>Nhập điểm và xếp hạng các lớp theo tuần</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Select
                     value={selectedWeek.toString()}
                     onValueChange={(v) => setSelectedWeek(parseInt(v))}
                   >
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Chọn tuần" />
                     </SelectTrigger>
                     <SelectContent>
-                      {weekOptions.map((week) => (
-                        <SelectItem key={week} value={week.toString()}>
-                          Tuần {week}
-                        </SelectItem>
-                      ))}
+                      {weekOptions.map((week) => {
+                        const dateRange = formatWeekDateRange(week);
+                        return (
+                          <SelectItem key={week} value={week.toString()}>
+                            Tuần {week} {dateRange && `(${dateRange})`}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
+                  {canEdit && currentSchool?.id && (
+                    <WeekSettingsDialog
+                      schoolId={currentSchool.id}
+                      schoolYear={schoolYear}
+                      onSaved={refetchWeekSettings}
+                    />
+                  )}
                   <Button variant="outline" size="icon" onClick={() => refetch()}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
@@ -359,6 +392,17 @@ export default function Emulation() {
                   )}
                 </div>
               </div>
+              {selectedWeekDateRange && (
+                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>
+                    Tuần {selectedWeek}: {format(parseISO(selectedWeekDateRange.start), 'dd/MM/yyyy', { locale: vi })} - {format(parseISO(selectedWeekDateRange.end), 'dd/MM/yyyy', { locale: vi })}
+                  </span>
+                  {selectedWeek === currentWeek && (
+                    <Badge variant="secondary" className="ml-2">Tuần hiện tại</Badge>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <div className="rounded-md border overflow-x-auto">
@@ -477,15 +521,18 @@ export default function Emulation() {
                     value={periodFromWeek.toString()}
                     onValueChange={(v) => setPeriodFromWeek(parseInt(v))}
                   >
-                    <SelectTrigger className="w-[100px]">
+                    <SelectTrigger className="w-[160px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {weekOptions.map((week) => (
-                        <SelectItem key={week} value={week.toString()}>
-                          {week}
-                        </SelectItem>
-                      ))}
+                      {weekOptions.map((week) => {
+                        const dateRange = formatWeekDateRange(week);
+                        return (
+                          <SelectItem key={week} value={week.toString()}>
+                            {week} {dateRange && `(${dateRange})`}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -495,15 +542,18 @@ export default function Emulation() {
                     value={periodToWeek.toString()}
                     onValueChange={(v) => setPeriodToWeek(parseInt(v))}
                   >
-                    <SelectTrigger className="w-[100px]">
+                    <SelectTrigger className="w-[160px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {weekOptions.map((week) => (
-                        <SelectItem key={week} value={week.toString()}>
-                          {week}
-                        </SelectItem>
-                      ))}
+                      {weekOptions.map((week) => {
+                        const dateRange = formatWeekDateRange(week);
+                        return (
+                          <SelectItem key={week} value={week.toString()}>
+                            {week} {dateRange && `(${dateRange})`}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

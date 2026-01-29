@@ -905,6 +905,47 @@ export type Database = {
           },
         ]
       }
+      week_settings: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          school_id: string
+          school_year: string
+          start_date: string
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          school_id: string
+          school_year: string
+          start_date: string
+          updated_at?: string
+          week_number: number
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          school_id?: string
+          school_year?: string
+          start_date?: string
+          updated_at?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "week_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
