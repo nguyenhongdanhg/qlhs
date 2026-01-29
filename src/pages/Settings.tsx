@@ -18,6 +18,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { MealSettingsCard } from '@/components/settings/MealSettingsCard';
+import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
 
 export default function Settings() {
   const { profile, currentMembership, user, refreshProfile, isSuperAdmin, currentSchool } = useAuth();
@@ -278,6 +279,9 @@ export default function Settings() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Notification Settings */}
+        <NotificationSettingsCard />
 
         {/* Meal Settings - Only for admin/super_admin */}
         {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (

@@ -575,6 +575,53 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string | null
+          created_at: string
+          endpoint: string
+          id: string
+          is_active: boolean
+          p256dh: string | null
+          reminder_minutes: number
+          school_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth?: string | null
+          created_at?: string
+          endpoint: string
+          id?: string
+          is_active?: boolean
+          p256dh?: string | null
+          reminder_minutes?: number
+          school_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth?: string | null
+          created_at?: string
+          endpoint?: string
+          id?: string
+          is_active?: boolean
+          p256dh?: string | null
+          reminder_minutes?: number
+          school_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rice_inventory: {
         Row: {
           amount: number
