@@ -120,17 +120,27 @@ export function ClassMealStatistics({
     try {
       const days = eachDayOfInterval({ start: dateRange.start, end: dateRange.end });
 
-      // Fetch attendance records for the class only
+      // CRITICAL: Query based on student IDs from classStudents list
+      // This ensures data integrity even if class_id in attendance_records is inconsistent
+      const studentIds = classStudents.map(s => s.id);
+      
+      if (studentIds.length === 0) {
+        setDailyRecords([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch attendance records for students in this class
       const { data: records } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('school_id', currentSchool.id)
-        .eq('class_id', teacherClassId)
+        .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', format(dateRange.start, 'yyyy-MM-dd'))
         .lte('attendance_date', format(dateRange.end, 'yyyy-MM-dd'));
 
-      // Get latest record per student/date/meal
+      // Get latest record per student/date/meal - this ensures no duplicates
       const latestByKey = new Map<string, any>();
       (records || []).forEach((record: any) => {
         const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
