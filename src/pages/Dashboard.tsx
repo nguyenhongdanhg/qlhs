@@ -24,14 +24,6 @@ import { format, isWithinInterval, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-interface BoardingSessionStats {
-  session: 'morning' | 'noon' | 'evening';
-  label: string;
-  present: number;
-  total: number;
-  hasReport: boolean;
-}
-
 interface DashboardStats {
   totalStudents: number;
   boardingStudents: number;
@@ -47,13 +39,11 @@ interface DashboardStats {
   hasBreakfast: boolean;
   hasLunch: boolean;
   hasDinner: boolean;
-  hasBoardingMorning: boolean;
-  hasBoardingNoon: boolean;
-  hasBoardingEvening: boolean;
+  hasBoarding: boolean;
   hasEveningStudy: boolean;
-  // Real stats from database - now with 3 sessions
-  boardingSessionStats: BoardingSessionStats[];
-  eveningStudyStats: { present: number; total: number; hasReport: boolean };
+  // Real stats from database - unified boarding stats (no session split since DB doesn't store session_id)
+  boardingStats: { present: number; absent: number; total: number; hasReport: boolean };
+  eveningStudyStats: { present: number; absent: number; total: number; hasReport: boolean };
 }
 
 interface EmulationData {
@@ -202,31 +192,16 @@ export default function Dashboard() {
         return { present, total, hasReport: true };
       };
       
-      // Separate boarding records by time of day (morning: before 10am, noon: 10am-4pm, evening: after 4pm)
-      const classifyBoardingSession = (createdAt: string): 'morning' | 'noon' | 'evening' => {
-        const hour = new Date(createdAt).getHours();
-        if (hour < 10) return 'morning';
-        if (hour < 16) return 'noon';
-        return 'evening';
+      // Get unified boarding stats (no session split - DB doesn't store session_id)
+      // Use getSnapshotFromRecords which finds latest report batch using 60-second window
+      const boardingSnapshotRaw = getSnapshotFromRecords(boardingRecords, totalBoardingStudents);
+      const boardingStats = {
+        present: boardingSnapshotRaw.present,
+        absent: boardingSnapshotRaw.total - boardingSnapshotRaw.present,
+        total: boardingSnapshotRaw.total,
+        hasReport: boardingSnapshotRaw.hasReport
       };
-      
-      const morningBoarding = boardingRecords.filter(r => classifyBoardingSession(r.created_at!) === 'morning');
-      const noonBoarding = boardingRecords.filter(r => classifyBoardingSession(r.created_at!) === 'noon');
-      const eveningBoarding = boardingRecords.filter(r => classifyBoardingSession(r.created_at!) === 'evening');
-      
-      const morningStats = getSnapshotFromRecords(morningBoarding, totalBoardingStudents);
-      const noonStats = getSnapshotFromRecords(noonBoarding, totalBoardingStudents);
-      const eveningStats = getSnapshotFromRecords(eveningBoarding, totalBoardingStudents);
-      
-      const boardingSessionStats: BoardingSessionStats[] = [
-        { session: 'morning', label: 'Sáng', ...morningStats },
-        { session: 'noon', label: 'Trưa', ...noonStats },
-        { session: 'evening', label: 'Tối', ...eveningStats },
-      ];
-      
-      const hasBoardingMorning = morningStats.hasReport;
-      const hasBoardingNoon = noonStats.hasReport;
-      const hasBoardingEvening = eveningStats.hasReport;
+      const hasBoarding = boardingStats.hasReport;
       
       // Get meal stats using snapshot logic - use totalStudentsCount from earlier fetch
       const breakfastRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'breakfast');
@@ -315,12 +290,15 @@ export default function Dashboard() {
         hasBreakfast,
         hasLunch,
         hasDinner,
-        hasBoardingMorning,
-        hasBoardingNoon,
-        hasBoardingEvening,
+        hasBoarding,
         hasEveningStudy,
-        boardingSessionStats,
-        eveningStudyStats,
+        boardingStats,
+        eveningStudyStats: {
+          present: eveningStudyStats.present,
+          absent: eveningStudyStats.total - eveningStudyStats.present,
+          total: eveningStudyStats.total,
+          hasReport: eveningStudyStats.hasReport
+        },
       };
     },
     enabled: !!currentSchool,
@@ -420,20 +398,18 @@ export default function Dashboard() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Calculate completion percentage
+  // Calculate completion percentage - now 5 items (3 meals + 1 boarding + 1 evening study)
   const completionStats = useMemo(() => {
-    if (!stats) return { completed: 0, total: 7, percentage: 0 };
+    if (!stats) return { completed: 0, total: 5, percentage: 0 };
     
     let completed = 0;
     if (stats.hasBreakfast) completed++;
     if (stats.hasLunch) completed++;
     if (stats.hasDinner) completed++;
-    if (stats.hasBoardingMorning) completed++;
-    if (stats.hasBoardingNoon) completed++;
-    if (stats.hasBoardingEvening) completed++;
+    if (stats.hasBoarding) completed++;
     if (stats.hasEveningStudy) completed++;
     
-    const total = 7;
+    const total = 5;
     const percentage = Math.round((completed / total) * 100);
     
     return { completed, total, percentage };
@@ -590,25 +566,25 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Boarding with real data */}
+                {/* Boarding with unified data (no session split - DB doesn't store session_id) */}
                 <div className="px-3">
                   <div className="flex items-center gap-1.5 mb-2">
                     <Home className="h-3.5 w-3.5 text-primary" />
                     <span className="text-xs font-semibold text-foreground">Nội trú</span>
                   </div>
-                  {stats?.boardingSessionStats && stats.boardingSessionStats.some(s => s.hasReport) ? (
-                    <div className="space-y-1.5">
-                      {stats.boardingSessionStats.map((s, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className={cn(
-                            "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
-                            s.hasReport ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
-                          )}>{s.label}</span>
-                          <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
-                            {s.hasReport ? s.present : '--'}
-                          </span>
-                        </div>
-                      ))}
+                  {stats?.boardingStats?.hasReport ? (
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
+                        "bg-success/20 text-success"
+                      )}>
+                        {stats.boardingStats.total > 0 
+                          ? Math.round((stats.boardingStats.present / stats.boardingStats.total) * 100) 
+                          : 0}%
+                      </span>
+                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
+                        {stats.boardingStats.present}/{stats.boardingStats.total}
+                      </span>
                     </div>
                   ) : (
                     <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-muted text-muted-foreground inline-block">
@@ -634,7 +610,7 @@ export default function Dashboard() {
                           : 0}%
                       </span>
                       <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
-                        {stats.eveningStudyStats.present}
+                        {stats.eveningStudyStats.present}/{stats.eveningStudyStats.total}
                       </span>
                     </div>
                   ) : (
