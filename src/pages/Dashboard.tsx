@@ -31,6 +31,14 @@ interface DashboardStats {
   gradeStats: { grade: number; total: number; boarding: number }[];
   className?: string; // For class teachers
   classId?: string; // UUID of class for teachers
+  // Completion tracking for today
+  hasBreakfast: boolean;
+  hasLunch: boolean;
+  hasDinner: boolean;
+  hasBoardingMorning: boolean;
+  hasBoardingNoon: boolean;
+  hasBoardingEvening: boolean;
+  hasEveningStudy: boolean;
 }
 
 export default function Dashboard() {
@@ -98,6 +106,13 @@ export default function Dashboard() {
             mealStats: { breakfast: 0, lunch: 0, dinner: 0 },
             gradeStats: [],
             className: 'N/A',
+            hasBreakfast: false,
+            hasLunch: false,
+            hasDinner: false,
+            hasBoardingMorning: false,
+            hasBoardingNoon: false,
+            hasBoardingEvening: false,
+            hasEveningStudy: false,
           };
         }
 
@@ -113,8 +128,11 @@ export default function Dashboard() {
         const totalStudents = classStudents?.length || 0;
         const boardingStudents = classStudents?.filter(s => s.is_boarding).length || 0;
 
-        // Fetch attendance by student IDs (not class_id since class_id in attendance_records might be NULL)
+        // Fetch ALL attendance types for today by student IDs
         let mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
+        let hasBreakfast = false, hasLunch = false, hasDinner = false;
+        let hasBoardingMorning = false, hasBoardingNoon = false, hasBoardingEvening = false;
+        let hasEveningStudy = false;
         
         if (studentIds.length > 0) {
           const { data: attendanceData } = await supabase
@@ -122,8 +140,7 @@ export default function Dashboard() {
             .select('attendance_type, status, student_id')
             .eq('school_id', currentSchool.id)
             .in('student_id', studentIds)
-            .eq('attendance_date', dateStr)
-            .in('attendance_type', ['breakfast', 'lunch', 'dinner']);
+            .eq('attendance_date', dateStr);
 
           // Get unique present students per meal type
           const breakfastPresent = new Set<string>();
@@ -131,6 +148,17 @@ export default function Dashboard() {
           const dinnerPresent = new Set<string>();
 
           (attendanceData || []).forEach(record => {
+            // Check what attendance types exist (for completion tracking)
+            if (record.attendance_type === 'breakfast') hasBreakfast = true;
+            if (record.attendance_type === 'lunch') hasLunch = true;
+            if (record.attendance_type === 'dinner') hasDinner = true;
+            if (record.attendance_type === 'boarding') {
+              // Check time-based session: Sáng (6-7h), Trưa (11-13h), Tối (21:30-23h)
+              // We need to track these separately - for now just mark any boarding as done
+              hasBoardingMorning = true; // Simplified - any boarding record counts
+            }
+            if (record.attendance_type === 'evening_study') hasEveningStudy = true;
+            
             if (record.status === 'present') {
               if (record.attendance_type === 'breakfast') breakfastPresent.add(record.student_id);
               if (record.attendance_type === 'lunch') lunchPresent.add(record.student_id);
@@ -154,6 +182,13 @@ export default function Dashboard() {
           gradeStats: [],
           className: classData.name,
           classId: classData.id,
+          hasBreakfast,
+          hasLunch,
+          hasDinner,
+          hasBoardingMorning,
+          hasBoardingNoon,
+          hasBoardingEvening,
+          hasEveningStudy,
         };
       }
 
@@ -188,7 +223,21 @@ export default function Dashboard() {
       ]);
 
       const mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
+      let hasBreakfast = false, hasLunch = false, hasDinner = false;
+      let hasBoardingMorning = false, hasBoardingNoon = false, hasBoardingEvening = false;
+      let hasEveningStudy = false;
+      
       (attendanceResult.data || []).forEach(record => {
+        // Track completion
+        if (record.attendance_type === 'breakfast') hasBreakfast = true;
+        if (record.attendance_type === 'lunch') hasLunch = true;
+        if (record.attendance_type === 'dinner') hasDinner = true;
+        if (record.attendance_type === 'boarding') {
+          // For admin, just mark any boarding as done for now
+          hasBoardingMorning = true;
+        }
+        if (record.attendance_type === 'evening_study') hasEveningStudy = true;
+        
         if (record.status === 'present') {
           if (record.attendance_type === 'breakfast') mealStats.breakfast++;
           if (record.attendance_type === 'lunch') mealStats.lunch++;
@@ -227,6 +276,13 @@ export default function Dashboard() {
         totalClasses: classesResult.count || 0,
         mealStats,
         gradeStats,
+        hasBreakfast,
+        hasLunch,
+        hasDinner,
+        hasBoardingMorning,
+        hasBoardingNoon,
+        hasBoardingEvening,
+        hasEveningStudy,
       };
     },
     enabled: !!currentSchool,
@@ -239,6 +295,26 @@ export default function Dashboard() {
     { label: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals', color: 'from-violet-500 to-purple-500', iconBg: 'bg-violet-100 text-violet-600' },
     { label: 'Xem thống kê', icon: BarChart3, path: '/statistics', color: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-100 text-emerald-600' },
   ], []);
+
+  // Calculate completion percentage based on 7 daily tasks
+  const completionStats = useMemo(() => {
+    if (!stats) return { completed: 0, total: 7, percentage: 0 };
+    
+    // Count completed tasks: 3 meals + 3 boarding sessions + 1 evening study = 7
+    let completed = 0;
+    if (stats.hasBreakfast) completed++;
+    if (stats.hasLunch) completed++;
+    if (stats.hasDinner) completed++;
+    if (stats.hasBoardingMorning) completed++;
+    if (stats.hasBoardingNoon) completed++;
+    if (stats.hasBoardingEvening) completed++;
+    if (stats.hasEveningStudy) completed++;
+    
+    const total = 7;
+    const percentage = Math.round((completed / total) * 100);
+    
+    return { completed, total, percentage };
+  }, [stats]);
 
   // For class teachers, show different card labels
   const statCards = useMemo(() => {
@@ -285,7 +361,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 sm:gap-3 bg-white/10 rounded-xl px-3 sm:px-4 py-2 backdrop-blur-sm self-end sm:self-auto">
               <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
               <div className="text-right">
-                <p className="text-2xl sm:text-3xl font-bold">0%</p>
+                <p className="text-2xl sm:text-3xl font-bold">{completionStats.percentage}%</p>
                 <p className="text-[10px] sm:text-xs opacity-90">hoàn thành</p>
               </div>
             </div>
@@ -344,7 +420,9 @@ export default function Dashboard() {
                   </div>
                   <h3 className="font-semibold text-sm sm:text-base text-foreground">Tiến độ hôm nay</h3>
                 </div>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full font-medium">0/7</span>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full font-medium">
+                  {completionStats.completed}/{completionStats.total}
+                </span>
               </div>
 
               <div className="grid gap-4 grid-cols-3">
@@ -355,11 +433,30 @@ export default function Dashboard() {
                     <span className="text-xs font-semibold text-foreground">Bữa ăn</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {['Sáng', 'Trưa', 'Tối'].map((meal) => (
-                      <span key={meal} className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground font-medium">
-                        {meal}
-                      </span>
-                    ))}
+                    <span className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                      stats?.hasBreakfast 
+                        ? "bg-success/20 text-success" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      Sáng
+                    </span>
+                    <span className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                      stats?.hasLunch 
+                        ? "bg-success/20 text-success" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      Trưa
+                    </span>
+                    <span className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                      stats?.hasDinner 
+                        ? "bg-success/20 text-success" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      Tối
+                    </span>
                   </div>
                 </div>
 
@@ -370,11 +467,30 @@ export default function Dashboard() {
                     <span className="text-xs font-semibold text-foreground">Nội trú</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {['TD', 'Trưa', 'Tối'].map((item) => (
-                      <span key={item} className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground font-medium">
-                        {item}
-                      </span>
-                    ))}
+                    <span className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                      stats?.hasBoardingMorning 
+                        ? "bg-success/20 text-success" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      TD
+                    </span>
+                    <span className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                      stats?.hasBoardingNoon 
+                        ? "bg-success/20 text-success" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      Trưa
+                    </span>
+                    <span className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                      stats?.hasBoardingEvening 
+                        ? "bg-success/20 text-success" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      Tối
+                    </span>
                   </div>
                 </div>
 
@@ -384,8 +500,13 @@ export default function Dashboard() {
                     <BookOpen className="h-3.5 w-3.5 text-warning" />
                     <span className="text-xs font-semibold text-foreground">Tự học</span>
                   </div>
-                  <span className="px-2 py-0.5 text-[10px] rounded-full bg-muted text-muted-foreground font-medium inline-block">
-                    Chưa điểm
+                  <span className={cn(
+                    "px-2 py-0.5 text-[10px] rounded-full font-medium inline-block",
+                    stats?.hasEveningStudy 
+                      ? "bg-success/20 text-success" 
+                      : "bg-muted text-muted-foreground"
+                  )}>
+                    {stats?.hasEveningStudy ? 'Đã điểm' : 'Chưa điểm'}
                   </span>
                 </div>
               </div>
