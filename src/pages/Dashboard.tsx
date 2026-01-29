@@ -244,8 +244,8 @@ export default function Dashboard() {
       mealStats.lunch = lunchSnapshot.present;
       mealStats.dinner = dinnerSnapshot.present;
       
-      // Get evening study stats
-      const eveningStudyStats = getSnapshotFromRecords(eveningStudyRecords, totalBoardingStudents);
+      // Get evening study stats - use all students, not just boarding
+      const eveningStudyStats = getSnapshotFromRecords(eveningStudyRecords, totalStudentsCount);
       hasEveningStudy = eveningStudyStats.hasReport;
 
       // Grade stats
