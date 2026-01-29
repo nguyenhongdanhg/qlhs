@@ -18,6 +18,8 @@ import { naturalSortCompare } from '@/lib/utils';
 import { WeekSettingsDialog } from '@/components/emulation/WeekSettingsDialog';
 import { useCurrentWeek } from '@/hooks/useCurrentWeek';
 
+import { EmulationExportDialog } from '@/components/emulation/EmulationExportDialog';
+
 interface EmulationScore {
   id?: string;
   school_id: string;
@@ -27,6 +29,7 @@ interface EmulationScore {
   academic_score: number;
   discipline_score: number;
   boarding_score: number;
+  notes?: string;
   class?: {
     id: string;
     name: string;
@@ -44,6 +47,7 @@ interface ClassWithScore {
   average_score: number;
   rank: number;
   hasData: boolean;
+  notes?: string;
 }
 
 export default function Emulation() {
@@ -133,6 +137,7 @@ export default function Emulation() {
       const academic = editing?.academic_score ?? score?.academic_score ?? 0;
       const discipline = editing?.discipline_score ?? score?.discipline_score ?? 0;
       const boarding = editing?.boarding_score ?? score?.boarding_score ?? 0;
+      const notes = editing?.notes ?? score?.notes ?? '';
       
       // Formula: (Academic * 2 + Discipline + Boarding) / 4
       const average = (academic * 2 + discipline + boarding) / 4;
@@ -147,6 +152,7 @@ export default function Emulation() {
         average_score: Math.round(average * 100) / 100,
         rank: 0,
         hasData: !!score || !!editing,
+        notes,
       };
     });
     
@@ -176,6 +182,7 @@ export default function Emulation() {
               academic_score: score.academic_score,
               discipline_score: score.discipline_score,
               boarding_score: score.boarding_score,
+              notes: score.notes,
               reporter_id: user?.id,
             })
             .eq('id', existing.id);
@@ -191,6 +198,7 @@ export default function Emulation() {
               academic_score: score.academic_score,
               discipline_score: score.discipline_score,
               boarding_score: score.boarding_score,
+              notes: score.notes,
               reporter_id: user?.id,
             });
           if (error) throw error;
@@ -208,16 +216,26 @@ export default function Emulation() {
   });
 
   const handleScoreChange = (classId: string, field: keyof EmulationScore, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    const clampedValue = Math.min(10, Math.max(0, numValue));
-    
-    setEditingScores((prev) => ({
-      ...prev,
-      [classId]: {
-        ...prev[classId],
-        [field]: clampedValue,
-      },
-    }));
+    if (field === 'notes') {
+      setEditingScores((prev) => ({
+        ...prev,
+        [classId]: {
+          ...prev[classId],
+          [field]: value,
+        },
+      }));
+    } else {
+      const numValue = parseFloat(value) || 0;
+      const clampedValue = Math.min(10, Math.max(0, numValue));
+      
+      setEditingScores((prev) => ({
+        ...prev,
+        [classId]: {
+          ...prev[classId],
+          [field]: clampedValue,
+        },
+      }));
+    }
   };
 
   const handleSave = () => {
@@ -229,6 +247,7 @@ export default function Emulation() {
       academic_score: scores.academic_score ?? 0,
       discipline_score: scores.discipline_score ?? 0,
       boarding_score: scores.boarding_score ?? 0,
+      notes: scores.notes,
     }));
     
     if (scoresToSave.length > 0) {
@@ -319,6 +338,14 @@ export default function Emulation() {
     return score ? Number(score[field]) : 0;
   };
 
+  const getNotesValue = (classId: string) => {
+    const editing = editingScores[classId];
+    if (editing && editing.notes !== undefined) return editing.notes;
+    
+    const score = weeklyScores.find((s) => s.class_id === classId);
+    return score?.notes || '';
+  };
+
   const getRankBadgeColor = (rank: number) => {
     if (rank === 1) return 'bg-amber-400 text-amber-950';
     if (rank === 2) return 'bg-slate-400 text-slate-950';
@@ -390,6 +417,18 @@ export default function Emulation() {
                       Lưu
                     </Button>
                   )}
+                  {currentSchool && (
+                    <EmulationExportDialog
+                      schoolId={currentSchool.id}
+                      schoolName={currentSchool.name}
+                      schoolYear={schoolYear}
+                      currentWeek={selectedWeek}
+                      weekSettings={weekSettings}
+                      currentWeekScores={classesWithScores}
+                      currentWeekDateRange={selectedWeekDateRange}
+                      classes={classes}
+                    />
+                  )}
                 </div>
               </div>
               {selectedWeekDateRange && (
@@ -409,25 +448,26 @@ export default function Emulation() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[60px] text-center">STT</TableHead>
-                      <TableHead>Lớp</TableHead>
-                      <TableHead className="text-center w-[100px]">Học tập</TableHead>
-                      <TableHead className="text-center w-[100px]">Nề nếp</TableHead>
-                      <TableHead className="text-center w-[100px]">Nội trú</TableHead>
-                      <TableHead className="text-center w-[100px]">TB</TableHead>
-                      <TableHead className="text-center w-[80px]">Xếp hạng</TableHead>
+                      <TableHead className="w-[50px] text-center">STT</TableHead>
+                      <TableHead className="w-[80px]">Lớp</TableHead>
+                      <TableHead className="text-center w-[80px]">Học tập</TableHead>
+                      <TableHead className="text-center w-[80px]">Nề nếp</TableHead>
+                      <TableHead className="text-center w-[80px]">Nội trú</TableHead>
+                      <TableHead className="text-center w-[70px]">TB</TableHead>
+                      <TableHead className="text-center w-[70px]">Xếp hạng</TableHead>
+                      <TableHead className="min-w-[150px]">Ghi chú</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           Đang tải...
                         </TableCell>
                       </TableRow>
                     ) : classesWithScores.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           Chưa có lớp nào
                         </TableCell>
                       </TableRow>
@@ -491,6 +531,19 @@ export default function Emulation() {
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {canEdit ? (
+                              <Input
+                                type="text"
+                                value={getNotesValue(cls.class_id)}
+                                onChange={(e) => handleScoreChange(cls.class_id, 'notes', e.target.value)}
+                                placeholder="Ghi chú..."
+                                className="w-full min-w-[120px]"
+                              />
+                            ) : (
+                              <span className="text-sm text-muted-foreground">{cls.notes}</span>
                             )}
                           </TableCell>
                         </TableRow>
