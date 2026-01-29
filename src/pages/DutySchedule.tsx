@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useSchool } from '@/contexts/SchoolContext';
 import { DutySchedule as DutyScheduleType, Profile } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,8 +94,12 @@ interface DutyMember extends Profile {
 }
 
 export default function DutySchedule() {
-  const { currentSchool, isSchoolAdmin } = useAuth();
+  const { currentSchool, isSchoolAdmin, isSuperAdmin } = useAuth();
+  const { hasPermission } = useSchool();
   const { toast } = useToast();
+  
+  // Check if user has permission to manage duty (admin or has duty permission)
+  const canManageDuty = isSuperAdmin || isSchoolAdmin() || hasPermission('duty', 'edit');
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [schedules, setSchedules] = useState<DutyScheduleType[]>([]);
@@ -102,7 +107,8 @@ export default function DutySchedule() {
   const [dutyMembers, setDutyMembers] = useState<DutyMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('assignment');
+  // Default tab based on permission - teachers see calendar first, admins see assignment
+  const [activeTab, setActiveTab] = useState(canManageDuty ? 'assignment' : 'calendar');
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [timeRemaining, setTimeRemaining] = useState({ hours: 0, minutes: 0 });
@@ -1108,22 +1114,32 @@ export default function DutySchedule() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="assignment" className="gap-2">
-            <Users className="h-4 w-4" />
-            Phân công
-          </TabsTrigger>
+        <TabsList className={cn(
+          "grid w-full mb-4",
+          canManageDuty ? "grid-cols-3" : "grid-cols-1"
+        )}>
+          {/* Lịch trực tab - always visible, first for teachers */}
           <TabsTrigger value="calendar" className="gap-2">
             <Calendar className="h-4 w-4" />
             Lịch trực
           </TabsTrigger>
-          <TabsTrigger value="statistics" className="gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Thống kê
-          </TabsTrigger>
+          {/* Phân công & Thống kê - only for admins and authorized users */}
+          {canManageDuty && (
+            <>
+              <TabsTrigger value="assignment" className="gap-2">
+                <Users className="h-4 w-4" />
+                Phân công
+              </TabsTrigger>
+              <TabsTrigger value="statistics" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Thống kê
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
-        {/* Assignment Tab */}
+        {/* Assignment Tab - Only for admins and authorized users */}
+        {canManageDuty && (
         <TabsContent value="assignment" className="space-y-4">
           {/* Month Navigation */}
           <Card>
@@ -1429,6 +1445,7 @@ export default function DutySchedule() {
             </div>
           )}
         </TabsContent>
+        )}
 
         {/* Calendar Tab */}
         <TabsContent value="calendar" className="space-y-4">
@@ -1573,15 +1590,17 @@ export default function DutySchedule() {
           )}
         </TabsContent>
 
-        {/* Statistics Tab */}
-        <TabsContent value="statistics">
-          <DutyStatisticsTab
-            schedules={schedules}
-            previousMonthSchedules={previousMonthSchedules}
-            dutyMembers={dutyMembers}
-            currentMonth={currentMonth}
-          />
-        </TabsContent>
+        {/* Statistics Tab - Only for admins and authorized users */}
+        {canManageDuty && (
+          <TabsContent value="statistics">
+            <DutyStatisticsTab
+              schedules={schedules}
+              previousMonthSchedules={previousMonthSchedules}
+              dutyMembers={dutyMembers}
+              currentMonth={currentMonth}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Add Member Dialog */}
