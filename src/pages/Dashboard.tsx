@@ -12,13 +12,15 @@ import {
   Building2,
   BookOpen,
   UtensilsCrossed,
-  BarChart3,
   Calendar,
   TrendingUp,
   Sparkles,
+  Trophy,
+  UserCheck,
+  CalendarCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, isWithinInterval, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -29,11 +31,11 @@ interface DashboardStats {
   totalClasses: number;
   mealStats: { breakfast: number; lunch: number; dinner: number };
   gradeStats: { grade: number; total: number; boarding: number }[];
-  className?: string; // For class teachers
-  classId?: string; // UUID of class for teachers
-  classStudentCount?: number; // Number of students in teacher's class
-  classBoardingCount?: number; // Number of boarding students in teacher's class
-  // Completion tracking for today
+  className?: string;
+  classId?: string;
+  classStudentCount?: number;
+  classBoardingCount?: number;
+  // Completion tracking
   hasBreakfast: boolean;
   hasLunch: boolean;
   hasDinner: boolean;
@@ -41,6 +43,20 @@ interface DashboardStats {
   hasBoardingNoon: boolean;
   hasBoardingEvening: boolean;
   hasEveningStudy: boolean;
+  // Real stats from database
+  boardingStats: { session: string; present: number; total: number }[];
+  eveningStudyStats: { present: number; total: number };
+}
+
+interface EmulationData {
+  weekNumber: number;
+  topClasses: { className: string; avgScore: number; rank: number }[];
+}
+
+interface DutyPerson {
+  id: string;
+  fullName: string;
+  shift?: string;
 }
 
 export default function Dashboard() {
@@ -51,13 +67,11 @@ export default function Dashboard() {
   const dayName = useMemo(() => format(today, 'EEEE', { locale: vi }), [today]);
   const formattedDate = useMemo(() => format(today, 'dd/MM/yyyy'), [today]);
 
-  // Determine if user is admin or class teacher
   const isAdmin = isSuperAdmin || isSchoolAdmin();
   const isClassTeacher = currentMembership?.role === 'class_teacher';
-  // class_id in school_memberships is stored as text but contains UUID
   const teacherClassId = currentMembership?.class_id;
 
-  // Real-time subscription for attendance updates
+  // Real-time subscription
   useEffect(() => {
     if (!currentSchool) return;
 
@@ -72,7 +86,6 @@ export default function Dashboard() {
           filter: `school_id=eq.${currentSchool.id}`,
         },
         () => {
-          // Invalidate query to refetch
           queryClient.invalidateQueries({ queryKey: ['dashboard-stats', currentSchool.id] });
         }
       )
@@ -83,14 +96,13 @@ export default function Dashboard() {
     };
   }, [currentSchool?.id, queryClient]);
 
-  // Fetch dashboard stats with React Query for caching - ALWAYS fetch full school data
+  // Fetch dashboard stats
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats', currentSchool?.id, dateStr],
     queryFn: async (): Promise<DashboardStats> => {
       if (!currentSchool) throw new Error('No school selected');
 
-      // Always fetch ALL school data (same as admin view)
-      const [studentsResult, boardingResult, classesResult, teachersResult, attendanceResult] = await Promise.all([
+      const [studentsResult, boardingResult, classesResult, teachersResult, attendanceResult, boardingStudentsResult] = await Promise.all([
         supabase
           .from('students')
           .select('*', { count: 'exact', head: true })
@@ -114,34 +126,80 @@ export default function Dashboard() {
           .eq('status', 'active'),
         supabase
           .from('attendance_records')
-          .select('attendance_type, status')
+          .select('attendance_type, status, created_at')
           .eq('school_id', currentSchool.id)
           .eq('attendance_date', dateStr),
+        supabase
+          .from('students')
+          .select('id')
+          .eq('school_id', currentSchool.id)
+          .eq('is_active', true)
+          .eq('is_boarding', true),
       ]);
+
+      const totalBoardingStudents = boardingStudentsResult.data?.length || 0;
 
       const mealStats = { breakfast: 0, lunch: 0, dinner: 0 };
       let hasBreakfast = false, hasLunch = false, hasDinner = false;
       let hasBoardingMorning = false, hasBoardingNoon = false, hasBoardingEvening = false;
       let hasEveningStudy = false;
       
+      // Track boarding stats by finding latest batch
+      const boardingRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'boarding');
+      const eveningStudyRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'evening_study');
+      
+      let boardingPresent = 0;
+      let eveningStudyPresent = 0;
+      
       (attendanceResult.data || []).forEach(record => {
-        // Track completion
         if (record.attendance_type === 'breakfast') hasBreakfast = true;
         if (record.attendance_type === 'lunch') hasLunch = true;
         if (record.attendance_type === 'dinner') hasDinner = true;
-        if (record.attendance_type === 'boarding') {
-          hasBoardingMorning = true;
-        }
+        if (record.attendance_type === 'boarding') hasBoardingMorning = true;
         if (record.attendance_type === 'evening_study') hasEveningStudy = true;
         
         if (record.status === 'present') {
           if (record.attendance_type === 'breakfast') mealStats.breakfast++;
           if (record.attendance_type === 'lunch') mealStats.lunch++;
           if (record.attendance_type === 'dinner') mealStats.dinner++;
+          if (record.attendance_type === 'boarding') boardingPresent++;
+          if (record.attendance_type === 'evening_study') eveningStudyPresent++;
         }
       });
 
-      // Get grade stats
+      // Get latest boarding snapshot
+      const boardingStats: { session: string; present: number; total: number }[] = [];
+      if (boardingRecords.length > 0) {
+        // Find latest batch by created_at
+        const sortedRecords = [...boardingRecords].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const latestTime = new Date(sortedRecords[0].created_at).getTime();
+        const latestBatch = sortedRecords.filter(r => 
+          Math.abs(new Date(r.created_at).getTime() - latestTime) < 60000
+        );
+        const presentCount = latestBatch.filter(r => r.status === 'present').length;
+        boardingStats.push({
+          session: 'Nội trú',
+          present: presentCount,
+          total: totalBoardingStudents,
+        });
+      }
+
+      // Get latest evening study snapshot
+      const eveningStudyStats = { present: 0, total: totalBoardingStudents };
+      if (eveningStudyRecords.length > 0) {
+        const sortedRecords = [...eveningStudyRecords].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const latestTime = new Date(sortedRecords[0].created_at).getTime();
+        const latestBatch = sortedRecords.filter(r => 
+          Math.abs(new Date(r.created_at).getTime() - latestTime) < 60000
+        );
+        eveningStudyStats.present = latestBatch.filter(r => r.status === 'present').length;
+      }
+
+      // Grade stats
       const { data: studentsWithGrades } = await supabase
         .from('students')
         .select('is_boarding, class:classes!inner(grade)')
@@ -164,7 +222,7 @@ export default function Dashboard() {
         .sort(([a], [b]) => a - b)
         .map(([grade, stats]) => ({ grade, ...stats }));
 
-      // For class teachers, also fetch their class-specific data
+      // Class teacher specific data
       let className: string | undefined;
       let classId: string | undefined;
       let classStudentCount = 0;
@@ -212,24 +270,111 @@ export default function Dashboard() {
         hasBoardingNoon,
         hasBoardingEvening,
         hasEveningStudy,
+        boardingStats,
+        eveningStudyStats,
       };
     },
     enabled: !!currentSchool,
-    staleTime: 1000 * 60 * 2, // 2 minutes cache
+    staleTime: 1000 * 60 * 2,
   });
 
-  const quickActions = useMemo(() => [
-    { label: 'Điểm danh nội trú', icon: Home, path: '/boarding', color: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-100 text-sky-600' },
-    { label: 'Điểm danh giờ học', icon: BookOpen, path: '/evening-study', color: 'from-amber-500 to-orange-500', iconBg: 'bg-amber-100 text-amber-600' },
-    { label: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals', color: 'from-violet-500 to-purple-500', iconBg: 'bg-violet-100 text-violet-600' },
-    { label: 'Xem thống kê', icon: BarChart3, path: '/statistics', color: 'from-emerald-500 to-teal-500', iconBg: 'bg-emerald-100 text-emerald-600' },
-  ], []);
+  // Fetch current week emulation data
+  const { data: emulationData } = useQuery({
+    queryKey: ['dashboard-emulation', currentSchool?.id],
+    queryFn: async (): Promise<EmulationData | null> => {
+      if (!currentSchool) return null;
 
-  // Calculate completion percentage based on 7 daily tasks
+      // Get week settings to find current week
+      const { data: weekSettings } = await supabase
+        .from('week_settings')
+        .select('week_number, start_date, end_date')
+        .eq('school_id', currentSchool.id)
+        .order('week_number', { ascending: true });
+
+      if (!weekSettings || weekSettings.length === 0) return null;
+
+      // Find current week
+      const currentWeek = weekSettings.find(w => {
+        try {
+          const start = parseISO(w.start_date);
+          const end = parseISO(w.end_date);
+          return isWithinInterval(today, { start, end });
+        } catch {
+          return false;
+        }
+      });
+
+      if (!currentWeek) return null;
+
+      // Get emulation scores for current week
+      const { data: scores } = await supabase
+        .from('emulation_scores')
+        .select(`
+          class_id,
+          academic_score,
+          discipline_score,
+          boarding_score,
+          class:classes!inner(name)
+        `)
+        .eq('school_id', currentSchool.id)
+        .eq('week_number', currentWeek.week_number);
+
+      if (!scores || scores.length === 0) return { weekNumber: currentWeek.week_number, topClasses: [] };
+
+      // Calculate average and rank
+      const classScores = scores.map((s: any) => {
+        const avg = ((s.academic_score || 0) * 2 + (s.discipline_score || 0) + (s.boarding_score || 0)) / 4;
+        return {
+          className: s.class?.name || 'N/A',
+          avgScore: Math.round(avg * 10) / 10,
+          rank: 0,
+        };
+      }).sort((a, b) => b.avgScore - a.avgScore);
+
+      // Assign ranks
+      classScores.forEach((c, i) => { c.rank = i + 1; });
+
+      return {
+        weekNumber: currentWeek.week_number,
+        topClasses: classScores.slice(0, 3), // Top 3
+      };
+    },
+    enabled: !!currentSchool,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch today's duty schedule
+  const { data: dutyToday } = useQuery({
+    queryKey: ['dashboard-duty', currentSchool?.id, dateStr],
+    queryFn: async (): Promise<DutyPerson[]> => {
+      if (!currentSchool) return [];
+
+      const { data: schedules } = await supabase
+        .from('duty_schedules')
+        .select(`
+          user_id,
+          shift,
+          profile:profiles!inner(id, full_name)
+        `)
+        .eq('school_id', currentSchool.id)
+        .eq('duty_date', dateStr);
+
+      if (!schedules) return [];
+
+      return schedules.map((s: any) => ({
+        id: s.user_id,
+        fullName: s.profile?.full_name || 'N/A',
+        shift: s.shift,
+      }));
+    },
+    enabled: !!currentSchool,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Calculate completion percentage
   const completionStats = useMemo(() => {
     if (!stats) return { completed: 0, total: 7, percentage: 0 };
     
-    // Count completed tasks: 3 meals + 3 boarding sessions + 1 evening study = 7
     let completed = 0;
     if (stats.hasBreakfast) completed++;
     if (stats.hasLunch) completed++;
@@ -245,7 +390,6 @@ export default function Dashboard() {
     return { completed, total, percentage };
   }, [stats]);
 
-  // Always show all 4 cards like admin view
   const statCards = useMemo(() => {
     return [
       { label: 'Học sinh', value: stats?.totalStudents || 0, icon: Users, gradient: 'from-sky-500 to-cyan-500', iconBg: 'bg-sky-500' },
@@ -265,7 +409,7 @@ export default function Dashboard() {
 
   return (
     <div className="content-wrapper animate-fade-in">
-      {/* School Banner - Enhanced gradient */}
+      {/* School Banner */}
       <Card className="mb-4 sm:mb-6 overflow-hidden border-0 shadow-lg">
         <div className="bg-gradient-to-r from-primary via-primary/90 to-accent text-primary-foreground">
           <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 gap-3 sm:gap-4">
@@ -296,7 +440,7 @@ export default function Dashboard() {
         <DashboardSkeleton />
       ) : (
         <>
-          {/* Stats Cards - Enhanced with gradients */}
+          {/* Stats Cards */}
           <div className="grid gap-2 sm:gap-3 grid-cols-2 md:grid-cols-4 mb-4">
             {statCards.map(({ label, value, icon: Icon, gradient, iconBg }) => (
               <Card key={label} className="group border-0 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden">
@@ -312,7 +456,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Class Teacher's Class Stats - Only for class teachers */}
+          {/* Class Teacher's Class Stats */}
           {isClassTeacher && stats?.className && (
             <Card className="mb-4 border-0 shadow-md bg-gradient-to-br from-primary/5 to-accent/5">
               <CardContent className="p-3 sm:p-4">
@@ -344,28 +488,7 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Quick Actions - Enhanced */}
-          <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4 mb-4">
-            {quickActions.map(({ label, icon: Icon, path, iconBg }) => (
-              <Link key={path} to={path}>
-                <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 h-full border-0 shadow-md">
-                  <CardContent className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
-                    <div className={cn('rounded-xl p-2.5 sm:p-3 shrink-0 transition-transform group-hover:scale-105', iconBg)}>
-                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                    </div>
-                    <span className="font-semibold text-xs sm:text-sm leading-tight text-foreground">{label}</span>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-
-          {/* Teacher Attendance Stats */}
-          <div className="mb-4">
-            <TeacherAttendanceStats />
-          </div>
-
-          {/* Today Progress - Enhanced */}
+          {/* Today Progress - Unified */}
           <Card className="mb-4 border-0 shadow-md">
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-3">
@@ -381,150 +504,171 @@ export default function Dashboard() {
               </div>
 
               <div className="grid gap-4 grid-cols-3">
-                {/* Meals */}
+                {/* Meals with count */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
                     <UtensilsCrossed className="h-3.5 w-3.5 text-accent" />
                     <span className="text-xs font-semibold text-foreground">Bữa ăn</span>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    <span className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
-                      stats?.hasBreakfast 
-                        ? "bg-success/20 text-success" 
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      Sáng
-                    </span>
-                    <span className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
-                      stats?.hasLunch 
-                        ? "bg-success/20 text-success" 
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      Trưa
-                    </span>
-                    <span className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
-                      stats?.hasDinner 
-                        ? "bg-success/20 text-success" 
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      Tối
-                    </span>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className={cn(
+                        "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                        stats?.hasBreakfast ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
+                      )}>Sáng</span>
+                      {stats?.hasBreakfast && <span className="text-xs font-medium">{stats.mealStats.breakfast}</span>}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={cn(
+                        "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                        stats?.hasLunch ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
+                      )}>Trưa</span>
+                      {stats?.hasLunch && <span className="text-xs font-medium">{stats.mealStats.lunch}</span>}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={cn(
+                        "px-2 py-0.5 text-[10px] rounded-full font-medium",
+                        stats?.hasDinner ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
+                      )}>Tối</span>
+                      {stats?.hasDinner && <span className="text-xs font-medium">{stats.mealStats.dinner}</span>}
+                    </div>
                   </div>
                 </div>
 
-                {/* Boarding */}
+                {/* Boarding with real data */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
                     <Home className="h-3.5 w-3.5 text-primary" />
                     <span className="text-xs font-semibold text-foreground">Nội trú</span>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    <span className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
-                      stats?.hasBoardingMorning 
-                        ? "bg-success/20 text-success" 
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      TD
+                  {stats?.boardingStats && stats.boardingStats.length > 0 ? (
+                    <div className="space-y-1">
+                      {stats.boardingStats.map((s, i) => {
+                        const pct = s.total > 0 ? Math.round((s.present / s.total) * 100) : 0;
+                        return (
+                          <div key={i} className="flex items-center justify-between">
+                            <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-success/20 text-success">
+                              {pct}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">{s.present}/{s.total}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-muted text-muted-foreground inline-block">
+                      Chưa điểm
                     </span>
-                    <span className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
-                      stats?.hasBoardingNoon 
-                        ? "bg-success/20 text-success" 
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      Trưa
-                    </span>
-                    <span className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full font-medium",
-                      stats?.hasBoardingEvening 
-                        ? "bg-success/20 text-success" 
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                      Tối
-                    </span>
-                  </div>
+                  )}
                 </div>
 
-                {/* Study */}
+                {/* Evening Study with real data */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
                     <BookOpen className="h-3.5 w-3.5 text-warning" />
                     <span className="text-xs font-semibold text-foreground">Tự học</span>
                   </div>
-                  <span className={cn(
-                    "px-2 py-0.5 text-[10px] rounded-full font-medium inline-block",
-                    stats?.hasEveningStudy 
-                      ? "bg-success/20 text-success" 
-                      : "bg-muted text-muted-foreground"
-                  )}>
-                    {stats?.hasEveningStudy ? 'Đã điểm' : 'Chưa điểm'}
-                  </span>
+                  {stats?.hasEveningStudy && stats.eveningStudyStats ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-success/20 text-success">
+                          {stats.eveningStudyStats.total > 0 
+                            ? Math.round((stats.eveningStudyStats.present / stats.eveningStudyStats.total) * 100) 
+                            : 0}%
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {stats.eveningStudyStats.present}/{stats.eveningStudyStats.total}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-muted text-muted-foreground inline-block">
+                      Chưa điểm
+                    </span>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Bottom Grid - Enhanced */}
-          <div className="grid gap-3 lg:grid-cols-2">
-            {/* Meals Today */}
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 rounded-lg bg-accent/10">
-                    <UtensilsCrossed className="h-4 w-4 text-accent" />
-                  </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Bữa ăn hôm nay</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Sáng', value: stats?.mealStats.breakfast || '--' },
-                    { label: 'Trưa', value: stats?.mealStats.lunch || '--' },
-                    { label: 'Tối', value: stats?.mealStats.dinner || '--' },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="text-center p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30">
-                      <p className="text-xs text-muted-foreground font-medium">{label}</p>
-                      <p className="text-lg sm:text-xl font-bold text-foreground">{value}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Teacher Attendance Stats */}
+          <div className="mb-4">
+            <TeacherAttendanceStats />
+          </div>
 
-            {/* Boarding Stats */}
-            <Card className="border-0 shadow-md">
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
-                    <Home className="h-4 w-4 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Nội trú gần nhất</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Thể dục', value: 99, total: 483, max: 486 },
-                    { label: 'Ngủ trưa', value: 96, total: 48, max: 50 },
-                    { label: 'Ngủ tối', value: 90, total: 45, max: 50 },
-                  ].map(({ label, value, total, max }) => (
-                    <div key={label} className="text-center p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30">
-                      <p className="text-xs text-muted-foreground font-medium mb-0.5">{label}</p>
-                      <p className={cn('text-lg sm:text-xl font-bold', value >= 95 ? 'text-success' : value >= 90 ? 'text-warning' : 'text-destructive')}>
-                        {value}%
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">{total}/{max}</p>
+          {/* Emulation & Duty Grid */}
+          <div className="grid gap-3 lg:grid-cols-2 mb-4">
+            {/* Emulation - Current Week */}
+            <Link to="/emulation">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg bg-warning/10">
+                      <Trophy className="h-4 w-4 text-warning" />
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    <h3 className="font-semibold text-sm sm:text-base text-foreground">Thi đua tuần {emulationData?.weekNumber || '--'}</h3>
+                  </div>
+                  {emulationData?.topClasses && emulationData.topClasses.length > 0 ? (
+                    <div className="space-y-2">
+                      {emulationData.topClasses.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground",
+                              i === 0 ? "bg-warning" : i === 1 ? "bg-muted-foreground" : "bg-accent"
+                            )}>
+                              {c.rank}
+                            </span>
+                            <span className="font-medium text-sm">{c.className}</span>
+                          </div>
+                          <span className="text-sm font-bold text-primary">{c.avgScore}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">Chưa có dữ liệu thi đua</p>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Duty Today */}
+            <Link to="/duty-schedule">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg bg-primary/10">
+                      <CalendarCheck className="h-4 w-4 text-primary" />
+                    </div>
+                    <h3 className="font-semibold text-sm sm:text-base text-foreground">Lịch trực hôm nay</h3>
+                  </div>
+                  {dutyToday && dutyToday.length > 0 ? (
+                    <div className="space-y-2">
+                      {dutyToday.map((person, i) => (
+                        <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <UserCheck className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{person.fullName}</p>
+                            {person.shift && (
+                              <p className="text-xs text-muted-foreground">{person.shift}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">Chưa phân công trực</p>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
           </div>
 
           {/* Grade Stats - Only for admins */}
           {!isClassTeacher && stats?.gradeStats && stats.gradeStats.length > 0 && (
-            <Card className="mt-4 border-0 shadow-md">
+            <Card className="mb-4 border-0 shadow-md">
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-1.5 rounded-lg bg-primary/10">
@@ -549,30 +693,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           )}
-
-          {/* Evening Study Progress - Enhanced */}
-          <Card className="mt-4 border-0 shadow-md">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-warning/10">
-                    <BookOpen className="h-4 w-4 text-warning" />
-                  </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Tự học tối gần nhất</h3>
-                </div>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">{format(today, 'dd/MM')}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-success rounded-full" style={{ width: '99%' }} />
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-success">483</span>
-                  <span className="text-xs text-muted-foreground">/486</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Footer */}
           <div className="mt-8 text-center text-sm text-muted-foreground">
