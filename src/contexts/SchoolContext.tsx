@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { SchoolFeature, AppFeature } from '@/types';
@@ -135,7 +135,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     fetchUserPermissions();
   }, [fetchUserPermissions]);
 
-  const isFeatureEnabled = (featureCode: string): boolean => {
+  const isFeatureEnabled = useCallback((featureCode: string): boolean => {
     // Check if feature is globally active
     const appFeature = appFeatures.find(f => f.code === featureCode);
     if (!appFeature || !appFeature.is_active) return false;
@@ -146,7 +146,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     if (!schoolFeature) return true;
     
     return schoolFeature.is_enabled;
-  };
+  }, [appFeatures, features]);
 
   const hasPermission = useCallback((featureCode: string, action: PermissionAction): boolean => {
     // Super admin has all permissions
@@ -180,19 +180,20 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isSuperAdmin, isSchoolAdmin, userPermissions, isFeatureEnabled]);
 
+  // Memoize context value
+  const contextValue = useMemo(() => ({
+    features,
+    appFeatures,
+    userPermissions,
+    isFeatureEnabled,
+    hasPermission,
+    isLoading,
+    refetchFeatures: fetchFeatures,
+    refetchPermissions: fetchUserPermissions,
+  }), [features, appFeatures, userPermissions, isFeatureEnabled, hasPermission, isLoading, fetchUserPermissions]);
+
   return (
-    <SchoolContext.Provider
-      value={{
-        features,
-        appFeatures,
-        userPermissions,
-        isFeatureEnabled,
-        hasPermission,
-        isLoading,
-        refetchFeatures: fetchFeatures,
-        refetchPermissions: fetchUserPermissions,
-      }}
-    >
+    <SchoolContext.Provider value={contextValue}>
       {children}
     </SchoolContext.Provider>
   );

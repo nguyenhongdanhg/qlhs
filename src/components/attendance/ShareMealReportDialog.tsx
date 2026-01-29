@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, memo, lazy, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -7,8 +7,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Download, Share2, Loader2, Image } from 'lucide-react';
-import { MealReportImageCard } from './MealReportImageCard';
 import { useImageExport } from '@/hooks/use-image-export';
+
+// Lazy load heavy component
+const MealReportImageCard = lazy(() => import('./MealReportImageCard').then(m => ({ default: m.MealReportImageCard })));
 import { format } from 'date-fns';
 
 interface AbsentStudent {
@@ -41,7 +43,7 @@ interface ShareMealReportDialogProps {
   totalRice: number;
 }
 
-export function ShareMealReportDialog({
+export const ShareMealReportDialog = memo(function ShareMealReportDialog({
   open,
   onOpenChange,
   schoolName,
@@ -85,21 +87,25 @@ export function ShareMealReportDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Preview */}
-        <div className="flex justify-center overflow-x-auto py-4">
-          <div className="scale-[0.7] origin-top">
-            <MealReportImageCard
-              ref={imageRef}
-              schoolName={schoolName}
-              date={date}
-              reporter={reporter}
-              breakfast={breakfast}
-              lunch={lunch}
-              dinner={dinner}
-              totalRice={totalRice}
-            />
+        {/* Preview - only render when dialog is open */}
+        {open && (
+          <div className="flex justify-center overflow-x-auto py-4">
+            <div className="scale-[0.7] origin-top">
+              <Suspense fallback={<div className="h-96 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+                <MealReportImageCard
+                  ref={imageRef}
+                  schoolName={schoolName}
+                  date={date}
+                  reporter={reporter}
+                  breakfast={breakfast}
+                  lunch={lunch}
+                  dinner={dinner}
+                  totalRice={totalRice}
+                />
+              </Suspense>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-2">
@@ -132,4 +138,4 @@ export function ShareMealReportDialog({
       </DialogContent>
     </Dialog>
   );
-}
+});

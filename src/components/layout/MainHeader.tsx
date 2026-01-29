@@ -1,9 +1,10 @@
+import { memo } from 'react';
 import { Search, Bell } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
-export function MainHeader() {
+export const MainHeader = memo(function MainHeader() {
   const { currentSchool } = useAuth();
 
   return (
@@ -33,4 +34,4 @@ export function MainHeader() {
       </div>
     </header>
   );
-}
+});
