@@ -472,11 +472,13 @@ function createSchoolSummarySheet(
     let dinnerTotal = 0;
 
     classData.students.forEach(student => {
+      // Iterate over each day in the range
       days.forEach(day => {
         const dateStr = format(day, 'yyyy-MM-dd');
         const dayData = student.attendance.get(dateStr);
         
         if (dayData) {
+          // Use strict boolean check - true means present/eating
           if (dayData.breakfast === true) breakfastTotal++;
           if (dayData.lunch === true) lunchTotal++;
           if (dayData.dinner === true) dinnerTotal++;
@@ -632,6 +634,10 @@ export function exportMealStatistics(
     ['Ngày', 'Tổng HS', 'Ăn sáng', 'Vắng sáng', 'Ăn trưa', 'Vắng trưa', 'Ăn tối', 'Vắng tối', 'Gạo (kg)'],
   ];
 
+  // Track grand totals for all days
+  let grandBPresent = 0, grandLPresent = 0, grandDPresent = 0;
+  let grandBAbsent = 0, grandLAbsent = 0, grandDAbsent = 0;
+
   days.forEach(day => {
     const dateStr = format(day, 'yyyy-MM-dd');
     const hasReport = hasReportForDate(students, dateStr);
@@ -658,6 +664,14 @@ export function exportMealStatistics(
         else if (dayData?.dinner === false) { dReported++; }
       });
 
+      // Accumulate grand totals
+      grandBPresent += bPresent;
+      grandLPresent += lPresent;
+      grandDPresent += dPresent;
+      grandBAbsent += (bReported - bPresent);
+      grandLAbsent += (lReported - lPresent);
+      grandDAbsent += (dReported - dPresent);
+
       const dailyRice = (lPresent + dPresent) * 0.2;
 
       dailySummary.push([
@@ -673,6 +687,21 @@ export function exportMealStatistics(
       ]);
     }
   });
+
+  // Add grand total row
+  const grandRice = (grandLPresent + grandDPresent) * 0.2;
+  dailySummary.push([]); // Empty row
+  dailySummary.push([
+    'TỔNG CỘNG',
+    '',
+    grandBPresent,
+    grandBAbsent,
+    grandLPresent,
+    grandLAbsent,
+    grandDPresent,
+    grandDAbsent,
+    grandRice.toFixed(1),
+  ]);
 
   // Create daily summary sheet with header info
   const dailyHeaderRows: any[][] = [
@@ -707,11 +736,12 @@ export function exportMealStatistics(
     };
   }
 
-  // Apply alternating rows
-  for (let rowIdx = 0; rowIdx < dailySummary.length - 1; rowIdx++) {
-    const actualRow = 6 + rowIdx;
+  // Apply alternating rows for data rows (skip header row and totals row)
+  const dataRowCount = dailySummary.length - 3; // Exclude header, empty row, and totals row
+  for (let rowIdx = 1; rowIdx <= dataRowCount; rowIdx++) {
+    const actualRow = 5 + rowIdx; // 5 header rows + rowIdx
     const isEvenRow = rowIdx % 2 === 0;
-    const bgColor = isEvenRow ? 'FFFFFF' : 'E3F2FD';
+    const bgColor = isEvenRow ? 'E3F2FD' : 'FFFFFF';
     
     for (let col = 0; col < 9; col++) {
       const cellRef = XLSX.utils.encode_cell({ r: actualRow, c: col });
@@ -721,6 +751,19 @@ export function exportMealStatistics(
           alignment: { horizontal: 'center' },
         };
       }
+    }
+  }
+
+  // Style the totals row (last row with data)
+  const totalsRowIndex = 5 + dailySummary.length - 1; // Header rows + all summary rows - 1 for 0-index
+  for (let col = 0; col < 9; col++) {
+    const cellRef = XLSX.utils.encode_cell({ r: totalsRowIndex, c: col });
+    if (dailyWs[cellRef]) {
+      dailyWs[cellRef].s = {
+        fill: { fgColor: { rgb: 'FFF3E0' } },
+        font: { bold: true, sz: 11 },
+        alignment: { horizontal: 'center' },
+      };
     }
   }
 
