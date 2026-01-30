@@ -90,7 +90,7 @@ export default function MobileMenu() {
   const filteredItems = menuItems.filter((item) => {
     // Skip items already in bottom nav
     if (bottomNavCodes.includes(item.code)) return false;
-    if (item.code === 'settings' || item.code === 'install') return true;
+    if (item.code === 'settings' || item.code === 'install' || item.code === 'guide') return true;
     if (!isFeatureEnabled(item.code)) return false;
     if (item.adminOnly && !isSchoolAdmin()) return false;
     if (item.superAdminOnly && !isSuperAdmin) return false;
