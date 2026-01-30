@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   Building2,
   Trophy,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   UserCog,
   Settings,
   Trophy,
+  HelpCircle,
 };
 
 interface NavItem {
@@ -54,6 +56,7 @@ const navItems: NavItem[] = [
   { code: 'statistics', label: 'Thống kê', icon: 'BarChart3', path: '/statistics' },
   { code: 'user_management', label: 'Quản lý tài khoản', icon: 'UserCog', path: '/user-management', adminOnly: true },
   { code: 'settings', label: 'Cài đặt', icon: 'Settings', path: '/settings' },
+  { code: 'guide', label: 'Hướng dẫn sử dụng', icon: 'HelpCircle', path: '/guide' },
 ];
 
 export const Sidebar = memo(function Sidebar() {

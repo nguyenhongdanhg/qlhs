@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   Trophy,
+  HelpCircle,
 } from 'lucide-react';
 import { bottomNavCodes } from '@/components/layout/MobileNav';
 
@@ -71,6 +72,13 @@ const menuItems: MenuItem[] = [
     description: 'Hướng dẫn cài PWA',
     icon: Download,
     path: '/install',
+  },
+  {
+    code: 'guide',
+    label: 'Hướng dẫn sử dụng',
+    description: 'Tài liệu hướng dẫn chi tiết',
+    icon: HelpCircle,
+    path: '/guide',
   },
 ];
 
