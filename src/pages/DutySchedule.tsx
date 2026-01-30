@@ -98,8 +98,8 @@ export default function DutySchedule() {
   const { hasPermission } = useSchool();
   const { toast } = useToast();
   
-  // Check if user has permission to manage duty (admin or has duty permission)
-  const canManageDuty = isSuperAdmin || isSchoolAdmin() || hasPermission('duty', 'edit');
+  // Check if user has permission to manage duty (admin or has duty_schedule permission)
+  const canManageDuty = isSuperAdmin || isSchoolAdmin() || hasPermission('duty_schedule', 'edit');
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [schedules, setSchedules] = useState<DutyScheduleType[]>([]);
