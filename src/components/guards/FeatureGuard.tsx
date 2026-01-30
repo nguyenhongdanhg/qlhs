@@ -55,10 +55,19 @@ export function FeatureGuard({
   return <>{children}</>;
 }
 
+// Define role-based feature permissions
+// Accountant can view statistics and edit meals
+const ROLE_FEATURE_PERMISSIONS: Record<string, Record<string, { view?: boolean; create?: boolean; edit?: boolean; delete?: boolean }>> = {
+  accountant: {
+    statistics: { view: true },
+    meals: { view: true, create: true, edit: true },
+  },
+};
+
 // Hook to use permissions in components
 export function useFeaturePermission(featureCode: string) {
   const { hasPermission, isFeatureEnabled } = useSchool();
-  const { isSuperAdmin, isSchoolAdmin } = useAuth();
+  const { isSuperAdmin, isSchoolAdmin, currentMembership } = useAuth();
 
   // Super admin and school admin have all permissions
   if (isSuperAdmin || isSchoolAdmin()) {
@@ -71,11 +80,15 @@ export function useFeaturePermission(featureCode: string) {
     };
   }
 
+  // Check role-based permissions
+  const role = currentMembership?.role;
+  const rolePerms = role ? ROLE_FEATURE_PERMISSIONS[role]?.[featureCode] : undefined;
+
   return {
-    canView: hasPermission(featureCode, 'view'),
-    canCreate: hasPermission(featureCode, 'create'),
-    canEdit: hasPermission(featureCode, 'edit'),
-    canDelete: hasPermission(featureCode, 'delete'),
+    canView: rolePerms?.view || hasPermission(featureCode, 'view'),
+    canCreate: rolePerms?.create || hasPermission(featureCode, 'create'),
+    canEdit: rolePerms?.edit || hasPermission(featureCode, 'edit'),
+    canDelete: rolePerms?.delete || hasPermission(featureCode, 'delete'),
     isEnabled: isFeatureEnabled(featureCode),
   };
 }
