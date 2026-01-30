@@ -1014,6 +1014,11 @@ export default function Statistics() {
                                 {students.map(s => (
                                   <div key={s.id} className="flex items-center gap-2 text-sm">
                                     <span>{s.name}</span>
+                                    {s.mealGroup && (
+                                      <span className="text-xs text-muted-foreground">
+                                        ({s.mealGroup})
+                                      </span>
+                                    )}
                                     {s.excused && (
                                       <Badge variant="outline" className="text-xs">P</Badge>
                                     )}
