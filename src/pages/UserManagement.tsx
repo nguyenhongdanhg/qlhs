@@ -534,7 +534,7 @@ export default function UserManagement() {
                         <TableHead className="hidden lg:table-cell w-[70px]">Giới tính</TableHead>
                         <TableHead className="hidden md:table-cell">Chức vụ</TableHead>
                         <TableHead>Vai trò</TableHead>
-                        <TableHead className="hidden lg:table-cell">Nhóm quyền</TableHead>
+                        <TableHead>Nhóm quyền</TableHead>
                         <TableHead className="hidden md:table-cell">Lớp CN</TableHead>
                         <TableHead className="hidden md:table-cell">
                           <div className="flex items-center gap-1">
@@ -584,7 +584,7 @@ export default function UserManagement() {
                               {roleLabels[membership.role]}
                             </Badge>
                           </TableCell>
-                          <TableCell className="hidden lg:table-cell">
+                          <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {(userPermissionGroups[membership.user_id] || []).length > 0 ? (
                                 userPermissionGroups[membership.user_id].map((group) => (
