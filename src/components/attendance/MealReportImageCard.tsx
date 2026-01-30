@@ -232,10 +232,11 @@ export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportIma
 
         {/* Meal sections */}
         <div style={{ marginBottom: '16px' }}>
-          {renderMealSection(
+        {renderMealSection(
             'Bữa sáng',
             <Coffee style={{ width: '16px', height: '16px', color: '#f97316' }} />,
-            breakfast
+            breakfast,
+            true
           )}
           {renderMealSection(
             'Bữa trưa',
