@@ -87,19 +87,12 @@ const roleColors: Record<AppRole, string> = {
   staff: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
 };
 
-// Type for user permission groups
-interface UserPermissionGroupInfo {
-  user_id: string;
-  groups: { id: string; name: string }[];
-}
-
 export default function UserManagement() {
   const { currentSchool, isSchoolAdmin, profile: currentProfile } = useAuth();
   const { toast } = useToast();
 
   const [memberships, setMemberships] = useState<(SchoolMembership & { profile: Profile })[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
-  const [userPermissionGroups, setUserPermissionGroups] = useState<Record<string, { id: string; name: string }[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -128,7 +121,6 @@ export default function UserManagement() {
     if (!currentSchool) return;
     fetchMemberships();
     fetchClasses();
-    fetchUserPermissionGroups();
   }, [currentSchool]);
 
   const fetchMemberships = async () => {
@@ -179,45 +171,6 @@ export default function UserManagement() {
       setClasses(data || []);
     } catch (error) {
       console.error('Error fetching classes:', error);
-    }
-  };
-
-  const fetchUserPermissionGroups = async () => {
-    if (!currentSchool) return;
-
-    try {
-      // Get all user permission groups for this school with group names
-      const { data, error } = await supabase
-        .from('user_permission_groups')
-        .select(`
-          user_id,
-          group:permission_groups(id, name)
-        `)
-        .eq('school_id', currentSchool.id);
-
-      if (error) throw error;
-
-      // Group by user_id
-      const groupedByUser: Record<string, { id: string; name: string }[]> = {};
-      (data || []).forEach((item: any) => {
-        if (!groupedByUser[item.user_id]) {
-          groupedByUser[item.user_id] = [];
-        }
-        if (item.group) {
-          // Check if group already exists to avoid duplicates
-          const exists = groupedByUser[item.user_id].some(g => g.id === item.group.id);
-          if (!exists) {
-            groupedByUser[item.user_id].push({
-              id: item.group.id,
-              name: item.group.name,
-            });
-          }
-        }
-      });
-
-      setUserPermissionGroups(groupedByUser);
-    } catch (error) {
-      console.error('Error fetching user permission groups:', error);
     }
   };
 
@@ -534,7 +487,6 @@ export default function UserManagement() {
                         <TableHead className="hidden lg:table-cell w-[70px]">Giới tính</TableHead>
                         <TableHead className="hidden md:table-cell">Chức vụ</TableHead>
                         <TableHead>Vai trò</TableHead>
-                        <TableHead>Nhóm quyền</TableHead>
                         <TableHead className="hidden md:table-cell">Lớp CN</TableHead>
                         <TableHead className="hidden md:table-cell">
                           <div className="flex items-center gap-1">
@@ -583,23 +535,6 @@ export default function UserManagement() {
                             <Badge className={cn('border', roleColors[membership.role])}>
                               {roleLabels[membership.role]}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {(userPermissionGroups[membership.user_id] || []).length > 0 ? (
-                                userPermissionGroups[membership.user_id].map((group) => (
-                                  <Badge 
-                                    key={group.id} 
-                                    variant="outline" 
-                                    className="text-xs bg-muted/50"
-                                  >
-                                    {group.name}
-                                  </Badge>
-                                ))
-                              ) : (
-                                <span className="text-muted-foreground text-xs">-</span>
-                              )}
-                            </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
                             {getClassName(membership.class_id)}
@@ -842,7 +777,6 @@ export default function UserManagement() {
         onComplete={() => {
           setSelectedUserIds([]);
           fetchMemberships();
-          fetchUserPermissionGroups();
         }}
       />
 

@@ -1002,10 +1002,6 @@ export type Database = {
     }
     Functions: {
       get_teacher_class: { Args: { sid: string; uid: string }; Returns: string }
-      has_duty_permission: {
-        Args: { sid: string; uid: string }
-        Returns: boolean
-      }
       has_role_in_school: {
         Args: {
           r: Database["public"]["Enums"]["app_role"]
