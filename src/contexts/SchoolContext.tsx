@@ -141,6 +141,18 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
     fetchUserPermissions();
   }, [fetchUserPermissions]);
 
+  // Auto-refresh permissions when window gains focus (user returns to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user && currentSchool) {
+        fetchUserPermissions();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user, currentSchool, fetchUserPermissions]);
+
   const isFeatureEnabled = useCallback((featureCode: string): boolean => {
     // Check if feature is globally active
     const appFeature = appFeatures.find(f => f.code === featureCode);
