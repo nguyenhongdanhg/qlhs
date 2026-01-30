@@ -35,14 +35,16 @@ export function useImageExport() {
             if (htmlEl.style) {
               htmlEl.style.fontKerning = 'normal';
               htmlEl.style.textRendering = 'geometricPrecision';
-              // Remove any overflow hidden/auto that might clip content
-              if (htmlEl.style.overflow === 'hidden' || htmlEl.style.overflow === 'auto' || 
-                  htmlEl.style.overflowY === 'auto' || htmlEl.style.overflowX === 'auto') {
-                htmlEl.style.overflow = 'visible';
-                htmlEl.style.overflowY = 'visible';
-                htmlEl.style.overflowX = 'visible';
-                htmlEl.style.maxHeight = 'none';
-              }
+              // Force remove ALL overflow clipping - this fixes mobile export issues
+              htmlEl.style.overflow = 'visible';
+              htmlEl.style.overflowY = 'visible';
+              htmlEl.style.overflowX = 'visible';
+              htmlEl.style.maxHeight = 'none';
+              htmlEl.style.height = 'auto';
+              // Ensure text is fully visible
+              htmlEl.style.textOverflow = 'unset';
+              htmlEl.style.whiteSpace = 'normal';
+              htmlEl.style.wordBreak = 'break-word';
             }
           });
         }
