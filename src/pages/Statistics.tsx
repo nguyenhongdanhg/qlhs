@@ -36,7 +36,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
-import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
+import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData, exportAbsentStudentsByMealGroup, AbsentStudentByMealGroup, MealAbsentData } from '@/lib/excel-export';
 import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDialog';
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -825,6 +825,126 @@ export default function Statistics() {
     }
   };
 
+  // Handler to export absent students by meal group
+  const handleExportAbsentByMealGroup = useCallback(() => {
+    if (!currentSchool || !dailyMealStats) return;
+
+    const absentData: MealAbsentData = {
+      breakfast: (dailyMealStats.breakfast as MealStats).absentStudents.map(s => ({
+        id: s.id,
+        name: s.name,
+        className: s.className,
+        classGrade: s.classGrade,
+        mealGroup: s.mealGroup,
+        excused: s.excused,
+        reason: s.reason,
+      })),
+      lunch: (dailyMealStats.lunch as MealStats).absentStudents.map(s => ({
+        id: s.id,
+        name: s.name,
+        className: s.className,
+        classGrade: s.classGrade,
+        mealGroup: s.mealGroup,
+        excused: s.excused,
+        reason: s.reason,
+      })),
+      dinner: (dailyMealStats.dinner as MealStats).absentStudents.map(s => ({
+        id: s.id,
+        name: s.name,
+        className: s.className,
+        classGrade: s.classGrade,
+        mealGroup: s.mealGroup,
+        excused: s.excused,
+        reason: s.reason,
+      })),
+    };
+
+    exportAbsentStudentsByMealGroup(absentData, {
+      schoolName: currentSchool.name,
+      title: 'DANH SÁCH HỌC SINH VẮNG THEO MÂM',
+      date: selectedDate,
+      reporterName: profile?.full_name,
+      exportTime: new Date(),
+    });
+
+    toast({
+      title: 'Thành công',
+      description: 'Đã xuất danh sách học sinh vắng theo mâm',
+    });
+  }, [currentSchool, dailyMealStats, selectedDate, profile, toast]);
+
+  // Handler to export daily meal stats to Excel
+  const handleExportDailyMealExcel = useCallback(async () => {
+    if (!currentSchool || filteredStudents.length === 0) return;
+    setIsExporting(true);
+
+    try {
+      const { data: records } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+        .eq('attendance_date', format(selectedDate, 'yyyy-MM-dd'));
+
+      // Get latest report per meal/student
+      const latestByKey = new Map<string, any>();
+      (records || []).forEach((record: any) => {
+        const key = `${record.student_id}-${record.attendance_type}`;
+        const existing = latestByKey.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByKey.set(key, record);
+        }
+      });
+
+      // Build student data
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const studentData: MealStudentData[] = filteredStudents.map(student => {
+        const bRecord = latestByKey.get(`${student.id}-breakfast`);
+        const lRecord = latestByKey.get(`${student.id}-lunch`);
+        const dRecord = latestByKey.get(`${student.id}-dinner`);
+
+        const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
+        attendanceMap.set(dateStr, {
+          breakfast: bRecord ? bRecord.status === 'present' : null,
+          lunch: lRecord ? lRecord.status === 'present' : null,
+          dinner: dRecord ? dRecord.status === 'present' : null,
+        });
+
+        return {
+          id: student.id,
+          name: student.full_name,
+          className: student.class?.name || '',
+          classGrade: student.class?.grade,
+          roomNumber: student.room_number || undefined,
+          mealGroup: student.meal_group || undefined,
+          attendance: attendanceMap,
+        };
+      });
+
+      exportMealStatistics(studentData, {
+        schoolName: currentSchool.name,
+        title: 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ',
+        dateRange: getDateRange(selectedDate, 'day'),
+        reporterName: profile?.full_name,
+        exportTime: new Date(),
+      });
+
+      toast({
+        title: 'Thành công',
+        description: 'Đã xuất thống kê bữa ăn ra Excel',
+      });
+    } catch (error) {
+      console.error('Error exporting daily meal stats:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xuất file Excel',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentSchool, filteredStudents, selectedDate, profile, toast]);
+
   const handleExportMealStats = async () => {
     if (!currentSchool || filteredStudents.length === 0) return;
     setIsExporting(true);
@@ -1326,14 +1446,46 @@ export default function Statistics() {
                   }
                 </h2>
                 {filteredMealStats && (filteredMealStats.breakfast.hasReport || filteredMealStats.lunch.hasReport || filteredMealStats.dinner.hasReport) && !isClassTeacher && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShareMealDialogOpen(true)}
-                  >
-                    <Image className="h-4 w-4 mr-2" />
-                    Xuất ảnh
-                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Xuất báo cáo
+                        <ChevronDown className="h-4 w-4 ml-1" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-2" align="end">
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start"
+                          onClick={() => setShareMealDialogOpen(true)}
+                        >
+                          <Image className="h-4 w-4 mr-2" />
+                          Xuất ảnh thống kê
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start"
+                          onClick={() => handleExportAbsentByMealGroup()}
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          DS vắng theo mâm
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start"
+                          onClick={() => handleExportDailyMealExcel()}
+                        >
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          Xuất Excel
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
 
@@ -1689,6 +1841,8 @@ export default function Statistics() {
           lunch={dailyMealStats.lunch as MealStats}
           dinner={dailyMealStats.dinner as MealStats}
           totalRice={dailyMealStats.totalRice}
+          lunchRice={(dailyMealStats.lunch as MealStats).present * 0.2}
+          dinnerRice={(dailyMealStats.dinner as MealStats).present * 0.2}
         />
       )}
     </div>

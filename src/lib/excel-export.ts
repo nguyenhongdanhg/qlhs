@@ -851,3 +851,130 @@ export function exportSingleAttendanceReport(
   const fileName = `Bao_cao_${type === 'boarding' ? 'noi_tru' : 'tu_hoc'}_${report.date}_${report.session}.xlsx`;
   XLSX.writeFile(wb, fileName);
 }
+
+// Export absent students by meal group
+export interface AbsentStudentByMealGroup {
+  id: string;
+  name: string;
+  className: string;
+  classGrade: number;
+  mealGroup?: string;
+  excused: boolean;
+  reason: string;
+}
+
+export interface MealAbsentData {
+  breakfast: AbsentStudentByMealGroup[];
+  lunch: AbsentStudentByMealGroup[];
+  dinner: AbsentStudentByMealGroup[];
+}
+
+export function exportAbsentStudentsByMealGroup(
+  data: MealAbsentData,
+  config: Omit<ExcelExportConfig, 'dateRange'> & { date: Date }
+): void {
+  const wb = XLSX.utils.book_new();
+  const dateStr = format(config.date, 'dd/MM/yyyy');
+  const dayName = format(config.date, 'EEEE', { locale: vi });
+
+  // Helper to create a sheet for each meal
+  const createMealSheet = (
+    mealName: string,
+    mealLabel: string,
+    students: AbsentStudentByMealGroup[]
+  ): XLSX.WorkSheet => {
+    // Group by meal group
+    const groupedByMealGroup = new Map<string, AbsentStudentByMealGroup[]>();
+    students.forEach(student => {
+      const group = student.mealGroup || 'Chưa phân mâm';
+      if (!groupedByMealGroup.has(group)) {
+        groupedByMealGroup.set(group, []);
+      }
+      groupedByMealGroup.get(group)!.push(student);
+    });
+
+    // Sort meal groups naturally
+    const sortedGroups = Array.from(groupedByMealGroup.keys()).sort((a, b) => {
+      // "Chưa phân mâm" always last
+      if (a === 'Chưa phân mâm') return 1;
+      if (b === 'Chưa phân mâm') return -1;
+      // Extract numbers for natural sorting
+      const numA = parseInt(a.match(/\d+/)?.[0] || '0', 10);
+      const numB = parseInt(b.match(/\d+/)?.[0] || '0', 10);
+      return numA - numB;
+    });
+
+    const wsData: any[][] = [
+      [`DANH SÁCH HỌC SINH VẮNG - ${mealLabel.toUpperCase()}`],
+      [`Trường: ${config.schoolName}`],
+      [`Ngày: ${dayName}, ${dateStr}`],
+      [`Người xuất: ${config.reporterName || ''}`],
+      [`Ngày xuất: ${format(config.exportTime, 'HH:mm dd/MM/yyyy', { locale: vi })}`],
+      [],
+    ];
+
+    if (students.length === 0) {
+      wsData.push(['Không có học sinh vắng']);
+    } else {
+      // Summary by meal group
+      wsData.push(['THỐNG KÊ THEO MÂM']);
+      wsData.push(['Mâm', 'Số lượng vắng']);
+      sortedGroups.forEach(group => {
+        const count = groupedByMealGroup.get(group)?.length || 0;
+        wsData.push([group, count]);
+      });
+      wsData.push(['TỔNG CỘNG', students.length]);
+      wsData.push([]);
+
+      // Detailed list by meal group
+      wsData.push(['CHI TIẾT THEO MÂM']);
+      sortedGroups.forEach(group => {
+        const groupStudents = groupedByMealGroup.get(group) || [];
+        if (groupStudents.length > 0) {
+          wsData.push([]);
+          wsData.push([`MÂM: ${group} (${groupStudents.length} học sinh)`]);
+          wsData.push(['STT', 'Họ và tên', 'Lớp', 'Phép/KP', 'Lý do']);
+          
+          // Sort students by class grade then name
+          groupStudents
+            .sort((a, b) => {
+              if (a.classGrade !== b.classGrade) return a.classGrade - b.classGrade;
+              return a.name.localeCompare(b.name, 'vi');
+            })
+            .forEach((student, idx) => {
+              wsData.push([
+                idx + 1,
+                student.name,
+                student.className,
+                student.excused ? 'P' : 'KP',
+                student.reason || '',
+              ]);
+            });
+        }
+      });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 10 }, { wch: 8 }, { wch: 30 }];
+
+    // Merge title cells
+    if (!ws['!merges']) ws['!merges'] = [];
+    for (let i = 0; i < 5; i++) {
+      ws['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 4 } });
+    }
+
+    return ws;
+  };
+
+  // Create sheets for each meal
+  const breakfastWs = createMealSheet('breakfast', 'Bữa sáng', data.breakfast);
+  const lunchWs = createMealSheet('lunch', 'Bữa trưa', data.lunch);
+  const dinnerWs = createMealSheet('dinner', 'Bữa tối', data.dinner);
+
+  XLSX.utils.book_append_sheet(wb, breakfastWs, 'Vắng sáng');
+  XLSX.utils.book_append_sheet(wb, lunchWs, 'Vắng trưa');
+  XLSX.utils.book_append_sheet(wb, dinnerWs, 'Vắng tối');
+
+  const fileName = `DS_vang_theo_mam_${format(config.date, 'dd-MM-yyyy')}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+}

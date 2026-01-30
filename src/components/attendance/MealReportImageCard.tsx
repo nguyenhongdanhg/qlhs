@@ -29,10 +29,12 @@ interface MealReportImageCardProps {
   lunch: MealStats;
   dinner: MealStats;
   totalRice: number;
+  lunchRice?: number;
+  dinnerRice?: number;
 }
 
 export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportImageCardProps>(
-  ({ schoolName, date, reporter, breakfast, lunch, dinner, totalRice }, ref) => {
+  ({ schoolName, date, reporter, breakfast, lunch, dinner, totalRice, lunchRice, dinnerRice }, ref) => {
     const baseTextStyle: React.CSSProperties = {
       letterSpacing: '0.02em',
       wordSpacing: '0.1em',
@@ -263,7 +265,10 @@ export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportIma
           <div style={{ fontSize: '12px', color: '#d97706', ...baseTextStyle }}>{'Tổng lượng gạo (trưa + tối)'}</div>
           <div style={{ fontSize: '20px', fontWeight: 700, color: '#b45309' }}>{totalRice.toFixed(1)}{' kg'}</div>
           <div style={{ fontSize: '12px', color: '#f59e0b', ...baseTextStyle }}>
-            {'('}{lunch.present + dinner.present}{' suất × 0.2kg)'}
+            {'(Trưa: '}{(lunchRice ?? lunch.present * 0.2).toFixed(1)}{'kg / Tối: '}{(dinnerRice ?? dinner.present * 0.2).toFixed(1)}{'kg)'}
+          </div>
+          <div style={{ fontSize: '11px', color: '#d97706', marginTop: '4px', ...baseTextStyle }}>
+            {'('}{lunch.present}{' suất trưa + '}{dinner.present}{' suất tối) × 0.2kg'}
           </div>
         </div>
 
