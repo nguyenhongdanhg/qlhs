@@ -36,8 +36,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
-import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData, exportAbsentStudentsByMealGroup, AbsentStudentByMealGroup, MealAbsentData } from '@/lib/excel-export';
+import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
 import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDialog';
+import { ShareAbsentByMealGroupDialog } from '@/components/attendance/ShareAbsentByMealGroupDialog';
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
 import { useToast } from '@/hooks/use-toast';
 import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
@@ -122,6 +123,9 @@ export default function Statistics() {
   
   // Share meal report dialog
   const [shareMealDialogOpen, setShareMealDialogOpen] = useState(false);
+  
+  // Share absent by meal group dialog
+  const [shareAbsentByMealGroupDialogOpen, setShareAbsentByMealGroupDialogOpen] = useState(false);
   
   // Supplement meal report dialog
   const [supplementDialogOpen, setSupplementDialogOpen] = useState(false);
@@ -825,53 +829,11 @@ export default function Statistics() {
     }
   };
 
-  // Handler to export absent students by meal group
+  // Handler to open absent by meal group dialog
   const handleExportAbsentByMealGroup = useCallback(() => {
     if (!currentSchool || !dailyMealStats) return;
-
-    const absentData: MealAbsentData = {
-      breakfast: (dailyMealStats.breakfast as MealStats).absentStudents.map(s => ({
-        id: s.id,
-        name: s.name,
-        className: s.className,
-        classGrade: s.classGrade,
-        mealGroup: s.mealGroup,
-        excused: s.excused,
-        reason: s.reason,
-      })),
-      lunch: (dailyMealStats.lunch as MealStats).absentStudents.map(s => ({
-        id: s.id,
-        name: s.name,
-        className: s.className,
-        classGrade: s.classGrade,
-        mealGroup: s.mealGroup,
-        excused: s.excused,
-        reason: s.reason,
-      })),
-      dinner: (dailyMealStats.dinner as MealStats).absentStudents.map(s => ({
-        id: s.id,
-        name: s.name,
-        className: s.className,
-        classGrade: s.classGrade,
-        mealGroup: s.mealGroup,
-        excused: s.excused,
-        reason: s.reason,
-      })),
-    };
-
-    exportAbsentStudentsByMealGroup(absentData, {
-      schoolName: currentSchool.name,
-      title: 'DANH SÁCH HỌC SINH VẮNG THEO MÂM',
-      date: selectedDate,
-      reporterName: profile?.full_name,
-      exportTime: new Date(),
-    });
-
-    toast({
-      title: 'Thành công',
-      description: 'Đã xuất danh sách học sinh vắng theo mâm',
-    });
-  }, [currentSchool, dailyMealStats, selectedDate, profile, toast]);
+    setShareAbsentByMealGroupDialogOpen(true);
+  }, [currentSchool, dailyMealStats]);
 
   // Handler to export daily meal stats to Excel
   const handleExportDailyMealExcel = useCallback(async () => {
@@ -1843,6 +1805,20 @@ export default function Statistics() {
           totalRice={dailyMealStats.totalRice}
           lunchRice={(dailyMealStats.lunch as MealStats).present * 0.2}
           dinnerRice={(dailyMealStats.dinner as MealStats).present * 0.2}
+        />
+      )}
+
+      {/* Share Absent By Meal Group Dialog */}
+      {dailyMealStats && currentSchool && (
+        <ShareAbsentByMealGroupDialog
+          open={shareAbsentByMealGroupDialogOpen}
+          onOpenChange={setShareAbsentByMealGroupDialogOpen}
+          schoolName={currentSchool.name}
+          date={selectedDate}
+          reporter={profile?.full_name || 'N/A'}
+          breakfastAbsent={(dailyMealStats.breakfast as MealStats).absentStudents}
+          lunchAbsent={(dailyMealStats.lunch as MealStats).absentStudents}
+          dinnerAbsent={(dailyMealStats.dinner as MealStats).absentStudents}
         />
       )}
     </div>
