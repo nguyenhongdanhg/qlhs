@@ -1423,8 +1423,13 @@ export default function Statistics() {
                           (Trưa: {(filteredMealStats.lunch as MealStats).present} + Tối: {(filteredMealStats.dinner as MealStats).present}) × 0.2kg
                         </div>
                       </div>
-                      <div className="text-2xl font-bold text-primary">
-                        {filteredMealStats.totalRice.toFixed(1)} kg
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-primary">
+                          {filteredMealStats.totalRice.toFixed(1)} kg
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          (Trưa: {((filteredMealStats.lunch as MealStats).present * 0.2).toFixed(1)}kg / Tối: {((filteredMealStats.dinner as MealStats).present * 0.2).toFixed(1)}kg)
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
