@@ -41,6 +41,8 @@ interface ShareMealReportDialogProps {
   lunch: MealStats;
   dinner: MealStats;
   totalRice: number;
+  lunchRice?: number;
+  dinnerRice?: number;
 }
 
 export const ShareMealReportDialog = memo(function ShareMealReportDialog({
@@ -53,6 +55,8 @@ export const ShareMealReportDialog = memo(function ShareMealReportDialog({
   lunch,
   dinner,
   totalRice,
+  lunchRice,
+  dinnerRice,
 }: ShareMealReportDialogProps) {
   const imageRef = useRef<HTMLDivElement>(null);
   const { isExporting, exportAndShare } = useImageExport();
@@ -100,6 +104,8 @@ export const ShareMealReportDialog = memo(function ShareMealReportDialog({
                 lunch={lunch}
                 dinner={dinner}
                 totalRice={totalRice}
+                lunchRice={lunchRice}
+                dinnerRice={dinnerRice}
               />
             </div>
           </div>
