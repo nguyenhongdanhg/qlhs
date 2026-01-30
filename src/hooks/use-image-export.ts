@@ -28,13 +28,21 @@ export function useImageExport() {
         // Force pixel-perfect rendering
         imageTimeout: 0,
         onclone: (clonedDoc, clonedElement) => {
-          // Ensure all text elements have proper styling
+          // Ensure all text elements have proper styling and remove overflow clipping
           const allElements = clonedElement.querySelectorAll('*');
           allElements.forEach((el) => {
             const htmlEl = el as HTMLElement;
             if (htmlEl.style) {
               htmlEl.style.fontKerning = 'normal';
               htmlEl.style.textRendering = 'geometricPrecision';
+              // Remove any overflow hidden/auto that might clip content
+              if (htmlEl.style.overflow === 'hidden' || htmlEl.style.overflow === 'auto' || 
+                  htmlEl.style.overflowY === 'auto' || htmlEl.style.overflowX === 'auto') {
+                htmlEl.style.overflow = 'visible';
+                htmlEl.style.overflowY = 'visible';
+                htmlEl.style.overflowX = 'visible';
+                htmlEl.style.maxHeight = 'none';
+              }
             }
           });
         }
