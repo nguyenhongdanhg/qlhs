@@ -29,6 +29,7 @@ const Settings = lazy(() => import("@/pages/Settings"));
 const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 const MobileMenu = lazy(() => import("@/pages/MobileMenu"));
 const Install = lazy(() => import("@/pages/Install"));
+const Guide = lazy(() => import("@/pages/Guide"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 // Optimized QueryClient with better caching
@@ -187,6 +188,7 @@ const App = () => (
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/menu" element={<MobileMenu />} />
                 <Route path="/install" element={<Install />} />
+                <Route path="/guide" element={<Guide />} />
               </Route>
               
               {/* Catch-all */}
