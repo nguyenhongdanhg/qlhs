@@ -43,6 +43,7 @@ interface PermissionGroup {
   name: string;
   description: string | null;
   school_id: string;
+  user_count?: number;
 }
 
 interface GroupPermission {
@@ -101,7 +102,7 @@ export default function PermissionGroupsManager() {
     setIsLoading(true);
 
     try {
-      const [groupsRes, featuresRes] = await Promise.all([
+      const [groupsRes, featuresRes, userGroupsRes] = await Promise.all([
         supabase
           .from('permission_groups')
           .select('*')
@@ -112,12 +113,28 @@ export default function PermissionGroupsManager() {
           .select('code, label, description')
           .eq('is_active', true)
           .order('display_order'),
+        supabase
+          .from('user_permission_groups')
+          .select('group_id')
+          .eq('school_id', currentSchool.id),
       ]);
 
       if (groupsRes.error) throw groupsRes.error;
       if (featuresRes.error) throw featuresRes.error;
 
-      setGroups(groupsRes.data || []);
+      // Count users per group
+      const userCounts: Record<string, number> = {};
+      (userGroupsRes.data || []).forEach((ug) => {
+        userCounts[ug.group_id] = (userCounts[ug.group_id] || 0) + 1;
+      });
+
+      // Add user count to each group
+      const groupsWithCounts = (groupsRes.data || []).map((group) => ({
+        ...group,
+        user_count: userCounts[group.id] || 0,
+      }));
+
+      setGroups(groupsWithCounts);
       setFeatures(featuresRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -422,7 +439,7 @@ export default function PermissionGroupsManager() {
               <CardContent>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
-                  <span>0 người dùng</span>
+                  <span>{group.user_count || 0} người dùng</span>
                 </div>
               </CardContent>
             </Card>

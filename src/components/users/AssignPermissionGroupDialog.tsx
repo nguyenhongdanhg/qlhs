@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -36,7 +37,8 @@ export default function AssignPermissionGroupDialog({
   selectedUserIds,
   onComplete,
 }: AssignPermissionGroupDialogProps) {
-  const { currentSchool } = useAuth();
+  const { currentSchool, user } = useAuth();
+  const { refetchPermissions } = useSchool();
   const { toast } = useToast();
 
   const [groups, setGroups] = useState<PermissionGroup[]>([]);
@@ -108,6 +110,11 @@ export default function AssignPermissionGroupDialog({
         title: 'Thành công',
         description: `Đã gán ${selectedGroups.length} nhóm quyền cho ${selectedUserIds.length} người dùng`,
       });
+
+      // Refresh permissions if current user was affected
+      if (user && selectedUserIds.includes(user.id)) {
+        await refetchPermissions();
+      }
 
       onOpenChange(false);
       setSelectedGroups([]);

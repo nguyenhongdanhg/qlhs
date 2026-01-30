@@ -79,7 +79,10 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      console.log('User permission groups:', userGroups);
+
       if (!userGroups || userGroups.length === 0) {
+        console.log('No permission groups assigned to user');
         setUserPermissions([]);
         return;
       }
@@ -96,6 +99,8 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching group permissions:', permError);
         return;
       }
+
+      console.log('Group permissions:', groupPermissions);
 
       // Merge permissions from all groups (OR logic - any group grants permission)
       const mergedPermissions: Record<string, UserPermission> = {};
@@ -121,6 +126,7 @@ export function SchoolProvider({ children }: { children: React.ReactNode }) {
           mergedPermissions[perm.feature_code].can_delete || (perm.can_delete ?? false);
       });
 
+      console.log('Merged user permissions:', Object.values(mergedPermissions));
       setUserPermissions(Object.values(mergedPermissions));
     } catch (error) {
       console.error('Error fetching user permissions:', error);
