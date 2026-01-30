@@ -437,6 +437,146 @@ function createMealStatsSheet(
   return ws;
 }
 
+// Create summary sheet with class totals (Sheet 1: Toàn trường)
+function createSchoolSummarySheet(
+  students: MealStudentData[],
+  days: Date[],
+  config: ExcelExportConfig
+): XLSX.WorkSheet {
+  // Group students by class
+  const classMap = new Map<string, { grade: number; students: MealStudentData[] }>();
+  
+  students.forEach(student => {
+    const className = student.className;
+    if (!classMap.has(className)) {
+      classMap.set(className, {
+        grade: student.classGrade || 0,
+        students: []
+      });
+    }
+    classMap.get(className)!.students.push(student);
+  });
+
+  // Sort classes by grade then by name
+  const sortedClasses = Array.from(classMap.entries()).sort((a, b) => {
+    if (a[1].grade !== b[1].grade) return a[1].grade - b[1].grade;
+    return a[0].localeCompare(b[0], 'vi');
+  });
+
+  // Calculate totals per class
+  const classRows: { className: string; breakfast: number; lunch: number; dinner: number }[] = [];
+  
+  sortedClasses.forEach(([className, classData]) => {
+    let breakfastTotal = 0;
+    let lunchTotal = 0;
+    let dinnerTotal = 0;
+
+    classData.students.forEach(student => {
+      days.forEach(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const dayData = student.attendance.get(dateStr);
+        
+        if (dayData) {
+          if (dayData.breakfast === true) breakfastTotal++;
+          if (dayData.lunch === true) lunchTotal++;
+          if (dayData.dinner === true) dinnerTotal++;
+        }
+      });
+    });
+
+    classRows.push({
+      className,
+      breakfast: breakfastTotal,
+      lunch: lunchTotal,
+      dinner: dinnerTotal,
+    });
+  });
+
+  // Build worksheet data
+  const headerInfoRows: any[][] = [
+    ['THỐNG KÊ BỮA ĂN TOÀN TRƯỜNG'],
+    [`Trường: ${config.schoolName}`],
+    [`Thời gian: ${config.dateRange.label}`],
+    [config.reporterName ? `Người xuất: ${config.reporterName}` : ''],
+    [`Ngày xuất: ${format(config.exportTime, 'HH:mm dd/MM/yyyy', { locale: vi })}`],
+    [],
+  ];
+
+  const headerRow = ['STT', 'Lớp', 'Bữa sáng', 'Bữa trưa', 'Bữa tối'];
+  
+  const dataRows: any[][] = classRows.map((row, idx) => [
+    idx + 1,
+    row.className,
+    row.breakfast,
+    row.lunch,
+    row.dinner,
+  ]);
+
+  // Calculate grand totals
+  const grandBreakfast = classRows.reduce((sum, r) => sum + r.breakfast, 0);
+  const grandLunch = classRows.reduce((sum, r) => sum + r.lunch, 0);
+  const grandDinner = classRows.reduce((sum, r) => sum + r.dinner, 0);
+  
+  const totalsRow = ['', 'TỔNG CỘNG', grandBreakfast, grandLunch, grandDinner];
+
+  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow];
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+
+  // Merge header info cells
+  if (!ws['!merges']) ws['!merges'] = [];
+  for (let i = 0; i < 5; i++) {
+    if (wsData[i] && wsData[i][0]) {
+      ws['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 4 } });
+    }
+  }
+
+  // Style header row (row 7)
+  const headerRowIndex = 6;
+  for (let col = 0; col < 5; col++) {
+    const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c: col });
+    if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+    ws[cellRef].s = {
+      fill: { fgColor: { rgb: '1565C0' } },
+      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+      alignment: { horizontal: 'center', vertical: 'center' },
+    };
+  }
+
+  // Style data rows
+  const dataStartRow = 7;
+  dataRows.forEach((row, rowIdx) => {
+    const actualRow = dataStartRow + rowIdx;
+    const isEvenRow = rowIdx % 2 === 0;
+    const bgColor = isEvenRow ? 'FFFFFF' : 'E3F2FD';
+
+    for (let col = 0; col < row.length; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: actualRow, c: col });
+      if (!ws[cellRef]) ws[cellRef] = { v: row[col], t: typeof row[col] === 'number' ? 'n' : 's' };
+      ws[cellRef].s = {
+        fill: { fgColor: { rgb: bgColor } },
+        font: { sz: 10 },
+        alignment: { horizontal: col < 2 ? 'left' : 'center' },
+      };
+    }
+  });
+
+  // Style totals row
+  const totalsRowIndex = dataStartRow + dataRows.length + 1;
+  for (let col = 0; col < totalsRow.length; col++) {
+    const cellRef = XLSX.utils.encode_cell({ r: totalsRowIndex, c: col });
+    if (!ws[cellRef]) ws[cellRef] = { v: totalsRow[col], t: typeof totalsRow[col] === 'number' ? 'n' : 's' };
+    ws[cellRef].s = {
+      fill: { fgColor: { rgb: 'FFF3E0' } },
+      font: { bold: true, sz: 11 },
+      alignment: { horizontal: 'center' },
+    };
+  }
+
+  return ws;
+}
+
 export function exportMealStatistics(
   students: MealStudentData[],
   config: ExcelExportConfig
@@ -444,14 +584,9 @@ export function exportMealStatistics(
   const wb = XLSX.utils.book_new();
   const days = eachDayOfInterval({ start: config.dateRange.start, end: config.dateRange.end });
 
-  // Sheet 1: Whole school
-  const schoolSheet = createMealStatsSheet(
-    students,
-    days,
-    config,
-    'THỐNG KÊ BỮA ĂN TOÀN TRƯỜNG'
-  );
-  XLSX.utils.book_append_sheet(wb, schoolSheet, 'Toàn trường');
+  // Sheet 1: School Summary (5 columns: STT, Lớp, Sáng, Trưa, Tối)
+  const schoolSummarySheet = createSchoolSummarySheet(students, days, config);
+  XLSX.utils.book_append_sheet(wb, schoolSummarySheet, 'Toàn trường');
 
   // Group students by class and sort by grade
   const classeMap = new Map<string, { grade: number; students: MealStudentData[] }>();
@@ -473,7 +608,7 @@ export function exportMealStatistics(
     return a[0].localeCompare(b[0], 'vi');
   });
 
-  // Create sheet for each class
+  // Create sheet for each class (detailed student-level stats)
   sortedClasses.forEach(([className, classData]) => {
     const classSheet = createMealStatsSheet(
       classData.students,
