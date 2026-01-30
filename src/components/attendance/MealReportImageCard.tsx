@@ -174,7 +174,7 @@ export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportIma
                   }}>
                     {'Vắng'}{` (${stats.absent}):`}
                   </div>
-                  <div style={{ maxHeight: '96px', overflowY: 'auto', fontSize: '12px' }}>
+                  <div style={{ fontSize: '12px' }}>
                     {Array.from(groupedByClass.entries())
                       .sort((a, b) => {
                         const gradeA = a[1][0]?.classGrade || 0;
