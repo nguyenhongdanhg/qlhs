@@ -502,39 +502,44 @@ function createSchoolSummarySheet(
     [],
   ];
 
-  const headerRow = ['STT', 'Lớp', 'Bữa sáng', 'Bữa trưa', 'Bữa tối'];
+  const headerRow = ['STT', 'Lớp', 'Bữa sáng', 'Bữa trưa', 'Bữa tối', 'Số gạo (kg)'];
   
-  const dataRows: any[][] = classRows.map((row, idx) => [
-    idx + 1,
-    row.className,
-    row.breakfast,
-    row.lunch,
-    row.dinner,
-  ]);
+  const dataRows: any[][] = classRows.map((row, idx) => {
+    const rice = (row.lunch + row.dinner) * 0.2;
+    return [
+      idx + 1,
+      row.className,
+      row.breakfast,
+      row.lunch,
+      row.dinner,
+      rice.toFixed(1),
+    ];
+  });
 
   // Calculate grand totals
   const grandBreakfast = classRows.reduce((sum, r) => sum + r.breakfast, 0);
   const grandLunch = classRows.reduce((sum, r) => sum + r.lunch, 0);
   const grandDinner = classRows.reduce((sum, r) => sum + r.dinner, 0);
+  const grandRice = (grandLunch + grandDinner) * 0.2;
   
-  const totalsRow = ['', 'TỔNG CỘNG', grandBreakfast, grandLunch, grandDinner];
+  const totalsRow = ['', 'TỔNG CỘNG', grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1)];
 
   const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+  ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
 
   // Merge header info cells
   if (!ws['!merges']) ws['!merges'] = [];
   for (let i = 0; i < 5; i++) {
     if (wsData[i] && wsData[i][0]) {
-      ws['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 4 } });
+      ws['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 5 } });
     }
   }
 
   // Style header row (row 7)
   const headerRowIndex = 6;
-  for (let col = 0; col < 5; col++) {
+  for (let col = 0; col < 6; col++) {
     const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c: col });
     if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
     ws[cellRef].s = {
