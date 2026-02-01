@@ -67,7 +67,8 @@ async function createJWT(credentials: ServiceAccountCredentials, scopes: string[
 async function getAccessToken(credentials: ServiceAccountCredentials): Promise<string> {
   const scopes = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive'
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/drive.file'
   ];
   const jwt = await createJWT(credentials, scopes);
   
@@ -86,35 +87,101 @@ async function getAccessToken(credentials: ServiceAccountCredentials): Promise<s
   return data.access_token;
 }
 
-// Create a new spreadsheet with initial sheets
-async function createSpreadsheet(
+// Create a new spreadsheet using Drive API (in a specific folder)
+async function createSpreadsheetInFolder(
   accessToken: string, 
   title: string, 
-  sheetNames: string[]
+  folderId: string
 ): Promise<string> {
-  const sheets = sheetNames.map((name, index) => ({
-    properties: { title: name, index }
-  }));
+  // Use Drive API to create a Google Spreadsheet in the folder
+  const metadata = {
+    name: title,
+    mimeType: 'application/vnd.google-apps.spreadsheet',
+    parents: [folderId]
+  };
 
-  const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+  const response = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      properties: { title },
-      sheets
-    }),
+    body: JSON.stringify(metadata),
   });
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Failed to create spreadsheet: ${error}`);
+    throw new Error(`Failed to create spreadsheet in folder: ${error}`);
   }
 
   const data = await response.json();
-  return data.spreadsheetId;
+  return data.id; // This is the spreadsheet ID
+}
+
+// Add sheets to spreadsheet (default Sheet1 already exists, we need to add more)
+async function addSheets(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetNames: string[]
+): Promise<void> {
+  // First, get existing sheets
+  const getResponse = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+    {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }
+  );
+
+  if (!getResponse.ok) {
+    throw new Error(`Failed to get spreadsheet info: ${await getResponse.text()}`);
+  }
+
+  const spreadsheet = await getResponse.json();
+  const existingSheets = spreadsheet.sheets?.map((s: any) => s.properties.title) || [];
+  
+  // Prepare batch update requests
+  const requests: any[] = [];
+  
+  // Rename Sheet1 to first sheet name if exists
+  if (existingSheets.includes('Sheet1') && sheetNames.length > 0) {
+    const sheet1Id = spreadsheet.sheets.find((s: any) => s.properties.title === 'Sheet1')?.properties.sheetId;
+    if (sheet1Id !== undefined) {
+      requests.push({
+        updateSheetProperties: {
+          properties: { sheetId: sheet1Id, title: sheetNames[0] },
+          fields: 'title'
+        }
+      });
+    }
+  }
+  
+  // Add remaining sheets
+  for (let i = 1; i < sheetNames.length; i++) {
+    requests.push({
+      addSheet: {
+        properties: { title: sheetNames[i], index: i }
+      }
+    });
+  }
+
+  if (requests.length > 0) {
+    const batchResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ requests }),
+      }
+    );
+
+    if (!batchResponse.ok) {
+      const error = await batchResponse.text();
+      throw new Error(`Failed to add sheets: ${error}`);
+    }
+  }
 }
 
 // Update sheet data
@@ -183,10 +250,18 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+    const folderId = Deno.env.get('GOOGLE_DRIVE_FOLDER_ID');
 
     if (!serviceAccountKey) {
       return new Response(
         JSON.stringify({ error: 'Google Service Account Key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!folderId) {
+      return new Response(
+        JSON.stringify({ error: 'Google Drive Folder ID not configured. Please add GOOGLE_DRIVE_FOLDER_ID secret.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -323,11 +398,15 @@ Deno.serve(async (req) => {
     // Prepare sheet names: Toàn trường + all class names
     const sheetNames = ['Toàn trường', ...sortedClasses.map(([_, data]) => data.classInfo.name)];
 
-    // Create new spreadsheet
+    // Create new spreadsheet in the shared folder using Drive API
     const spreadsheetTitle = `${school.name} - Báo cáo Tháng ${month}/${year}`;
-    console.log(`Creating spreadsheet: ${spreadsheetTitle}`);
-    const spreadsheetId = await createSpreadsheet(accessToken, spreadsheetTitle, sheetNames);
+    console.log(`Creating spreadsheet in folder: ${spreadsheetTitle}`);
+    const spreadsheetId = await createSpreadsheetInFolder(accessToken, spreadsheetTitle, folderId);
     console.log(`Created spreadsheet: ${spreadsheetId}`);
+
+    // Add sheets
+    await addSheets(accessToken, spreadsheetId, sheetNames);
+    console.log(`Added ${sheetNames.length} sheets`);
 
     // ========== SHEET 1: Toàn trường (School Summary) ==========
     const schoolSheetData: (string | number)[][] = [];
