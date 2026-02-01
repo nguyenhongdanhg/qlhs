@@ -226,6 +226,96 @@ export function GoogleSheetsSettingsCard() {
     }
   };
 
+  const handleSyncAll = async () => {
+    if (!currentSchool?.id || !user || !config) return;
+
+    const typesToSync: Array<'meal_attendance' | 'evening_study' | 'boarding' | 'emulation'> = [];
+    if (syncMealAttendance) typesToSync.push('meal_attendance');
+    if (syncEveningStudy) typesToSync.push('evening_study');
+    if (syncBoarding) typesToSync.push('boarding');
+    if (syncEmulation) typesToSync.push('emulation');
+
+    if (typesToSync.length === 0) {
+      toast({
+        title: 'Thông báo',
+        description: 'Không có loại dữ liệu nào được bật để đồng bộ',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSyncing('all');
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const dataType of typesToSync) {
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+
+        if (!token) continue;
+
+        const sheetNameMap: Record<string, string> = {
+          meal_attendance: mealSheetName,
+          evening_study: eveningStudySheetName,
+          boarding: boardingSheetName,
+          emulation: emulationSheetName,
+        };
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-to-sheets`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              school_id: currentSchool.id,
+              data_type: dataType,
+              sheet_name: sheetNameMap[dataType],
+            }),
+          }
+        );
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        errorCount++;
+      }
+    }
+
+    // Update last sync status
+    if (config?.id) {
+      await supabase
+        .from('sheets_sync_config')
+        .update({
+          last_sync_at: new Date().toISOString(),
+          last_sync_status: `Đồng bộ tất cả: ${successCount} thành công, ${errorCount} lỗi`,
+        })
+        .eq('id', config.id);
+      await fetchConfig();
+    }
+
+    setIsSyncing(null);
+
+    if (errorCount === 0) {
+      toast({
+        title: 'Thành công',
+        description: `Đã đồng bộ ${successCount} loại dữ liệu lên Google Sheets`,
+      });
+    } else {
+      toast({
+        title: 'Hoàn tất',
+        description: `Thành công: ${successCount}, Lỗi: ${errorCount}`,
+        variant: errorCount > successCount ? 'destructive' : 'default',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -257,6 +347,23 @@ export function GoogleSheetsSettingsCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Sync All Button */}
+        {config && (
+          <Button 
+            onClick={handleSyncAll} 
+            disabled={isSyncing !== null}
+            className="w-full"
+            size="lg"
+          >
+            {isSyncing === 'all' ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-5 w-5" />
+            )}
+            Đồng bộ tất cả ngay
+          </Button>
+        )}
+
         {/* Status Banner */}
         {config && (
           <div className={`p-3 rounded-lg flex items-center gap-3 ${
