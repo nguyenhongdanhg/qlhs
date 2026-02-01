@@ -99,8 +99,10 @@ export function UnreportedClassesAlert({
       const tomorrow = addDays(today, 1);
       const todayStr = format(today, 'yyyy-MM-dd');
       const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
+      const todayDisplay = format(today, 'dd/MM', { locale: vi });
+      const tomorrowDisplay = format(tomorrow, 'dd/MM', { locale: vi });
 
-      // Fetch all attendance records for today and tomorrow
+      // Fetch DISTINCT class_id for each date/meal combination to avoid duplicates
       const { data: records } = await supabase
         .from('attendance_records')
         .select('attendance_date, attendance_type, class_id')
@@ -108,11 +110,13 @@ export function UnreportedClassesAlert({
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .in('attendance_date', [todayStr, tomorrowStr]);
 
-      // Create a set of reported class-date-meal combinations
+      // Create a set of reported class-date-meal combinations using class_id
       const reportedSet = new Set<string>();
       (records || []).forEach((record: any) => {
         if (record.class_id) {
-          reportedSet.add(`${record.class_id}-${record.attendance_date}-${record.attendance_type}`);
+          // Use class_id (not class name) for accurate matching
+          const key = `${record.class_id}-${record.attendance_date}-${record.attendance_type}`;
+          reportedSet.add(key);
         }
       });
 
@@ -123,7 +127,8 @@ export function UnreportedClassesAlert({
       const todayMeals: AttendanceType[] = ['breakfast', 'lunch', 'dinner'];
       todayMeals.forEach(meal => {
         const unreportedClasses = classes.filter(cls => {
-          return !reportedSet.has(`${cls.id}-${todayStr}-${meal}`);
+          const key = `${cls.id}-${todayStr}-${meal}`;
+          return !reportedSet.has(key);
         }).map(c => c.name);
 
         if (unreportedClasses.length > 0) {
@@ -131,7 +136,7 @@ export function UnreportedClassesAlert({
             date: today,
             meal,
             mealLabel: mealLabels[meal],
-            dateLabel: 'Hôm nay',
+            dateLabel: `Hôm nay (${todayDisplay})`,
             unreportedClasses,
             icon: mealIcons[meal],
           });
@@ -140,7 +145,8 @@ export function UnreportedClassesAlert({
 
       // Check tomorrow's breakfast (can be reported today)
       const tomorrowBreakfastUnreported = classes.filter(cls => {
-        return !reportedSet.has(`${cls.id}-${tomorrowStr}-breakfast`);
+        const key = `${cls.id}-${tomorrowStr}-breakfast`;
+        return !reportedSet.has(key);
       }).map(c => c.name);
 
       if (tomorrowBreakfastUnreported.length > 0) {
@@ -148,7 +154,7 @@ export function UnreportedClassesAlert({
           date: tomorrow,
           meal: 'breakfast' as AttendanceType,
           mealLabel: mealLabels.breakfast,
-          dateLabel: 'Ngày mai',
+          dateLabel: `Ngày mai (${tomorrowDisplay})`,
           unreportedClasses: tomorrowBreakfastUnreported,
           icon: mealIcons.breakfast,
         });
