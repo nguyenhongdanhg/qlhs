@@ -35,6 +35,8 @@ import {
   History,
   Ban,
   UserMinus,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -88,6 +90,12 @@ const mealTypes: { type: AttendanceType; label: string; icon: typeof Sunrise }[]
   { type: 'dinner', label: 'Bữa tối', icon: Moon },
 ];
 
+interface AbsentStudentInfo {
+  id: string;
+  name: string;
+  className: string;
+}
+
 interface HistoryRecord {
   date: string;
   meal: AttendanceType;
@@ -97,6 +105,8 @@ interface HistoryRecord {
   total: number;
   present: number;
   absent: number;
+  absentStudents: AbsentStudentInfo[];
+  className?: string; // For class-specific records (GVCN view)
 }
 
 export default function Meals() {
@@ -116,8 +126,10 @@ export default function Meals() {
   const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
+  const [historyClassFilter, setHistoryClassFilter] = useState<string>('all');
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [expandedHistoryRecords, setExpandedHistoryRecords] = useState<Record<string, boolean>>({});
   const [mealDeadlines, setMealDeadlines] = useState<MealDeadline[]>(DEFAULT_MEAL_DEADLINES);
   
   // Dialog for selecting absent students for 3 meals
@@ -271,7 +283,7 @@ export default function Meals() {
   useEffect(() => {
     if (!currentSchool || activeTab !== 'history') return;
     fetchHistory();
-  }, [currentSchool, activeTab, historyDateRange]);
+  }, [currentSchool, activeTab, historyDateRange, historyClassFilter, classes]);
 
   const fetchClasses = async () => {
     if (!currentSchool) return;
@@ -339,7 +351,7 @@ export default function Meals() {
       // Build query - for class teachers, only fetch their class records
       let query = supabase
         .from('attendance_records')
-        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name), student:students(full_name, class:classes(name))')
         .eq('school_id', currentSchool.id)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', startDate)
@@ -349,6 +361,12 @@ export default function Meals() {
       // Class teachers only see their class
       if (isClassTeacher && teacherClassId) {
         query = query.eq('class_id', teacherClassId);
+      } else if (historyClassFilter !== 'all') {
+        // Admin class filter
+        const selectedClassObj = classes.find(c => c.name === historyClassFilter);
+        if (selectedClassObj) {
+          query = query.eq('class_id', selectedClassObj.id);
+        }
       }
 
       const { data: recordsData } = await query;
@@ -380,13 +398,26 @@ export default function Meals() {
             total: 0,
             present: 0,
             absent: 0,
+            absentStudents: [],
+            className: isClassTeacher && teacherClassName ? teacherClassName : (historyClassFilter !== 'all' ? historyClassFilter : undefined),
           });
         }
         
         const entry = historyByDateMeal.get(key)!;
         entry.total++;
-        if (record.status === 'present') entry.present++;
-        else entry.absent++;
+        if (record.status === 'present') {
+          entry.present++;
+        } else {
+          entry.absent++;
+          // Add to absent students list
+          const studentName = record.student?.full_name || 'N/A';
+          const className = record.student?.class?.name || 'N/A';
+          entry.absentStudents.push({
+            id: record.student_id,
+            name: studentName,
+            className: className,
+          });
+        }
         
         // Keep the latest report time for display
         if (new Date(record.created_at) > new Date(entry.reportedAt)) {
@@ -394,6 +425,14 @@ export default function Meals() {
           entry.reporterId = record.reporter_id;
           entry.reporterName = record.reporter?.full_name || 'N/A';
         }
+      });
+
+      // Sort absent students by class then name
+      historyByDateMeal.forEach((entry) => {
+        entry.absentStudents.sort((a, b) => {
+          if (a.className !== b.className) return a.className.localeCompare(b.className, 'vi');
+          return a.name.localeCompare(b.name, 'vi');
+        });
       });
 
       setHistoryRecords(Array.from(historyByDateMeal.values()).sort((a, b) => 
@@ -1143,6 +1182,23 @@ export default function Meals() {
                     </PopoverContent>
                   </Popover>
                 </div>
+                {/* Class Filter for Admin only */}
+                {!isClassTeacher && (
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1.5 block">Lọc theo lớp</label>
+                    <Select value={historyClassFilter} onValueChange={setHistoryClassFilter}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="Tất cả lớp" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả lớp</SelectItem>
+                        {sortedClasses.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.name}>{cls.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <Button onClick={handleExportExcel} variant="outline" disabled={isExporting}>
                 {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
@@ -1150,19 +1206,29 @@ export default function Meals() {
               </Button>
             </div>
 
+            {/* Class Teacher Notice */}
+            {isClassTeacher && teacherClassName && (
+              <Alert className="border-blue-200 bg-blue-50">
+                <Users className="h-4 w-4 text-blue-500" />
+                <AlertDescription className="text-blue-700">
+                  Hiển thị lịch sử báo cáo bữa ăn của lớp <strong>{teacherClassName}</strong> - lớp bạn chủ nhiệm.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Statistics Summary */}
             {historyRecords.length > 0 && (
               <div className="grid grid-cols-3 gap-4">
-                <Card className="p-4 text-center bg-blue-50">
-                  <p className="text-2xl font-bold text-blue-600">{historyRecords.length}</p>
+                <Card className="p-4 text-center bg-primary/5 border-primary/20">
+                  <p className="text-2xl font-bold text-primary">{historyRecords.length}</p>
                   <p className="text-xs text-muted-foreground">Số báo cáo</p>
                 </Card>
-                <Card className="p-4 text-center bg-green-50">
-                  <p className="text-2xl font-bold text-green-600">{historyRecords.reduce((s, r) => s + r.present, 0)}</p>
+                <Card className="p-4 text-center bg-success/10 border-success/20">
+                  <p className="text-2xl font-bold text-success">{historyRecords.reduce((s, r) => s + r.present, 0)}</p>
                   <p className="text-xs text-muted-foreground">Tổng có mặt</p>
                 </Card>
-                <Card className="p-4 text-center bg-red-50">
-                  <p className="text-2xl font-bold text-red-600">{historyRecords.reduce((s, r) => s + r.absent, 0)}</p>
+                <Card className="p-4 text-center bg-destructive/10 border-destructive/20">
+                  <p className="text-2xl font-bold text-destructive">{historyRecords.reduce((s, r) => s + r.absent, 0)}</p>
                   <p className="text-xs text-muted-foreground">Tổng vắng</p>
                 </Card>
               </div>
@@ -1182,6 +1248,9 @@ export default function Meals() {
                 {historyRecords.map((record, idx) => {
                   const mealInfo = mealTypes.find(m => m.type === record.meal);
                   const MealIcon = mealInfo?.icon || Sun;
+                  const recordKey = `${record.date}-${record.meal}`;
+                  const isExpanded = expandedHistoryRecords[recordKey];
+                  
                   return (
                     <Card key={idx} className="overflow-hidden">
                       <CardContent className="p-4">
@@ -1189,13 +1258,13 @@ export default function Meals() {
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               "w-10 h-10 rounded-full flex items-center justify-center",
-                              record.meal === 'breakfast' && "bg-yellow-100",
+                              record.meal === 'breakfast' && "bg-amber-100",
                               record.meal === 'lunch' && "bg-orange-100",
                               record.meal === 'dinner' && "bg-purple-100"
                             )}>
                               <MealIcon className={cn(
                                 "h-5 w-5",
-                                record.meal === 'breakfast' && "text-yellow-600",
+                                record.meal === 'breakfast' && "text-amber-600",
                                 record.meal === 'lunch' && "text-orange-600",
                                 record.meal === 'dinner' && "text-purple-600"
                               )} />
@@ -1203,6 +1272,7 @@ export default function Meals() {
                             <div>
                               <div className="font-medium">
                                 {format(new Date(record.date), 'EEEE, dd/MM/yyyy', { locale: vi })}
+                                {record.className && <Badge variant="secondary" className="ml-2 text-xs">{record.className}</Badge>}
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 {mealInfo?.label} • Báo bởi: {record.reporterName}
@@ -1212,25 +1282,65 @@ export default function Meals() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
                             <div className="text-right">
                               <div className="text-sm">
-                                <span className="text-green-600 font-medium">{record.present} ăn</span>
+                                <span className="text-success font-medium">{record.present} ăn</span>
                                 {' / '}
-                                <span className="text-red-600">{record.absent} vắng</span>
+                                <span className="text-destructive">{record.absent} vắng</span>
                               </div>
                               <div className="text-xs text-muted-foreground">Tổng: {record.total}</div>
                             </div>
+                            {record.absentStudents.length > 0 && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setExpandedHistoryRecords(prev => ({
+                                  ...prev,
+                                  [recordKey]: !prev[recordKey]
+                                }))}
+                                className="h-8 px-2"
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               size="icon"
                               onClick={() => handleDeleteHistory(record.date, record.meal)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
+                        
+                        {/* Expandable Absent Students List */}
+                        {isExpanded && record.absentStudents.length > 0 && (
+                          <div className="mt-4 pt-4 border-t">
+                            <p className="text-sm font-medium text-muted-foreground mb-2">
+                              Danh sách vắng ({record.absentStudents.length}):
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                              {record.absentStudents.map((student, sIdx) => (
+                                <div 
+                                  key={sIdx}
+                                  className="flex items-center gap-1.5 p-2 rounded-lg bg-destructive/5 border border-destructive/20"
+                                >
+                                  <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium truncate">{student.name}</p>
+                                    <p className="text-[10px] text-muted-foreground">{student.className}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   );
