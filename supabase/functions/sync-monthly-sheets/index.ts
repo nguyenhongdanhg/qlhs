@@ -23,7 +23,7 @@ async function createJWT(credentials: ServiceAccountCredentials): Promise<string
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: credentials.client_email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
     aud: credentials.token_uri,
     iat: now,
     exp: now + 3600,
@@ -82,30 +82,24 @@ async function getAccessToken(credentials: ServiceAccountCredentials): Promise<s
   return data.access_token;
 }
 
-// Create a new Google Spreadsheet
-async function createSpreadsheet(accessToken: string, title: string): Promise<string> {
-  const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      properties: { title },
-      sheets: [{ properties: { title: 'Toàn trường' } }]
-    }),
+// Get existing sheet names in spreadsheet
+async function getSpreadsheetSheets(accessToken: string, spreadsheetId: string): Promise<string[]> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`;
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
   });
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Failed to create spreadsheet: ${error}`);
+    throw new Error(`Failed to get spreadsheet info: ${error}`);
   }
 
   const data = await response.json();
-  return data.spreadsheetId;
+  return data.sheets?.map((s: { properties: { title: string } }) => s.properties.title) || [];
 }
 
-// Add sheet to spreadsheet
+// Add a new sheet to spreadsheet
 async function addSheet(accessToken: string, spreadsheetId: string, sheetName: string): Promise<void> {
   const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
     method: 'POST',
@@ -123,6 +117,14 @@ async function addSheet(accessToken: string, spreadsheetId: string, sheetName: s
     if (!error.includes('already exists')) {
       throw new Error(`Failed to add sheet: ${error}`);
     }
+  }
+}
+
+// Ensure sheet exists
+async function ensureSheetExists(accessToken: string, spreadsheetId: string, sheetName: string, existingSheets: string[]): Promise<void> {
+  if (!existingSheets.includes(sheetName)) {
+    console.log(`Creating sheet: ${sheetName}`);
+    await addSheet(accessToken, spreadsheetId, sheetName);
   }
 }
 
@@ -177,10 +179,6 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
 }
 
-function formatDateFull(date: Date): string {
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
 // Format date for query
 function formatDateISO(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -203,10 +201,18 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+    const spreadsheetId = Deno.env.get('GOOGLE_SHEET_ID');
 
     if (!serviceAccountKey) {
       return new Response(
         JSON.stringify({ error: 'Google Service Account Key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!spreadsheetId) {
+      return new Response(
+        JSON.stringify({ error: 'Google Sheet ID not configured. Please set GOOGLE_SHEET_ID secret.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -318,15 +324,13 @@ Deno.serve(async (req) => {
 
     // Get access token
     const accessToken = await getAccessToken(credentials);
-
-    // Create new spreadsheet for this month
-    const monthNames = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
-      'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
-    const spreadsheetTitle = `${school.name} - Báo cáo ${monthNames[month]} ${year}`;
     
-    console.log(`Creating spreadsheet: ${spreadsheetTitle}`);
-    const spreadsheetId = await createSpreadsheet(accessToken, spreadsheetTitle);
-    console.log(`Created spreadsheet: ${spreadsheetId}`);
+    // Get existing sheets
+    const existingSheets = await getSpreadsheetSheets(accessToken, spreadsheetId);
+
+    // Month name for sheet naming
+    const monthNames = ['', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+    const monthPrefix = `${monthNames[month]}-${year}`;
 
     // Group students by class
     const classStudents = new Map<string, { classInfo: any; students: any[] }>();
@@ -350,11 +354,11 @@ Deno.serve(async (req) => {
       });
 
     // ========== SHEET 1: Toàn trường (School Summary) ==========
-    // Header: Ngày | [Lớp1 S T C] | [Lớp2 S T C] | ... | Tổng S | Tổng T | Tổng C | Gạo
+    const schoolSheetName = `${monthPrefix}-Toàn trường`;
     const schoolSheetData: (string | number)[][] = [];
     
     // Title rows
-    schoolSheetData.push([`THỐNG KÊ BỮA ĂN TOÀN TRƯỜNG - ${monthNames[month]} ${year}`]);
+    schoolSheetData.push([`THỐNG KÊ BỮA ĂN TOÀN TRƯỜNG - Tháng ${month}/${year}`]);
     schoolSheetData.push([`Trường: ${school.name}`]);
     schoolSheetData.push([`Ngày xuất: ${new Date().toLocaleString('vi-VN')}`]);
     schoolSheetData.push([]);
@@ -425,16 +429,18 @@ Deno.serve(async (req) => {
     totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1));
     schoolSheetData.push(totalsRow);
 
-    await updateSheet(accessToken, spreadsheetId, 'Toàn trường', schoolSheetData);
-    console.log('Updated Toàn trường sheet');
+    await ensureSheetExists(accessToken, spreadsheetId, schoolSheetName, existingSheets);
+    await updateSheet(accessToken, spreadsheetId, schoolSheetName, schoolSheetData);
+    console.log(`Updated: ${schoolSheetName}`);
 
     // ========== SHEETS 2+: Per-Class Sheets ==========
     for (const [classId, data] of sortedClasses) {
       const className = data.classInfo.name;
+      const classSheetName = `${monthPrefix}-${className}`;
       const classSheetData: (string | number)[][] = [];
 
       // Title
-      classSheetData.push([`THỐNG KÊ LỚP ${className} - ${monthNames[month]} ${year}`]);
+      classSheetData.push([`THỐNG KÊ LỚP ${className} - Tháng ${month}/${year}`]);
       classSheetData.push([`Sĩ số: ${data.students.length} học sinh`]);
       classSheetData.push([]);
 
@@ -574,19 +580,18 @@ Deno.serve(async (req) => {
       classSheetData.push([]);
       classSheetData.push(['Ghi chú: x = có mặt, o = vắng, - = chưa báo cáo. Mỗi ô: Nội trú/Tự học']);
 
-      // Add class sheet
-      const safeClassName = className.length > 28 ? className.substring(0, 28) : className;
-      await addSheet(accessToken, spreadsheetId, safeClassName);
-      await updateSheet(accessToken, spreadsheetId, safeClassName, classSheetData);
-      console.log(`Updated sheet: ${className}`);
+      // Add and update class sheet
+      await ensureSheetExists(accessToken, spreadsheetId, classSheetName, existingSheets);
+      await updateSheet(accessToken, spreadsheetId, classSheetName, classSheetData);
+      console.log(`Updated: ${classSheetName}`);
     }
 
-    // Save spreadsheet ID to config
+    // Save sync status
     await supabase
       .from('sheets_sync_config')
       .update({ 
         last_sync_at: new Date().toISOString(),
-        last_sync_status: `Đã tạo báo cáo ${monthNames[month]} ${year}`
+        last_sync_status: `Đã tạo báo cáo Tháng ${month}/${year} với ${sortedClasses.length + 1} sheet`
       })
       .eq('school_id', school_id);
 
@@ -595,7 +600,8 @@ Deno.serve(async (req) => {
         success: true, 
         spreadsheetId,
         spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
-        message: `Đã tạo báo cáo ${monthNames[month]} ${year} với ${sortedClasses.length} lớp`
+        message: `Đã tạo báo cáo Tháng ${month}/${year} với ${sortedClasses.length + 1} sheet`,
+        sheetsCreated: sortedClasses.length + 1
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

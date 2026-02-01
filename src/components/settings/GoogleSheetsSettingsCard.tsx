@@ -330,20 +330,20 @@ export function GoogleSheetsSettingsCard() {
             </Button>
           </div>
 
-          {lastCreatedUrl && (
-            <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
-              <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-2">
-                ✓ Đã tạo báo cáo thành công!
-              </p>
-              <Button variant="outline" size="sm" asChild>
-                <a 
-                  href={lastCreatedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Mở Google Sheet
-                </a>
+        {lastCreatedUrl && (
+          <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
+            <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-2">
+              ✓ Đã tạo các sheet báo cáo thành công!
+            </p>
+            <Button variant="outline" size="sm" asChild>
+              <a 
+                href={lastCreatedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Mở Google Sheet
+              </a>
               </Button>
             </div>
           )}
