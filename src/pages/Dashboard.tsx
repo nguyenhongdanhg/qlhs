@@ -336,7 +336,7 @@ export default function Dashboard() {
     staleTime: 1000 * 60 * 2,
   });
 
-  // Fetch current week emulation data
+  // Fetch previous week emulation data (show last week's results instead of current week)
   const { data: emulationData } = useQuery({
     queryKey: ['dashboard-emulation', currentSchool?.id],
     queryFn: async (): Promise<EmulationData | null> => {
@@ -351,8 +351,8 @@ export default function Dashboard() {
 
       if (!weekSettings || weekSettings.length === 0) return null;
 
-      // Find current week
-      const currentWeek = weekSettings.find(w => {
+      // Find current week index
+      const currentWeekIndex = weekSettings.findIndex(w => {
         try {
           const start = parseISO(w.start_date);
           const end = parseISO(w.end_date);
@@ -362,9 +362,12 @@ export default function Dashboard() {
         }
       });
 
-      if (!currentWeek) return null;
+      // Get previous week (if current week not found or is first week, return null)
+      if (currentWeekIndex <= 0) return null;
+      
+      const previousWeek = weekSettings[currentWeekIndex - 1];
 
-      // Get emulation scores for current week
+      // Get emulation scores for previous week
       const { data: scores } = await supabase
         .from('emulation_scores')
         .select(`
@@ -375,9 +378,9 @@ export default function Dashboard() {
           class:classes!inner(name)
         `)
         .eq('school_id', currentSchool.id)
-        .eq('week_number', currentWeek.week_number);
+        .eq('week_number', previousWeek.week_number);
 
-      if (!scores || scores.length === 0) return { weekNumber: currentWeek.week_number, topClasses: [] };
+      if (!scores || scores.length === 0) return { weekNumber: previousWeek.week_number, topClasses: [] };
 
       // Calculate average and rank
       const classScores = scores.map((s: any) => {
@@ -393,7 +396,7 @@ export default function Dashboard() {
       classScores.forEach((c, i) => { c.rank = i + 1; });
 
       return {
-        weekNumber: currentWeek.week_number,
+        weekNumber: previousWeek.week_number,
         topClasses: classScores.slice(0, 3), // Top 3
       };
     },
