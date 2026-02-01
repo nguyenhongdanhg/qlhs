@@ -848,10 +848,10 @@ export default function Statistics() {
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .eq('attendance_date', format(selectedDate, 'yyyy-MM-dd'));
 
-      // Get latest report per meal/student
+      // Get latest report per student/date/meal - CRITICAL: include date in key for multi-day exports
       const latestByKey = new Map<string, any>();
       (records || []).forEach((record: any) => {
-        const key = `${record.student_id}-${record.attendance_type}`;
+        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
         const existing = latestByKey.get(key);
         if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
           latestByKey.set(key, record);
@@ -861,9 +861,9 @@ export default function Statistics() {
       // Build student data
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const studentData: MealStudentData[] = filteredStudents.map(student => {
-        const bRecord = latestByKey.get(`${student.id}-breakfast`);
-        const lRecord = latestByKey.get(`${student.id}-lunch`);
-        const dRecord = latestByKey.get(`${student.id}-dinner`);
+        const bRecord = latestByKey.get(`${student.id}-${dateStr}-breakfast`);
+        const lRecord = latestByKey.get(`${student.id}-${dateStr}-lunch`);
+        const dRecord = latestByKey.get(`${student.id}-${dateStr}-dinner`);
 
         const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
         attendanceMap.set(dateStr, {
