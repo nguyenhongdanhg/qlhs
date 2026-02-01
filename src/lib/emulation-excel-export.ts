@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 

@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style';
 
 // Professional Excel styling constants
 export const ExcelColors = {
