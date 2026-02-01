@@ -50,6 +50,7 @@ import {
   MealStudentData 
 } from '@/lib/excel-export';
 import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
+import { UnreportedClassesAlert } from '@/components/attendance/UnreportedClassesAlert';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -1069,6 +1070,24 @@ export default function Meals() {
           )}
         </CardContent>
       </Card>
+
+      {/* Unreported Classes Alert - Only for admins/accountants */}
+      {canBypassDeadline && !isClassTeacher && (
+        <UnreportedClassesAlert
+          schoolId={currentSchool.id}
+          classes={classes}
+          students={students}
+          mealDeadlines={mealDeadlines}
+          canReport={canReportMeals}
+          onReportClass={(className, meal, targetDate) => {
+            setSelectedClass(className);
+            setSelectedMeal(meal);
+            setDate(targetDate);
+            setActiveTab('register');
+          }}
+          onRefresh={fetchStudentsAndAttendance}
+        />
+      )}
 
       <Card className="mb-6">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
