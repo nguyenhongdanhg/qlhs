@@ -473,16 +473,10 @@ export default function Meals() {
         }
       });
 
-      // Sort absent students by grade then class name then student name
+      // Sort absent students by class then name
       historyByDateMeal.forEach((entry) => {
         entry.absentStudents.sort((a, b) => {
-          // Extract grade from class name (e.g., "6A" -> 6, "12B" -> 12)
-          const gradeA = parseInt(a.className.match(/^\d+/)?.[0] || '0', 10);
-          const gradeB = parseInt(b.className.match(/^\d+/)?.[0] || '0', 10);
-          if (gradeA !== gradeB) return gradeA - gradeB;
-          // Then by class name naturally (6A, 6B...)
-          if (a.className !== b.className) return a.className.localeCompare(b.className, 'vi', { numeric: true });
-          // Then by student name
+          if (a.className !== b.className) return a.className.localeCompare(b.className, 'vi');
           return a.name.localeCompare(b.name, 'vi');
         });
       });

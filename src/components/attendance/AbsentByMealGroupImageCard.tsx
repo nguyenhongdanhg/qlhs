@@ -121,10 +121,7 @@ export const AbsentByMealGroupImageCard = memo(forwardRef<HTMLDivElement, Absent
                     {groupStudents
                       .sort((a, b) => {
                         if (a.classGrade !== b.classGrade) return a.classGrade - b.classGrade;
-                        // Then sort by class name naturally (6A, 6B, 6C...)
-                        if (a.className !== b.className) return a.className.localeCompare(b.className, 'vi', { numeric: true });
-                        // Then by student name
-                        return a.name.localeCompare(b.name, 'vi');
+                        return a.className.localeCompare(b.className, 'vi');
                       })
                       .map((student, i) => (
                         <span key={student.id} style={{ color: '#374151', ...baseTextStyle }}>
