@@ -984,10 +984,32 @@ export default function Meals() {
       const exportDateRange = getDateRange(selectedDate, rangeType);
       const days = eachDayOfInterval({ start: exportDateRange.start, end: exportDateRange.end });
       
+      // IMPORTANT: For Excel export, we need ALL boarding students, not just currently filtered ones
+      // Re-fetch all students to ensure we have the complete list
+      const { data: allStudentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*, class:classes(*)')
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true)
+        .eq('is_boarding', true)
+        .order('full_name');
+
+      if (studentsError) throw studentsError;
+
+      const allStudents = (allStudentsData || []).map(s => ({
+        ...s,
+        class: s.class as unknown as Class
+      })) as Student[];
+
       // For class teachers, only export their class students
       const studentsToExport = isClassTeacher && teacherClassId 
-        ? students.filter(s => s.class_id === teacherClassId)
-        : students;
+        ? allStudents.filter(s => s.class_id === teacherClassId)
+        : allStudents;
+
+      console.log(`[Meal Excel Export] Starting export...`);
+      console.log(`  - All students in school: ${allStudents.length}`);
+      console.log(`  - Students to export: ${studentsToExport.length}`);
+      console.log(`  - Is class teacher: ${isClassTeacher}, Teacher class: ${teacherClassId}`);
 
       // CRITICAL: Always fetch attendance by student IDs (not whole-school)
       // and paginate to avoid missing classes due to row limits.
@@ -1000,16 +1022,21 @@ export default function Meals() {
       const startDate = format(exportDateRange.start, 'yyyy-MM-dd');
       const endDate = format(exportDateRange.end, 'yyyy-MM-dd');
 
+      // Fetch attendance records with pagination
+      // IMPORTANT: Query directly without student filter first if we have many students
+      // to avoid issues with large IN clauses
       const PAGE_SIZE = 10000;
       const MAX_ROWS = 300000; // safety cap
       const recordsData: any[] = [];
+      
+      console.log(`[Meal Excel Export] Fetching records for date range: ${startDate} to ${endDate}`);
+      
       for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
         const to = from + PAGE_SIZE - 1;
         const { data, error } = await supabase
           .from('attendance_records')
           .select('*')
           .eq('school_id', currentSchool.id)
-          .in('student_id', studentIds)
           .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
           .gte('attendance_date', startDate)
           .lte('attendance_date', endDate)
@@ -1021,13 +1048,23 @@ export default function Meals() {
 
         const page = data || [];
         recordsData.push(...page);
+        
+        console.log(`[Meal Excel Export] Fetched page ${from/PAGE_SIZE + 1}: ${page.length} records`);
 
         if (page.length < PAGE_SIZE) break;
       }
 
+      console.log(`[Meal Excel Export] Total raw records fetched: ${recordsData.length}`);
+
+      // Filter to only include students we're exporting
+      const studentIdSet = new Set(studentIds);
+      const filteredRecords = recordsData.filter(r => studentIdSet.has(r.student_id));
+      
+      console.log(`[Meal Excel Export] Records after filtering to export students: ${filteredRecords.length}`);
+
       // Create attendance map: studentId -> date -> meal -> status (based on latest report per meal/date)
       const latestByKey = new Map<string, any>();
-      (recordsData || []).forEach((record: any) => {
+      filteredRecords.forEach((record: any) => {
         const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
         const existing = latestByKey.get(key);
         if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
@@ -1035,14 +1072,25 @@ export default function Meals() {
         }
       });
 
-      // Debug: Count records per class
+      console.log(`[Meal Excel Export] Unique latest records: ${latestByKey.size}`);
+
+      // Debug: Count records per class (by class_id from student, not from record)
       const classRecordCounts = new Map<string, { breakfast: number; lunch: number; dinner: number }>();
-      latestByKey.forEach((record) => {
-        const classId = record.class_id;
-        if (!classRecordCounts.has(classId)) {
-          classRecordCounts.set(classId, { breakfast: 0, lunch: 0, dinner: 0 });
+      
+      // Build student to class mapping
+      const studentToClass = new Map<string, string>();
+      studentsToExport.forEach(s => {
+        if (s.class?.name) {
+          studentToClass.set(s.id, s.class.name);
         }
-        const counts = classRecordCounts.get(classId)!;
+      });
+      
+      latestByKey.forEach((record) => {
+        const className = studentToClass.get(record.student_id) || 'Unknown';
+        if (!classRecordCounts.has(className)) {
+          classRecordCounts.set(className, { breakfast: 0, lunch: 0, dinner: 0 });
+        }
+        const counts = classRecordCounts.get(className)!;
         if (record.attendance_type === 'breakfast') counts.breakfast++;
         else if (record.attendance_type === 'lunch') counts.lunch++;
         else if (record.attendance_type === 'dinner') counts.dinner++;
@@ -1057,13 +1105,17 @@ export default function Meals() {
       });
 
       console.log(`[Meal Excel Export] Summary:`);
-      console.log(`  - Students: ${studentIds.length}`);
+      console.log(`  - Students to export: ${studentIds.length}`);
       console.log(`  - Total records fetched: ${recordsData.length}`);
+      console.log(`  - Filtered records: ${filteredRecords.length}`);
       console.log(`  - Unique records (latest): ${latestByKey.size}`);
       console.log(`  - Date range: ${startDate} to ${endDate}`);
+      console.log(`  - Days in range: ${days.length}`);
       console.log(`  - Records per class:`);
-      classRecordCounts.forEach((counts, classId) => {
-        const className = classIdToName.get(classId) || classId;
+      
+      // Sort by class name for consistent logging
+      const sortedClassCounts = Array.from(classRecordCounts.entries()).sort((a, b) => a[0].localeCompare(b[0], 'vi'));
+      sortedClassCounts.forEach(([className, counts]) => {
         console.log(`    ${className}: B=${counts.breakfast}, L=${counts.lunch}, D=${counts.dinner}`);
       });
 
