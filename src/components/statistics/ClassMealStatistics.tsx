@@ -138,7 +138,8 @@ export const ClassMealStatistics = memo(function ClassMealStatistics({
         .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', format(dateRange.start, 'yyyy-MM-dd'))
-        .lte('attendance_date', format(dateRange.end, 'yyyy-MM-dd'));
+        .lte('attendance_date', format(dateRange.end, 'yyyy-MM-dd'))
+        .limit(50000);
 
       // Get latest record per student/date/meal - this ensures no duplicates
       const latestByKey = new Map<string, any>();
@@ -225,7 +226,8 @@ export const ClassMealStatistics = memo(function ClassMealStatistics({
         .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', format(dateRange.start, 'yyyy-MM-dd'))
-        .lte('attendance_date', format(dateRange.end, 'yyyy-MM-dd'));
+        .lte('attendance_date', format(dateRange.end, 'yyyy-MM-dd'))
+        .limit(50000);
 
       // Get latest record per student/date/meal - ensures no duplicates affect the export
       const latestByKey = new Map<string, any>();

@@ -980,7 +980,8 @@ export default function Statistics() {
         .eq('school_id', currentSchool.id)
         .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .eq('attendance_date', format(selectedDate, 'yyyy-MM-dd'));
+        .eq('attendance_date', format(selectedDate, 'yyyy-MM-dd'))
+        .limit(10000);
 
       // Get latest report per student/date/meal - CRITICAL: include date in key for multi-day exports
       const latestByKey = new Map<string, any>();
@@ -1059,7 +1060,8 @@ export default function Statistics() {
         .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', format(riceDateRange.start, 'yyyy-MM-dd'))
-        .lte('attendance_date', format(riceDateRange.end, 'yyyy-MM-dd'));
+        .lte('attendance_date', format(riceDateRange.end, 'yyyy-MM-dd'))
+        .limit(50000);
 
       // Get latest report per meal/date/student
       const latestByKey = new Map<string, any>();
