@@ -1308,14 +1308,20 @@ export default function Meals() {
                                 )}
                               </Button>
                             )}
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => handleDeleteHistory(record.date, record.meal)}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {(isSuperAdmin || isSchoolAdmin() || canDelete) && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  if (window.confirm(`Xác nhận xóa báo cáo ${mealInfo?.label} ngày ${format(new Date(record.date), 'dd/MM/yyyy')}?`)) {
+                                    handleDeleteHistory(record.date, record.meal);
+                                  }
+                                }}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                         
