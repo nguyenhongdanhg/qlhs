@@ -51,6 +51,7 @@ import {
   MealStudentData 
 } from '@/lib/excel-export';
 import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
+import { MealDiagnosticDialog } from '@/components/attendance/MealDiagnosticDialog';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -152,6 +153,9 @@ export default function Meals() {
     meal: AttendanceType;
     className?: string;
   } | null>(null);
+
+  // Diagnostic dialog state
+  const [diagnosticDialogOpen, setDiagnosticDialogOpen] = useState(false);
 
   // Check if user is class teacher and get their class
   const isClassTeacher = currentMembership?.role === 'class_teacher';
@@ -1479,10 +1483,23 @@ export default function Meals() {
                   </div>
                 )}
               </div>
-              <Button onClick={handleExportExcel} variant="outline" disabled={isExporting}>
-                {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
-                Xuất Excel
-              </Button>
+              <div className="flex items-center gap-2">
+                {!isClassTeacher && (
+                  <Button 
+                    onClick={() => setDiagnosticDialogOpen(true)} 
+                    variant="outline" 
+                    size="sm"
+                    className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Chẩn đoán
+                  </Button>
+                )}
+                <Button onClick={handleExportExcel} variant="outline" disabled={isExporting}>
+                  {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
+                  Xuất Excel
+                </Button>
+              </div>
             </div>
 
             {/* Class Teacher Notice */}
@@ -1714,6 +1731,19 @@ export default function Meals() {
         title={`${mealTypes.find(m => m.type === selectedMeal)?.label} - Chọn học sinh vắng`}
         description="Chọn học sinh vắng cho bữa này. Các học sinh không chọn sẽ được báo đủ."
       />
+
+      {/* Diagnostic Dialog */}
+      {currentSchool && (
+        <MealDiagnosticDialog
+          open={diagnosticDialogOpen}
+          onOpenChange={setDiagnosticDialogOpen}
+          schoolId={currentSchool.id}
+          students={students}
+          classes={classes}
+          startDate={historyDateRange.start}
+          endDate={historyDateRange.end}
+        />
+      )}
     </div>
   );
 }
