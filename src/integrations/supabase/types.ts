@@ -783,6 +783,74 @@ export type Database = {
         }
         Relationships: []
       }
+      sheets_sync_config: {
+        Row: {
+          boarding_sheet_name: string | null
+          created_at: string
+          emulation_sheet_name: string | null
+          evening_study_sheet_name: string | null
+          id: string
+          is_enabled: boolean
+          last_sync_at: string | null
+          last_sync_status: string | null
+          meal_sheet_name: string | null
+          school_id: string
+          service_account_email: string | null
+          sheet_id: string
+          sync_boarding: boolean
+          sync_emulation: boolean
+          sync_evening_study: boolean
+          sync_meal_attendance: boolean
+          updated_at: string
+        }
+        Insert: {
+          boarding_sheet_name?: string | null
+          created_at?: string
+          emulation_sheet_name?: string | null
+          evening_study_sheet_name?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          meal_sheet_name?: string | null
+          school_id: string
+          service_account_email?: string | null
+          sheet_id: string
+          sync_boarding?: boolean
+          sync_emulation?: boolean
+          sync_evening_study?: boolean
+          sync_meal_attendance?: boolean
+          updated_at?: string
+        }
+        Update: {
+          boarding_sheet_name?: string | null
+          created_at?: string
+          emulation_sheet_name?: string | null
+          evening_study_sheet_name?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          meal_sheet_name?: string | null
+          school_id?: string
+          service_account_email?: string | null
+          sheet_id?: string
+          sync_boarding?: boolean
+          sync_emulation?: boolean
+          sync_evening_study?: boolean
+          sync_meal_attendance?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sheets_sync_config_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           address: string | null

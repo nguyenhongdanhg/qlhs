@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { MealSettingsCard } from '@/components/settings/MealSettingsCard';
 import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
+import { GoogleSheetsSettingsCard } from '@/components/settings/GoogleSheetsSettingsCard';
 
 export default function Settings() {
   const { profile, currentMembership, user, refreshProfile, isSuperAdmin, currentSchool } = useAuth();
@@ -286,6 +287,11 @@ export default function Settings() {
         {/* Meal Settings - Only for admin/super_admin */}
         {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (
           <MealSettingsCard />
+        )}
+
+        {/* Google Sheets Integration - Only for admin/super_admin */}
+        {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (
+          <GoogleSheetsSettingsCard />
         )}
 
         {/* PWA Install */}
