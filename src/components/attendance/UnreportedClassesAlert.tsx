@@ -9,7 +9,7 @@ import { format, addDays, isBefore, setHours, setMinutes, subDays } from 'date-f
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { SupplementMealReportDialog } from './SupplementMealReportDialog';
-
+import { toast } from 'sonner';
 interface MealDeadline {
   type: AttendanceType;
   deadlineHour: number;
@@ -193,6 +193,7 @@ export function UnreportedClassesAlert({
       const studentsToReport = students.filter(s => classNamesSet.has(s.class?.name || ''));
       
       if (studentsToReport.length === 0) {
+        toast.error('Không tìm thấy học sinh để báo cáo');
         setIsSubmitting(false);
         return;
       }
@@ -217,14 +218,28 @@ export function UnreportedClassesAlert({
       const { error } = await supabase.from('attendance_records').insert(records);
       if (error) throw error;
 
-      // Refresh data
-      await fetchUnreportedClasses();
-      onRefresh?.();
-      
+      // Show success notification with counts
+      const mealLabel = mealLabels[meal as keyof typeof mealLabels] || meal;
+      toast.success(
+        `Đã bổ sung ${classesNotReported.length} lớp cho ${mealLabel}`,
+        { description: `${studentsToReport.length} học sinh (${absentStudentIds.length} vắng)` }
+      );
+
+      // Close dialog first
       setSupplementDialogOpen(false);
       setSelectedSupplementData(null);
+      
+      // Then refresh data - use small delay to ensure DB has committed
+      setTimeout(async () => {
+        await fetchUnreportedClasses();
+        onRefresh?.();
+      }, 500);
+      
     } catch (error) {
       console.error('Error submitting supplement report:', error);
+      toast.error('Lỗi khi bổ sung báo cáo', { 
+        description: error instanceof Error ? error.message : 'Vui lòng thử lại' 
+      });
     } finally {
       setIsSubmitting(false);
     }
