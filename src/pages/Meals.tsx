@@ -980,15 +980,45 @@ export default function Meals() {
         ? students.filter(s => s.class_id === teacherClassId)
         : students;
 
-      // Fetch all attendance records for the date range
-      const { data: recordsData } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .eq('school_id', currentSchool.id)
-        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .gte('attendance_date', format(historyDateRange.start, 'yyyy-MM-dd'))
-         .lte('attendance_date', format(historyDateRange.end, 'yyyy-MM-dd'))
-         .limit(100000);
+      // CRITICAL: Always fetch attendance by student IDs (not whole-school)
+      // and paginate to avoid missing classes due to row limits.
+      const studentIds = studentsToExport.map((s) => s.id);
+      if (studentIds.length === 0) {
+        toast({ title: 'Không có dữ liệu', description: 'Không có học sinh để xuất' });
+        return;
+      }
+
+      const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
+
+      const PAGE_SIZE = 10000;
+      const MAX_ROWS = 300000; // safety cap
+      const recordsData: any[] = [];
+      for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
+        const to = from + PAGE_SIZE - 1;
+        const { data, error } = await supabase
+          .from('attendance_records')
+          .select('*')
+          .eq('school_id', currentSchool.id)
+          .in('student_id', studentIds)
+          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
+          // newest first so latestByKey works even if we ever hit MAX_ROWS cap
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+
+        const page = data || [];
+        recordsData.push(...page);
+
+        if (page.length < PAGE_SIZE) break;
+      }
+
+      console.log(
+        `[Meal Excel Export] Students: ${studentIds.length}, Records fetched: ${recordsData.length}, Date range: ${startDate}..${endDate}`
+      );
 
       // Create attendance map: studentId -> date -> meal -> status (based on latest report per meal/date)
       const latestByKey = new Map<string, any>();
