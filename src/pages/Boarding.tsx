@@ -317,7 +317,8 @@ export default function Boarding() {
         .eq('attendance_type', 'boarding')
         .gte('attendance_date', startDate)
         .lte('attendance_date', endDate)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50000);
 
       // Get latest record per student/date (deduplication)
       const latestByStudentDate = new Map<string, any>();

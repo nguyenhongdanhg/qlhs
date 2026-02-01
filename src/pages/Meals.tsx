@@ -987,7 +987,8 @@ export default function Meals() {
         .eq('school_id', currentSchool.id)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', format(historyDateRange.start, 'yyyy-MM-dd'))
-        .lte('attendance_date', format(historyDateRange.end, 'yyyy-MM-dd'));
+         .lte('attendance_date', format(historyDateRange.end, 'yyyy-MM-dd'))
+         .limit(100000);
 
       // Create attendance map: studentId -> date -> meal -> status (based on latest report per meal/date)
       const latestByKey = new Map<string, any>();
