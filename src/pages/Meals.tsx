@@ -127,6 +127,8 @@ export default function Meals() {
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
   const [historyClassFilter, setHistoryClassFilter] = useState<string>('all');
+  const [historyReporterFilter, setHistoryReporterFilter] = useState<string>('all');
+  const [reporters, setReporters] = useState<{ id: string; name: string }[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [expandedHistoryRecords, setExpandedHistoryRecords] = useState<Record<string, boolean>>({});
@@ -283,7 +285,43 @@ export default function Meals() {
   useEffect(() => {
     if (!currentSchool || activeTab !== 'history') return;
     fetchHistory();
-  }, [currentSchool, activeTab, historyDateRange, historyClassFilter, classes]);
+  }, [currentSchool, activeTab, historyDateRange, historyClassFilter, historyReporterFilter, classes]);
+
+  // Fetch unique reporters for filter dropdown
+  useEffect(() => {
+    if (!currentSchool || activeTab !== 'history') return;
+    fetchReporters();
+  }, [currentSchool, activeTab, historyDateRange]);
+
+  const fetchReporters = async () => {
+    if (!currentSchool) return;
+    try {
+      const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
+
+      const { data } = await supabase
+        .from('attendance_records')
+        .select('reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+        .eq('school_id', currentSchool.id)
+        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+        .gte('attendance_date', startDate)
+        .lte('attendance_date', endDate);
+
+      // Get unique reporters
+      const reporterMap = new Map<string, string>();
+      (data || []).forEach((record: any) => {
+        if (record.reporter_id && record.reporter?.full_name) {
+          reporterMap.set(record.reporter_id, record.reporter.full_name);
+        }
+      });
+
+      const uniqueReporters = Array.from(reporterMap.entries()).map(([id, name]) => ({ id, name }));
+      uniqueReporters.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+      setReporters(uniqueReporters);
+    } catch (error) {
+      console.error('Error fetching reporters:', error);
+    }
+  };
 
   const fetchClasses = async () => {
     if (!currentSchool) return;
@@ -367,6 +405,11 @@ export default function Meals() {
         if (selectedClassObj) {
           query = query.eq('class_id', selectedClassObj.id);
         }
+      }
+
+      // Reporter filter
+      if (historyReporterFilter !== 'all') {
+        query = query.eq('reporter_id', historyReporterFilter);
       }
 
       const { data: recordsData } = await query;
@@ -1194,6 +1237,23 @@ export default function Meals() {
                         <SelectItem value="all">Tất cả lớp</SelectItem>
                         {sortedClasses.map((cls) => (
                           <SelectItem key={cls.id} value={cls.name}>{cls.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {/* Reporter Filter */}
+                {!isClassTeacher && (
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1.5 block">Lọc theo người báo cáo</label>
+                    <Select value={historyReporterFilter} onValueChange={setHistoryReporterFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Tất cả người báo cáo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả người báo cáo</SelectItem>
+                        {reporters.map((reporter) => (
+                          <SelectItem key={reporter.id} value={reporter.id}>{reporter.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
