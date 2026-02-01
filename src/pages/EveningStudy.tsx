@@ -95,6 +95,7 @@ interface SavedReport {
   present: number;
   absent: number;
   reporter: string;
+  reporterId?: string; // Added for edit permission check
   time: string;
   notes: string;
   absentStudents: {
@@ -424,6 +425,7 @@ export default function EveningStudy() {
         present: presentCount,
         absent: absentCount,
         reporter: profile?.full_name || 'Unknown',
+        reporterId: user.id, // Store reporter ID for edit permission check
         time: format(new Date(), 'HH:mm dd/MM/yyyy'),
         notes: reportNotes,
         absentStudents,
@@ -1060,7 +1062,7 @@ export default function EveningStudy() {
                                 </p>
                               </div>
                               <div className="flex gap-2 flex-wrap">
-                                {canEdit && (
+                                {(isSchoolAdmin() || isSuperAdmin || report.reporterId === user?.id) && (
                                   <Button variant="outline" size="sm" onClick={() => handleEditReport(report)}>
                                     <Edit3 className="h-4 w-4 mr-1" />
                                     Sửa
