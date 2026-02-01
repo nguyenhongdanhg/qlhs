@@ -142,6 +142,9 @@ export default function Meals() {
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const teacherClassId = currentMembership?.class_id;
 
+  // Check if user can bypass deadline (Admin, Super Admin, or Accountant)
+  const canBypassDeadline = isSuperAdmin || isSchoolAdmin() || currentMembership?.role === 'accountant';
+
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
   const sortedClasses = useMemo(() => {
@@ -730,7 +733,8 @@ export default function Meals() {
   const handleSave = async () => {
     if (!currentSchool || !user) return;
     
-    if (currentMealDeadline.isExpired) {
+    // Check deadline - but allow bypass for Admin/Accountant
+    if (currentMealDeadline.isExpired && !canBypassDeadline) {
       toast({ 
         title: 'Quá hạn báo cáo', 
         description: `${mealTypes.find(m => m.type === selectedMeal)?.label} đã quá hạn`, 
@@ -1047,6 +1051,7 @@ export default function Meals() {
             <div className="flex gap-2 flex-wrap">
               {mealTypes.map(({ type, label, icon: Icon }) => {
                 const deadlineInfo = getMealDeadlineInfo(type, date);
+                const isDisabled = deadlineInfo.isExpired && !canBypassDeadline;
                 return (
                   <Button 
                     key={type} 
@@ -1054,14 +1059,19 @@ export default function Meals() {
                     onClick={() => setSelectedMeal(type)} 
                     className={cn(
                       "flex-1 min-w-[100px] relative",
-                      deadlineInfo.isExpired && "opacity-50"
+                      isDisabled && "opacity-50"
                     )}
-                    disabled={deadlineInfo.isExpired}
+                    disabled={isDisabled}
                   >
                     <Icon className="h-4 w-4 mr-2" />
                     {label}
-                    {deadlineInfo.isExpired && (
+                    {deadlineInfo.isExpired && !canBypassDeadline && (
                       <Ban className="h-3 w-3 absolute top-1 right-1 text-red-500" />
+                    )}
+                    {deadlineInfo.isExpired && canBypassDeadline && (
+                      <Badge className="absolute -top-2 -right-2 text-[10px] px-1 py-0 bg-warning text-warning-foreground">
+                        Bổ sung
+                      </Badge>
                     )}
                   </Button>
                 );
@@ -1070,12 +1080,22 @@ export default function Meals() {
 
             {/* Deadline Warning */}
             {currentMealDeadline.isExpired ? (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  {mealTypes.find(m => m.type === selectedMeal)?.label} đã quá hạn báo cáo. {currentMealDeadline.deadlineText}
-                </AlertDescription>
-              </Alert>
+              canBypassDeadline ? (
+                <Alert className="border-warning bg-warning/10">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  <AlertDescription className="text-warning">
+                    <strong>Bổ sung báo cáo:</strong> {mealTypes.find(m => m.type === selectedMeal)?.label} đã quá hạn. 
+                    Bạn có quyền báo cáo bổ sung.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    {mealTypes.find(m => m.type === selectedMeal)?.label} đã quá hạn báo cáo. {currentMealDeadline.deadlineText}
+                  </AlertDescription>
+                </Alert>
+              )
             ) : (
               <Alert className="border-blue-200 bg-blue-50">
                 <Clock className="h-4 w-4 text-blue-500" />
@@ -1093,7 +1113,7 @@ export default function Meals() {
                   variant="outline" 
                   size="sm" 
                   onClick={handleMarkAllPresent} 
-                  disabled={currentMealDeadline.isExpired || !canReportMeals}
+                  disabled={(currentMealDeadline.isExpired && !canBypassDeadline) || !canReportMeals}
                   className="flex-1 h-8 text-xs"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Đủ
@@ -1102,7 +1122,7 @@ export default function Meals() {
                   variant="outline" 
                   size="sm" 
                   onClick={() => setAbsentSingleMealDialogOpen(true)} 
-                  disabled={currentMealDeadline.isExpired || !canReportMeals}
+                  disabled={(currentMealDeadline.isExpired && !canBypassDeadline) || !canReportMeals}
                   className="flex-1 h-8 text-xs"
                 >
                   <UserMinus className="h-3.5 w-3.5 mr-1" />Chọn vắng
@@ -1148,17 +1168,19 @@ export default function Meals() {
             ) : (
               <div className="max-h-[350px] overflow-y-auto border rounded-lg p-1.5">
                 <div className="grid gap-1 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-                  {filteredStudents.map((student) => (
+                  {filteredStudents.map((student) => {
+                    const isDisabledForUser = (currentMealDeadline.isExpired && !canBypassDeadline) || !canReportMeals;
+                    return (
                     <button 
                       key={student.id} 
-                      onClick={() => !currentMealDeadline.isExpired && canReportMeals && handleToggleAbsent(student.id)}
-                      disabled={currentMealDeadline.isExpired || !canReportMeals}
+                      onClick={() => !isDisabledForUser && handleToggleAbsent(student.id)}
+                      disabled={isDisabledForUser}
                       className={cn(
                         'flex items-center gap-1.5 p-2 rounded border text-left transition-all',
                         attendance[student.id] === 'absent' 
                           ? 'border-destructive/50 bg-destructive/10 text-destructive' 
                           : 'border-border hover:border-primary/50 hover:bg-muted/30',
-                        (currentMealDeadline.isExpired || !canReportMeals) && 'opacity-50 cursor-not-allowed'
+                        isDisabledForUser && 'opacity-50 cursor-not-allowed'
                       )}
                     >
                       <div className={cn(
@@ -1174,18 +1196,20 @@ export default function Meals() {
                         <span className="text-[10px] text-muted-foreground shrink-0">{student.class?.name}</span>
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             <Button 
               onClick={handleSave} 
-              disabled={isSaving || currentMealDeadline.isExpired || !canReportMeals} 
+              disabled={isSaving || (currentMealDeadline.isExpired && !canBypassDeadline) || !canReportMeals} 
               className="w-full h-10"
             >
               {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Lưu {mealTypes.find(m => m.type === selectedMeal)?.label}
+              {currentMealDeadline.isExpired && canBypassDeadline ? 'Bổ sung ' : 'Lưu '}
+              {mealTypes.find(m => m.type === selectedMeal)?.label}
             </Button>
           </TabsContent>
 
