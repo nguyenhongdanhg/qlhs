@@ -883,21 +883,33 @@ export default function Boarding() {
                 </Select>
               </div>
 
-              <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Lớp</label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tất cả lớp" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả lớp</SelectItem>
-                    {sortedClasses.map((cls) => (
-                      <SelectItem key={cls.id} value={cls.name}>
-                        {cls.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Class filter buttons */}
+              <div className="md:col-span-2">
+                <label className="text-sm text-muted-foreground mb-1.5 block">Chọn lớp</label>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  <Button
+                    variant={selectedClass === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedClass('all')}
+                    className="whitespace-nowrap"
+                  >
+                    Tất cả ({students.length})
+                  </Button>
+                  {sortedClasses.map((cls) => {
+                    const count = students.filter(s => s.class?.name === cls.name).length;
+                    return (
+                      <Button
+                        key={cls.id}
+                        variant={selectedClass === cls.name ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedClass(cls.name)}
+                        className="whitespace-nowrap"
+                      >
+                        {cls.name} ({count})
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>

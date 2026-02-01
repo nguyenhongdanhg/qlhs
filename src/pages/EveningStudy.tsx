@@ -798,24 +798,33 @@ export default function EveningStudy() {
                 )}
               </div>
 
-              <div>
+              {/* Class filter buttons */}
+              <div className="md:col-span-2 lg:col-span-3">
                 <label className="text-sm text-muted-foreground mb-1.5 block">Chọn lớp</label>
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tất cả lớp" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả lớp ({students.length} HS)</SelectItem>
-                    {sortedClasses.map((cls) => {
-                      const count = students.filter(s => s.class?.name === cls.name).length;
-                      return (
-                        <SelectItem key={cls.id} value={cls.name}>
-                          {cls.name} ({count} HS)
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  <Button
+                    variant={selectedClass === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedClass('all')}
+                    className="whitespace-nowrap"
+                  >
+                    Tất cả ({students.length})
+                  </Button>
+                  {sortedClasses.map((cls) => {
+                    const count = students.filter(s => s.class?.name === cls.name).length;
+                    return (
+                      <Button
+                        key={cls.id}
+                        variant={selectedClass === cls.name ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedClass(cls.name)}
+                        className="whitespace-nowrap"
+                      >
+                        {cls.name} ({count})
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
