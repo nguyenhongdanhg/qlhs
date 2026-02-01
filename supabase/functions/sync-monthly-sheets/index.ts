@@ -18,12 +18,12 @@ interface SyncRequest {
 }
 
 // Generate JWT for Google API authentication
-async function createJWT(credentials: ServiceAccountCredentials): Promise<string> {
+async function createJWT(credentials: ServiceAccountCredentials, scopes: string[]): Promise<string> {
   const header = { alg: 'RS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: credentials.client_email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    scope: scopes.join(' '),
     aud: credentials.token_uri,
     iat: now,
     exp: now + 3600,
@@ -63,9 +63,13 @@ async function createJWT(credentials: ServiceAccountCredentials): Promise<string
   return `${unsignedToken}.${signatureB64}`;
 }
 
-// Get access token from Google
+// Get access token from Google with Drive + Sheets scopes
 async function getAccessToken(credentials: ServiceAccountCredentials): Promise<string> {
-  const jwt = await createJWT(credentials);
+  const scopes = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+  ];
+  const jwt = await createJWT(credentials, scopes);
   
   const response = await fetch(credentials.token_uri, {
     method: 'POST',
@@ -82,50 +86,35 @@ async function getAccessToken(credentials: ServiceAccountCredentials): Promise<s
   return data.access_token;
 }
 
-// Get existing sheet names in spreadsheet
-async function getSpreadsheetSheets(accessToken: string, spreadsheetId: string): Promise<string[]> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`;
-  
-  const response = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${accessToken}` },
-  });
+// Create a new spreadsheet with initial sheets
+async function createSpreadsheet(
+  accessToken: string, 
+  title: string, 
+  sheetNames: string[]
+): Promise<string> {
+  const sheets = sheetNames.map((name, index) => ({
+    properties: { title: name, index }
+  }));
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to get spreadsheet info: ${error}`);
-  }
-
-  const data = await response.json();
-  return data.sheets?.map((s: { properties: { title: string } }) => s.properties.title) || [];
-}
-
-// Add a new sheet to spreadsheet
-async function addSheet(accessToken: string, spreadsheetId: string, sheetName: string): Promise<void> {
-  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+  const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      requests: [{ addSheet: { properties: { title: sheetName } } }]
+      properties: { title },
+      sheets
     }),
   });
 
   if (!response.ok) {
     const error = await response.text();
-    if (!error.includes('already exists')) {
-      throw new Error(`Failed to add sheet: ${error}`);
-    }
+    throw new Error(`Failed to create spreadsheet: ${error}`);
   }
-}
 
-// Ensure sheet exists
-async function ensureSheetExists(accessToken: string, spreadsheetId: string, sheetName: string, existingSheets: string[]): Promise<void> {
-  if (!existingSheets.includes(sheetName)) {
-    console.log(`Creating sheet: ${sheetName}`);
-    await addSheet(accessToken, spreadsheetId, sheetName);
-  }
+  const data = await response.json();
+  return data.spreadsheetId;
 }
 
 // Update sheet data
@@ -137,13 +126,6 @@ async function updateSheet(
 ): Promise<void> {
   const range = `'${sheetName}'!A:ZZ`;
   
-  // Clear existing data
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:clear`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${accessToken}` },
-  });
-
-  // Update with new data
   const response = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
     {
@@ -201,18 +183,10 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
-    const spreadsheetId = Deno.env.get('GOOGLE_SHEET_ID');
 
     if (!serviceAccountKey) {
       return new Response(
         JSON.stringify({ error: 'Google Service Account Key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!spreadsheetId) {
-      return new Response(
-        JSON.stringify({ error: 'Google Sheet ID not configured. Please set GOOGLE_SHEET_ID secret.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -322,16 +296,6 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Get access token
-    const accessToken = await getAccessToken(credentials);
-    
-    // Get existing sheets
-    const existingSheets = await getSpreadsheetSheets(accessToken, spreadsheetId);
-
-    // Month name for sheet naming
-    const monthNames = ['', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
-    const monthPrefix = `${monthNames[month]}-${year}`;
-
     // Group students by class
     const classStudents = new Map<string, { classInfo: any; students: any[] }>();
     classes?.forEach(c => {
@@ -353,8 +317,19 @@ Deno.serve(async (req) => {
         return a[1].classInfo.name.localeCompare(b[1].classInfo.name, 'vi');
       });
 
+    // Get access token with Drive + Sheets scopes
+    const accessToken = await getAccessToken(credentials);
+
+    // Prepare sheet names: Toàn trường + all class names
+    const sheetNames = ['Toàn trường', ...sortedClasses.map(([_, data]) => data.classInfo.name)];
+
+    // Create new spreadsheet
+    const spreadsheetTitle = `${school.name} - Báo cáo Tháng ${month}/${year}`;
+    console.log(`Creating spreadsheet: ${spreadsheetTitle}`);
+    const spreadsheetId = await createSpreadsheet(accessToken, spreadsheetTitle, sheetNames);
+    console.log(`Created spreadsheet: ${spreadsheetId}`);
+
     // ========== SHEET 1: Toàn trường (School Summary) ==========
-    const schoolSheetName = `${monthPrefix}-Toàn trường`;
     const schoolSheetData: (string | number)[][] = [];
     
     // Title rows
@@ -429,14 +404,12 @@ Deno.serve(async (req) => {
     totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1));
     schoolSheetData.push(totalsRow);
 
-    await ensureSheetExists(accessToken, spreadsheetId, schoolSheetName, existingSheets);
-    await updateSheet(accessToken, spreadsheetId, schoolSheetName, schoolSheetData);
-    console.log(`Updated: ${schoolSheetName}`);
+    await updateSheet(accessToken, spreadsheetId, 'Toàn trường', schoolSheetData);
+    console.log(`Updated: Toàn trường`);
 
     // ========== SHEETS 2+: Per-Class Sheets ==========
     for (const [classId, data] of sortedClasses) {
       const className = data.classInfo.name;
-      const classSheetName = `${monthPrefix}-${className}`;
       const classSheetData: (string | number)[][] = [];
 
       // Title
@@ -580,10 +553,8 @@ Deno.serve(async (req) => {
       classSheetData.push([]);
       classSheetData.push(['Ghi chú: x = có mặt, o = vắng, - = chưa báo cáo. Mỗi ô: Nội trú/Tự học']);
 
-      // Add and update class sheet
-      await ensureSheetExists(accessToken, spreadsheetId, classSheetName, existingSheets);
-      await updateSheet(accessToken, spreadsheetId, classSheetName, classSheetData);
-      console.log(`Updated: ${classSheetName}`);
+      await updateSheet(accessToken, spreadsheetId, className, classSheetData);
+      console.log(`Updated: ${className}`);
     }
 
     // Save sync status
@@ -595,11 +566,13 @@ Deno.serve(async (req) => {
       })
       .eq('school_id', school_id);
 
+    const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         spreadsheetId,
-        spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
+        spreadsheetUrl,
         message: `Đã tạo báo cáo Tháng ${month}/${year} với ${sortedClasses.length + 1} sheet`,
         sheetsCreated: sortedClasses.length + 1
       }),
