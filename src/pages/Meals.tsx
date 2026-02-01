@@ -43,6 +43,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   DateRangeType, 
   getDateRange, 
@@ -135,6 +136,10 @@ export default function Meals() {
   const [isExporting, setIsExporting] = useState(false);
   const [expandedHistoryRecords, setExpandedHistoryRecords] = useState<Record<string, boolean>>({});
   const [mealDeadlines, setMealDeadlines] = useState<MealDeadline[]>(DEFAULT_MEAL_DEADLINES);
+  
+  // Bulk delete state
+  const [selectedHistoryRecords, setSelectedHistoryRecords] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Dialog for selecting absent students for 3 meals
   const [absent3MealsDialogOpen, setAbsent3MealsDialogOpen] = useState(false);
@@ -816,6 +821,72 @@ export default function Meals() {
     }
   };
 
+  // Toggle select history record for bulk delete
+  const toggleSelectHistory = (recordKey: string) => {
+    setSelectedHistoryRecords(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(recordKey)) {
+        newSet.delete(recordKey);
+      } else {
+        newSet.add(recordKey);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all visible history records
+  const toggleSelectAllHistory = () => {
+    if (selectedHistoryRecords.size === historyRecords.length) {
+      setSelectedHistoryRecords(new Set());
+    } else {
+      const allKeys = historyRecords.map(r => `${r.date}-${r.meal}`);
+      setSelectedHistoryRecords(new Set(allKeys));
+    }
+  };
+
+  // Bulk delete selected history records
+  const handleBulkDeleteHistory = async () => {
+    if (!currentSchool || selectedHistoryRecords.size === 0) return;
+    
+    if (!window.confirm(`Xác nhận xóa ${selectedHistoryRecords.size} báo cáo đã chọn?`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Parse selected keys and delete each
+      const deletePromises = Array.from(selectedHistoryRecords).map(key => {
+        const [date, meal] = key.split('-');
+        // Handle date format properly (yyyy-MM-dd-mealtype)
+        const dateParts = key.match(/^(\d{4}-\d{2}-\d{2})-(.+)$/);
+        if (!dateParts) return Promise.resolve();
+        
+        const historyDate = dateParts[1];
+        const mealType = dateParts[2] as AttendanceType;
+        
+        return supabase
+          .from('attendance_records')
+          .delete()
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', historyDate)
+          .eq('attendance_type', mealType);
+      });
+
+      await Promise.all(deletePromises);
+      
+      toast({ 
+        title: 'Đã xóa', 
+        description: `Đã xóa ${selectedHistoryRecords.size} báo cáo` 
+      });
+      setSelectedHistoryRecords(new Set());
+      fetchHistory();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Handle edit meal report - load existing data and switch to edit mode
   const handleEditMealReport = async (record: HistoryRecord) => {
     if (!currentSchool) return;
@@ -1429,6 +1500,39 @@ export default function Meals() {
               </div>
             )}
 
+            {/* Bulk Delete Actions */}
+            {historyRecords.length > 0 && (isSuperAdmin || isSchoolAdmin() || canDelete) && (
+              <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={selectedHistoryRecords.size === historyRecords.length && historyRecords.length > 0}
+                    onCheckedChange={toggleSelectAllHistory}
+                    aria-label="Chọn tất cả"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {selectedHistoryRecords.size > 0 
+                      ? `Đã chọn ${selectedHistoryRecords.size}/${historyRecords.length}` 
+                      : 'Chọn tất cả'}
+                  </span>
+                </div>
+                {selectedHistoryRecords.size > 0 && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={handleBulkDeleteHistory}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
+                    Xóa {selectedHistoryRecords.size} báo cáo
+                  </Button>
+                )}
+              </div>
+            )}
+
             {/* History Records */}
             {isLoadingHistory ? (
               <div className="flex items-center justify-center py-12">
@@ -1445,12 +1549,22 @@ export default function Meals() {
                   const MealIcon = mealInfo?.icon || Sun;
                   const recordKey = `${record.date}-${record.meal}`;
                   const isExpanded = expandedHistoryRecords[recordKey];
+                  const isSelected = selectedHistoryRecords.has(recordKey);
+                  const canSelectRecord = isSuperAdmin || isSchoolAdmin() || canDelete;
                   
                   return (
-                    <Card key={idx} className="overflow-hidden">
+                    <Card key={idx} className={cn("overflow-hidden", isSelected && "ring-2 ring-primary")}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
+                            {canSelectRecord && (
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleSelectHistory(recordKey)}
+                                aria-label={`Chọn báo cáo ${record.date} ${record.meal}`}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
                             <div className={cn(
                               "w-10 h-10 rounded-full flex items-center justify-center",
                               record.meal === 'breakfast' && "bg-amber-100",
