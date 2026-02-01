@@ -23,11 +23,11 @@ interface EmulationReportCardProps {
 }
 
 const getRankDisplay = (rank: number) => {
-  if (rank === 0) return '-';
-  if (rank === 1) return '🥇';
-  if (rank === 2) return '🥈';
-  if (rank === 3) return '🥉';
-  return rank.toString();
+  if (rank === 0) return { text: '-', color: '#9ca3af', bgColor: 'transparent' };
+  if (rank === 1) return { text: '1', color: '#ffffff', bgColor: '#eab308' }; // Gold
+  if (rank === 2) return { text: '2', color: '#ffffff', bgColor: '#9ca3af' }; // Silver
+  if (rank === 3) return { text: '3', color: '#ffffff', bgColor: '#cd7f32' }; // Bronze
+  return { text: rank.toString(), color: '#374151', bgColor: 'transparent' };
 };
 
 export const EmulationReportCard = forwardRef<HTMLDivElement, EmulationReportCardProps>(
@@ -111,8 +111,29 @@ export const EmulationReportCard = forwardRef<HTMLDivElement, EmulationReportCar
                 <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'center', fontWeight: 'bold', color: '#2563eb' }}>
                   {cls.average_score.toFixed(2)}
                 </td>
-                <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'center', fontSize: '16px' }}>
-                  {getRankDisplay(cls.rank)}
+                <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'center' }}>
+                  {(() => {
+                    const rankInfo = getRankDisplay(cls.rank);
+                    if (rankInfo.bgColor === 'transparent') {
+                      return <span style={{ fontWeight: 600, color: rankInfo.color }}>{rankInfo.text}</span>;
+                    }
+                    return (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        backgroundColor: rankInfo.bgColor,
+                        color: rankInfo.color,
+                        fontWeight: 700,
+                        fontSize: '13px',
+                      }}>
+                        {rankInfo.text}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td style={{ border: '1px solid #d1d5db', padding: '6px', fontSize: '12px', color: '#6b7280' }}>
                   {cls.notes || ''}
