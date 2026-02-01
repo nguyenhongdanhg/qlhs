@@ -1023,16 +1023,19 @@ export default function Meals() {
       const endDate = format(exportDateRange.end, 'yyyy-MM-dd');
 
       // Fetch attendance records with pagination
-      // IMPORTANT: Query directly without student filter first if we have many students
-      // to avoid issues with large IN clauses
-      const PAGE_SIZE = 10000;
-      const MAX_ROWS = 300000; // safety cap
+      // IMPORTANT: Supabase has default limit of 1000 rows. We need to use explicit
+      // .limit() to override this. Using smaller page size for reliability.
+      const PAGE_SIZE = 1000;
+      const MAX_PAGES = 500; // safety cap = 500,000 rows max
       const recordsData: any[] = [];
       
       console.log(`[Meal Excel Export] Fetching records for date range: ${startDate} to ${endDate}`);
       
-      for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
+      let pageNum = 0;
+      while (pageNum < MAX_PAGES) {
+        const from = pageNum * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
+        
         const { data, error } = await supabase
           .from('attendance_records')
           .select('*')
@@ -1049,9 +1052,12 @@ export default function Meals() {
         const page = data || [];
         recordsData.push(...page);
         
-        console.log(`[Meal Excel Export] Fetched page ${from/PAGE_SIZE + 1}: ${page.length} records`);
+        console.log(`[Meal Excel Export] Fetched page ${pageNum + 1}: ${page.length} records (total so far: ${recordsData.length})`);
 
+        // If we got less than PAGE_SIZE, we've reached the end
         if (page.length < PAGE_SIZE) break;
+        
+        pageNum++;
       }
 
       console.log(`[Meal Excel Export] Total raw records fetched: ${recordsData.length}`);
