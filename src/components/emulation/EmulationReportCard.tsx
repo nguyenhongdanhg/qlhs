@@ -23,11 +23,11 @@ interface EmulationReportCardProps {
 }
 
 const getRankDisplay = (rank: number) => {
-  if (rank === 0) return { text: '-', color: '#9ca3af', bgColor: 'transparent' };
-  if (rank === 1) return { text: '1', color: '#ffffff', bgColor: '#eab308' }; // Gold
-  if (rank === 2) return { text: '2', color: '#ffffff', bgColor: '#9ca3af' }; // Silver
-  if (rank === 3) return { text: '3', color: '#ffffff', bgColor: '#cd7f32' }; // Bronze
-  return { text: rank.toString(), color: '#374151', bgColor: 'transparent' };
+  if (rank === 0) return { text: '-', color: '#9ca3af', bgColor: 'transparent', borderColor: 'transparent', shadow: 'none' };
+  if (rank === 1) return { text: '1', color: '#ffffff', bgColor: 'linear-gradient(135deg, #fbbf24, #f59e0b)', borderColor: '#d97706', shadow: '0 2px 8px rgba(251, 191, 36, 0.5)' }; // Gold
+  if (rank === 2) return { text: '2', color: '#ffffff', bgColor: 'linear-gradient(135deg, #d1d5db, #9ca3af)', borderColor: '#6b7280', shadow: '0 2px 8px rgba(156, 163, 175, 0.5)' }; // Silver
+  if (rank === 3) return { text: '3', color: '#ffffff', bgColor: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: '#92400e', shadow: '0 2px 8px rgba(180, 83, 9, 0.5)' }; // Bronze
+  return { text: rank.toString(), color: '#374151', bgColor: 'transparent', borderColor: 'transparent', shadow: 'none' };
 };
 
 export const EmulationReportCard = forwardRef<HTMLDivElement, EmulationReportCardProps>(
@@ -122,10 +122,12 @@ export const EmulationReportCard = forwardRef<HTMLDivElement, EmulationReportCar
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '24px',
-                        height: '24px',
+                        width: '26px',
+                        height: '26px',
                         borderRadius: '50%',
-                        backgroundColor: rankInfo.bgColor,
+                        background: rankInfo.bgColor,
+                        border: `2px solid ${rankInfo.borderColor}`,
+                        boxShadow: rankInfo.shadow,
                         color: rankInfo.color,
                         fontWeight: 700,
                         fontSize: '13px',
