@@ -886,7 +886,7 @@ export default function Boarding() {
               {/* Class filter buttons */}
               <div className="md:col-span-2">
                 <label className="text-sm text-muted-foreground mb-1.5 block">Chọn lớp</label>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                <div className="filter-scroll">
                   <Button
                     variant={selectedClass === 'all' ? 'default' : 'outline'}
                     size="sm"
