@@ -841,10 +841,15 @@ export default function Statistics() {
     setIsExporting(true);
 
     try {
+      // CRITICAL FIX: Query by student IDs from filteredStudents to ensure data integrity
+      // This ensures we only get records for students that are in our list (active, boarding)
+      const studentIds = filteredStudents.map(s => s.id);
+      
       const { data: records } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('school_id', currentSchool.id)
+        .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .eq('attendance_date', format(selectedDate, 'yyyy-MM-dd'));
 
@@ -914,10 +919,15 @@ export default function Statistics() {
     try {
       const days = eachDayOfInterval({ start: riceDateRange.start, end: riceDateRange.end });
 
+      // CRITICAL FIX: Query by student IDs from filteredStudents to ensure data integrity
+      // This ensures we only get records for students that are in our list (active, boarding)
+      const studentIds = filteredStudents.map(s => s.id);
+      
       const { data: records } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('school_id', currentSchool.id)
+        .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', format(riceDateRange.start, 'yyyy-MM-dd'))
         .lte('attendance_date', format(riceDateRange.end, 'yyyy-MM-dd'));
