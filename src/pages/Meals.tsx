@@ -52,6 +52,7 @@ import {
 } from '@/lib/excel-export';
 import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
 import { MealDiagnosticDialog } from '@/components/attendance/MealDiagnosticDialog';
+import { MealExportDialog } from '@/components/attendance/MealExportDialog';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -156,6 +157,9 @@ export default function Meals() {
 
   // Diagnostic dialog state
   const [diagnosticDialogOpen, setDiagnosticDialogOpen] = useState(false);
+
+  // Export dialog state
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   // Check if user is class teacher and get their class
   const isClassTeacher = currentMembership?.role === 'class_teacher';
@@ -972,12 +976,13 @@ export default function Meals() {
     }
   }, [isEditMode, editModeData, isLoading]);
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = async (rangeType: DateRangeType, selectedDate: Date) => {
     if (!currentSchool) return;
     setIsExporting(true);
     
     try {
-      const days = eachDayOfInterval({ start: historyDateRange.start, end: historyDateRange.end });
+      const exportDateRange = getDateRange(selectedDate, rangeType);
+      const days = eachDayOfInterval({ start: exportDateRange.start, end: exportDateRange.end });
       
       // For class teachers, only export their class students
       const studentsToExport = isClassTeacher && teacherClassId 
@@ -992,8 +997,8 @@ export default function Meals() {
         return;
       }
 
-      const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
-      const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
+      const startDate = format(exportDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(exportDateRange.end, 'yyyy-MM-dd');
 
       const PAGE_SIZE = 10000;
       const MAX_ROWS = 300000; // safety cap
@@ -1084,7 +1089,7 @@ export default function Meals() {
       exportMealStatistics(studentData, {
         schoolName: currentSchool.name,
         title: exportTitle,
-        dateRange: historyDateRange,
+        dateRange: exportDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
       });
@@ -1495,7 +1500,7 @@ export default function Meals() {
                     Chẩn đoán
                   </Button>
                 )}
-                <Button onClick={handleExportExcel} variant="outline" disabled={isExporting}>
+                <Button onClick={() => setExportDialogOpen(true)} variant="outline" disabled={isExporting}>
                   {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
                   Xuất Excel
                 </Button>
@@ -1744,6 +1749,14 @@ export default function Meals() {
           endDate={historyDateRange.end}
         />
       )}
+
+      {/* Export Dialog */}
+      <MealExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        onExport={handleExportExcel}
+        isExporting={isExporting}
+      />
     </div>
   );
 }
