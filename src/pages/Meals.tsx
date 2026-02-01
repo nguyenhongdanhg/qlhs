@@ -833,7 +833,7 @@ export default function Meals() {
 
       const attendanceMap: AttendanceMap = {};
       
-      // First, set all relevant students as present
+      // First, set all relevant students as present (default)
       const studentsToUse = record.className 
         ? students.filter(s => s.class?.name === record.className)
         : students;
@@ -842,12 +842,22 @@ export default function Meals() {
         attendanceMap[student.id] = 'present';
       });
       
-      // Then apply saved records
+      // Then apply saved records from database - this will set absent students correctly
       (recordsData || []).forEach((rec: any) => {
         attendanceMap[rec.student_id] = rec.status;
       });
 
-      // Set edit mode data
+      // Set the date, meal, and class first (without triggering refetch)
+      setSelectedMeal(record.meal);
+      if (record.className) {
+        setSelectedClass(record.className);
+      }
+      
+      // Set the date - this will trigger fetchStudentsAndAttendance, but we'll override
+      setDate(new Date(dateStr));
+      
+      // IMPORTANT: Set edit mode data AFTER date is set
+      // The useEffect will apply this data after fetchStudentsAndAttendance completes
       setEditModeData({ 
         attendance: attendanceMap, 
         date: dateStr, 
@@ -856,12 +866,7 @@ export default function Meals() {
       });
       setIsEditMode(true);
       
-      // Set the date and meal, switch to register tab
-      setDate(new Date(dateStr));
-      setSelectedMeal(record.meal);
-      if (record.className) {
-        setSelectedClass(record.className);
-      }
+      // Switch to register tab
       setActiveTab('register');
       
       toast({
@@ -880,14 +885,17 @@ export default function Meals() {
     }
   };
 
-  // Apply edit mode data after component updates
+  // Apply edit mode attendance data AFTER loading completes
+  // This ensures the edit data overrides the fresh fetch
   useEffect(() => {
-    if (isEditMode && editModeData) {
-      setAttendance(prev => ({ ...prev, ...editModeData.attendance }));
+    if (isEditMode && editModeData && !isLoading) {
+      // Apply the saved attendance data from the report being edited
+      setAttendance(editModeData.attendance);
+      // Clear edit mode after applying
       setIsEditMode(false);
       setEditModeData(null);
     }
-  }, [isEditMode, editModeData]);
+  }, [isEditMode, editModeData, isLoading]);
 
   const handleExportExcel = async () => {
     if (!currentSchool) return;
