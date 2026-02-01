@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, setHours, setMinutes, isBefore } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   CalendarIcon,
@@ -31,6 +31,7 @@ import {
   Package,
   Trash2,
   RefreshCw,
+  Lock,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -131,6 +132,21 @@ export default function Statistics() {
   const [supplementDialogOpen, setSupplementDialogOpen] = useState(false);
   const [supplementMealType, setSupplementMealType] = useState<AttendanceType>('breakfast');
   const [isSavingSupplement, setIsSavingSupplement] = useState(false);
+  
+  // Finalize (Chốt) state
+  const [isFinalizingMeal, setIsFinalizingMeal] = useState<AttendanceType | null>(null);
+  
+  // Meal settings for deadline check
+  const [mealDeadlines, setMealDeadlines] = useState<{
+    type: AttendanceType;
+    deadlineHour: number;
+    deadlineMinute: number;
+    dayOffset: number;
+  }[]>([
+    { type: 'breakfast', deadlineHour: 20, deadlineMinute: 0, dayOffset: -1 },
+    { type: 'lunch', deadlineHour: 7, deadlineMinute: 30, dayOffset: 0 },
+    { type: 'dinner', deadlineHour: 14, deadlineMinute: 0, dayOffset: 0 },
+  ]);
 
   // Check if user can supplement reports (admin or accountant)
   const canSupplementReports = isSuperAdmin || isSchoolAdmin() || currentMembership?.role === 'accountant';
@@ -229,6 +245,119 @@ export default function Statistics() {
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
+
+  // Check if meal deadline has expired for a given date
+  const isMealDeadlineExpired = useCallback((mealType: AttendanceType, targetDate: Date): boolean => {
+    const deadline = mealDeadlines.find(d => d.type === mealType);
+    if (!deadline) return true;
+
+    const now = new Date();
+    let deadlineDate = new Date(targetDate);
+    
+    if (deadline.dayOffset === -1) {
+      deadlineDate = subDays(deadlineDate, 1);
+    }
+    
+    deadlineDate = setHours(deadlineDate, deadline.deadlineHour);
+    deadlineDate = setMinutes(deadlineDate, deadline.deadlineMinute);
+
+    return !isBefore(now, deadlineDate);
+  }, [mealDeadlines]);
+
+  // Fetch meal settings for deadline check
+  const fetchMealSettings = useCallback(async () => {
+    if (!currentSchool) return;
+
+    try {
+      const { data } = await supabase
+        .from('meal_settings')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .maybeSingle();
+
+      if (data) {
+        const parseTime = (timeStr: string) => {
+          const parts = timeStr.split(':');
+          return { hour: parseInt(parts[0]), minute: parseInt(parts[1]) };
+        };
+
+        const breakfastTime = parseTime(data.breakfast_deadline_time);
+        const lunchTime = parseTime(data.lunch_deadline_time);
+        const dinnerTime = parseTime(data.dinner_deadline_time);
+
+        setMealDeadlines([
+          { type: 'breakfast', deadlineHour: breakfastTime.hour, deadlineMinute: breakfastTime.minute, dayOffset: data.breakfast_deadline_offset },
+          { type: 'lunch', deadlineHour: lunchTime.hour, deadlineMinute: lunchTime.minute, dayOffset: data.lunch_deadline_offset },
+          { type: 'dinner', deadlineHour: dinnerTime.hour, deadlineMinute: dinnerTime.minute, dayOffset: data.dinner_deadline_offset },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching meal settings:', error);
+    }
+  }, [currentSchool]);
+
+  // Handle finalize meal - auto report present for unreported classes
+  const handleFinalizeMeal = useCallback(async (mealType: AttendanceType, classesNotReported: string[]) => {
+    if (!currentSchool || !user || classesNotReported.length === 0) return;
+
+    setIsFinalizingMeal(mealType);
+    try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      
+      // Get students from unreported classes
+      const classNamesSet = new Set(classesNotReported);
+      const studentsToReport = students.filter(s => classNamesSet.has(s.class?.name || ''));
+      
+      if (studentsToReport.length === 0) {
+        toast({
+          title: 'Không có học sinh',
+          description: 'Không tìm thấy học sinh cần báo cáo',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Insert all as present
+      const records = studentsToReport.map(student => ({
+        school_id: currentSchool.id,
+        student_id: student.id,
+        class_id: student.class_id,
+        attendance_date: dateStr,
+        attendance_type: mealType,
+        status: 'present' as AttendanceStatus,
+        reporter_id: user.id,
+      }));
+
+      const { error } = await supabase.from('attendance_records').insert(records);
+      if (error) throw error;
+
+      const mealLabel = mealType === 'breakfast' ? 'Bữa sáng' : mealType === 'lunch' ? 'Bữa trưa' : 'Bữa tối';
+      toast({
+        title: 'Chốt thành công',
+        description: `Đã chốt ${classesNotReported.length} lớp cho ${mealLabel} (${studentsToReport.length} học sinh)`,
+      });
+
+      // Refresh data
+      setTimeout(() => {
+        fetchDailyData();
+      }, 500);
+    } catch (error) {
+      console.error('Error finalizing meal:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể chốt báo cáo. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsFinalizingMeal(null);
+    }
+  }, [currentSchool, user, selectedDate, students, toast]);
+
+  // Fetch meal settings on mount
+  useEffect(() => {
+    if (!currentSchool) return;
+    fetchMealSettings();
+  }, [currentSchool, fetchMealSettings]);
 
   // Fetch classes and students
   useEffect(() => {
@@ -997,6 +1126,9 @@ export default function Statistics() {
   ) => {
     const Icon = icon;
     const isExpanded = expandedSections[mealType];
+    const isDeadlineExpired = isMealDeadlineExpired(mealType, selectedDate);
+    const hasUnreportedClasses = stats.classesNotReported.length > 0;
+    const isFinalizingThisMeal = isFinalizingMeal === mealType;
 
     // Group absent students by class
     const groupedByClass = new Map<string, AbsentStudent[]>();
@@ -1027,11 +1159,30 @@ export default function Statistics() {
               <Icon className="h-5 w-5 text-primary" />
               {title}
             </CardTitle>
-            {stats.hasReport ? (
-              <Badge variant="default" className="bg-success">Đã báo cáo</Badge>
-            ) : (
-              <Badge variant="destructive">Chưa báo cáo</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Show Finalize button when: deadline expired + has unreported classes + user can supplement + not class teacher */}
+              {!isClassTeacher && canSupplementReports && isDeadlineExpired && hasUnreportedClasses && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => handleFinalizeMeal(mealType, stats.classesNotReported)}
+                  disabled={isFinalizingThisMeal}
+                >
+                  {isFinalizingThisMeal ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Lock className="h-3 w-3" />
+                  )}
+                  Chốt ({stats.classesNotReported.length} lớp)
+                </Button>
+              )}
+              {stats.hasReport ? (
+                <Badge variant="default" className="bg-success">Đã báo cáo</Badge>
+              ) : (
+                <Badge variant="destructive">Chưa báo cáo</Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
