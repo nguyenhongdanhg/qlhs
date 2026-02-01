@@ -985,6 +985,7 @@ export default function Statistics() {
         .eq('school_id', currentSchool.id)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .eq('attendance_date', format(selectedDate, 'yyyy-MM-dd'))
+        .order('created_at', { ascending: false })
         .limit(20000);
 
       if (error) {
@@ -1008,8 +1009,11 @@ export default function Statistics() {
       });
 
       // Build student data
+      // CRITICAL: Only include students that have valid class data to avoid grouping issues
+      const validStudents = filteredStudents.filter(s => s.class?.name && s.class_id);
+      
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const studentData: MealStudentData[] = filteredStudents.map(student => {
+      const studentData: MealStudentData[] = validStudents.map(student => {
         const bRecord = latestByKey.get(`${student.id}-${dateStr}-breakfast`);
         const lRecord = latestByKey.get(`${student.id}-${dateStr}-lunch`);
         const dRecord = latestByKey.get(`${student.id}-${dateStr}-dinner`);
@@ -1024,8 +1028,8 @@ export default function Statistics() {
         return {
           id: student.id,
           name: student.full_name,
-          className: student.class?.name || '',
-          classGrade: student.class?.grade,
+          className: student.class!.name,
+          classGrade: student.class!.grade,
           roomNumber: student.room_number || undefined,
           mealGroup: student.meal_group || undefined,
           attendance: attendanceMap,
@@ -1074,6 +1078,7 @@ export default function Statistics() {
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', format(riceDateRange.start, 'yyyy-MM-dd'))
         .lte('attendance_date', format(riceDateRange.end, 'yyyy-MM-dd'))
+        .order('created_at', { ascending: false })
         .limit(100000);
 
       if (error) {
@@ -1084,7 +1089,7 @@ export default function Statistics() {
       // Filter to only include records for students in our filtered list
       const records = (allRecords || []).filter(r => studentIdSet.has(r.student_id));
       
-      console.log(`[Excel Export Range] Total records fetched: ${allRecords?.length || 0}, After filtering: ${records.length}, Students: ${filteredStudents.length}`);
+      console.log(`[Excel Export Range] Total records fetched: ${allRecords?.length || 0}, After filtering: ${records.length}, Students: ${filteredStudents.length}, Date range: ${format(riceDateRange.start, 'yyyy-MM-dd')} to ${format(riceDateRange.end, 'yyyy-MM-dd')}`);
 
       // Get latest report per meal/date/student
       const latestByKey = new Map<string, any>();
@@ -1097,7 +1102,14 @@ export default function Statistics() {
       });
 
       // Build student data - use filteredStudents for class teachers
-      const studentData: MealStudentData[] = filteredStudents.map(student => {
+      // CRITICAL: Only include students that have valid class data to avoid grouping issues
+      const validStudents = filteredStudents.filter(s => s.class?.name && s.class_id);
+      
+      if (validStudents.length !== filteredStudents.length) {
+        console.warn(`[Excel Export] ${filteredStudents.length - validStudents.length} students excluded due to missing class data`);
+      }
+      
+      const studentData: MealStudentData[] = validStudents.map(student => {
         const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
 
         days.forEach(day => {
@@ -1116,8 +1128,8 @@ export default function Statistics() {
         return {
           id: student.id,
           name: student.full_name,
-          className: student.class?.name || '',
-          classGrade: student.class?.grade,
+          className: student.class!.name,
+          classGrade: student.class!.grade,
           roomNumber: student.room_number || undefined,
           mealGroup: student.meal_group || undefined,
           attendance: attendanceMap,
