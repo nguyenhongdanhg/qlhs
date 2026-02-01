@@ -10,18 +10,22 @@ import { Download, Share2, Loader2, Image } from 'lucide-react';
 import { ReportImageCard } from './ReportImageCard';
 import { useImageExport } from '@/hooks/use-image-export';
 
-interface SavedReport {
-  id: string;
+// Flexible report interface to support both legacy SavedReport and database HistoryRecord
+interface ReportData {
+  id?: string;
   date: string;
-  session: string;
-  sessionLabel: string;
+  session?: string;
+  sessionLabel?: string;
   total: number;
   present: number;
   absent: number;
-  reporter: string;
-  time: string;
-  notes: string;
+  reporter?: string;
+  reporterName?: string; // For HistoryRecord
+  time?: string;
+  reportedAt?: string; // For HistoryRecord
+  notes?: string;
   absentStudents: {
+    id?: string;
     name: string;
     className: string;
     excused: boolean;
@@ -32,7 +36,7 @@ interface SavedReport {
 interface ShareReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  report: SavedReport;
+  report: ReportData;
   schoolName: string;
   title: string;
 }
@@ -47,11 +51,16 @@ export function ShareReportDialog({
   const imageRef = useRef<HTMLDivElement>(null);
   const { isExporting, exportAndShare } = useImageExport();
   
+  // Normalize fields to support both legacy SavedReport and HistoryRecord formats
+  const sessionLabel = report.sessionLabel || 'Nội trú';
+  const reporter = report.reporter || report.reporterName || '';
+  const reportTime = report.time || (report.reportedAt ? new Date(report.reportedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '');
+  
   const handleDownload = () => {
     exportAndShare(
       imageRef,
-      `${title}_${report.date}_${report.sessionLabel}`,
-      `${title} - ${report.sessionLabel} - ${report.date}`,
+      `${title}_${report.date}_${sessionLabel}`,
+      `${title} - ${sessionLabel} - ${report.date}`,
       'download'
     );
   };
@@ -59,8 +68,8 @@ export function ShareReportDialog({
   const handleShare = () => {
     exportAndShare(
       imageRef,
-      `${title}_${report.date}_${report.sessionLabel}`,
-      `${title} - ${report.sessionLabel} - ${report.date}`,
+      `${title}_${report.date}_${sessionLabel}`,
+      `${title} - ${sessionLabel} - ${report.date}`,
       'share'
     );
   };
@@ -83,14 +92,14 @@ export function ShareReportDialog({
               schoolName={schoolName}
               title={title}
               date={report.date}
-              sessionLabel={report.sessionLabel}
-              reporter={report.reporter}
-              reportTime={report.time}
+              sessionLabel={sessionLabel}
+              reporter={reporter}
+              reportTime={reportTime}
               total={report.total}
               present={report.present}
               absent={report.absent}
               absentStudents={report.absentStudents}
-              notes={report.notes}
+              notes={report.notes || ''}
             />
           </div>
         </div>
