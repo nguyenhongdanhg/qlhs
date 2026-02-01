@@ -186,8 +186,14 @@ export default function EveningStudy() {
     if (!currentSchool) return;
     fetchClasses();
     fetchSessions();
-    loadSavedReports();
   }, [currentSchool]);
+
+  // Fetch history from database when date range changes (replaces localStorage)
+  useEffect(() => {
+    if (!currentSchool) return;
+    fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSchool, historyDateRange]);
 
   useEffect(() => {
     if (!currentSchool) return;
@@ -252,22 +258,103 @@ export default function EveningStudy() {
     setClasses((data || []) as Class[]);
   };
 
-  const loadSavedReports = () => {
+  // Fetch history from database (stable across devices/accounts)
+  const fetchHistory = async () => {
     if (!currentSchool) return;
-    const stored = localStorage.getItem(`evening_study_reports_${currentSchool.id}`);
-    if (stored) {
-      try {
-        setSavedReports(JSON.parse(stored));
-      } catch {
-        setSavedReports([]);
-      }
-    }
-  };
+    try {
+      const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
 
-  const saveReportsToStorage = (reports: SavedReport[]) => {
-    if (!currentSchool) return;
-    localStorage.setItem(`evening_study_reports_${currentSchool.id}`, JSON.stringify(reports));
-    setSavedReports(reports);
+      // Total students for correct denominator
+      const { data: allStudents } = await supabase
+        .from('students')
+        .select('id')
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true)
+        .eq('is_boarding', true);
+      const totalStudents = allStudents?.length || 0;
+
+      // Fetch all evening study records in range (may exceed 1000)
+      const { data: recordsData, error } = await supabase
+        .from('attendance_records')
+        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name), student:students(full_name, class:classes(name))')
+        .eq('school_id', currentSchool.id)
+        .eq('attendance_type', 'evening_study')
+        .gte('attendance_date', startDate)
+        .lte('attendance_date', endDate)
+        .order('created_at', { ascending: false })
+        .limit(50000);
+
+      if (error) throw error;
+
+      // Deduplicate latest record per student/date
+      const latestByStudentDate = new Map<string, any>();
+      (recordsData || []).forEach((record: any) => {
+        const key = `${record.student_id}-${record.attendance_date}`;
+        const existing = latestByStudentDate.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByStudentDate.set(key, record);
+        }
+      });
+
+      // Group by date (attendance_records currently has no session_id)
+      const reportsByDate = new Map<string, SavedReport>();
+      latestByStudentDate.forEach((record: any) => {
+        const dateStr = record.attendance_date;
+        if (!reportsByDate.has(dateStr)) {
+          const reporterName = record.reporter?.full_name || 'N/A';
+          reportsByDate.set(dateStr, {
+            id: `${dateStr}_evening_study`,
+            date: dateStr,
+            session: 'evening_study',
+            sessionLabel: 'Tự học tối',
+            total: totalStudents,
+            present: 0,
+            absent: 0,
+            reporter: reporterName,
+            reporterId: record.reporter_id,
+            time: format(new Date(record.created_at), 'HH:mm dd/MM/yyyy'),
+            notes: record.notes || '',
+            absentStudents: [],
+          });
+        }
+
+        const entry = reportsByDate.get(dateStr)!;
+        if (record.status === 'present') {
+          entry.present++;
+        } else {
+          entry.absent++;
+          entry.absentStudents.push({
+            name: record.student?.full_name || 'N/A',
+            className: record.student?.class?.name || 'N/A',
+            excused: record.status === 'excused',
+            reason: record.excused_reason || '',
+          });
+        }
+
+        // Keep latest report meta
+        const recordTime = new Date(record.created_at);
+        const entryTime = new Date(entry.time.split(' ').slice(0, 1).join(' '));
+        if (!Number.isNaN(recordTime.getTime())) {
+          entry.time = format(recordTime, 'HH:mm dd/MM/yyyy');
+          entry.reporter = record.reporter?.full_name || entry.reporter;
+          entry.reporterId = record.reporter_id || entry.reporterId;
+        }
+      });
+
+      // Sort absent students for each day
+      reportsByDate.forEach((r) => {
+        r.absentStudents.sort((a, b) => {
+          if (a.className !== b.className) return a.className.localeCompare(b.className, 'vi');
+          return a.name.localeCompare(b.name, 'vi');
+        });
+      });
+
+      const reports = Array.from(reportsByDate.values()).sort((a, b) => b.date.localeCompare(a.date));
+      setSavedReports(reports);
+    } catch (err) {
+      console.error('Error fetching evening study history:', err);
+    }
   };
 
   const fetchStudentsAndAttendance = async () => {
@@ -431,8 +518,8 @@ export default function EveningStudy() {
         absentStudents,
       };
 
-      const updatedReports = [newReport, ...savedReports.slice(0, 99)];
-      saveReportsToStorage(updatedReports);
+      // History is sourced from database; refresh from DB after saving
+      await fetchHistory();
 
       setActiveTab('history');
       setReportNotes('');
@@ -593,9 +680,10 @@ export default function EveningStudy() {
   };
 
   const handleDeleteReport = async (reportId: string) => {
-    // Delete from localStorage
-    const updatedReports = savedReports.filter(r => r.id !== reportId);
-    saveReportsToStorage(updatedReports);
+    // History is sourced from database; delete by date (best-effort) and refresh.
+    const report = savedReports.find(r => r.id === reportId);
+    if (!report) return;
+    await handleDeleteDatabaseRecords(report.date);
     toast({
       title: 'Đã xóa báo cáo',
     });
@@ -615,9 +703,8 @@ export default function EveningStudy() {
       
       if (error) throw error;
       
-      // Also remove from localStorage
-      const updatedReports = savedReports.filter(r => r.date !== dateStr);
-      saveReportsToStorage(updatedReports);
+      // Refresh history from DB
+      await fetchHistory();
       
       toast({
         title: 'Đã xóa dữ liệu',
