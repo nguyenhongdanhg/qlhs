@@ -1,6 +1,13 @@
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { 
+  ExcelColors, 
+  ExcelFonts, 
+  ExcelBorders, 
+  applyProfessionalStyle,
+  CellAlign 
+} from './excel-styles';
 
 interface ClassScore {
   class_name: string;
@@ -49,7 +56,7 @@ const createWeekSheet = (
 ) => {
   const data: (string | number)[][] = [];
   
-  // Header rows
+  // Header rows (5 rows for info + 1 empty)
   data.push([schoolName]);
   data.push([title]);
   data.push([subtitle]);
@@ -98,6 +105,27 @@ const createWeekSheet = (
     { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } },
     { s: { r: 3, c: 0 }, e: { r: 3, c: 7 } },
   ];
+  
+  // Apply professional styling
+  const columnAlignments: CellAlign[] = [
+    'center', // STT
+    'left',   // Lớp
+    'center', // Học tập
+    'center', // Nề nếp
+    'center', // Nội trú
+    'center', // TB
+    'center', // Xếp hạng
+    'left',   // Ghi chú
+  ];
+  
+  applyProfessionalStyle(ws, {
+    headerRowIndex: 5,
+    dataStartRow: 6,
+    dataRowCount: classScores.length,
+    numCols: 8,
+    columnAlignments,
+    numTitleRows: 5,
+  });
   
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
 };

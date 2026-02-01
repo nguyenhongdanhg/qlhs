@@ -1,6 +1,15 @@
 import * as XLSX from 'xlsx';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { 
+  ExcelColors, 
+  ExcelFonts, 
+  ExcelBorders, 
+  applyProfessionalStyle,
+  applyTitleRowsStyle,
+  CellAlign,
+  getColumnAlignments 
+} from './excel-styles';
 
 export type DateRangeType = 'day' | 'week' | 'month';
 
@@ -377,62 +386,33 @@ function createMealStatsSheet(
     }
   }
 
-  // Apply header style (row 7 after 6 header info rows)
-  const headerRowIndex = 6;
-  for (let col = 0; col < totalCols; col++) {
-    const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c: col });
-    if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
-    ws[cellRef].s = {
-      fill: { fgColor: { rgb: '1565C0' } },
-      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 10 },
-      alignment: { horizontal: 'center', vertical: 'center' },
-    };
-  }
-
-  // Apply alternating row colors and red for absent cells
-  const dataStartRow = 7;
-  dataRows.forEach((row, rowIdx) => {
-    const actualRow = dataStartRow + rowIdx;
-    const isEvenRow = rowIdx % 2 === 0;
-    const bgColor = isEvenRow ? 'FFFFFF' : 'E3F2FD'; // White or light blue
-
-    for (let col = 0; col < row.length; col++) {
-      const cellRef = XLSX.utils.encode_cell({ r: actualRow, c: col });
-      const cellValue = row[col];
-      
-      if (!ws[cellRef]) ws[cellRef] = { v: cellValue, t: typeof cellValue === 'number' ? 'n' : 's' };
-      
-      // Check if it's a meal cell with absence
-      const isMealCell = col >= 5 && col < 5 + days.length;
-      const hasAbsence = isMealCell && typeof cellValue === 'string' && cellValue.includes('o');
-      
-      if (hasAbsence) {
-        ws[cellRef].s = {
-          fill: { fgColor: { rgb: 'FFCDD2' } }, // Light red
-          font: { color: { rgb: 'C62828' }, sz: 9 },
-          alignment: { horizontal: 'center' },
-        };
-      } else {
-        ws[cellRef].s = {
-          fill: { fgColor: { rgb: bgColor } },
-          font: { sz: 9 },
-          alignment: { horizontal: col < 2 ? 'left' : 'center' },
-        };
-      }
-    }
+  // Apply professional styling
+  const numDays = days.length;
+  const numTotalCols = 5 + numDays + 4; // STT, name, class, room, meal + days + totals
+  const columnAlignments: CellAlign[] = [
+    'center', // STT
+    'left',   // Họ và tên
+    'left',   // Lớp
+    'center', // Phòng
+    'center', // Mâm
+    ...days.map(() => 'center' as CellAlign), // Days
+    'center', 'center', 'center', 'center', // Totals
+  ];
+  
+  // Meal cell columns (day columns)
+  const mealCellColumns = Array.from({ length: numDays }, (_, i) => 5 + i);
+  
+  applyProfessionalStyle(ws, {
+    headerRowIndex: 6,
+    dataStartRow: 7,
+    dataRowCount: dataRows.length,
+    numCols: numTotalCols,
+    columnAlignments,
+    hasTotalsRow: true,
+    totalsRowIndex: 7 + dataRows.length + 1,
+    numTitleRows: 6,
+    mealCellColumns,
   });
-
-  // Style totals row with bold
-  const totalsRowIndex = dataStartRow + dataRows.length + 1;
-  for (let col = 0; col < totalsRow.length; col++) {
-    const cellRef = XLSX.utils.encode_cell({ r: totalsRowIndex, c: col });
-    if (!ws[cellRef]) ws[cellRef] = { v: totalsRow[col], t: typeof totalsRow[col] === 'number' ? 'n' : 's' };
-    ws[cellRef].s = {
-      fill: { fgColor: { rgb: 'FFF3E0' } }, // Light orange
-      font: { bold: true, sz: 10 },
-      alignment: { horizontal: 'center' },
-    };
-  }
 
   return ws;
 }
@@ -545,47 +525,26 @@ function createSchoolSummarySheet(
     }
   }
 
-  // Style header row (row 7)
-  const headerRowIndex = 6;
-  for (let col = 0; col < 6; col++) {
-    const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c: col });
-    if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
-    ws[cellRef].s = {
-      fill: { fgColor: { rgb: '1565C0' } },
-      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
-      alignment: { horizontal: 'center', vertical: 'center' },
-    };
-  }
-
-  // Style data rows
-  const dataStartRow = 7;
-  dataRows.forEach((row, rowIdx) => {
-    const actualRow = dataStartRow + rowIdx;
-    const isEvenRow = rowIdx % 2 === 0;
-    const bgColor = isEvenRow ? 'FFFFFF' : 'E3F2FD';
-
-    for (let col = 0; col < row.length; col++) {
-      const cellRef = XLSX.utils.encode_cell({ r: actualRow, c: col });
-      if (!ws[cellRef]) ws[cellRef] = { v: row[col], t: typeof row[col] === 'number' ? 'n' : 's' };
-      ws[cellRef].s = {
-        fill: { fgColor: { rgb: bgColor } },
-        font: { sz: 10 },
-        alignment: { horizontal: col < 2 ? 'left' : 'center' },
-      };
-    }
+  // Apply professional styling
+  const columnAlignments: CellAlign[] = [
+    'center', // STT
+    'left',   // Lớp
+    'center', // Bữa sáng
+    'center', // Bữa trưa
+    'center', // Bữa tối
+    'center', // Số gạo
+  ];
+  
+  applyProfessionalStyle(ws, {
+    headerRowIndex: 6,
+    dataStartRow: 7,
+    dataRowCount: dataRows.length,
+    numCols: 6,
+    columnAlignments,
+    hasTotalsRow: true,
+    totalsRowIndex: 7 + dataRows.length + 1,
+    numTitleRows: 6,
   });
-
-  // Style totals row
-  const totalsRowIndex = dataStartRow + dataRows.length + 1;
-  for (let col = 0; col < totalsRow.length; col++) {
-    const cellRef = XLSX.utils.encode_cell({ r: totalsRowIndex, c: col });
-    if (!ws[cellRef]) ws[cellRef] = { v: totalsRow[col], t: typeof totalsRow[col] === 'number' ? 'n' : 's' };
-    ws[cellRef].s = {
-      fill: { fgColor: { rgb: 'FFF3E0' } },
-      font: { bold: true, sz: 11 },
-      alignment: { horizontal: 'center' },
-    };
-  }
 
   return ws;
 }
@@ -758,34 +717,31 @@ export function exportMealStatistics(
     dailyWs['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 8 } });
   }
 
-  // Style header row (row 6)
-  for (let col = 0; col < 9; col++) {
-    const cellRef = XLSX.utils.encode_cell({ r: 5, c: col });
-    if (!dailyWs[cellRef]) dailyWs[cellRef] = { v: '', t: 's' };
-    dailyWs[cellRef].s = {
-      fill: { fgColor: { rgb: '1565C0' } },
-      font: { bold: true, color: { rgb: 'FFFFFF' } },
-      alignment: { horizontal: 'center' },
-    };
-  }
-
-  // Apply alternating rows for data rows (skip header row and totals row)
-  const dataRowCount = dailySummary.length - 3; // Exclude header, empty row, and totals row
-  for (let rowIdx = 1; rowIdx <= dataRowCount; rowIdx++) {
-    const actualRow = 5 + rowIdx; // 5 header rows + rowIdx
-    const isEvenRow = rowIdx % 2 === 0;
-    const bgColor = isEvenRow ? 'E3F2FD' : 'FFFFFF';
-    
-    for (let col = 0; col < 9; col++) {
-      const cellRef = XLSX.utils.encode_cell({ r: actualRow, c: col });
-      if (dailyWs[cellRef]) {
-        dailyWs[cellRef].s = {
-          fill: { fgColor: { rgb: bgColor } },
-          alignment: { horizontal: 'center' },
-        };
-      }
-    }
-  }
+  // Apply professional styling
+  const columnAlignments: CellAlign[] = [
+    'left',   // Ngày
+    'center', // Tổng HS
+    'center', // Ăn sáng
+    'center', // Vắng sáng
+    'center', // Ăn trưa
+    'center', // Vắng trưa
+    'center', // Ăn tối
+    'center', // Vắng tối
+    'center', // Gạo
+  ];
+  
+  const dataRowCount = dailySummary.length - 3; // Exclude header, empty row, and totals
+  
+  applyProfessionalStyle(dailyWs, {
+    headerRowIndex: 5,
+    dataStartRow: 6,
+    dataRowCount,
+    numCols: 9,
+    columnAlignments,
+    hasTotalsRow: true,
+    totalsRowIndex: 5 + dailySummary.length - 1,
+    numTitleRows: 5,
+  });
 
   // Style the totals row (last row with data)
   const totalsRowIndex = 5 + dailySummary.length - 1; // Header rows + all summary rows - 1 for 0-index
@@ -812,9 +768,10 @@ function applyHeaderStyle(ws: XLSX.WorkSheet, rowIndex: number, numCols: number)
     const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: col });
     if (ws[cellRef]) {
       ws[cellRef].s = {
-        fill: { fgColor: { rgb: '1565C0' } },
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: ExcelColors.headerBg } },
+        font: ExcelFonts.header,
         alignment: { horizontal: 'center', vertical: 'center' },
+        border: ExcelBorders.thin,
       };
     }
   }
