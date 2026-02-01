@@ -597,9 +597,8 @@ export function exportMealStatistics(
   const wb = XLSX.utils.book_new();
   const days = eachDayOfInterval({ start: config.dateRange.start, end: config.dateRange.end });
 
-  // Sheet 1: School Summary (5 columns: STT, Lớp, Sáng, Trưa, Tối)
-  const schoolSummarySheet = createSchoolSummarySheet(students, days, config);
-  XLSX.utils.book_append_sheet(wb, schoolSummarySheet, 'Toàn trường');
+  // Debug: Log received student data
+  console.log(`[Excel Export] Processing ${students.length} students for ${days.length} days`);
 
   // Group students by class and sort by grade
   const classeMap = new Map<string, { grade: number; students: MealStudentData[] }>();
@@ -620,6 +619,34 @@ export function exportMealStatistics(
     if (a[1].grade !== b[1].grade) return a[1].grade - b[1].grade;
     return a[0].localeCompare(b[0], 'vi');
   });
+
+  // Debug: Log class-level summary of attendance data
+  console.log(`[Excel Export] Class-level attendance summary:`);
+  sortedClasses.forEach(([className, classData]) => {
+    let totalBreakfast = 0, totalLunch = 0, totalDinner = 0;
+    let hasAnyData = false;
+    
+    classData.students.forEach(student => {
+      days.forEach(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const dayData = student.attendance.get(dateStr);
+        if (dayData) {
+          if (dayData.breakfast === true) totalBreakfast++;
+          if (dayData.lunch === true) totalLunch++;
+          if (dayData.dinner === true) totalDinner++;
+          if (dayData.breakfast !== null || dayData.lunch !== null || dayData.dinner !== null) {
+            hasAnyData = true;
+          }
+        }
+      });
+    });
+    
+    console.log(`  ${className}: ${classData.students.length} students, B=${totalBreakfast}, L=${totalLunch}, D=${totalDinner}, hasData=${hasAnyData}`);
+  });
+
+  // Sheet 1: School Summary (5 columns: STT, Lớp, Sáng, Trưa, Tối)
+  const schoolSummarySheet = createSchoolSummarySheet(students, days, config);
+  XLSX.utils.book_append_sheet(wb, schoolSummarySheet, 'Toàn trường');
 
   // Create sheet for each class (detailed student-level stats)
   sortedClasses.forEach(([className, classData]) => {

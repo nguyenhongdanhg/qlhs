@@ -1025,10 +1025,6 @@ export default function Meals() {
         if (page.length < PAGE_SIZE) break;
       }
 
-      console.log(
-        `[Meal Excel Export] Students: ${studentIds.length}, Records fetched: ${recordsData.length}, Date range: ${startDate}..${endDate}`
-      );
-
       // Create attendance map: studentId -> date -> meal -> status (based on latest report per meal/date)
       const latestByKey = new Map<string, any>();
       (recordsData || []).forEach((record: any) => {
@@ -1039,16 +1035,43 @@ export default function Meals() {
         }
       });
 
-      // Determine which dates have any reports
-      const reportedDates = new Set<string>();
+      // Debug: Count records per class
+      const classRecordCounts = new Map<string, { breakfast: number; lunch: number; dinner: number }>();
       latestByKey.forEach((record) => {
-        reportedDates.add(record.attendance_date);
+        const classId = record.class_id;
+        if (!classRecordCounts.has(classId)) {
+          classRecordCounts.set(classId, { breakfast: 0, lunch: 0, dinner: 0 });
+        }
+        const counts = classRecordCounts.get(classId)!;
+        if (record.attendance_type === 'breakfast') counts.breakfast++;
+        else if (record.attendance_type === 'lunch') counts.lunch++;
+        else if (record.attendance_type === 'dinner') counts.dinner++;
+      });
+
+      // Map class IDs to class names for logging
+      const classIdToName = new Map<string, string>();
+      studentsToExport.forEach(s => {
+        if (s.class_id && s.class?.name) {
+          classIdToName.set(s.class_id, s.class.name);
+        }
+      });
+
+      console.log(`[Meal Excel Export] Summary:`);
+      console.log(`  - Students: ${studentIds.length}`);
+      console.log(`  - Total records fetched: ${recordsData.length}`);
+      console.log(`  - Unique records (latest): ${latestByKey.size}`);
+      console.log(`  - Date range: ${startDate} to ${endDate}`);
+      console.log(`  - Records per class:`);
+      classRecordCounts.forEach((counts, classId) => {
+        const className = classIdToName.get(classId) || classId;
+        console.log(`    ${className}: B=${counts.breakfast}, L=${counts.lunch}, D=${counts.dinner}`);
       });
 
       // Build student data with null for unreported meals
       const studentData: MealStudentData[] = studentsToExport.map(student => {
         const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
         
+        let studentHasRecords = false;
         days.forEach(day => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const bKey = `${student.id}-${dateStr}-breakfast`;
@@ -1058,6 +1081,8 @@ export default function Meals() {
           const bRecord = latestByKey.get(bKey);
           const lRecord = latestByKey.get(lKey);
           const dRecord = latestByKey.get(dKey);
+          
+          if (bRecord || lRecord || dRecord) studentHasRecords = true;
           
           // Use null if no report exists for this meal on this date
           attendanceMap.set(dateStr, {
