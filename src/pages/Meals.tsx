@@ -37,6 +37,7 @@ import {
   UserMinus,
   ChevronUp,
   ChevronDown,
+  Edit3,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -137,6 +138,15 @@ export default function Meals() {
   // Dialog for selecting absent students for 3 meals
   const [absent3MealsDialogOpen, setAbsent3MealsDialogOpen] = useState(false);
   const [absentSingleMealDialogOpen, setAbsentSingleMealDialogOpen] = useState(false);
+
+  // Edit mode tracking for editing existing reports
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editModeData, setEditModeData] = useState<{
+    attendance: AttendanceMap;
+    date: string;
+    meal: AttendanceType;
+    className?: string;
+  } | null>(null);
 
   // Check if user is class teacher and get their class
   const isClassTeacher = currentMembership?.role === 'class_teacher';
@@ -805,6 +815,80 @@ export default function Meals() {
     }
   };
 
+  // Handle edit meal report - load existing data and switch to edit mode
+  const handleEditMealReport = async (record: HistoryRecord) => {
+    if (!currentSchool) return;
+    
+    try {
+      setIsLoading(true);
+      const dateStr = record.date;
+      
+      // Load attendance data from database for this date and meal
+      const { data: recordsData } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .eq('attendance_date', dateStr)
+        .eq('attendance_type', record.meal);
+
+      const attendanceMap: AttendanceMap = {};
+      
+      // First, set all relevant students as present
+      const studentsToUse = record.className 
+        ? students.filter(s => s.class?.name === record.className)
+        : students;
+      
+      studentsToUse.forEach((student) => {
+        attendanceMap[student.id] = 'present';
+      });
+      
+      // Then apply saved records
+      (recordsData || []).forEach((rec: any) => {
+        attendanceMap[rec.student_id] = rec.status;
+      });
+
+      // Set edit mode data
+      setEditModeData({ 
+        attendance: attendanceMap, 
+        date: dateStr, 
+        meal: record.meal,
+        className: record.className
+      });
+      setIsEditMode(true);
+      
+      // Set the date and meal, switch to register tab
+      setDate(new Date(dateStr));
+      setSelectedMeal(record.meal);
+      if (record.className) {
+        setSelectedClass(record.className);
+      }
+      setActiveTab('register');
+      
+      toast({
+        title: 'Đang sửa báo cáo',
+        description: `${mealTypes.find(m => m.type === record.meal)?.label} ngày ${format(new Date(dateStr), 'dd/MM/yyyy')}. Nhấn "Lưu" khi hoàn tất.`,
+      });
+    } catch (error) {
+      console.error('Error loading report data:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể tải dữ liệu báo cáo',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Apply edit mode data after component updates
+  useEffect(() => {
+    if (isEditMode && editModeData) {
+      setAttendance(prev => ({ ...prev, ...editModeData.attendance }));
+      setIsEditMode(false);
+      setEditModeData(null);
+    }
+  }, [isEditMode, editModeData]);
+
   const handleExportExcel = async () => {
     if (!currentSchool) return;
     setIsExporting(true);
@@ -1390,6 +1474,16 @@ export default function Meals() {
                                 ) : (
                                   <ChevronDown className="h-4 w-4" />
                                 )}
+                              </Button>
+                            )}
+                            {(isSuperAdmin || isSchoolAdmin() || record.reporterId === user?.id) && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleEditMealReport(record)}
+                                className="h-8 px-2"
+                              >
+                                <Edit3 className="h-4 w-4" />
                               </Button>
                             )}
                             {(isSuperAdmin || isSchoolAdmin() || canDelete) && (

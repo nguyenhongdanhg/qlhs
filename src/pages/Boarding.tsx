@@ -1110,6 +1110,28 @@ export default function Boarding() {
                           </p>
                         </div>
                         <div className="flex gap-2 flex-wrap">
+                          {(isSchoolAdmin() || isSuperAdmin || record.reporterId === user?.id) && (
+                            <Button variant="outline" size="sm" onClick={() => {
+                              // Convert HistoryRecord to SavedReport format for handleEditReport
+                              const savedReport: SavedReport = {
+                                id: `${record.date}_boarding_${Date.now()}`,
+                                date: record.date,
+                                session: 'boarding',
+                                sessionLabel: 'Nội trú',
+                                total: record.total,
+                                present: record.present,
+                                absent: record.absent,
+                                reporter: record.reporterName,
+                                time: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
+                                notes: record.notes || '',
+                                absentStudents: record.absentStudents,
+                              };
+                              handleEditReport(savedReport);
+                            }}>
+                              <Edit3 className="h-4 w-4 mr-1" />
+                              Sửa
+                            </Button>
+                          )}
                           <Button variant="outline" size="sm" onClick={() => {
                             setReportToShare(record);
                             setShareDialogOpen(true);
