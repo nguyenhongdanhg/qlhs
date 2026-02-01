@@ -106,6 +106,26 @@ const detectSessionByTime = (): string => {
   return 'emergency';
 };
 
+// Database-based history record (replaces localStorage SavedReport)
+interface HistoryRecord {
+  date: string;
+  reportedAt: string;
+  reporterId: string;
+  reporterName: string;
+  total: number;
+  present: number;
+  absent: number;
+  notes?: string;
+  absentStudents: {
+    id: string;
+    name: string;
+    className: string;
+    excused: boolean;
+    reason: string;
+  }[];
+}
+
+// Legacy SavedReport for backwards compatibility during transition
 interface SavedReport {
   id: string;
   date: string;
@@ -140,8 +160,11 @@ export default function Boarding() {
   const [excuseInfo, setExcuseInfo] = useState<ExcuseMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [sessions, setSessions] = useState<BoardingSession[]>(DEFAULT_SESSIONS);
+
+  // Database-based history records (replaces localStorage)
+  const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Notes dialog
   const [isNotesOpen, setIsNotesOpen] = useState(false);
@@ -165,11 +188,14 @@ export default function Boarding() {
 
   // Share image dialog
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [reportToShare, setReportToShare] = useState<SavedReport | null>(null);
+  const [reportToShare, setReportToShare] = useState<HistoryRecord | null>(null);
 
   // Edit mode tracking - prevents auto-refresh from overwriting data when editing a report
   const [isEditMode, setIsEditMode] = useState(false);
   const [editModeData, setEditModeData] = useState<{attendance: AttendanceMap, excuse: ExcuseMap, notes: string} | null>(null);
+
+  // Total boarding students count for accurate stats
+  const [totalBoardingStudents, setTotalBoardingStudents] = useState(0);
 
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
@@ -183,29 +209,22 @@ export default function Boarding() {
     });
   }, [classes]);
 
-  // Filter reports by date range
-  const filteredReports = useMemo(() => {
-    const startStr = format(historyDateRange.start, 'yyyy-MM-dd');
-    const endStr = format(historyDateRange.end, 'yyyy-MM-dd');
-    return savedReports.filter(r => r.date >= startStr && r.date <= endStr);
-  }, [savedReports, historyDateRange]);
-
-  const groupedReports = useMemo(() => {
-    const groups: Record<string, SavedReport[]> = {};
-    filteredReports.forEach(report => {
-      if (!groups[report.date]) {
-        groups[report.date] = [];
+  // Group history records by date for display
+  const groupedHistoryRecords = useMemo(() => {
+    const groups: Record<string, HistoryRecord[]> = {};
+    historyRecords.forEach(record => {
+      if (!groups[record.date]) {
+        groups[record.date] = [];
       }
-      groups[report.date].push(report);
+      groups[record.date].push(record);
     });
     return groups;
-  }, [filteredReports]);
+  }, [historyRecords]);
 
   useEffect(() => {
     if (!currentSchool) return;
     fetchClasses();
     fetchSessions();
-    loadSavedReports();
   }, [currentSchool]);
 
   useEffect(() => {
@@ -213,6 +232,13 @@ export default function Boarding() {
     fetchStudentsAndAttendance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSchool, date]);
+
+  // Fetch history from database when date range changes
+  useEffect(() => {
+    if (!currentSchool) return;
+    fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSchool, historyDateRange]);
 
   const fetchSessions = async () => {
     if (!currentSchool) return;
@@ -263,22 +289,104 @@ export default function Boarding() {
     setClasses((data || []) as Class[]);
   };
 
-  const loadSavedReports = () => {
+  // Fetch history from database (replaces localStorage-based loadSavedReports)
+  const fetchHistory = async () => {
     if (!currentSchool) return;
-    const stored = localStorage.getItem(`boarding_reports_${currentSchool.id}`);
-    if (stored) {
-      try {
-        setSavedReports(JSON.parse(stored));
-      } catch {
-        setSavedReports([]);
-      }
-    }
-  };
+    setIsLoadingHistory(true);
 
-  const saveReportsToStorage = (reports: SavedReport[]) => {
-    if (!currentSchool) return;
-    localStorage.setItem(`boarding_reports_${currentSchool.id}`, JSON.stringify(reports));
-    setSavedReports(reports);
+    try {
+      const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
+
+      // Get total boarding students for accurate denominator
+      const { data: boardingStudents } = await supabase
+        .from('students')
+        .select('id')
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true)
+        .eq('is_boarding', true);
+      
+      const totalBoarding = boardingStudents?.length || 0;
+      setTotalBoardingStudents(totalBoarding);
+
+      // Fetch attendance records with reporter and student info
+      const { data: recordsData } = await supabase
+        .from('attendance_records')
+        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name), student:students(full_name, class:classes(name))')
+        .eq('school_id', currentSchool.id)
+        .eq('attendance_type', 'boarding')
+        .gte('attendance_date', startDate)
+        .lte('attendance_date', endDate)
+        .order('created_at', { ascending: false });
+
+      // Get latest record per student/date (deduplication)
+      const latestByStudentDate = new Map<string, any>();
+      (recordsData || []).forEach((record: any) => {
+        const key = `${record.student_id}-${record.attendance_date}`;
+        const existing = latestByStudentDate.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByStudentDate.set(key, record);
+        }
+      });
+
+      // Group by date for display
+      const historyByDate = new Map<string, HistoryRecord>();
+
+      latestByStudentDate.forEach((record) => {
+        const key = record.attendance_date;
+
+        if (!historyByDate.has(key)) {
+          historyByDate.set(key, {
+            date: record.attendance_date,
+            reportedAt: record.created_at,
+            reporterId: record.reporter_id,
+            reporterName: record.reporter?.full_name || 'N/A',
+            total: totalBoarding, // Use actual student count, not record count
+            present: 0,
+            absent: 0,
+            notes: record.notes || '',
+            absentStudents: [],
+          });
+        }
+
+        const entry = historyByDate.get(key)!;
+        if (record.status === 'present') {
+          entry.present++;
+        } else {
+          entry.absent++;
+          entry.absentStudents.push({
+            id: record.student_id,
+            name: record.student?.full_name || 'N/A',
+            className: record.student?.class?.name || 'N/A',
+            excused: record.status === 'excused',
+            reason: record.excused_reason || '',
+          });
+        }
+
+        // Keep the latest report time
+        if (new Date(record.created_at) > new Date(entry.reportedAt)) {
+          entry.reportedAt = record.created_at;
+          entry.reporterId = record.reporter_id;
+          entry.reporterName = record.reporter?.full_name || 'N/A';
+        }
+      });
+
+      // Sort absent students by class then name
+      historyByDate.forEach((entry) => {
+        entry.absentStudents.sort((a, b) => {
+          if (a.className !== b.className) return a.className.localeCompare(b.className, 'vi');
+          return a.name.localeCompare(b.name, 'vi');
+        });
+      });
+
+      setHistoryRecords(Array.from(historyByDate.values()).sort((a, b) => 
+        b.date.localeCompare(a.date)
+      ));
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
 
   const fetchStudentsAndAttendance = async () => {
@@ -418,22 +526,8 @@ export default function Boarding() {
 
       const sessionLabel = sessions.find(s => s.id === sessionToUse)?.label || sessionToUse;
 
-      const newReport: SavedReport = {
-        id: `${dateStr}_${sessionToUse}_${Date.now()}`,
-        date: dateStr,
-        session: sessionToUse,
-        sessionLabel,
-        total: students.length,
-        present: presentCount,
-        absent: absentCount,
-        reporter: profile?.full_name || 'Unknown',
-        time: format(new Date(), 'HH:mm dd/MM/yyyy'),
-        notes: reportNotes,
-        absentStudents,
-      };
-
-      const updatedReports = [newReport, ...savedReports.slice(0, 99)];
-      saveReportsToStorage(updatedReports);
+      // Data is already saved to database, just refresh history
+      await fetchHistory();
 
       setActiveTab('history');
       setReportNotes('');
@@ -559,21 +653,26 @@ export default function Boarding() {
   };
 
   const handleExportRangeReports = () => {
-    if (!currentSchool || filteredReports.length === 0) return;
+    if (!currentSchool || historyRecords.length === 0) return;
     setIsExporting(true);
 
     try {
-      const reportData: AttendanceReportData[] = filteredReports.map(report => ({
-        date: report.date,
-        session: report.session,
-        sessionLabel: report.sessionLabel,
-        reporter: report.reporter,
-        reportTime: report.time,
-        total: report.total,
-        present: report.present,
-        absent: report.absent,
-        notes: report.notes,
-        absentStudents: report.absentStudents,
+      const reportData: AttendanceReportData[] = historyRecords.map(record => ({
+        date: record.date,
+        session: 'boarding',
+        sessionLabel: 'Nội trú',
+        reporter: record.reporterName,
+        reportTime: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
+        total: record.total,
+        present: record.present,
+        absent: record.absent,
+        notes: record.notes || '',
+        absentStudents: record.absentStudents.map(s => ({
+          name: s.name,
+          className: s.className,
+          excused: s.excused,
+          reason: s.reason,
+        })),
       }));
 
       exportAttendanceReport(reportData, {
@@ -592,33 +691,22 @@ export default function Boarding() {
     }
   };
 
-  const handleDeleteReport = async (reportId: string) => {
-    // Delete from localStorage
-    const updatedReports = savedReports.filter(r => r.id !== reportId);
-    saveReportsToStorage(updatedReports);
-    toast({
-      title: 'Đã xóa báo cáo',
-    });
-  };
-
   // Admin function to delete attendance records from database for a specific date
-  const handleDeleteDatabaseRecords = async (dateStr: string, session?: string) => {
+  const handleDeleteDatabaseRecords = async (dateStr: string) => {
     if (!currentSchool || !user) return;
     
     try {
-      let query = supabase
+      const { error } = await supabase
         .from('attendance_records')
         .delete()
         .eq('school_id', currentSchool.id)
         .eq('attendance_date', dateStr)
         .eq('attendance_type', 'boarding');
       
-      const { error } = await query;
       if (error) throw error;
       
-      // Also remove from localStorage
-      const updatedReports = savedReports.filter(r => r.date !== dateStr);
-      saveReportsToStorage(updatedReports);
+      // Refresh history from database
+      await fetchHistory();
       
       toast({
         title: 'Đã xóa dữ liệu',
@@ -966,160 +1054,139 @@ export default function Boarding() {
                   </Popover>
                 </div>
               </div>
-              <Button onClick={handleExportRangeReports} variant="outline" disabled={isExporting || filteredReports.length === 0}>
+              <Button onClick={handleExportRangeReports} variant="outline" disabled={isExporting || historyRecords.length === 0}>
                 {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                Xuất Excel ({filteredReports.length} báo cáo)
+                Xuất Excel ({historyRecords.length} báo cáo)
               </Button>
             </div>
 
             {/* Statistics Summary */}
-            {filteredReports.length > 0 && (
+            {historyRecords.length > 0 && (
               <div className="grid grid-cols-3 gap-4">
                 <Card className="p-4 text-center bg-blue-50">
-                  <p className="text-2xl font-bold text-blue-600">{filteredReports.length}</p>
+                  <p className="text-2xl font-bold text-blue-600">{historyRecords.length}</p>
                   <p className="text-xs text-muted-foreground">Số báo cáo</p>
                 </Card>
                 <Card className="p-4 text-center bg-green-50">
-                  <p className="text-2xl font-bold text-green-600">{filteredReports.reduce((s, r) => s + r.present, 0)}</p>
+                  <p className="text-2xl font-bold text-green-600">{historyRecords.reduce((s, r) => s + r.present, 0)}</p>
                   <p className="text-xs text-muted-foreground">Tổng có mặt</p>
                 </Card>
                 <Card className="p-4 text-center bg-red-50">
-                  <p className="text-2xl font-bold text-red-600">{filteredReports.reduce((s, r) => s + r.absent, 0)}</p>
+                  <p className="text-2xl font-bold text-red-600">{historyRecords.reduce((s, r) => s + r.absent, 0)}</p>
                   <p className="text-xs text-muted-foreground">Tổng vắng</p>
                 </Card>
               </div>
             )}
 
-            {/* Reports List */}
-            {Object.keys(groupedReports).length > 0 ? (
-              <div className="space-y-6">
-                {Object.entries(groupedReports)
-                  .sort(([a], [b]) => b.localeCompare(a))
-                  .map(([dateStr, reports]) => (
-                    <div key={dateStr} className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-muted-foreground">
-                          {format(new Date(dateStr), 'EEEE, dd/MM/yyyy', { locale: vi })}
-                        </h4>
-                        {(isSchoolAdmin() || isSuperAdmin) && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Xóa ngày này
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Xóa dữ liệu ngày {format(new Date(dateStr), 'dd/MM/yyyy')}?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Thao tác này sẽ xóa tất cả báo cáo điểm danh nội trú ngày {format(new Date(dateStr), 'dd/MM/yyyy')} khỏi hệ thống. Hành động này không thể hoàn tác.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteDatabaseRecords(dateStr)} className="bg-destructive hover:bg-destructive/90">
-                                  Xóa dữ liệu
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
+            {/* Reports List - Now from database */}
+            {isLoadingHistory ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : historyRecords.length > 0 ? (
+              <div className="space-y-4">
+                {historyRecords.map((record) => (
+                  <Card key={record.date} className="border">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h5 className="font-semibold">
+                            {format(new Date(record.date), 'EEEE, dd/MM/yyyy', { locale: vi })}
+                          </h5>
+                          <p className="text-sm text-muted-foreground">
+                            Người báo cáo: {record.reporterName} - Lúc {format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy')}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            setReportToShare(record);
+                            setShareDialogOpen(true);
+                          }}>
+                            <Image className="h-4 w-4 mr-1" />
+                            Ảnh
+                          </Button>
+                          {(isSchoolAdmin() || isSuperAdmin) && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="text-destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Xóa dữ liệu?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Thao tác này sẽ xóa báo cáo ngày {format(new Date(record.date), 'dd/MM/yyyy')}.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteDatabaseRecords(record.date)} className="bg-destructive hover:bg-destructive/90">
+                                    Xóa
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </div>
-                      {reports.map((report) => (
-                        <Card key={report.id} className="border">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between mb-4">
-                              <div>
-                                <h5 className="font-semibold">{report.sessionLabel}</h5>
-                                <p className="text-sm text-muted-foreground">
-                                  Người báo cáo: {report.reporter} - Lúc {report.time}
-                                </p>
-                              </div>
-                              <div className="flex gap-2 flex-wrap">
-                                {canEdit && (
-                                  <Button variant="outline" size="sm" onClick={() => handleEditReport(report)}>
-                                    <Edit3 className="h-4 w-4 mr-1" />
-                                    Sửa
-                                  </Button>
-                                )}
-                                <Button variant="outline" size="sm" onClick={() => {
-                                  setReportToShare(report);
-                                  setShareDialogOpen(true);
-                                }}>
-                                  <Image className="h-4 w-4 mr-1" />
-                                  Ảnh
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => handleExportSingleReport(report)}>
-                                  <Download className="h-4 w-4 mr-1" />
-                                  Excel
-                                </Button>
-                                {canDelete && (
-                                  <Button variant="outline" size="sm" onClick={() => handleDeleteReport(report.id)}>
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
 
-                            <div className="grid grid-cols-3 gap-4 mb-4">
-                              <div className="p-3 rounded-lg bg-muted/50 text-center">
-                                <p className="text-2xl font-bold">{report.total}</p>
-                                <p className="text-xs text-muted-foreground">Tổng số</p>
-                              </div>
-                              <div className="p-3 rounded-lg bg-green-50 text-green-600 text-center">
-                                <p className="text-2xl font-bold">{report.present}</p>
-                                <p className="text-xs">Có mặt</p>
-                              </div>
-                              <div className="p-3 rounded-lg bg-red-50 text-red-600 text-center">
-                                <p className="text-2xl font-bold">{report.absent}</p>
-                                <p className="text-xs">Vắng</p>
-                              </div>
-                            </div>
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="p-3 rounded-lg bg-muted/50 text-center">
+                          <p className="text-2xl font-bold">{record.total}</p>
+                          <p className="text-xs text-muted-foreground">Tổng số</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-green-50 text-green-600 text-center">
+                          <p className="text-2xl font-bold">{record.present}</p>
+                          <p className="text-xs">Có mặt</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-red-50 text-red-600 text-center">
+                          <p className="text-2xl font-bold">{record.absent}</p>
+                          <p className="text-xs">Vắng</p>
+                        </div>
+                      </div>
 
-                            {report.notes && (
-                              <div className="mb-4 p-3 rounded-lg bg-muted/30 border">
-                                <p className="text-sm font-medium mb-1">Ghi chú:</p>
-                                <p className="text-sm text-muted-foreground">{report.notes}</p>
-                              </div>
-                            )}
+                      {record.notes && (
+                        <div className="mb-4 p-3 rounded-lg bg-muted/30 border">
+                          <p className="text-sm font-medium mb-1">Ghi chú:</p>
+                          <p className="text-sm text-muted-foreground">{record.notes}</p>
+                        </div>
+                      )}
 
-                            {report.absentStudents.length > 0 && (
-                              <div>
-                                <p className="text-sm font-medium mb-2">Danh sách vắng:</p>
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead className="w-12">STT</TableHead>
-                                      <TableHead>Họ tên</TableHead>
-                                      <TableHead>Lớp</TableHead>
-                                      <TableHead>P/KP</TableHead>
-                                      <TableHead>Lý do</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {report.absentStudents.map((s, idx) => (
-                                      <TableRow key={idx}>
-                                        <TableCell>{idx + 1}</TableCell>
-                                        <TableCell>{s.name}</TableCell>
-                                        <TableCell>{s.className}</TableCell>
-                                        <TableCell>
-                                          <Badge variant={s.excused ? 'secondary' : 'destructive'}>
-                                            {s.excused ? 'P' : 'KP'}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell>{s.reason || '-'}</TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ))}
+                      {record.absentStudents.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium mb-2">Danh sách vắng:</p>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12">STT</TableHead>
+                                <TableHead>Họ tên</TableHead>
+                                <TableHead>Lớp</TableHead>
+                                <TableHead>P/KP</TableHead>
+                                <TableHead>Lý do</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {record.absentStudents.map((s, idx) => (
+                                <TableRow key={idx}>
+                                  <TableCell>{idx + 1}</TableCell>
+                                  <TableCell>{s.name}</TableCell>
+                                  <TableCell>{s.className}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={s.excused ? 'secondary' : 'destructive'}>
+                                      {s.excused ? 'P' : 'KP'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>{s.reason || '-'}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
