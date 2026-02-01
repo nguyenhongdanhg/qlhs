@@ -409,9 +409,18 @@ export default function EveningStudy() {
         .map(s => ({
           name: s.full_name,
           className: s.class?.name || 'Khác',
+          classGrade: s.class?.grade || parseInt(s.class?.name?.match(/^\d+/)?.[0] || '0', 10),
           excused: excuseInfo[s.id]?.excused || false,
           reason: excuseInfo[s.id]?.reason || '',
-        }));
+        }))
+        .sort((a, b) => {
+          // Sort by grade first
+          if (a.classGrade !== b.classGrade) return a.classGrade - b.classGrade;
+          // Then by class name naturally (6A, 6B...)
+          if (a.className !== b.className) return a.className.localeCompare(b.className, 'vi', { numeric: true });
+          // Then by name
+          return a.name.localeCompare(b.name, 'vi');
+        });
 
       const sessionLabel = sessions.find(s => s.id === sessionToUse)?.label || sessionToUse || 'Không có ca';
 

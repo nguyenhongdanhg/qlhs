@@ -98,7 +98,14 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
             </h3>
             <div style={{ borderRadius: '8px', border: '1px solid #e5e7eb', padding: '12px' }}>
               {Array.from(groupedByClass.entries())
-                .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
+                .sort((a, b) => {
+                  // Extract grade numbers from class names (e.g., "6A" -> 6, "12B" -> 12)
+                  const gradeA = parseInt(a[0].match(/^\d+/)?.[0] || '0', 10);
+                  const gradeB = parseInt(b[0].match(/^\d+/)?.[0] || '0', 10);
+                  if (gradeA !== gradeB) return gradeA - gradeB;
+                  // Then sort by class name naturally (6A, 6B, 6C...)
+                  return a[0].localeCompare(b[0], 'vi', { numeric: true });
+                })
                 .map(([className, students], classIndex) => (
                   <div key={className} style={{ marginTop: classIndex > 0 ? '8px' : 0 }}>
                     <div style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', ...baseTextStyle }}>
