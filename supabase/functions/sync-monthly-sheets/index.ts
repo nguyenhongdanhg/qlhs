@@ -87,20 +87,21 @@ async function getAccessToken(credentials: ServiceAccountCredentials): Promise<s
   return data.access_token;
 }
 
-// Create a new spreadsheet using Drive API (in a specific folder)
+// Create a new spreadsheet using Drive API (in a specific folder or Shared Drive)
 async function createSpreadsheetInFolder(
   accessToken: string, 
   title: string, 
   folderId: string
 ): Promise<string> {
   // Use Drive API to create a Google Spreadsheet in the folder
+  // supportsAllDrives=true enables Shared Drive support
   const metadata = {
     name: title,
     mimeType: 'application/vnd.google-apps.spreadsheet',
     parents: [folderId]
   };
 
-  const response = await fetch('https://www.googleapis.com/drive/v3/files', {
+  const response = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
