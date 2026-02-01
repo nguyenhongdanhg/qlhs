@@ -970,18 +970,27 @@ export default function Statistics() {
     setIsExporting(true);
 
     try {
-      // CRITICAL FIX: Query by student IDs from filteredStudents to ensure data integrity
-      // This ensures we only get records for students that are in our list (active, boarding)
-      const studentIds = filteredStudents.map(s => s.id);
+      // CRITICAL FIX: Query ALL meal records for the school/date, then filter by student IDs client-side
+      // This avoids issues with large IN clauses and ensures data integrity
+      const studentIdSet = new Set(filteredStudents.map(s => s.id));
       
-      const { data: records } = await supabase
+      const { data: allRecords, error } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('school_id', currentSchool.id)
-        .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .eq('attendance_date', format(selectedDate, 'yyyy-MM-dd'))
-        .limit(10000);
+        .limit(20000);
+
+      if (error) {
+        console.error('Error fetching records:', error);
+        throw error;
+      }
+
+      // Filter to only include records for students in our filtered list
+      const records = (allRecords || []).filter(r => studentIdSet.has(r.student_id));
+      
+      console.log(`[Excel Export] Total records fetched: ${allRecords?.length || 0}, After filtering: ${records.length}, Students: ${filteredStudents.length}`);
 
       // Get latest report per student/date/meal - CRITICAL: include date in key for multi-day exports
       const latestByKey = new Map<string, any>();
@@ -1049,19 +1058,28 @@ export default function Statistics() {
     try {
       const days = eachDayOfInterval({ start: riceDateRange.start, end: riceDateRange.end });
 
-      // CRITICAL FIX: Query by student IDs from filteredStudents to ensure data integrity
-      // This ensures we only get records for students that are in our list (active, boarding)
-      const studentIds = filteredStudents.map(s => s.id);
+      // CRITICAL FIX: Query ALL meal records for the school/date range, then filter by student IDs client-side
+      // This avoids issues with large IN clauses and ensures data integrity
+      const studentIdSet = new Set(filteredStudents.map(s => s.id));
       
-      const { data: records } = await supabase
+      const { data: allRecords, error } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('school_id', currentSchool.id)
-        .in('student_id', studentIds)
         .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
         .gte('attendance_date', format(riceDateRange.start, 'yyyy-MM-dd'))
         .lte('attendance_date', format(riceDateRange.end, 'yyyy-MM-dd'))
-        .limit(50000);
+        .limit(100000);
+
+      if (error) {
+        console.error('Error fetching records:', error);
+        throw error;
+      }
+
+      // Filter to only include records for students in our filtered list
+      const records = (allRecords || []).filter(r => studentIdSet.has(r.student_id));
+      
+      console.log(`[Excel Export Range] Total records fetched: ${allRecords?.length || 0}, After filtering: ${records.length}, Students: ${filteredStudents.length}`);
 
       // Get latest report per meal/date/student
       const latestByKey = new Map<string, any>();
