@@ -486,6 +486,12 @@ function createSchoolSummarySheet(
       });
     });
 
+    // Debug log for classes with 0 values
+    if (breakfastTotal === 0 && lunchTotal === 0 && dinnerTotal === 0 && classData.students.length > 0) {
+      console.warn(`[Excel Export] Class ${className} has ${classData.students.length} students but 0 attendance for all meals. Checking first student attendance:`, 
+        classData.students[0]?.attendance);
+    }
+
     classRows.push({
       className,
       breakfast: breakfastTotal,
