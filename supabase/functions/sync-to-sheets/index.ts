@@ -89,6 +89,61 @@ async function getAccessToken(credentials: ServiceAccountCredentials): Promise<s
   return data.access_token;
 }
 
+// Get spreadsheet info to check existing sheets
+async function getSpreadsheetInfo(accessToken: string, spreadsheetId: string): Promise<string[]> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`;
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to get spreadsheet info: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.sheets?.map((s: { properties: { title: string } }) => s.properties.title) || [];
+}
+
+// Create a new sheet tab
+async function createSheet(accessToken: string, spreadsheetId: string, sheetName: string): Promise<void> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      requests: [{
+        addSheet: {
+          properties: { title: sheetName }
+        }
+      }]
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    // Ignore error if sheet already exists
+    if (!error.includes('already exists')) {
+      throw new Error(`Failed to create sheet: ${error}`);
+    }
+  }
+}
+
+// Ensure sheet exists, create if not
+async function ensureSheetExists(accessToken: string, spreadsheetId: string, sheetName: string): Promise<void> {
+  const existingSheets = await getSpreadsheetInfo(accessToken, spreadsheetId);
+  
+  if (!existingSheets.includes(sheetName)) {
+    console.log(`Creating sheet: ${sheetName}`);
+    await createSheet(accessToken, spreadsheetId, sheetName);
+  }
+}
+
 // Append data to Google Sheets
 async function appendToSheet(
   accessToken: string, 
@@ -96,7 +151,9 @@ async function appendToSheet(
   sheetName: string, 
   values: string[][]
 ): Promise<void> {
-  const range = `${sheetName}!A:Z`;
+  await ensureSheetExists(accessToken, spreadsheetId, sheetName);
+  
+  const range = `'${sheetName}'!A:Z`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
 
   const response = await fetch(url, {
@@ -121,7 +178,11 @@ async function updateSheet(
   sheetName: string,
   values: string[][]
 ): Promise<void> {
-  const range = `${sheetName}!A:Z`;
+  // Ensure sheet exists first
+  await ensureSheetExists(accessToken, spreadsheetId, sheetName);
+  
+  // Use quoted sheet name for special characters
+  const range = `'${sheetName}'!A:Z`;
   
   // Clear existing data
   const clearUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:clear`;
