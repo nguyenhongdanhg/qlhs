@@ -123,10 +123,15 @@ export function UnreportedClassesAlert({
       // Build unreported meals info
       const unreported: UnreportedMealInfo[] = [];
 
+      // Filter classes that have boarding students (same logic as Statistics.tsx)
+      const classesWithStudents = classes.filter(cls => 
+        students.some(s => s.class_id === cls.id)
+      );
+
       // Check today's meals
       const todayMeals: AttendanceType[] = ['breakfast', 'lunch', 'dinner'];
       todayMeals.forEach(meal => {
-        const unreportedClasses = classes.filter(cls => {
+        const unreportedClasses = classesWithStudents.filter(cls => {
           const key = `${cls.id}-${todayStr}-${meal}`;
           return !reportedSet.has(key);
         }).map(c => c.name);
@@ -144,7 +149,7 @@ export function UnreportedClassesAlert({
       });
 
       // Check tomorrow's breakfast (can be reported today)
-      const tomorrowBreakfastUnreported = classes.filter(cls => {
+      const tomorrowBreakfastUnreported = classesWithStudents.filter(cls => {
         const key = `${cls.id}-${tomorrowStr}-breakfast`;
         return !reportedSet.has(key);
       }).map(c => c.name);
