@@ -114,6 +114,7 @@ export default function Statistics() {
   const [totalRiceInRange, setTotalRiceInRange] = useState(0);
   const [isLoadingRice, setIsLoadingRice] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingSingleMeal, setIsExportingSingleMeal] = useState<AttendanceType | null>(null);
   
   // Rice inventory
   const [riceInventory, setRiceInventory] = useState<{ id: string; amount: number; notes: string; created_at: string }[]>([]);
@@ -1138,6 +1139,91 @@ export default function Statistics() {
     }
   };
 
+  // Export single meal type to Excel
+  const handleExportSingleMealExcel = useCallback(async (mealType: AttendanceType) => {
+    if (!currentSchool || filteredStudents.length === 0) return;
+    setIsExportingSingleMeal(mealType);
+
+    try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const studentIdSet = new Set(filteredStudents.map(s => s.id));
+
+      const { data: allRecords, error } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .eq('attendance_type', mealType)
+        .eq('attendance_date', dateStr)
+        .limit(20000);
+
+      if (error) {
+        console.error('Error fetching records:', error);
+        throw error;
+      }
+
+      // Filter to only include records for students in our filtered list
+      const records = (allRecords || []).filter(r => studentIdSet.has(r.student_id));
+
+      console.log(`[Single Meal Export] ${mealType} - Total fetched: ${allRecords?.length || 0}, After filtering: ${records.length}`);
+
+      // Get latest report per student
+      const latestByKey = new Map<string, any>();
+      records.forEach((record: any) => {
+        const key = record.student_id;
+        const existing = latestByKey.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByKey.set(key, record);
+        }
+      });
+
+      // Build student data
+      const studentData: MealStudentData[] = filteredStudents.map(student => {
+        const record = latestByKey.get(student.id);
+        const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
+        
+        attendanceMap.set(dateStr, {
+          breakfast: mealType === 'breakfast' ? (record ? record.status === 'present' : null) : null,
+          lunch: mealType === 'lunch' ? (record ? record.status === 'present' : null) : null,
+          dinner: mealType === 'dinner' ? (record ? record.status === 'present' : null) : null,
+        });
+
+        return {
+          id: student.id,
+          name: student.full_name,
+          className: student.class?.name || '',
+          classGrade: student.class?.grade,
+          roomNumber: student.room_number || undefined,
+          mealGroup: student.meal_group || undefined,
+          attendance: attendanceMap,
+        };
+      });
+
+      const mealLabel = mealType === 'breakfast' ? 'SÁNG' : mealType === 'lunch' ? 'TRƯA' : 'TỐI';
+
+      exportMealStatistics(studentData, {
+        schoolName: currentSchool.name,
+        title: `THỐNG KÊ BỮA ${mealLabel} - ${format(selectedDate, 'dd/MM/yyyy')}`,
+        dateRange: getDateRange(selectedDate, 'day'),
+        reporterName: profile?.full_name,
+        exportTime: new Date(),
+      });
+
+      toast({
+        title: 'Thành công',
+        description: `Đã xuất thống kê bữa ${mealLabel.toLowerCase()} ra Excel`,
+      });
+    } catch (error) {
+      console.error('Error exporting single meal stats:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xuất file Excel',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExportingSingleMeal(null);
+    }
+  }, [currentSchool, filteredStudents, selectedDate, profile, toast]);
+
   const renderMealSection = (
     mealType: 'breakfast' | 'lunch' | 'dinner',
     stats: MealStats,
@@ -1195,6 +1281,22 @@ export default function Statistics() {
                     <Lock className="h-3 w-3" />
                   )}
                   Chốt ({stats.classesNotReported.length} lớp)
+                </Button>
+              )}
+              {stats.hasReport && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => handleExportSingleMealExcel(mealType)}
+                  disabled={isExportingSingleMeal === mealType}
+                >
+                  {isExportingSingleMeal === mealType ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="h-3 w-3" />
+                  )}
+                  Xuất Excel
                 </Button>
               )}
               {stats.hasReport ? (
