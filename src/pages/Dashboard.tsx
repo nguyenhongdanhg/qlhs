@@ -467,244 +467,166 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="content-wrapper animate-fade-in">
-      {/* School Banner */}
-      <Card className="mb-4 sm:mb-6 overflow-hidden border-0 shadow-lg">
-        <div className="bg-gradient-to-r from-primary via-primary/90 to-accent text-primary-foreground">
-          <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 gap-3 sm:gap-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm shadow-lg">
-                <Building2 className="h-6 w-6 sm:h-7 sm:w-7" />
+    <div className="content-wrapper animate-fade-in space-y-3">
+      {/* Compact Header */}
+      <Card className="overflow-hidden border-0 shadow-md">
+        <div className="bg-gradient-to-r from-primary via-primary/90 to-accent text-primary-foreground p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm shrink-0">
+                <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-bold">{currentSchool.name}</h2>
-                <div className="flex items-center gap-2 text-xs sm:text-sm opacity-90">
-                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold truncate">{currentSchool.name}</h2>
+                <div className="flex items-center gap-1.5 text-xs opacity-90">
+                  <Calendar className="h-3 w-3" />
                   <span className="capitalize">{dayName}, {formattedDate}</span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 bg-white/10 rounded-xl px-3 sm:px-4 py-2 backdrop-blur-sm self-end sm:self-auto">
-              <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
-              <div className="text-right">
-                <p className="text-2xl sm:text-3xl font-bold">{completionStats.percentage}%</p>
-                <p className="text-[10px] sm:text-xs opacity-90">hoàn thành</p>
-              </div>
+            <div className="flex items-center gap-2 bg-white/15 rounded-lg px-2.5 py-1.5 backdrop-blur-sm shrink-0">
+              <Sparkles className="h-4 w-4 text-warning" />
+              <span className="text-xl sm:text-2xl font-bold">{completionStats.percentage}%</span>
             </div>
-          </CardContent>
+          </div>
         </div>
       </Card>
 
-      {/* Educational Quote */}
-      <div className="mb-4 px-1">
-        <div className="flex items-start gap-2 text-muted-foreground">
-          <Quote className="h-4 w-4 text-primary/60 shrink-0 mt-0.5" />
-          <p className="text-xs sm:text-sm italic leading-relaxed">
-            "{randomQuote.quote}" 
-            <span className="text-[10px] sm:text-xs not-italic font-medium ml-1">
-              — {randomQuote.author}
-            </span>
-          </p>
-        </div>
-      </div>
       {isLoading ? (
         <DashboardSkeleton />
       ) : (
         <>
-          {/* Stats Cards */}
-          <div className="grid gap-2 sm:gap-3 grid-cols-2 md:grid-cols-4 mb-4">
-            {statCards.map(({ label, value, icon: Icon, gradient, iconBg }) => (
-              <Card key={label} className="group border-0 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden">
-                <CardContent className="p-3 sm:p-4 flex flex-col items-center text-center relative">
-                  <div className={cn('rounded-xl p-2 sm:p-2.5 mb-2 shadow-md', iconBg)}>
-                    <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+          {/* Compact Stats Row */}
+          <div className="grid gap-2 grid-cols-4">
+            {statCards.map(({ label, value, icon: Icon, iconBg }) => (
+              <Card key={label} className="border-0 shadow-sm">
+                <CardContent className="p-2 sm:p-3 flex flex-col items-center text-center">
+                  <div className={cn('rounded-lg p-1.5 mb-1', iconBg)}>
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
                   </div>
-                  <p className="text-xl sm:text-2xl font-bold text-foreground">{value}</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">{label}</p>
-                  <div className={cn('absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r opacity-60', gradient)} />
+                  <p className="text-lg sm:text-xl font-bold text-foreground leading-none">{value}</p>
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{label}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {/* Class Teacher's Class Stats */}
+          {/* Class Teacher Info (inline) */}
           {isClassTeacher && stats?.className && (
-            <Card className="mb-4 border-0 shadow-md bg-gradient-to-br from-primary/5 to-accent/5">
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
+            <Card className="border-0 shadow-sm bg-primary/5">
+              <CardContent className="p-2.5 sm:p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
                     <GraduationCap className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold">Lớp {stats.className}</span>
                   </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-foreground">
-                    Lớp chủ nhiệm: <span className="text-primary">{stats.className}</span>
-                  </h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center p-3 rounded-xl bg-background/80 shadow-sm">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <Users className="h-4 w-4 text-primary" />
-                    </div>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.classStudentCount || 0}</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Học sinh</p>
-                  </div>
-                  <div className="text-center p-3 rounded-xl bg-background/80 shadow-sm">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <Home className="h-4 w-4 text-success" />
-                    </div>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.classBoardingCount || 0}</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Nội trú</p>
+                  <div className="flex items-center gap-3 text-sm">
+                    <span><strong className="text-foreground">{stats.classStudentCount}</strong> <span className="text-muted-foreground text-xs">HS</span></span>
+                    <span><strong className="text-primary">{stats.classBoardingCount}</strong> <span className="text-muted-foreground text-xs">NT</span></span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Today Progress - Unified */}
-          <Card className="mb-4 border-0 shadow-md">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Tiến độ hôm nay</h3>
+          {/* Today Progress - Compact */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-2.5 sm:p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Tiến độ hôm nay</span>
                 </div>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full font-medium">
+                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
                   {completionStats.completed}/{completionStats.total}
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 divide-x divide-border">
-                {/* Meals with count */}
-                <div className="pr-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <UtensilsCrossed className="h-3.5 w-3.5 text-accent" />
-                    <span className="text-xs font-semibold text-foreground">Bữa ăn</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
-                        stats?.hasBreakfast ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
-                      )}>Sáng</span>
-                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
-                        {stats?.hasBreakfast ? stats.mealStats.breakfast : '--'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
-                        stats?.hasLunch ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
-                      )}>Trưa</span>
-                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
-                        {stats?.hasLunch ? stats.mealStats.lunch : '--'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
-                        stats?.hasDinner ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
-                      )}>Tối</span>
-                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
-                        {stats?.hasDinner ? stats.mealStats.dinner : '--'}
-                      </span>
-                    </div>
-                  </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {/* Breakfast */}
+                <div className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-xs",
+                  stats?.hasBreakfast ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                )}>
+                  <span className="font-medium">Sáng</span>
+                  <span className="font-bold">{stats?.hasBreakfast ? stats.mealStats.breakfast : '--'}</span>
                 </div>
-
-                {/* Boarding with unified data (no session split - DB doesn't store session_id) */}
-                <div className="px-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Home className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-xs font-semibold text-foreground">Nội trú</span>
-                  </div>
-                  {stats?.boardingStats?.hasReport ? (
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
-                        "bg-success/20 text-success"
-                      )}>
-                        {stats.boardingStats.total > 0 
-                          ? Math.round((stats.boardingStats.present / stats.boardingStats.total) * 100) 
-                          : 0}%
-                      </span>
-                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
-                        {stats.boardingStats.present}/{stats.boardingStats.total}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-muted text-muted-foreground inline-block">
-                      Chưa điểm
-                    </span>
-                  )}
+                {/* Lunch */}
+                <div className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-xs",
+                  stats?.hasLunch ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                )}>
+                  <span className="font-medium">Trưa</span>
+                  <span className="font-bold">{stats?.hasLunch ? stats.mealStats.lunch : '--'}</span>
                 </div>
-
-                {/* Evening Study with real data */}
-                <div className="pl-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <BookOpen className="h-3.5 w-3.5 text-warning" />
-                    <span className="text-xs font-semibold text-foreground">Tự học</span>
-                  </div>
-                  {stats?.eveningStudyStats?.hasReport ? (
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "w-10 text-center px-1.5 py-0.5 text-[10px] rounded-full font-medium shrink-0",
-                        "bg-success/20 text-success"
-                      )}>
-                        {stats.eveningStudyStats.total > 0 
-                          ? Math.round((stats.eveningStudyStats.present / stats.eveningStudyStats.total) * 100) 
-                          : 0}%
-                      </span>
-                      <span className="text-xs font-medium text-foreground min-w-[2rem] text-right">
-                        {stats.eveningStudyStats.present}/{stats.eveningStudyStats.total}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="px-2 py-0.5 text-[10px] rounded-full font-medium bg-muted text-muted-foreground inline-block">
-                      Chưa điểm
-                    </span>
-                  )}
+                {/* Dinner */}
+                <div className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-xs",
+                  stats?.hasDinner ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                )}>
+                  <span className="font-medium">Tối</span>
+                  <span className="font-bold">{stats?.hasDinner ? stats.mealStats.dinner : '--'}</span>
+                </div>
+                {/* Boarding */}
+                <div className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-xs",
+                  stats?.boardingStats?.hasReport ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                )}>
+                  <Home className="h-3 w-3" />
+                  <span className="font-bold">
+                    {stats?.boardingStats?.hasReport 
+                      ? `${stats.boardingStats.present}/${stats.boardingStats.total}`
+                      : '--'}
+                  </span>
+                </div>
+                {/* Evening Study */}
+                <div className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-xs",
+                  stats?.eveningStudyStats?.hasReport ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground"
+                )}>
+                  <BookOpen className="h-3 w-3" />
+                  <span className="font-bold">
+                    {stats?.eveningStudyStats?.hasReport 
+                      ? `${stats.eveningStudyStats.present}/${stats.eveningStudyStats.total}`
+                      : '--'}
+                  </span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Teacher Attendance Stats */}
-          <div className="mb-4">
-            <TeacherAttendanceStats />
-          </div>
+          <TeacherAttendanceStats />
 
-          {/* Emulation & Duty Grid */}
-          <div className="grid gap-3 lg:grid-cols-2 mb-4">
-            {/* Emulation - Current Week */}
+          {/* Emulation & Duty - Compact Grid */}
+          <div className="grid gap-2 sm:gap-3 grid-cols-2">
+            {/* Emulation Top 3 */}
             <Link to="/emulation">
-              <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-1.5 rounded-lg bg-warning/10">
-                      <Trophy className="h-4 w-4 text-warning" />
-                    </div>
-                    <h3 className="font-semibold text-sm sm:text-base text-foreground">Thi đua tuần {emulationData?.weekNumber || '--'}</h3>
+              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow h-full">
+                <CardContent className="p-2.5 sm:p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Trophy className="h-4 w-4 text-warning" />
+                    <span className="text-xs sm:text-sm font-semibold truncate">Thi đua T{emulationData?.weekNumber || '--'}</span>
                   </div>
                   {emulationData?.topClasses && emulationData.topClasses.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {emulationData.topClasses.map((c, i) => (
-                        <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                          <div className="flex items-center gap-2">
+                        <div key={i} className="flex items-center justify-between text-xs bg-muted/50 rounded px-1.5 py-1">
+                          <div className="flex items-center gap-1.5">
                             <span className={cn(
-                              "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground",
+                              "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white",
                               i === 0 ? "bg-warning" : i === 1 ? "bg-muted-foreground" : "bg-accent"
                             )}>
                               {c.rank}
                             </span>
-                            <span className="font-medium text-sm">{c.className}</span>
+                            <span className="font-medium truncate">{c.className}</span>
                           </div>
-                          <span className="text-sm font-bold text-primary">{c.avgScore}</span>
+                          <span className="font-bold text-primary">{c.avgScore}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">Chưa có dữ liệu thi đua</p>
+                    <p className="text-[10px] text-muted-foreground text-center py-2">Chưa có dữ liệu</p>
                   )}
                 </CardContent>
               </Card>
@@ -712,69 +634,62 @@ export default function Dashboard() {
 
             {/* Duty Today */}
             <Link to="/duty-schedule">
-              <Card className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer h-full">
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-1.5 rounded-lg bg-primary/10">
-                      <CalendarCheck className="h-4 w-4 text-primary" />
-                    </div>
-                    <h3 className="font-semibold text-sm sm:text-base text-foreground">Lịch trực hôm nay</h3>
+              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow h-full">
+                <CardContent className="p-2.5 sm:p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <CalendarCheck className="h-4 w-4 text-primary" />
+                    <span className="text-xs sm:text-sm font-semibold truncate">Trực hôm nay</span>
                   </div>
                   {dutyToday && dutyToday.length > 0 ? (
-                    <div className="space-y-2">
-                      {dutyToday.map((person, i) => (
-                        <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            <UserCheck className="h-4 w-4 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{person.fullName}</p>
-                            {person.shift && (
-                              <p className="text-xs text-muted-foreground">{person.shift}</p>
-                            )}
-                          </div>
+                    <div className="space-y-1">
+                      {dutyToday.slice(0, 3).map((person, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs bg-muted/50 rounded px-1.5 py-1">
+                          <UserCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="font-medium truncate">{person.fullName}</span>
                         </div>
                       ))}
+                      {dutyToday.length > 3 && (
+                        <p className="text-[10px] text-muted-foreground text-center">+{dutyToday.length - 3} người khác</p>
+                      )}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">Chưa phân công trực</p>
+                    <p className="text-[10px] text-muted-foreground text-center py-2">Chưa phân công</p>
                   )}
                 </CardContent>
               </Card>
             </Link>
           </div>
 
-          {/* Grade Stats - Only for admins */}
+          {/* Grade Stats - Collapsible for admins */}
           {!isClassTeacher && stats?.gradeStats && stats.gradeStats.length > 0 && (
-            <Card className="mb-4 border-0 shadow-md">
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
-                    <Users className="h-4 w-4 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Thống kê theo khối</h3>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-2.5 sm:p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Theo khối</span>
+                  <span className="ml-auto text-[10px] text-muted-foreground">
+                    Σ {stats.totalStudents} HS | {stats.boardingStudents} NT
+                  </span>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
                   {stats.gradeStats.map(({ grade, total, boarding }) => (
-                    <div key={grade} className="text-center p-2 sm:p-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 hover:from-primary/5 hover:to-primary/10 transition-colors">
-                      <p className="text-xs text-muted-foreground font-medium">Khối {grade}</p>
-                      <p className="text-base sm:text-lg font-bold text-foreground">{total}</p>
-                      <p className="text-[10px] text-primary font-medium">{boarding} nội trú</p>
+                    <div key={grade} className="text-center p-1.5 rounded-lg bg-muted/50">
+                      <p className="text-[10px] text-muted-foreground">K{grade}</p>
+                      <p className="text-sm font-bold text-foreground leading-none">{total}</p>
+                      <p className="text-[9px] text-primary">{boarding} NT</p>
                     </div>
                   ))}
-                </div>
-                <div className="flex justify-center gap-4 mt-3 pt-3 border-t text-xs">
-                  <span className="text-muted-foreground">Tổng:</span>
-                  <span className="font-bold text-success">{stats.totalStudents} HS</span>
-                  <span className="font-bold text-primary">{stats.boardingStudents} NT</span>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Footer */}
-          <div className="mt-8 text-center text-sm text-muted-foreground">
-            Thiết kế bởi <span className="font-semibold text-foreground">Thầy giáo Nguyễn Hồng Dân</span> - Zalo: 0888 770 699
+          {/* Quote - Compact inline */}
+          <div className="flex items-center gap-2 text-muted-foreground px-1">
+            <Quote className="h-3 w-3 text-primary/50 shrink-0" />
+            <p className="text-[10px] sm:text-xs italic truncate">
+              "{randomQuote.quote}" — {randomQuote.author}
+            </p>
           </div>
         </>
       )}
