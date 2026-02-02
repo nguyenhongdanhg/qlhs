@@ -1291,6 +1291,10 @@ export type Database = {
         Args: { sid: string; uid: string }
         Returns: boolean
       }
+      has_health_permission: {
+        Args: { sid: string; uid: string }
+        Returns: boolean
+      }
       has_role_in_school: {
         Args: {
           r: Database["public"]["Enums"]["app_role"]
