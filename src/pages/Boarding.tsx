@@ -47,6 +47,7 @@ import {
 import { NotesDialog } from '@/components/attendance/NotesDialog';
 import { ExcuseReasonDialog } from '@/components/attendance/ExcuseReasonDialog';
 import { ShareReportDialog } from '@/components/attendance/ShareReportDialog';
+import { AttendanceHistoryTab } from '@/components/attendance/AttendanceHistoryTab';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -1030,204 +1031,34 @@ export default function Boarding() {
             )}
           </TabsContent>
 
-          <TabsContent value="history" className="p-4 space-y-4">
-            {/* Date Range Filter */}
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">Loại thống kê</label>
-                  <Select value={historyRangeType} onValueChange={(v) => setHistoryRangeType(v as DateRangeType)}>
-                    <SelectTrigger className="w-[130px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="day">Theo ngày</SelectItem>
-                      <SelectItem value="week">Theo tuần</SelectItem>
-                      <SelectItem value="month">Theo tháng</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">Chọn thời gian</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {historyDateRange.label}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={historyDate}
-                        onSelect={(d) => d && setHistoryDate(d)}
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              <Button onClick={handleExportRangeReports} variant="outline" disabled={isExporting || historyRecords.length === 0}>
-                {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                Xuất Excel ({historyRecords.length} báo cáo)
-              </Button>
-            </div>
-
-            {/* Statistics Summary */}
-            {historyRecords.length > 0 && (
-              <div className="grid grid-cols-3 gap-4">
-                <Card className="p-4 text-center bg-blue-50">
-                  <p className="text-2xl font-bold text-blue-600">{historyRecords.length}</p>
-                  <p className="text-xs text-muted-foreground">Số báo cáo</p>
-                </Card>
-                <Card className="p-4 text-center bg-green-50">
-                  <p className="text-2xl font-bold text-green-600">{historyRecords.reduce((s, r) => s + r.present, 0)}</p>
-                  <p className="text-xs text-muted-foreground">Tổng có mặt</p>
-                </Card>
-                <Card className="p-4 text-center bg-red-50">
-                  <p className="text-2xl font-bold text-red-600">{historyRecords.reduce((s, r) => s + r.absent, 0)}</p>
-                  <p className="text-xs text-muted-foreground">Tổng vắng</p>
-                </Card>
-              </div>
-            )}
-
-            {/* Reports List - Now from database */}
-            {isLoadingHistory ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : historyRecords.length > 0 ? (
-              <div className="space-y-4">
-                {historyRecords.map((record) => (
-                  <Card key={record.date} className="border">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h5 className="font-semibold">
-                            {format(new Date(record.date), 'EEEE, dd/MM/yyyy', { locale: vi })}
-                          </h5>
-                          <p className="text-sm text-muted-foreground">
-                            Người báo cáo: {record.reporterName} - Lúc {format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy')}
-                          </p>
-                        </div>
-                        <div className="flex gap-2 flex-wrap">
-                          {(isSchoolAdmin() || isSuperAdmin || record.reporterId === user?.id) && (
-                            <Button variant="outline" size="sm" onClick={() => {
-                              // Convert HistoryRecord to SavedReport format for handleEditReport
-                              const savedReport: SavedReport = {
-                                id: `${record.date}_boarding_${Date.now()}`,
-                                date: record.date,
-                                session: 'boarding',
-                                sessionLabel: 'Nội trú',
-                                total: record.total,
-                                present: record.present,
-                                absent: record.absent,
-                                reporter: record.reporterName,
-                                time: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
-                                notes: record.notes || '',
-                                absentStudents: record.absentStudents,
-                              };
-                              handleEditReport(savedReport);
-                            }}>
-                              <Edit3 className="h-4 w-4 mr-1" />
-                              Sửa
-                            </Button>
-                          )}
-                          <Button variant="outline" size="sm" onClick={() => {
-                            setReportToShare(record);
-                            setShareDialogOpen(true);
-                          }}>
-                            <Image className="h-4 w-4 mr-1" />
-                            Ảnh
-                          </Button>
-                          {(isSchoolAdmin() || isSuperAdmin) && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Xóa dữ liệu?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Thao tác này sẽ xóa báo cáo ngày {format(new Date(record.date), 'dd/MM/yyyy')}.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteDatabaseRecords(record.date)} className="bg-destructive hover:bg-destructive/90">
-                                    Xóa
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div className="p-3 rounded-lg bg-muted/50 text-center">
-                          <p className="text-2xl font-bold">{record.total}</p>
-                          <p className="text-xs text-muted-foreground">Tổng số</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-green-50 text-green-600 text-center">
-                          <p className="text-2xl font-bold">{record.present}</p>
-                          <p className="text-xs">Có mặt</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-red-50 text-red-600 text-center">
-                          <p className="text-2xl font-bold">{record.absent}</p>
-                          <p className="text-xs">Vắng</p>
-                        </div>
-                      </div>
-
-                      {record.notes && (
-                        <div className="mb-4 p-3 rounded-lg bg-muted/30 border">
-                          <p className="text-sm font-medium mb-1">Ghi chú:</p>
-                          <p className="text-sm text-muted-foreground">{record.notes}</p>
-                        </div>
-                      )}
-
-                      {record.absentStudents.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium mb-2">Danh sách vắng:</p>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-12">STT</TableHead>
-                                <TableHead>Họ tên</TableHead>
-                                <TableHead>Lớp</TableHead>
-                                <TableHead>P/KP</TableHead>
-                                <TableHead>Lý do</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {record.absentStudents.map((s, idx) => (
-                                <TableRow key={idx}>
-                                  <TableCell>{idx + 1}</TableCell>
-                                  <TableCell>{s.name}</TableCell>
-                                  <TableCell>{s.className}</TableCell>
-                                  <TableCell>
-                                    <Badge variant={s.excused ? 'secondary' : 'destructive'}>
-                                      {s.excused ? 'P' : 'KP'}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>{s.reason || '-'}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                Chưa có báo cáo nào trong khoảng thời gian này
-              </div>
-            )}
+          <TabsContent value="history" className="p-4">
+            <AttendanceHistoryTab
+              attendanceType="boarding"
+              typeLabel="Nội trú"
+              classes={classes}
+              isClassTeacher={false}
+              teacherClassId={null}
+              teacherClassName={null}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              onEditReport={(record) => {
+                // Convert to SavedReport format for handleEditReport
+                const savedReport: SavedReport = {
+                  id: `${record.date}_boarding_${Date.now()}`,
+                  date: record.date,
+                  session: 'boarding',
+                  sessionLabel: 'Nội trú',
+                  total: record.total,
+                  present: record.present,
+                  absent: record.absent,
+                  reporter: record.reporterName,
+                  time: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
+                  notes: record.notes || '',
+                  absentStudents: record.absentStudents,
+                };
+                handleEditReport(savedReport);
+              }}
+            />
           </TabsContent>
         </Tabs>
       </Card>
