@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, parseISO, isBefore, addMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Plus,
   Search,
@@ -25,6 +28,8 @@ import {
   Loader2,
   Pill,
   History,
+  CalendarIcon,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Medicine, MedicineTransaction } from '@/types';
@@ -36,7 +41,7 @@ interface MedicineInventoryTabProps {
   canDelete?: boolean;
 }
 
-const UNIT_OPTIONS = ['viên', 'gói', 'lọ', 'tuýp', 'hộp', 'chai', 'vỉ', 'ống'];
+const UNIT_OPTIONS = ['viên', 'gói', 'lọ', 'tuýp', 'hộp', 'chai', 'vỉ', 'ống', 'Cuộn', 'Đôi', 'Tube'];
 
 export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = false }: MedicineInventoryTabProps) {
   const { toast } = useToast();
@@ -49,11 +54,16 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
   const [editMedicine, setEditMedicine] = useState<Medicine | null>(null);
   const [deleteMedicine, setDeleteMedicine] = useState<Medicine | null>(null);
+  
+  // Bulk delete states
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   // Form states
   const [medicineName, setMedicineName] = useState('');
   const [medicineUnit, setMedicineUnit] = useState('viên');
   const [medicineNotes, setMedicineNotes] = useState('');
+  const [medicineExpiryDate, setMedicineExpiryDate] = useState<Date | undefined>();
   const [initialQty, setInitialQty] = useState<number>(0);
   const [importQty, setImportQty] = useState<number>(0);
   const [importNotes, setImportNotes] = useState('');
@@ -147,6 +157,40 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
     return medicines.filter((m) => m.name.toLowerCase().includes(term));
   }, [medicines, searchTerm]);
 
+  // Check if expiry date is near (within 3 months) or passed
+  const getExpiryStatus = (expiryDate?: string) => {
+    if (!expiryDate) return null;
+    const expiry = parseISO(expiryDate);
+    const now = new Date();
+    const threeMonthsFromNow = addMonths(now, 3);
+    
+    if (isBefore(expiry, now)) {
+      return 'expired';
+    } else if (isBefore(expiry, threeMonthsFromNow)) {
+      return 'expiring';
+    }
+    return 'ok';
+  };
+
+  // Bulk selection handlers
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredMedicines.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredMedicines.map(m => m.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
   // Add medicine mutation
   const addMutation = useMutation({
     mutationFn: async () => {
@@ -157,6 +201,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
         name: medicineName.trim(),
         unit: medicineUnit,
         notes: medicineNotes.trim() || null,
+        expiry_date: medicineExpiryDate ? format(medicineExpiryDate, 'yyyy-MM-dd') : null,
         quantity: initialQty,
       }).select().single();
       if (error) throw error;
@@ -178,9 +223,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
       queryClient.invalidateQueries({ queryKey: ['medicines'] });
       queryClient.invalidateQueries({ queryKey: ['all-medicine-transactions'] });
       setShowAddDialog(false);
-      setMedicineName('');
-      setMedicineNotes('');
-      setInitialQty(0);
+      resetAddForm();
     },
     onError: (error: any) => {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -197,6 +240,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
           name: medicineName.trim(),
           unit: medicineUnit,
           notes: medicineNotes.trim() || null,
+          expiry_date: medicineExpiryDate ? format(medicineExpiryDate, 'yyyy-MM-dd') : null,
         })
         .eq('id', editMedicine.id);
       if (error) throw error;
@@ -205,8 +249,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
       toast({ title: 'Thành công', description: 'Đã cập nhật thuốc' });
       queryClient.invalidateQueries({ queryKey: ['medicines'] });
       setEditMedicine(null);
-      setMedicineName('');
-      setMedicineNotes('');
+      resetAddForm();
     },
     onError: (error: any) => {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -226,6 +269,26 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
       toast({ title: 'Đã xóa', description: 'Đã xóa thuốc khỏi danh sách' });
       queryClient.invalidateQueries({ queryKey: ['medicines'] });
       setDeleteMedicine(null);
+    },
+    onError: (error: any) => {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('medicines')
+        .update({ is_active: false })
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Đã xóa', description: `Đã xóa ${selectedIds.size} thuốc khỏi danh sách` });
+      queryClient.invalidateQueries({ queryKey: ['medicines'] });
+      setSelectedIds(new Set());
+      setShowBulkDeleteDialog(false);
     },
     onError: (error: any) => {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -272,11 +335,20 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
     },
   });
 
+  const resetAddForm = () => {
+    setMedicineName('');
+    setMedicineUnit('viên');
+    setMedicineNotes('');
+    setMedicineExpiryDate(undefined);
+    setInitialQty(0);
+  };
+
   const openEditDialog = (medicine: Medicine) => {
     setEditMedicine(medicine);
     setMedicineName(medicine.name);
     setMedicineUnit(medicine.unit);
     setMedicineNotes(medicine.notes || '');
+    setMedicineExpiryDate(medicine.expiry_date ? parseISO(medicine.expiry_date) : undefined);
   };
 
   const openImportDialog = (medicine: Medicine) => {
@@ -292,17 +364,21 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
   // Stats
   const totalMedicines = medicines.length;
   const lowStockCount = medicines.filter((m) => m.quantity <= 10).length;
+  const expiringCount = medicines.filter((m) => {
+    const status = getExpiryStatus(m.expiry_date);
+    return status === 'expired' || status === 'expiring';
+  }).length;
 
   return (
     <div className="space-y-4">
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         <Card className="bg-primary/5">
           <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <Package className="h-8 w-8 text-primary" />
+            <div className="flex items-center gap-2">
+              <Package className="h-6 w-6 text-primary" />
               <div>
-                <p className="text-2xl font-bold">{totalMedicines}</p>
+                <p className="text-xl font-bold">{totalMedicines}</p>
                 <p className="text-xs text-muted-foreground">Loại thuốc</p>
               </div>
             </div>
@@ -310,11 +386,22 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
         </Card>
         <Card className={cn('bg-orange-50', lowStockCount > 0 && 'bg-red-50')}>
           <CardContent className="pt-4">
-            <div className="flex items-center gap-3">
-              <Pill className={cn('h-8 w-8', lowStockCount > 0 ? 'text-red-500' : 'text-orange-500')} />
+            <div className="flex items-center gap-2">
+              <Pill className={cn('h-6 w-6', lowStockCount > 0 ? 'text-red-500' : 'text-orange-500')} />
               <div>
-                <p className="text-2xl font-bold">{lowStockCount}</p>
-                <p className="text-xs text-muted-foreground">Sắp hết (≤10)</p>
+                <p className="text-xl font-bold">{lowStockCount}</p>
+                <p className="text-xs text-muted-foreground">Sắp hết</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={cn('bg-yellow-50', expiringCount > 0 && 'bg-amber-100')}>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className={cn('h-6 w-6', expiringCount > 0 ? 'text-amber-600' : 'text-yellow-500')} />
+              <div>
+                <p className="text-xl font-bold">{expiringCount}</p>
+                <p className="text-xs text-muted-foreground">Sắp/Hết HSD</p>
               </div>
             </div>
           </CardContent>
@@ -327,17 +414,23 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-base">Danh sách thuốc</CardTitle>
             {isAdmin && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {canDelete && selectedIds.size > 0 && (
+                  <Button size="sm" variant="destructive" onClick={() => setShowBulkDeleteDialog(true)}>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Xóa ({selectedIds.size})
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => {
                   setSelectedMedicine(null);
                   setShowImportDialog(true);
                 }}>
                   <ArrowUpCircle className="h-4 w-4 mr-1" />
-                  Bổ sung thuốc
+                  Bổ sung
                 </Button>
                 <Button size="sm" onClick={() => setShowAddDialog(true)}>
                   <Plus className="h-4 w-4 mr-1" />
-                  Thêm thuốc mới
+                  Thêm mới
                 </Button>
               </div>
             )}
@@ -361,9 +454,18 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {canDelete && (
+                      <TableHead className="w-10">
+                        <Checkbox 
+                          checked={selectedIds.size === filteredMedicines.length && filteredMedicines.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Tên thuốc</TableHead>
                     <TableHead className="text-center">Đơn vị</TableHead>
-                    <TableHead className="text-center">Nhập vào</TableHead>
+                    <TableHead className="text-center">Hạn SD</TableHead>
+                    <TableHead className="text-center">Nhập</TableHead>
                     <TableHead className="text-center">Bổ sung</TableHead>
                     <TableHead className="text-center">Đã phát</TableHead>
                     <TableHead className="text-center">Còn</TableHead>
@@ -373,13 +475,36 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                 <TableBody>
                   {filteredMedicines.map((med) => {
                     const stats = medicineStats[med.id] || { imported: 0, supplemented: 0, exported: 0 };
+                    const expiryStatus = getExpiryStatus(med.expiry_date);
                     return (
-                      <TableRow key={med.id}>
+                      <TableRow key={med.id} className={cn(selectedIds.has(med.id) && 'bg-muted/50')}>
+                        {canDelete && (
+                          <TableCell>
+                            <Checkbox 
+                              checked={selectedIds.has(med.id)}
+                              onCheckedChange={() => toggleSelect(med.id)}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <p className="font-medium">{med.name}</p>
                           {med.notes && <p className="text-xs text-muted-foreground">{med.notes}</p>}
                         </TableCell>
                         <TableCell className="text-center">{med.unit}</TableCell>
+                        <TableCell className="text-center">
+                          {med.expiry_date ? (
+                            <Badge 
+                              variant={expiryStatus === 'expired' ? 'destructive' : expiryStatus === 'expiring' ? 'secondary' : 'outline'}
+                              className={cn(
+                                expiryStatus === 'expiring' && 'bg-amber-100 text-amber-700 border-amber-200'
+                              )}
+                            >
+                              {format(parseISO(med.expiry_date), 'dd/MM/yy')}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           <span className="text-green-600 font-medium">{stats.imported}</span>
                         </TableCell>
@@ -421,7 +546,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                   })}
                   {filteredMedicines.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={canDelete ? 10 : 9} className="text-center py-8 text-muted-foreground">
                         {searchTerm ? 'Không tìm thấy thuốc' : 'Chưa có thuốc nào trong kho'}
                       </TableCell>
                     </TableRow>
@@ -433,19 +558,54 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
 
           {/* Mobile card list */}
           <div className="md:hidden space-y-2">
+            {/* Bulk select header for mobile */}
+            {canDelete && filteredMedicines.length > 0 && (
+              <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg">
+                <Checkbox 
+                  checked={selectedIds.size === filteredMedicines.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span className="text-sm text-muted-foreground">
+                  Chọn tất cả ({filteredMedicines.length})
+                </span>
+              </div>
+            )}
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-2 pr-2">
                 {filteredMedicines.map((med) => {
                   const stats = medicineStats[med.id] || { imported: 0, supplemented: 0, exported: 0 };
+                  const expiryStatus = getExpiryStatus(med.expiry_date);
                   return (
-                    <div key={med.id} className="border rounded-lg p-3 bg-card">
+                    <div key={med.id} className={cn('border rounded-lg p-3 bg-card', selectedIds.has(med.id) && 'bg-muted/50 border-primary')}>
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
-                            <p className="font-medium text-sm break-words">{med.name}</p>
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          {canDelete && (
+                            <Checkbox 
+                              checked={selectedIds.has(med.id)}
+                              onCheckedChange={() => toggleSelect(med.id)}
+                              className="mt-1"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
+                              <p className="font-medium text-sm break-words">{med.name}</p>
+                            </div>
+                            {med.notes && <p className="text-xs text-muted-foreground mt-1">{med.notes}</p>}
+                            {med.expiry_date && (
+                              <div className="mt-1">
+                                <Badge 
+                                  variant={expiryStatus === 'expired' ? 'destructive' : expiryStatus === 'expiring' ? 'secondary' : 'outline'}
+                                  className={cn(
+                                    'text-xs',
+                                    expiryStatus === 'expiring' && 'bg-amber-100 text-amber-700 border-amber-200'
+                                  )}
+                                >
+                                  HSD: {format(parseISO(med.expiry_date), 'dd/MM/yy')}
+                                </Badge>
+                              </div>
+                            )}
                           </div>
-                          {med.notes && <p className="text-xs text-muted-foreground mt-1">{med.notes}</p>}
                         </div>
                         <Badge variant={med.quantity <= 10 ? 'destructive' : med.quantity <= 30 ? 'secondary' : 'default'} className="flex-shrink-0">
                           Còn: {med.quantity}
@@ -511,7 +671,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
       </Card>
 
       {/* Add Medicine Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) resetAddForm(); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Thêm thuốc mới</DialogTitle>
@@ -537,6 +697,26 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
               </div>
             </div>
             <div className="space-y-2">
+              <Label>Hạn sử dụng</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !medicineExpiryDate && 'text-muted-foreground')}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {medicineExpiryDate ? format(medicineExpiryDate, 'dd/MM/yyyy') : 'Chọn ngày'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={medicineExpiryDate}
+                    onSelect={setMedicineExpiryDate}
+                    initialFocus
+                    locale={vi}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
               <Label>Ghi chú</Label>
               <Textarea placeholder="Ghi chú thêm..." value={medicineNotes} onChange={(e) => setMedicineNotes(e.target.value)} rows={2} />
             </div>
@@ -545,7 +725,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => { setShowAddDialog(false); resetAddForm(); }}>Hủy</Button>
             <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending}>
               {addMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Thêm
@@ -555,7 +735,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
       </Dialog>
 
       {/* Edit Medicine Dialog */}
-      <Dialog open={!!editMedicine} onOpenChange={() => setEditMedicine(null)}>
+      <Dialog open={!!editMedicine} onOpenChange={(open) => { if (!open) { setEditMedicine(null); resetAddForm(); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Sửa thông tin thuốc</DialogTitle>
@@ -575,12 +755,32 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>Hạn sử dụng</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !medicineExpiryDate && 'text-muted-foreground')}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {medicineExpiryDate ? format(medicineExpiryDate, 'dd/MM/yyyy') : 'Chọn ngày'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={medicineExpiryDate}
+                    onSelect={setMedicineExpiryDate}
+                    initialFocus
+                    locale={vi}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
               <Label>Ghi chú</Label>
               <Textarea placeholder="Ghi chú thêm..." value={medicineNotes} onChange={(e) => setMedicineNotes(e.target.value)} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditMedicine(null)}>Hủy</Button>
+            <Button variant="outline" onClick={() => { setEditMedicine(null); resetAddForm(); }}>Hủy</Button>
             <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
               {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Lưu
@@ -691,6 +891,45 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
             <Button variant="destructive" onClick={() => deleteMedicine && deleteMutation.mutate(deleteMedicine.id)} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Xóa nhiều thuốc
+            </DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa <strong>{selectedIds.size}</strong> thuốc đã chọn khỏi kho thuốc? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[200px] overflow-y-auto bg-muted/50 rounded p-3">
+            <ul className="text-sm space-y-1">
+              {Array.from(selectedIds).map(id => {
+                const med = medicines.find(m => m.id === id);
+                return med && (
+                  <li key={id} className="flex items-center gap-2">
+                    <Pill className="h-3 w-3 text-muted-foreground" />
+                    {med.name}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowBulkDeleteDialog(false)}>Hủy</Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))} 
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa {selectedIds.size} thuốc
             </Button>
           </DialogFooter>
         </DialogContent>
