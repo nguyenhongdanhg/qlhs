@@ -167,31 +167,31 @@ export const SupplementMealReportDialog = memo(function SupplementMealReportDial
                       )}
                     </button>
 
-                    {/* Students */}
+                    {/* Students - 3 columns for compact view */}
                     <div className="px-2 pb-2">
-                      <div className="grid grid-cols-2 gap-1">
+                      <div className="grid grid-cols-3 gap-0.5">
                         {classStudents.map((student) => (
                           <button
                             key={student.id}
                             onClick={() => toggleStudent(student.id)}
                             className={cn(
-                              "flex items-center gap-1.5 p-1.5 rounded text-left text-xs transition-colors",
+                              "flex items-center gap-1 px-1.5 py-1 rounded text-left transition-colors",
                               absentIds.has(student.id)
-                                ? "bg-destructive/10 text-destructive border border-destructive/20"
+                                ? "bg-destructive/15 text-destructive"
                                 : "hover:bg-muted/50"
                             )}
                           >
                             <div className={cn(
-                              "w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center",
+                              "w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center",
                               absentIds.has(student.id)
                                 ? "border-destructive bg-destructive"
-                                : "border-muted-foreground"
+                                : "border-muted-foreground/50"
                             )}>
                               {absentIds.has(student.id) && (
-                                <span className="text-destructive-foreground text-[8px]">✕</span>
+                                <span className="text-destructive-foreground text-[8px] font-bold">✓</span>
                               )}
                             </div>
-                            <span className="truncate">{student.full_name}</span>
+                            <span className="truncate text-[11px] leading-tight">{student.full_name}</span>
                           </button>
                         ))}
                       </div>

@@ -830,26 +830,43 @@ export default function Meals() {
                   </PopoverContent>
                 </Popover>
               </div>
-              <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Lớp</label>
-                {isClassTeacher && teacherClassName ? (
-                  <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
-                    <span className="font-medium text-primary">{teacherClassName}</span>
-                    <Badge variant="secondary" className="text-xs">Lớp của bạn</Badge>
-                  </div>
-                ) : (
-                  <Select value={selectedClass} onValueChange={setSelectedClass} disabled={isClassTeacher}>
-                    <SelectTrigger><SelectValue placeholder="Tất cả lớp" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả lớp</SelectItem>
-                      {sortedClasses.map((cls) => (
-                        <SelectItem key={cls.id} value={cls.name}>{cls.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
             </div>
+
+            {/* Class Filter Buttons */}
+            {isClassTeacher && teacherClassName ? (
+              <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
+                <span className="font-medium text-primary">{teacherClassName}</span>
+                <Badge variant="secondary" className="text-xs">Lớp của bạn</Badge>
+              </div>
+            ) : (
+              <div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">Chọn lớp</label>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    variant={selectedClass === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedClass('all')}
+                    className="whitespace-nowrap"
+                  >
+                    Tất cả ({students.length})
+                  </Button>
+                  {sortedClasses.map((cls) => {
+                    const count = students.filter(s => s.class?.name === cls.name).length;
+                    return (
+                      <Button
+                        key={cls.id}
+                        variant={selectedClass === cls.name ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedClass(cls.name)}
+                        className="whitespace-nowrap"
+                      >
+                        {cls.name} ({count})
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Class Teacher Notice */}
             {isClassTeacher && teacherClassName && (
