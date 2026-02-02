@@ -48,6 +48,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
   const queryClient = useQueryClient();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'low-stock' | 'expiring'>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
@@ -152,10 +153,26 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
 
   // Filter medicines
   const filteredMedicines = useMemo(() => {
-    if (!searchTerm) return medicines;
-    const term = searchTerm.toLowerCase();
-    return medicines.filter((m) => m.name.toLowerCase().includes(term));
-  }, [medicines, searchTerm]);
+    let result = medicines;
+    
+    // Apply filter type
+    if (filterType === 'low-stock') {
+      result = result.filter((m) => m.quantity <= 10);
+    } else if (filterType === 'expiring') {
+      result = result.filter((m) => {
+        const status = getExpiryStatus(m.expiry_date);
+        return status === 'expired' || status === 'expiring';
+      });
+    }
+    
+    // Apply search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((m) => m.name.toLowerCase().includes(term));
+    }
+    
+    return result;
+  }, [medicines, searchTerm, filterType]);
 
   // Check if expiry date is near (within 3 months) or passed
   const getExpiryStatus = (expiryDate?: string) => {
@@ -372,30 +389,49 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
   return (
     <div className="space-y-4">
       {/* Stats */}
+      {/* Stats - Clickable filters */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="bg-primary/5">
+        <Card 
+          className={cn(
+            'cursor-pointer transition-all hover:shadow-md',
+            filterType === 'all' ? 'ring-2 ring-primary bg-primary/10' : 'bg-primary/5'
+          )}
+          onClick={() => setFilterType('all')}
+        >
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Package className="h-6 w-6 text-primary" />
               <div>
                 <p className="text-xl font-bold">{totalMedicines}</p>
-                <p className="text-xs text-muted-foreground">Loại thuốc</p>
+                <p className="text-xs text-muted-foreground">Tất cả</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className={cn('bg-orange-50', lowStockCount > 0 && 'bg-red-50')}>
+        <Card 
+          className={cn(
+            'cursor-pointer transition-all hover:shadow-md',
+            filterType === 'low-stock' ? 'ring-2 ring-red-500 bg-red-100' : lowStockCount > 0 ? 'bg-red-50' : 'bg-orange-50'
+          )}
+          onClick={() => setFilterType('low-stock')}
+        >
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <Pill className={cn('h-6 w-6', lowStockCount > 0 ? 'text-red-500' : 'text-orange-500')} />
               <div>
                 <p className="text-xl font-bold">{lowStockCount}</p>
-                <p className="text-xs text-muted-foreground">Sắp hết</p>
+                <p className="text-xs text-muted-foreground">Sắp hết kho</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className={cn('bg-yellow-50', expiringCount > 0 && 'bg-amber-100')}>
+        <Card 
+          className={cn(
+            'cursor-pointer transition-all hover:shadow-md',
+            filterType === 'expiring' ? 'ring-2 ring-amber-500 bg-amber-100' : expiringCount > 0 ? 'bg-amber-50' : 'bg-yellow-50'
+          )}
+          onClick={() => setFilterType('expiring')}
+        >
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
               <AlertTriangle className={cn('h-6 w-6', expiringCount > 0 ? 'text-amber-600' : 'text-yellow-500')} />
@@ -407,6 +443,34 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
           </CardContent>
         </Card>
       </div>
+
+      {/* Active filter indicator */}
+      {filterType !== 'all' && (
+        <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+          <span className="text-sm text-muted-foreground">Đang lọc:</span>
+          <Badge variant={filterType === 'low-stock' ? 'destructive' : 'default'} className="gap-1">
+            {filterType === 'low-stock' ? (
+              <>
+                <Pill className="h-3 w-3" />
+                Thuốc sắp hết ({filteredMedicines.length})
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="h-3 w-3" />
+                Sắp/Hết hạn sử dụng ({filteredMedicines.length})
+              </>
+            )}
+          </Badge>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 px-2 text-xs"
+            onClick={() => setFilterType('all')}
+          >
+            Bỏ lọc
+          </Button>
+        </div>
+      )}
 
       {/* Main Card */}
       <Card>
