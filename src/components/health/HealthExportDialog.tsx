@@ -175,20 +175,21 @@ export function HealthExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Xuất báo cáo sức khỏe</DialogTitle>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-4 pb-2 flex-shrink-0">
+          <DialogTitle className="text-base sm:text-lg">Xuất báo cáo sức khỏe</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 overflow-hidden">
           {/* Date range selector */}
-          <div className="flex flex-wrap gap-2 items-center flex-shrink-0">
+          <div className="flex flex-wrap gap-2 items-center flex-shrink-0 pb-3">
             <div className="flex gap-1">
               {(['day', 'week', 'month'] as const).map((r) => (
                 <Button
                   key={r}
                   variant={dateRange === r ? 'default' : 'outline'}
                   size="sm"
+                  className="text-xs px-2 sm:px-3"
                   onClick={() => setDateRange(r)}
                 >
                   {r === 'day' ? 'Ngày' : r === 'week' ? 'Tuần' : 'Tháng'}
@@ -197,9 +198,9 @@ export function HealthExportDialog({
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="text-xs sm:text-sm">
-                  <CalendarIcon className="h-4 w-4 mr-1 flex-shrink-0" />
-                  <span className="truncate">{format(selectedDate, 'dd/MM/yyyy', { locale: vi })}</span>
+                <Button variant="outline" size="sm" className="text-xs">
+                  <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                  <span>{format(selectedDate, 'dd/MM/yyyy', { locale: vi })}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -215,26 +216,26 @@ export function HealthExportDialog({
 
           {/* Export mode tabs */}
           <Tabs value={exportMode} onValueChange={(v) => setExportMode(v as any)} className="flex-1 min-h-0 flex flex-col">
-            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
-              <TabsTrigger value="image" className="text-xs sm:text-sm">
-                <ImageIcon className="h-4 w-4 mr-1" />
-                <span className="hidden xs:inline">Ảnh</span>
+            <TabsList className="grid w-full grid-cols-2 flex-shrink-0 h-9">
+              <TabsTrigger value="image" className="text-xs">
+                <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                Ảnh
               </TabsTrigger>
-              <TabsTrigger value="excel" className="text-xs sm:text-sm">
-                <FileSpreadsheet className="h-4 w-4 mr-1" />
-                <span className="hidden xs:inline">Excel</span>
+              <TabsTrigger value="excel" className="text-xs">
+                <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                Excel
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="image" className="mt-4 flex-1 min-h-0 flex flex-col">
-              {/* Image preview */}
-              <ScrollArea className="flex-1 min-h-0 max-h-[50vh] sm:max-h-[400px] border rounded-lg">
-                <div ref={reportRef} className="p-4 bg-white min-w-[500px]">
+            <TabsContent value="image" className="mt-3 flex-1 min-h-0 flex flex-col overflow-hidden">
+              {/* Image preview - responsive scroll area */}
+              <div className="flex-1 min-h-0 overflow-auto border rounded-lg bg-white">
+                <div ref={reportRef} className="p-3 sm:p-4 bg-white" style={{ minWidth: '320px' }}>
                   {/* Header */}
-                  <div className="text-center mb-4">
-                    <h2 className="font-bold text-lg">{schoolName}</h2>
-                    <h3 className="font-semibold text-base">BÁO CÁO SỨC KHỎE HỌC SINH</h3>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="text-center mb-3 sm:mb-4">
+                    <h2 className="font-bold text-sm sm:text-lg break-words">{schoolName}</h2>
+                    <h3 className="font-semibold text-xs sm:text-base">BÁO CÁO SỨC KHỎE HỌC SINH</h3>
+                    <p className="text-xs text-muted-foreground">
                       {dateRange === 'day'
                         ? `Ngày ${format(selectedDate, 'dd/MM/yyyy', { locale: vi })}`
                         : dateRange === 'week'
@@ -244,37 +245,37 @@ export function HealthExportDialog({
                   </div>
 
                   {/* Stats */}
-                  <div className="grid grid-cols-4 gap-2 mb-4 text-center text-sm">
-                    <div className="p-2 bg-blue-50 rounded">
-                      <p className="font-bold text-lg">{stats.total}</p>
-                      <p className="text-xs">Tổng</p>
+                  <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-3 sm:mb-4 text-center text-xs">
+                    <div className="p-1.5 sm:p-2 bg-blue-50 rounded">
+                      <p className="font-bold text-base sm:text-lg">{stats.total}</p>
+                      <p className="text-[10px] sm:text-xs">Tổng</p>
                     </div>
-                    <div className="p-2 bg-green-50 rounded">
-                      <p className="font-bold text-lg text-green-700">{stats.medicine}</p>
-                      <p className="text-xs">Phát thuốc</p>
+                    <div className="p-1.5 sm:p-2 bg-green-50 rounded">
+                      <p className="font-bold text-base sm:text-lg text-green-700">{stats.medicine}</p>
+                      <p className="text-[10px] sm:text-xs">Phát thuốc</p>
                     </div>
-                    <div className="p-2 bg-yellow-50 rounded">
-                      <p className="font-bold text-lg text-yellow-700">{stats.firstAid}</p>
-                      <p className="text-xs">Sơ cứu</p>
+                    <div className="p-1.5 sm:p-2 bg-yellow-50 rounded">
+                      <p className="font-bold text-base sm:text-lg text-yellow-700">{stats.firstAid}</p>
+                      <p className="text-[10px] sm:text-xs">Sơ cứu</p>
                     </div>
-                    <div className="p-2 bg-red-50 rounded">
-                      <p className="font-bold text-lg text-red-700">{stats.hospital}</p>
-                      <p className="text-xs">Vào viện</p>
+                    <div className="p-1.5 sm:p-2 bg-red-50 rounded">
+                      <p className="font-bold text-base sm:text-lg text-red-700">{stats.hospital}</p>
+                      <p className="text-[10px] sm:text-xs">Vào viện</p>
                     </div>
                   </div>
 
                   {/* Records list */}
                   {records.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5 sm:space-y-2">
                       {records.slice(0, 20).map((r, idx) => (
-                        <div key={r.id} className="text-xs border-b pb-2">
-                          <div className="flex items-center gap-2">
+                        <div key={r.id} className="text-xs border-b pb-1.5 sm:pb-2">
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                             <span className="font-medium">{idx + 1}.</span>
-                            <span className="font-medium">{r.student?.full_name}</span>
-                            <span className="text-muted-foreground">({r.student?.class?.name})</span>
+                            <span className="font-medium break-words">{r.student?.full_name}</span>
+                            <span className="text-muted-foreground text-[10px] sm:text-xs">({r.student?.class?.name})</span>
                             <Badge
                               className={cn(
-                                'text-[10px] px-1 py-0',
+                                'text-[9px] sm:text-[10px] px-1 py-0',
                                 r.treatment_type === 'medicine' && 'bg-green-100 text-green-700',
                                 r.treatment_type === 'first_aid' && 'bg-yellow-100 text-yellow-700',
                                 r.treatment_type === 'hospital' && 'bg-red-100 text-red-700'
@@ -283,12 +284,12 @@ export function HealthExportDialog({
                               {TREATMENT_LABELS[r.treatment_type as HealthTreatmentType]}
                             </Badge>
                             {r.parent_contacted && (
-                              <Phone className="h-3 w-3 text-blue-500" />
+                              <Phone className="h-3 w-3 text-blue-500 flex-shrink-0" />
                             )}
                           </div>
-                          <p className="text-muted-foreground ml-4">{r.diagnosis}</p>
+                          <p className="text-muted-foreground ml-3 sm:ml-4 break-words text-[10px] sm:text-xs">{r.diagnosis}</p>
                           {r.treatment_type === 'medicine' && r.medicines?.length > 0 && (
-                            <p className="text-green-600 ml-4">
+                            <p className="text-green-600 ml-3 sm:ml-4 text-[10px] sm:text-xs break-words">
                               Thuốc: {r.medicines.map((m: any) => `${m.medicine?.name} (${m.quantity})`).join(', ')}
                             </p>
                           )}
@@ -301,20 +302,21 @@ export function HealthExportDialog({
                       )}
                     </div>
                   ) : (
-                    <p className="text-center text-muted-foreground py-4">
+                    <p className="text-center text-muted-foreground py-4 text-sm">
                       Không có bản ghi trong khoảng thời gian này
                     </p>
                   )}
 
                   {/* Footer */}
-                  <div className="mt-4 pt-3 border-t text-xs text-muted-foreground text-center">
+                  <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t text-[10px] sm:text-xs text-muted-foreground text-center">
                     Xuất lúc: {format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
 
               <Button
                 className="w-full mt-3 flex-shrink-0"
+                size="sm"
                 onClick={handleExportImage}
                 disabled={isExporting || records.length === 0}
               >
@@ -323,12 +325,12 @@ export function HealthExportDialog({
                 ) : (
                   <ImageIcon className="mr-2 h-4 w-4" />
                 )}
-                <span className="truncate">Chia sẻ ảnh báo cáo</span>
+                Chia sẻ ảnh báo cáo
               </Button>
             </TabsContent>
 
-            <TabsContent value="excel" className="mt-4 flex-1 min-h-0 flex flex-col justify-center">
-              <div className="text-center py-6 sm:py-8">
+            <TabsContent value="excel" className="mt-3 flex-1 min-h-0 flex flex-col justify-center">
+              <div className="text-center py-6">
                 <FileSpreadsheet className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-green-600 mb-3" />
                 <p className="text-sm text-muted-foreground mb-4 px-4">
                   Xuất {records.length} bản ghi ra file Excel
@@ -337,9 +339,10 @@ export function HealthExportDialog({
                   onClick={handleExportExcel}
                   disabled={records.length === 0}
                   className="gap-2"
+                  size="sm"
                 >
                   <Download className="h-4 w-4" />
-                  <span className="truncate">Tải xuống Excel</span>
+                  Tải xuống Excel
                 </Button>
               </div>
             </TabsContent>

@@ -300,92 +300,172 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
             />
           </div>
 
-          {/* Table */}
-          <ScrollArea className="max-h-[400px]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tên thuốc</TableHead>
-                  <TableHead>Đơn vị</TableHead>
-                  <TableHead className="text-center">Số lượng</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMedicines.map((med) => (
-                  <TableRow key={med.id}>
-                    <TableCell>
-                      <p className="font-medium">{med.name}</p>
-                      {med.notes && (
-                        <p className="text-xs text-muted-foreground">{med.notes}</p>
-                      )}
-                    </TableCell>
-                    <TableCell>{med.unit}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant={med.quantity <= 10 ? 'destructive' : med.quantity <= 30 ? 'secondary' : 'default'}
-                      >
-                        {med.quantity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {isAdmin && (
+          {/* Mobile-friendly card list & Desktop table */}
+          <div className="hidden sm:block">
+            <ScrollArea className="max-h-[400px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tên thuốc</TableHead>
+                    <TableHead>Đơn vị</TableHead>
+                    <TableHead className="text-center">Số lượng</TableHead>
+                    <TableHead className="text-right">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMedicines.map((med) => (
+                    <TableRow key={med.id}>
+                      <TableCell>
+                        <p className="font-medium">{med.name}</p>
+                        {med.notes && (
+                          <p className="text-xs text-muted-foreground">{med.notes}</p>
+                        )}
+                      </TableCell>
+                      <TableCell>{med.unit}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={med.quantity <= 10 ? 'destructive' : med.quantity <= 30 ? 'secondary' : 'default'}
+                        >
+                          {med.quantity}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-green-600 hover:text-green-700"
+                              onClick={() => openImportDialog(med)}
+                              title="Nhập thuốc"
+                            >
+                              <ArrowUpCircle className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-green-600 hover:text-green-700"
-                            onClick={() => openImportDialog(med)}
-                            title="Nhập thuốc"
+                            className="h-7 w-7"
+                            onClick={() => openHistoryDialog(med)}
+                            title="Lịch sử"
                           >
-                            <ArrowUpCircle className="h-4 w-4" />
+                            <History className="h-4 w-4" />
                           </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => openHistoryDialog(med)}
-                          title="Lịch sử"
-                        >
-                          <History className="h-4 w-4" />
-                        </Button>
-                        {isAdmin && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => openEditDialog(med)}
-                              title="Sửa"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => setDeleteMedicine(med)}
-                              title="Xóa"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
+                          {isAdmin && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => openEditDialog(med)}
+                                title="Sửa"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => setDeleteMedicine(med)}
+                                title="Xóa"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filteredMedicines.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        {searchTerm ? 'Không tìm thấy thuốc' : 'Chưa có thuốc nào trong kho'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
+
+          {/* Mobile card list */}
+          <div className="sm:hidden space-y-2">
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-2 pr-2">
+                {filteredMedicines.map((med) => (
+                  <div key={med.id} className="border rounded-lg p-3 bg-card">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <p className="font-medium text-sm break-words">{med.name}</p>
+                        </div>
+                        {med.notes && (
+                          <p className="text-xs text-muted-foreground mt-1 break-words">{med.notes}</p>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                      <Badge
+                        variant={med.quantity <= 10 ? 'destructive' : med.quantity <= 30 ? 'secondary' : 'default'}
+                        className="flex-shrink-0"
+                      >
+                        {med.quantity} {med.unit}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1 pt-2 border-t">
+                      {isAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs text-green-600"
+                          onClick={() => openImportDialog(med)}
+                        >
+                          <ArrowUpCircle className="h-3 w-3 mr-1" />
+                          Nhập
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => openHistoryDialog(med)}
+                      >
+                        <History className="h-3 w-3 mr-1" />
+                        Lịch sử
+                      </Button>
+                      {isAdmin && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => openEditDialog(med)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Sửa
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs text-destructive"
+                            onClick={() => setDeleteMedicine(med)}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Xóa
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 ))}
                 {filteredMedicines.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? 'Không tìm thấy thuốc' : 'Chưa có thuốc nào trong kho'}
-                    </TableCell>
-                  </TableRow>
+                  <p className="text-center py-8 text-muted-foreground text-sm">
+                    {searchTerm ? 'Không tìm thấy thuốc' : 'Chưa có thuốc nào trong kho'}
+                  </p>
                 )}
-              </TableBody>
-            </Table>
-          </ScrollArea>
+              </div>
+            </ScrollArea>
+          </div>
         </CardContent>
       </Card>
 
