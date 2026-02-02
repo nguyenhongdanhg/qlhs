@@ -1,7 +1,6 @@
-import { forwardRef, memo, useMemo } from 'react';
+import { forwardRef, memo } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Coffee, UtensilsCrossed, Moon, CheckCircle2, XCircle } from 'lucide-react';
 
 interface AbsentStudent {
   id: string;
@@ -36,20 +35,22 @@ interface MealReportImageCardProps {
 export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportImageCardProps>(
   ({ schoolName, date, reporter, breakfast, lunch, dinner, totalRice, lunchRice, dinnerRice }, ref) => {
     const baseTextStyle: React.CSSProperties = {
-      letterSpacing: '0.02em',
-      wordSpacing: '0.1em',
+      letterSpacing: '0.01em',
       fontKerning: 'normal',
       textRendering: 'geometricPrecision',
       WebkitFontSmoothing: 'antialiased',
     };
 
-    const renderMealSection = (
-      title: string,
-      icon: React.ReactNode,
-      stats: MealStats,
-      showMealGroup: boolean = false
-    ) => {
-      // Group absent students by class
+    const meals = [
+      { key: 'breakfast', label: 'Sáng', stats: breakfast, color: '#f97316', bgColor: '#fff7ed' },
+      { key: 'lunch', label: 'Trưa', stats: lunch, color: '#22c55e', bgColor: '#f0fdf4' },
+      { key: 'dinner', label: 'Tối', stats: dinner, color: '#6366f1', bgColor: '#eef2ff' },
+    ];
+
+    // Combine all absent students for compact display
+    const renderAbsentList = (stats: MealStats, mealLabel: string) => {
+      if (!stats.hasReport || stats.absent === 0) return null;
+      
       const groupedByClass = new Map<string, AbsentStudent[]>();
       stats.absentStudents.forEach(student => {
         if (!groupedByClass.has(student.className)) {
@@ -59,229 +60,188 @@ export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportIma
       });
 
       return (
-        <div style={{ 
-          borderRadius: '8px', 
-          border: '1px solid #e5e7eb', 
-          padding: '12px',
-          marginBottom: '12px'
-        }}>
+        <div style={{ marginBottom: '6px' }}>
           <div style={{ 
-            marginBottom: '8px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between' 
+            fontWeight: 600, 
+            fontSize: '11px', 
+            color: '#991b1b',
+            marginBottom: '2px',
+            ...baseTextStyle 
           }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ marginRight: '8px' }}>{icon}</span>
-              <span style={{ fontWeight: 600, color: '#374151', ...baseTextStyle }}>{title}</span>
-            </div>
-            {stats.hasReport ? (
-              <span style={{ 
-                borderRadius: '4px', 
-                backgroundColor: '#dcfce7', 
-                padding: '2px 8px', 
-                fontSize: '12px', 
-                fontWeight: 500, 
-                color: '#15803d',
-                ...baseTextStyle
-              }}>
-                {'Đã báo cáo'}
-              </span>
-            ) : (
-              <span style={{ 
-                borderRadius: '4px', 
-                backgroundColor: '#fee2e2', 
-                padding: '2px 8px', 
-                fontSize: '12px', 
-                fontWeight: 500, 
-                color: '#b91c1c',
-                ...baseTextStyle
-              }}>
-                {'Chưa báo cáo'}
-              </span>
-            )}
+            {mealLabel} ({stats.absent}):
           </div>
-
-          {stats.hasReport && (
-            <>
-              {/* Stats row */}
-              <div style={{ 
-                marginBottom: '8px', 
-                display: 'flex', 
-                textAlign: 'center', 
-                fontSize: '14px' 
-              }}>
-                <div style={{ 
-                  flex: 1, 
-                  borderRadius: '4px', 
-                  backgroundColor: '#f9fafb', 
-                  padding: '6px',
-                  marginRight: '8px'
-                }}>
-                  <div style={{ fontSize: '12px', color: '#6b7280', ...baseTextStyle }}>{'Tổng'}</div>
-                  <div style={{ fontWeight: 700, color: '#374151' }}>{stats.total}</div>
-                </div>
-                <div style={{ 
-                  flex: 1, 
-                  borderRadius: '4px', 
-                  backgroundColor: '#f0fdf4', 
-                  padding: '6px',
-                  marginRight: '8px'
-                }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    fontSize: '12px', 
-                    color: '#16a34a' 
-                  }}>
-                    <CheckCircle2 style={{ width: '12px', height: '12px', marginRight: '4px' }} />
-                    <span style={baseTextStyle}>{'Ăn'}</span>
-                  </div>
-                  <div style={{ fontWeight: 700, color: '#16a34a' }}>{stats.present}</div>
-                </div>
-                <div style={{ 
-                  flex: 1, 
-                  borderRadius: '4px', 
-                  backgroundColor: '#fef2f2', 
-                  padding: '6px' 
-                }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    fontSize: '12px', 
-                    color: '#dc2626' 
-                  }}>
-                    <XCircle style={{ width: '12px', height: '12px', marginRight: '4px' }} />
-                    <span style={baseTextStyle}>{'Vắng'}</span>
-                  </div>
-                  <div style={{ fontWeight: 700, color: '#dc2626' }}>{stats.absent}</div>
-                </div>
-              </div>
-
-              {/* Absent students */}
-              {stats.absent > 0 && (
-                <div style={{ 
-                  borderRadius: '4px', 
-                  backgroundColor: '#fef2f2', 
-                  padding: '8px' 
-                }}>
-                  <div style={{ 
-                    marginBottom: '4px', 
-                    fontSize: '12px', 
-                    fontWeight: 500, 
-                    color: '#dc2626',
-                    ...baseTextStyle
-                  }}>
-                    {'Vắng'}{` (${stats.absent}):`}
-                  </div>
-                  <div style={{ fontSize: '12px' }}>
-                    {Array.from(groupedByClass.entries())
-                      .sort((a, b) => {
-                        const gradeA = a[1][0]?.classGrade || 0;
-                        const gradeB = b[1][0]?.classGrade || 0;
-                        return gradeA - gradeB;
-                      })
-                      .map(([className, students], idx) => (
-                        <div key={className} style={{ marginTop: idx > 0 ? '4px' : 0 }}>
-                          <span style={{ fontWeight: 500, color: '#4b5563', ...baseTextStyle }}>{className}{':'}</span>
-                          {' '}
-                          <span style={{ color: '#374151', ...baseTextStyle }}>
-                            {students.map((s, i) => (
-                              <span key={s.id}>
-                                {s.name}
-                                {s.excused && <sup style={{ color: '#ca8a04' }}>{'P'}</sup>}
-                                {showMealGroup && s.mealGroup && (
-                                  <span style={{ color: '#9ca3af' }}>{`(${s.mealGroup})`}</span>
-                                )}
-                                {i < students.length - 1 && ', '}
-                              </span>
-                            ))}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+          <div style={{ fontSize: '11px', lineHeight: '1.4', paddingLeft: '8px' }}>
+            {Array.from(groupedByClass.entries())
+              .sort((a, b) => (a[1][0]?.classGrade || 0) - (b[1][0]?.classGrade || 0))
+              .map(([className, students]) => (
+                <span key={className} style={{ marginRight: '6px' }}>
+                  <span style={{ fontWeight: 500, color: '#4b5563' }}>{className}:</span>{' '}
+                  {students.map((s, i) => (
+                    <span key={s.id} style={{ color: '#374151' }}>
+                      {s.name}
+                      {s.excused && <sup style={{ color: '#ca8a04', fontSize: '9px' }}>P</sup>}
+                      {i < students.length - 1 && ', '}
+                    </span>
+                  ))}
+                  {' '}
+                </span>
+              ))}
+          </div>
         </div>
       );
     };
+
+    const totalPresent = breakfast.present + lunch.present + dinner.present;
+    const totalAbsent = breakfast.absent + lunch.absent + dinner.absent;
 
     return (
       <div
         ref={ref}
         style={{ 
-          width: '420px',
+          width: '380px',
           backgroundColor: 'white',
-          padding: '20px',
+          padding: '16px',
           fontFamily: '"Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif',
-          fontSize: '14px',
-          lineHeight: '1.5',
+          fontSize: '13px',
+          lineHeight: '1.4',
           ...baseTextStyle
         }}
       >
-        {/* Header */}
-        <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: 500, color: '#4b5563', margin: 0, ...baseTextStyle }}>{schoolName}</h2>
-          <h1 style={{ marginTop: '4px', fontSize: '18px', fontWeight: 700, color: '#0284c7', marginBottom: 0, ...baseTextStyle }}>{'THỐNG KÊ BỮA ĂN'}</h1>
-          <p style={{ marginTop: '4px', fontSize: '14px', color: '#6b7280', marginBottom: 0, ...baseTextStyle }}>
-            {'Ngày '}{format(date, 'EEEE, dd/MM/yyyy', { locale: vi })}
-          </p>
+        {/* Compact Header */}
+        <div style={{ marginBottom: '12px', textAlign: 'center', borderBottom: '2px solid #0284c7', paddingBottom: '10px' }}>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>{schoolName}</div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: '#0284c7' }}>THỐNG KÊ BỮA ĂN</div>
+          <div style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>
+            {format(date, 'EEEE, dd/MM/yyyy', { locale: vi })}
+          </div>
         </div>
 
-        {/* Meal sections */}
-        <div style={{ marginBottom: '16px' }}>
-        {renderMealSection(
-            'Bữa sáng',
-            <Coffee style={{ width: '16px', height: '16px', color: '#f97316' }} />,
-            breakfast,
-            true
-          )}
-          {renderMealSection(
-            'Bữa trưa',
-            <UtensilsCrossed style={{ width: '16px', height: '16px', color: '#22c55e' }} />,
-            lunch,
-            true
-          )}
-          {renderMealSection(
-            'Bữa tối',
-            <Moon style={{ width: '16px', height: '16px', color: '#6366f1' }} />,
-            dinner,
-            true
-          )}
-        </div>
-
-        {/* Rice summary */}
+        {/* Compact Meal Stats Grid */}
         <div style={{ 
-          marginBottom: '16px', 
-          borderRadius: '8px', 
-          backgroundColor: '#fffbeb', 
-          padding: '12px', 
-          textAlign: 'center' 
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '8px',
+          marginBottom: '12px'
         }}>
-          <div style={{ fontSize: '12px', color: '#d97706', ...baseTextStyle }}>{'Tổng lượng gạo (trưa + tối)'}</div>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: '#b45309' }}>{totalRice.toFixed(1)}{' kg'}</div>
-          <div style={{ fontSize: '12px', color: '#f59e0b', ...baseTextStyle }}>
-            {'(Trưa: '}{(lunchRice ?? lunch.present * 0.2).toFixed(1)}{'kg / Tối: '}{(dinnerRice ?? dinner.present * 0.2).toFixed(1)}{'kg)'}
+          {meals.map(({ key, label, stats, color, bgColor }) => (
+            <div key={key} style={{
+              backgroundColor: bgColor,
+              borderRadius: '6px',
+              padding: '8px',
+              textAlign: 'center',
+              border: `1px solid ${color}20`
+            }}>
+              <div style={{ 
+                fontSize: '11px', 
+                fontWeight: 600, 
+                color: color,
+                marginBottom: '4px',
+                textTransform: 'uppercase'
+              }}>
+                {label}
+              </div>
+              {stats.hasReport ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', fontSize: '11px' }}>
+                    <span style={{ color: '#16a34a', fontWeight: 600 }}>{stats.present}</span>
+                    <span style={{ color: '#9ca3af' }}>/</span>
+                    <span style={{ color: '#374151' }}>{stats.total}</span>
+                  </div>
+                  {stats.absent > 0 && (
+                    <div style={{ fontSize: '10px', color: '#dc2626', marginTop: '2px' }}>
+                      -{stats.absent} vắng
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 500 }}>Chưa báo</div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Summary Row */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '12px',
+          backgroundColor: '#f8fafc',
+          borderRadius: '6px',
+          padding: '8px'
+        }}>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#16a34a' }}>{totalPresent}</div>
+            <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase' }}>Tổng suất</div>
           </div>
-          <div style={{ fontSize: '11px', color: '#d97706', marginTop: '4px', ...baseTextStyle }}>
-            {'('}{lunch.present}{' suất trưa + '}{dinner.present}{' suất tối) × 0.2kg'}
+          <div style={{ width: '1px', backgroundColor: '#e5e7eb' }} />
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#dc2626' }}>{totalAbsent}</div>
+            <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase' }}>Tổng vắng</div>
+          </div>
+          <div style={{ width: '1px', backgroundColor: '#e5e7eb' }} />
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#b45309' }}>{totalRice.toFixed(1)}</div>
+            <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase' }}>kg gạo</div>
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Rice Detail */}
+        <div style={{
+          marginBottom: '12px',
+          backgroundColor: '#fffbeb',
+          borderRadius: '6px',
+          padding: '8px',
+          fontSize: '11px',
+          textAlign: 'center',
+          color: '#92400e'
+        }}>
+          <span style={{ fontWeight: 500 }}>Chi tiết gạo:</span>{' '}
+          Trưa {(lunchRice ?? lunch.present * 0.2).toFixed(1)}kg ({lunch.present} suất) + 
+          Tối {(dinnerRice ?? dinner.present * 0.2).toFixed(1)}kg ({dinner.present} suất)
+        </div>
+
+        {/* Absent Students - Compact */}
+        {(breakfast.absent > 0 || lunch.absent > 0 || dinner.absent > 0) && (
+          <div style={{
+            marginBottom: '12px',
+            borderRadius: '6px',
+            border: '1px solid #fecaca',
+            backgroundColor: '#fef2f2',
+            padding: '10px'
+          }}>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#dc2626',
+              marginBottom: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              textTransform: 'uppercase'
+            }}>
+              <span style={{ width: '6px', height: '6px', backgroundColor: '#dc2626', borderRadius: '50%' }} />
+              Danh sách vắng
+            </div>
+            {renderAbsentList(breakfast, 'Sáng')}
+            {renderAbsentList(lunch, 'Trưa')}
+            {renderAbsentList(dinner, 'Tối')}
+            <div style={{ fontSize: '9px', color: '#9ca3af', textAlign: 'right', marginTop: '4px' }}>
+              <sup style={{ color: '#ca8a04' }}>P</sup>=Phép
+            </div>
+          </div>
+        )}
+
+        {/* Compact Footer */}
         <div style={{ 
           borderTop: '1px solid #e5e7eb', 
-          paddingTop: '12px', 
-          textAlign: 'center', 
-          fontSize: '12px', 
-          color: '#9ca3af' 
+          paddingTop: '8px', 
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '10px', 
+          color: '#9ca3af'
         }}>
-          <p style={{ margin: 0, ...baseTextStyle }}>{'Người báo cáo: '}{reporter}</p>
-          <p style={{ margin: '4px 0 0 0', ...baseTextStyle }}>{'Xuất lúc: '}{format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}</p>
+          <span>Người báo: <span style={{ color: '#374151', fontWeight: 500 }}>{reporter}</span></span>
+          <span>{format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}</span>
         </div>
       </div>
     );

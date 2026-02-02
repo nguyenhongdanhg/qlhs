@@ -24,47 +24,27 @@ interface SingleMealAbsentImageCardProps {
 const getMealConfig = (mealType: AttendanceType) => {
   switch (mealType) {
     case 'breakfast':
-      return {
-        title: 'BỮA SÁNG',
-        icon: <Coffee style={{ width: '20px', height: '20px', color: '#f97316' }} />,
-        color: '#f97316',
-        bgColor: '#fff7ed',
-      };
+      return { title: 'SÁNG', icon: Coffee, color: '#f97316' };
     case 'lunch':
-      return {
-        title: 'BỮA TRƯA',
-        icon: <UtensilsCrossed style={{ width: '20px', height: '20px', color: '#22c55e' }} />,
-        color: '#22c55e',
-        bgColor: '#f0fdf4',
-      };
+      return { title: 'TRƯA', icon: UtensilsCrossed, color: '#22c55e' };
     case 'dinner':
-      return {
-        title: 'BỮA TỐI',
-        icon: <Moon style={{ width: '20px', height: '20px', color: '#6366f1' }} />,
-        color: '#6366f1',
-        bgColor: '#eef2ff',
-      };
+      return { title: 'TỐI', icon: Moon, color: '#6366f1' };
     default:
-      return {
-        title: 'BỮA ĂN',
-        icon: <UtensilsCrossed style={{ width: '20px', height: '20px', color: '#6b7280' }} />,
-        color: '#6b7280',
-        bgColor: '#f9fafb',
-      };
+      return { title: 'BỮA ĂN', icon: UtensilsCrossed, color: '#6b7280' };
   }
 };
 
 export const SingleMealAbsentImageCard = memo(forwardRef<HTMLDivElement, SingleMealAbsentImageCardProps>(
   ({ schoolName, date, reporter, mealType, absentStudents }, ref) => {
     const baseTextStyle: React.CSSProperties = {
-      letterSpacing: '0.02em',
-      wordSpacing: '0.1em',
+      letterSpacing: '0.01em',
       fontKerning: 'normal',
       textRendering: 'geometricPrecision',
       WebkitFontSmoothing: 'antialiased',
     };
 
     const config = getMealConfig(mealType);
+    const Icon = config.icon;
 
     // Group students by meal group
     const groupByMealGroup = (students: AbsentStudent[]) => {
@@ -77,7 +57,6 @@ export const SingleMealAbsentImageCard = memo(forwardRef<HTMLDivElement, SingleM
         grouped.get(group)!.push(student);
       });
 
-      // Sort meal groups naturally
       return Array.from(grouped.entries()).sort((a, b) => {
         if (a[0] === 'Chưa phân mâm') return 1;
         if (b[0] === 'Chưa phân mâm') return -1;
@@ -93,97 +72,102 @@ export const SingleMealAbsentImageCard = memo(forwardRef<HTMLDivElement, SingleM
       <div
         ref={ref}
         style={{
-          width: '400px',
+          width: '380px',
           backgroundColor: 'white',
-          padding: '20px',
+          padding: '16px',
           fontFamily: '"Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif',
-          fontSize: '14px',
-          lineHeight: '1.5',
+          fontSize: '13px',
+          lineHeight: '1.4',
           ...baseTextStyle
         }}
       >
-        {/* Header */}
-        <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: 500, color: '#4b5563', margin: 0, ...baseTextStyle }}>{schoolName}</h2>
-          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            {config.icon}
-            <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#dc2626', margin: 0, ...baseTextStyle }}>
-              DS VẮNG {config.title} THEO MÂM
-            </h1>
+        {/* Compact Header */}
+        <div style={{ marginBottom: '12px', textAlign: 'center', borderBottom: '2px solid #dc2626', paddingBottom: '10px' }}>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>{schoolName}</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <Icon style={{ width: '16px', height: '16px', color: config.color }} />
+            <span style={{ fontSize: '15px', fontWeight: 700, color: '#dc2626' }}>
+              DS VẮNG BỮA {config.title} THEO MÂM
+            </span>
           </div>
-          <p style={{ marginTop: '8px', fontSize: '14px', color: '#6b7280', marginBottom: 0, ...baseTextStyle }}>
-            Ngày {format(date, 'EEEE, dd/MM/yyyy', { locale: vi })}
-          </p>
+          <div style={{ fontSize: '12px', color: '#374151', marginTop: '4px' }}>
+            {format(date, 'EEEE, dd/MM/yyyy', { locale: vi })}
+          </div>
         </div>
 
-        {/* Summary */}
+        {/* Summary - Compact */}
         <div style={{
-          marginBottom: '16px',
+          marginBottom: '12px',
           backgroundColor: '#fef2f2',
-          padding: '12px',
-          borderRadius: '8px',
-          textAlign: 'center'
+          padding: '10px',
+          borderRadius: '6px',
+          textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
         }}>
-          <div style={{ fontSize: '12px', color: '#dc2626', ...baseTextStyle }}>Tổng số vắng</div>
-          <div style={{ fontSize: '28px', fontWeight: 700, color: '#b91c1c' }}>{absentStudents.length}</div>
+          <span style={{ fontSize: '12px', color: '#991b1b' }}>Tổng vắng:</span>
+          <span style={{ fontSize: '22px', fontWeight: 700, color: '#b91c1c' }}>{absentStudents.length}</span>
+          <span style={{ fontSize: '11px', color: '#dc2626' }}>học sinh</span>
         </div>
 
-        {/* Absent list by meal group */}
+        {/* Absent list by meal group - Compact */}
         {absentStudents.length === 0 ? (
           <div style={{
-            borderRadius: '8px',
+            borderRadius: '6px',
             backgroundColor: '#f0fdf4',
-            padding: '20px',
+            padding: '14px',
             textAlign: 'center',
             color: '#16a34a',
             fontWeight: 500,
-            ...baseTextStyle
+            fontSize: '13px'
           }}>
             ✓ Không có học sinh vắng
           </div>
         ) : (
           <div style={{
-            borderRadius: '8px',
+            borderRadius: '6px',
             border: '1px solid #e5e7eb',
-            padding: '12px',
-            backgroundColor: '#fafafa'
+            backgroundColor: '#fafafa',
+            padding: '10px',
+            fontSize: '12px'
           }}>
             {grouped.map(([mealGroup, groupStudents], idx) => (
-              <div key={mealGroup} style={{ marginTop: idx > 0 ? '12px' : 0 }}>
+              <div key={mealGroup} style={{ marginTop: idx > 0 ? '8px' : 0 }}>
                 <div style={{
                   fontWeight: 600,
-                  color: '#4b5563',
-                  marginBottom: '6px',
+                  color: '#374151',
+                  marginBottom: '4px',
                   backgroundColor: '#f3f4f6',
-                  padding: '6px 10px',
+                  padding: '4px 8px',
                   borderRadius: '4px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  ...baseTextStyle
+                  fontSize: '11px'
                 }}>
                   <span>{mealGroup}</span>
                   <span style={{
                     backgroundColor: '#fef2f2',
                     color: '#dc2626',
-                    padding: '2px 8px',
+                    padding: '2px 6px',
                     borderRadius: '4px',
-                    fontSize: '12px',
                     fontWeight: 600
                   }}>
                     {groupStudents.length}
                   </span>
                 </div>
-                <div style={{ paddingLeft: '10px', fontSize: '12px' }}>
+                <div style={{ paddingLeft: '8px', fontSize: '11px', lineHeight: '1.5' }}>
                   {groupStudents
                     .sort((a, b) => {
                       if (a.classGrade !== b.classGrade) return a.classGrade - b.classGrade;
                       return a.className.localeCompare(b.className, 'vi');
                     })
                     .map((student, i) => (
-                      <span key={student.id} style={{ color: '#374151', ...baseTextStyle }}>
+                      <span key={student.id} style={{ color: '#374151' }}>
                         {student.name}
-                        {student.excused && <sup style={{ color: '#ca8a04' }}>P</sup>}
+                        {student.excused && <sup style={{ color: '#ca8a04', fontSize: '9px' }}>P</sup>}
                         <span style={{ color: '#9ca3af', fontSize: '10px' }}> ({student.className})</span>
                         {i < groupStudents.length - 1 && ', '}
                       </span>
@@ -194,33 +178,30 @@ export const SingleMealAbsentImageCard = memo(forwardRef<HTMLDivElement, SingleM
           </div>
         )}
 
-        {/* Note */}
+        {/* Note - Compact */}
         {absentStudents.length > 0 && absentStudents.some(s => s.excused) && (
           <div style={{
-            marginTop: '12px',
-            padding: '8px',
-            backgroundColor: '#fffbeb',
-            borderRadius: '4px',
-            fontSize: '11px',
-            color: '#92400e',
-            textAlign: 'center',
-            ...baseTextStyle
+            marginTop: '8px',
+            fontSize: '9px',
+            color: '#9ca3af',
+            textAlign: 'right'
           }}>
             <sup style={{ color: '#ca8a04' }}>P</sup> = Có phép
           </div>
         )}
 
-        {/* Footer */}
+        {/* Compact Footer */}
         <div style={{
           borderTop: '1px solid #e5e7eb',
-          paddingTop: '12px',
-          marginTop: '16px',
-          textAlign: 'center',
-          fontSize: '12px',
+          paddingTop: '8px',
+          marginTop: '12px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '10px',
           color: '#9ca3af'
         }}>
-          <p style={{ margin: 0, ...baseTextStyle }}>Người báo cáo: {reporter}</p>
-          <p style={{ margin: '4px 0 0 0', ...baseTextStyle }}>Xuất lúc: {format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}</p>
+          <span>Người báo: <span style={{ color: '#374151', fontWeight: 500 }}>{reporter}</span></span>
+          <span>{format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}</span>
         </div>
       </div>
     );
