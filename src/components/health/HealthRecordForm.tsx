@@ -222,7 +222,7 @@ export function HealthRecordForm({
   });
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-3">
       {/* Student Selection */}
       <Card className="lg:col-span-1">
         <CardHeader className="pb-3">
@@ -252,7 +252,7 @@ export function HealthRecordForm({
           </div>
 
           {/* Student list */}
-          <ScrollArea className="h-[300px] border rounded-lg">
+          <ScrollArea className="h-[250px] sm:h-[300px] border rounded-lg">
             <div className="p-2 space-y-1">
               {filteredStudents.map((student) => (
                 <button
@@ -285,8 +285,8 @@ export function HealthRecordForm({
           {/* Selected student info */}
           {selectedStudent && (
             <div className="p-3 bg-primary/5 rounded-lg space-y-1">
-              <p className="font-medium">{selectedStudent.full_name}</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="font-medium text-sm sm:text-base">{selectedStudent.full_name}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Lớp: {selectedStudent.class?.name} | SĐT PH: {selectedStudent.parent_phone || 'N/A'}
               </p>
             </div>
@@ -303,15 +303,15 @@ export function HealthRecordForm({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Date */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Date and Treatment Type */}
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Ngày ghi nhận</Label>
+              <Label className="text-sm">Ngày ghi nhận</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(recordDate, 'dd/MM/yyyy', { locale: vi })}
+                  <Button variant="outline" className="w-full justify-start text-left font-normal h-10">
+                    <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{format(recordDate, 'dd/MM/yyyy', { locale: vi })}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -326,9 +326,9 @@ export function HealthRecordForm({
             </div>
 
             <div className="space-y-2">
-              <Label>Hình thức xử lý</Label>
+              <Label className="text-sm">Hình thức xử lý</Label>
               <Select value={treatmentType} onValueChange={(v) => setTreatmentType(v as HealthTreatmentType)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -359,32 +359,55 @@ export function HealthRecordForm({
           {/* Medicine selection */}
           {treatmentType === 'medicine' && (
             <div className="space-y-3">
-              <Label>Thuốc phát cho học sinh</Label>
-              <Select onValueChange={addMedicine}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn thuốc để thêm..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {medicines
-                    .filter((m) => m.quantity > 0)
-                    .map((med) => (
-                      <SelectItem key={med.id} value={med.id}>
-                        {med.name} ({med.unit}) - Còn: {med.quantity}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm">Thuốc phát cho học sinh</Label>
+              
+              {/* Medicine list to select */}
+              <div className="border rounded-lg overflow-hidden">
+                <ScrollArea className="max-h-[200px]">
+                  <div className="divide-y">
+                    {medicines
+                      .filter((m) => m.quantity > 0 && !selectedMedicines.find((s) => s.medicineId === m.id))
+                      .map((med) => (
+                        <button
+                          key={med.id}
+                          type="button"
+                          onClick={() => addMedicine(med.id)}
+                          className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <span className="text-sm font-medium truncate">{med.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Badge variant="outline" className="text-xs">
+                              {med.quantity} {med.unit}
+                            </Badge>
+                            <Plus className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </button>
+                      ))}
+                    {medicines.filter((m) => m.quantity > 0 && !selectedMedicines.find((s) => s.medicineId === m.id)).length === 0 && (
+                      <p className="text-center text-sm text-muted-foreground py-4">
+                        {medicines.filter((m) => m.quantity > 0).length === 0 
+                          ? 'Chưa có thuốc trong kho' 
+                          : 'Đã chọn hết thuốc có sẵn'}
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
 
               {/* Selected medicines */}
               {selectedMedicines.length > 0 && (
-                <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                <div className="space-y-2 p-3 bg-green-50 rounded-lg border border-green-100">
+                  <p className="text-xs font-medium text-green-700 mb-2">Thuốc đã chọn:</p>
                   {selectedMedicines.map((sel) => {
                     const med = medicines.find((m) => m.id === sel.medicineId);
                     if (!med) return null;
                     return (
-                      <div key={sel.medicineId} className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium">{med.name}</span>
-                        <div className="flex items-center gap-2">
+                      <div key={sel.medicineId} className="flex flex-wrap items-center justify-between gap-2 bg-white p-2 rounded-md">
+                        <span className="text-sm font-medium truncate max-w-[120px] sm:max-w-none">{med.name}</span>
+                        <div className="flex items-center gap-1 sm:gap-2">
                           <Button
                             type="button"
                             variant="outline"
@@ -394,7 +417,14 @@ export function HealthRecordForm({
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
-                          <span className="w-8 text-center text-sm font-medium">{sel.quantity}</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={med.quantity}
+                            value={sel.quantity}
+                            onChange={(e) => updateMedicineQty(sel.medicineId, parseInt(e.target.value) || 1)}
+                            className="w-14 h-7 text-center text-sm p-1"
+                          />
                           <Button
                             type="button"
                             variant="outline"
@@ -405,7 +435,7 @@ export function HealthRecordForm({
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
-                          <span className="text-xs text-muted-foreground">{med.unit}</span>
+                          <span className="text-xs text-muted-foreground hidden sm:inline">{med.unit}</span>
                           <Button
                             type="button"
                             variant="ghost"
@@ -426,14 +456,14 @@ export function HealthRecordForm({
 
           {/* Hospital fields */}
           {treatmentType === 'hospital' && (
-            <div className="space-y-4 p-4 bg-red-50 rounded-lg border border-red-100">
-              <h4 className="font-medium text-red-700 flex items-center gap-2">
+            <div className="space-y-3 p-3 sm:p-4 bg-red-50 rounded-lg border border-red-100">
+              <h4 className="font-medium text-red-700 flex items-center gap-2 text-sm">
                 <Building2 className="h-4 w-4" />
                 Thông tin nhập viện
               </h4>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Tên bệnh viện</Label>
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label className="text-sm">Tên bệnh viện</Label>
                   <Input
                     placeholder="Nhập tên bệnh viện..."
                     value={hospitalName}
@@ -441,12 +471,12 @@ export function HealthRecordForm({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Ngày nhập viện</Label>
+                  <Label className="text-sm">Ngày nhập viện</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {hospitalDate ? format(hospitalDate, 'dd/MM/yyyy', { locale: vi }) : 'Chọn ngày'}
+                      <Button variant="outline" className="w-full justify-start text-left font-normal h-10">
+                        <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{hospitalDate ? format(hospitalDate, 'dd/MM/yyyy', { locale: vi }) : 'Chọn ngày'}</span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -460,12 +490,12 @@ export function HealthRecordForm({
                   </Popover>
                 </div>
                 <div className="space-y-2">
-                  <Label>Ngày xuất viện</Label>
+                  <Label className="text-sm">Ngày xuất viện</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dischargeDate ? format(dischargeDate, 'dd/MM/yyyy', { locale: vi }) : 'Chọn ngày'}
+                      <Button variant="outline" className="w-full justify-start text-left font-normal h-10">
+                        <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{dischargeDate ? format(dischargeDate, 'dd/MM/yyyy', { locale: vi }) : 'Chọn ngày'}</span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -479,7 +509,7 @@ export function HealthRecordForm({
                   </Popover>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>Kết quả điều trị</Label>
+                  <Label className="text-sm">Kết quả điều trị</Label>
                   <Textarea
                     placeholder="Nhập kết quả điều trị..."
                     value={hospitalResult}
@@ -492,14 +522,14 @@ export function HealthRecordForm({
           )}
 
           {/* Parent contact */}
-          <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+          <div className="space-y-3 p-3 sm:p-4 bg-muted/30 rounded-lg">
             <div className="flex items-center gap-2">
               <Checkbox
                 id="parentContacted"
                 checked={parentContacted}
                 onCheckedChange={(c) => setParentContacted(!!c)}
               />
-              <Label htmlFor="parentContacted" className="flex items-center gap-2 cursor-pointer">
+              <Label htmlFor="parentContacted" className="flex items-center gap-2 cursor-pointer text-sm">
                 <Phone className="h-4 w-4" />
                 Đã liên hệ phụ huynh
               </Label>
@@ -516,7 +546,7 @@ export function HealthRecordForm({
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label>Ghi chú thêm</Label>
+            <Label className="text-sm">Ghi chú thêm</Label>
             <Textarea
               placeholder="Ghi chú thêm (nếu có)..."
               value={notes}
@@ -526,7 +556,10 @@ export function HealthRecordForm({
           </div>
 
           {/* Submit */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+            <Button variant="outline" onClick={resetForm} className="sm:w-auto">
+              Làm mới
+            </Button>
             <Button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending || !selectedStudent || !diagnosis.trim()}
@@ -534,9 +567,6 @@ export function HealthRecordForm({
             >
               {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Lưu thông tin
-            </Button>
-            <Button variant="outline" onClick={resetForm}>
-              Làm mới
             </Button>
           </div>
         </CardContent>
