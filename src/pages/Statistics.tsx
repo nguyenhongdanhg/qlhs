@@ -42,6 +42,7 @@ import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDi
 import { ShareAbsentByMealGroupDialog } from '@/components/attendance/ShareAbsentByMealGroupDialog';
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
 import { ShareSingleMealDialog } from '@/components/attendance/ShareSingleMealDialog';
+import { MealExportDialog } from '@/components/attendance/MealExportDialog';
 import { useToast } from '@/hooks/use-toast';
 import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
 import { cn } from '@/lib/utils';
@@ -137,6 +138,9 @@ export default function Statistics() {
   // Single meal export dialog
   const [singleMealDialogOpen, setSingleMealDialogOpen] = useState(false);
   const [singleMealDialogType, setSingleMealDialogType] = useState<AttendanceType>('breakfast');
+  
+  // Meal export dialog (like Meals page)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   
   // Finalize (Chốt) state
   const [isFinalizingMeal, setIsFinalizingMeal] = useState<AttendanceType | null>(null);
@@ -1155,6 +1159,129 @@ export default function Statistics() {
     }
   };
 
+  // Handler for export dialog (like Meals page)
+  const handleExportFromDialog = useCallback(async (rangeType: DateRangeType, selectedDialogDate: Date) => {
+    if (!currentSchool || filteredStudents.length === 0) return;
+    setIsExporting(true);
+
+    try {
+      const dateRange = getDateRange(selectedDialogDate, rangeType);
+      const days = eachDayOfInterval({ start: dateRange.start, end: dateRange.end });
+
+      // CRITICAL: Re-fetch students directly from database to ensure data integrity
+      const { data: allBoardingStudents, error: studentsError } = await supabase
+        .from('students')
+        .select('*, class:classes(*)')
+        .eq('school_id', currentSchool.id)
+        .eq('is_boarding', true)
+        .eq('is_active', true);
+
+      if (studentsError) throw studentsError;
+
+      const boardingStudents = allBoardingStudents || [];
+      const studentIdSet = new Set(boardingStudents.map(s => s.id));
+
+      // Use pagination for large datasets
+      const PAGE_SIZE = 10000;
+      const MAX_RECORDS = 300000;
+      let allRecords: any[] = [];
+      let page = 0;
+
+      while (allRecords.length < MAX_RECORDS) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from('attendance_records')
+          .select('*')
+          .eq('school_id', currentSchool.id)
+          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+          .gte('attendance_date', format(dateRange.start, 'yyyy-MM-dd'))
+          .lte('attendance_date', format(dateRange.end, 'yyyy-MM-dd'))
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+
+        allRecords = allRecords.concat(data);
+        if (data.length < PAGE_SIZE) break;
+        page++;
+      }
+
+      // Filter to only include records for boarding students
+      const records = allRecords.filter(r => studentIdSet.has(r.student_id));
+
+      console.log(`[Excel Export Dialog] Total records: ${allRecords.length}, After filtering: ${records.length}, Students: ${boardingStudents.length}`);
+
+      // Get latest report per meal/date/student
+      const latestByKey = new Map<string, any>();
+      records.forEach((record: any) => {
+        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
+        const existing = latestByKey.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByKey.set(key, record);
+        }
+      });
+
+      // Build student data
+      const validStudents = boardingStudents.filter(s => s.class?.name && s.class_id);
+
+      const studentData: MealStudentData[] = validStudents.map(student => {
+        const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
+
+        days.forEach(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const bRecord = latestByKey.get(`${student.id}-${dateStr}-breakfast`);
+          const lRecord = latestByKey.get(`${student.id}-${dateStr}-lunch`);
+          const dRecord = latestByKey.get(`${student.id}-${dateStr}-dinner`);
+
+          attendanceMap.set(dateStr, {
+            breakfast: bRecord ? bRecord.status === 'present' : null,
+            lunch: lRecord ? lRecord.status === 'present' : null,
+            dinner: dRecord ? dRecord.status === 'present' : null,
+          });
+        });
+
+        return {
+          id: student.id,
+          name: student.full_name,
+          className: student.class!.name,
+          classGrade: student.class!.grade,
+          roomNumber: student.room_number || undefined,
+          mealGroup: student.meal_group || undefined,
+          attendance: attendanceMap,
+        };
+      });
+
+      const exportTitle = teacherClassName
+        ? `THỐNG KÊ BỮA ĂN LỚP ${teacherClassName}`
+        : 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ';
+
+      exportMealStatistics(studentData, {
+        schoolName: currentSchool.name,
+        title: exportTitle,
+        dateRange,
+        reporterName: profile?.full_name,
+        exportTime: new Date(),
+      });
+
+      toast({
+        title: 'Thành công',
+        description: `Đã xuất thống kê bữa ăn ${dateRange.label.toLowerCase()}`,
+      });
+    } catch (error) {
+      console.error('Error exporting from dialog:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xuất file Excel',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentSchool, filteredStudents, teacherClassName, profile, toast]);
+
   // Open single meal export dialog
   const handleOpenSingleMealDialog = useCallback((mealType: AttendanceType) => {
     setSingleMealDialogType(mealType);
@@ -1656,9 +1783,19 @@ export default function Statistics() {
                           size="sm"
                           className="justify-start"
                           onClick={() => handleExportDailyMealExcel()}
+                          disabled={isExporting}
                         >
                           <FileSpreadsheet className="h-4 w-4 mr-2" />
-                          Xuất Excel
+                          Xuất Excel ngày này
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start"
+                          onClick={() => setExportDialogOpen(true)}
+                        >
+                          <FileSpreadsheet className="h-4 w-4 mr-2" />
+                          Xuất Excel theo khoảng thời gian
                         </Button>
                       </div>
                     </PopoverContent>
@@ -2076,6 +2213,14 @@ export default function Statistics() {
           }
         />
       )}
+
+      {/* Meal Export Dialog (like Meals page) */}
+      <MealExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        onExport={handleExportFromDialog}
+        isExporting={isExporting}
+      />
     </div>
   );
 }
