@@ -16,6 +16,7 @@ import {
   Menu,
   Trophy,
   HelpCircle,
+  Heart,
 } from 'lucide-react';
 import { bottomNavCodes } from '@/components/layout/MobileNav';
 
@@ -30,6 +31,13 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  {
+    code: 'health',
+    label: 'Sức khỏe',
+    description: 'Quản lý sức khỏe học sinh',
+    icon: Heart,
+    path: '/health',
+  },
   {
     code: 'emulation',
     label: 'Thi đua',

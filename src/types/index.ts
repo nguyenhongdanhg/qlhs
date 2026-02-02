@@ -190,3 +190,65 @@ export interface DashboardStats {
   };
   totalClasses: number;
 }
+
+// =====================================================
+// HEALTH - Type Definitions
+// =====================================================
+
+export type HealthTreatmentType = 'medicine' | 'first_aid' | 'hospital';
+
+export interface Medicine {
+  id: string;
+  school_id: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  notes?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedicineTransaction {
+  id: string;
+  school_id: string;
+  medicine_id: string;
+  transaction_type: 'import' | 'export';
+  quantity: number;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  medicine?: Medicine;
+  profile?: Profile;
+}
+
+export interface HealthRecord {
+  id: string;
+  school_id: string;
+  student_id: string;
+  record_date: string;
+  diagnosis: string;
+  treatment_type: HealthTreatmentType;
+  hospital_name?: string;
+  hospital_date?: string;
+  discharge_date?: string;
+  hospital_result?: string;
+  parent_contacted: boolean;
+  parent_contact_notes?: string;
+  notes?: string;
+  reporter_id?: string;
+  created_at: string;
+  updated_at: string;
+  student?: Student;
+  reporter?: Profile;
+  medicines?: HealthRecordMedicine[];
+}
+
+export interface HealthRecordMedicine {
+  id: string;
+  health_record_id: string;
+  medicine_id: string;
+  quantity: number;
+  created_at: string;
+  medicine?: Medicine;
+}
