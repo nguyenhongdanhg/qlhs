@@ -1177,7 +1177,7 @@ export default function DutySchedule() {
                     Thêm người trực
                   </Button>
 
-                  {isSchoolAdmin() && (
+                  {canManageDuty && (
                     <>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -1351,7 +1351,7 @@ export default function DutySchedule() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center sticky left-[276px] bg-background z-10 border-r px-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                              {isSchoolAdmin() && (
+                              {canManageDuty && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <Button 
@@ -1402,7 +1402,7 @@ export default function DutySchedule() {
                                   <div className="flex justify-center">
                                     <Checkbox
                                       checked={assigned}
-                                      disabled={!isSchoolAdmin() || isSaving || (!assigned && !canCheck)}
+                                      disabled={!canManageDuty || isSaving || (!assigned && !canCheck)}
                                       onCheckedChange={() => toggleAssignment(member.id, day)}
                                       className={cn(
                                         "h-5 w-5",
