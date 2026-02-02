@@ -53,6 +53,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
   const [medicineName, setMedicineName] = useState('');
   const [medicineUnit, setMedicineUnit] = useState('viên');
   const [medicineNotes, setMedicineNotes] = useState('');
+  const [initialQty, setInitialQty] = useState<number>(0);
   const [importQty, setImportQty] = useState<number>(0);
   const [importNotes, setImportNotes] = useState('');
 
@@ -106,21 +107,37 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
   const addMutation = useMutation({
     mutationFn: async () => {
       if (!medicineName.trim()) throw new Error('Vui lòng nhập tên thuốc');
-      const { error } = await supabase.from('medicines').insert({
+      
+      // Insert medicine
+      const { data: newMedicine, error } = await supabase.from('medicines').insert({
         school_id: schoolId,
         name: medicineName.trim(),
         unit: medicineUnit,
         notes: medicineNotes.trim() || null,
-        quantity: 0,
-      });
+        quantity: initialQty,
+      }).select().single();
       if (error) throw error;
+
+      // Log initial import transaction if quantity > 0
+      if (initialQty > 0 && newMedicine) {
+        await supabase.from('medicine_transactions').insert({
+          school_id: schoolId,
+          medicine_id: newMedicine.id,
+          transaction_type: 'import',
+          quantity: initialQty,
+          notes: 'Nhập kho ban đầu',
+          created_by: userId,
+        });
+      }
     },
     onSuccess: () => {
       toast({ title: 'Thành công', description: 'Đã thêm thuốc mới' });
       queryClient.invalidateQueries({ queryKey: ['medicines'] });
+      queryClient.invalidateQueries({ queryKey: ['medicine-transactions'] });
       setShowAddDialog(false);
       setMedicineName('');
       setMedicineNotes('');
+      setInitialQty(0);
     },
     onError: (error: any) => {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -387,20 +404,32 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
                 onChange={(e) => setMedicineName(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Đơn vị tính</Label>
-              <Select value={medicineUnit} onValueChange={setMedicineUnit}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {UNIT_OPTIONS.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Đơn vị tính</Label>
+                <Select value={medicineUnit} onValueChange={setMedicineUnit}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UNIT_OPTIONS.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Số lượng ban đầu</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={initialQty || ''}
+                  onChange={(e) => setInitialQty(parseInt(e.target.value) || 0)}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Ghi chú</Label>
