@@ -450,9 +450,9 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
 
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
-            <ScrollArea className="max-h-[400px]">
+            <ScrollArea className="h-[500px]">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
                     {canDelete && (
                       <TableHead className="w-10">
@@ -462,6 +462,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                         />
                       </TableHead>
                     )}
+                    <TableHead className="w-12 text-center">STT</TableHead>
                     <TableHead>Tên thuốc</TableHead>
                     <TableHead className="text-center">Đơn vị</TableHead>
                     <TableHead className="text-center">Hạn SD</TableHead>
@@ -473,7 +474,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMedicines.map((med) => {
+                  {filteredMedicines.map((med, index) => {
                     const stats = medicineStats[med.id] || { imported: 0, supplemented: 0, exported: 0 };
                     const expiryStatus = getExpiryStatus(med.expiry_date);
                     return (
@@ -486,6 +487,9 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                             />
                           </TableCell>
                         )}
+                        <TableCell className="text-center font-medium text-muted-foreground">
+                          {index + 1}
+                        </TableCell>
                         <TableCell>
                           <p className="font-medium">{med.name}</p>
                           {med.notes && <p className="text-xs text-muted-foreground">{med.notes}</p>}
@@ -546,7 +550,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                   })}
                   {filteredMedicines.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={canDelete ? 10 : 9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={canDelete ? 11 : 10} className="text-center py-8 text-muted-foreground">
                         {searchTerm ? 'Không tìm thấy thuốc' : 'Chưa có thuốc nào trong kho'}
                       </TableCell>
                     </TableRow>
@@ -570,9 +574,9 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                 </span>
               </div>
             )}
-            <ScrollArea className="max-h-[60vh]">
+            <ScrollArea className="h-[60vh]">
               <div className="space-y-2 pr-2">
-                {filteredMedicines.map((med) => {
+                {filteredMedicines.map((med, index) => {
                   const stats = medicineStats[med.id] || { imported: 0, supplemented: 0, exported: 0 };
                   const expiryStatus = getExpiryStatus(med.expiry_date);
                   return (
@@ -588,7 +592,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
+                              <span className="text-xs font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5">{index + 1}</span>
                               <p className="font-medium text-sm break-words">{med.name}</p>
                             </div>
                             {med.notes && <p className="text-xs text-muted-foreground mt-1">{med.notes}</p>}
