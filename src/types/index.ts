@@ -204,6 +204,7 @@ export interface Medicine {
   unit: string;
   quantity: number;
   notes?: string;
+  expiry_date?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
