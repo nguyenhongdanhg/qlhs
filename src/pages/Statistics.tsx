@@ -1203,8 +1203,8 @@ export default function Statistics() {
               {title}
             </CardTitle>
             <div className="flex items-center gap-2">
-              {/* Show Finalize button when: deadline expired + has unreported classes + user can supplement + not class teacher */}
-              {!isClassTeacher && canSupplementReports && isDeadlineExpired && hasUnreportedClasses && (
+              {/* Show Finalize button when: has unreported classes + user can supplement + not class teacher */}
+              {!isClassTeacher && canSupplementReports && hasUnreportedClasses && (
                 <Button
                   variant="default"
                   size="sm"
