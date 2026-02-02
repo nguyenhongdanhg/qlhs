@@ -51,8 +51,7 @@ import {
   MealStudentData 
 } from '@/lib/excel-export';
 import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
-import { MealDiagnosticDialog } from '@/components/attendance/MealDiagnosticDialog';
-import { MealExportDialog } from '@/components/attendance/MealExportDialog';
+import { MealHistoryTab } from '@/components/attendance/MealHistoryTab';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -127,20 +126,7 @@ export default function Meals() {
   const [attendance, setAttendance] = useState<AttendanceMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
-  const [historyDate, setHistoryDate] = useState<Date>(new Date());
-  const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
-  const [historyClassFilter, setHistoryClassFilter] = useState<string>('all');
-  const [historyReporterFilter, setHistoryReporterFilter] = useState<string>('all');
-  const [reporters, setReporters] = useState<{ id: string; name: string }[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [expandedHistoryRecords, setExpandedHistoryRecords] = useState<Record<string, boolean>>({});
   const [mealDeadlines, setMealDeadlines] = useState<MealDeadline[]>(DEFAULT_MEAL_DEADLINES);
-  
-  // Bulk delete state
-  const [selectedHistoryRecords, setSelectedHistoryRecords] = useState<Set<string>>(new Set());
-  const [isDeleting, setIsDeleting] = useState(false);
   
   // Dialog for selecting absent students for 3 meals
   const [absent3MealsDialogOpen, setAbsent3MealsDialogOpen] = useState(false);
@@ -155,20 +141,12 @@ export default function Meals() {
     className?: string;
   } | null>(null);
 
-  // Diagnostic dialog state
-  const [diagnosticDialogOpen, setDiagnosticDialogOpen] = useState(false);
-
-  // Export dialog state
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
-
   // Check if user is class teacher and get their class
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const teacherClassId = currentMembership?.class_id;
 
   // Check if user can bypass deadline (Admin, Super Admin, or Accountant)
   const canBypassDeadline = isSuperAdmin || isSchoolAdmin() || currentMembership?.role === 'accountant';
-
-  const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
@@ -308,47 +286,6 @@ export default function Meals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSchool, date]);
 
-  useEffect(() => {
-    if (!currentSchool || activeTab !== 'history') return;
-    fetchHistory();
-  }, [currentSchool, activeTab, historyDateRange, historyClassFilter, historyReporterFilter, classes]);
-
-  // Fetch unique reporters for filter dropdown
-  useEffect(() => {
-    if (!currentSchool || activeTab !== 'history') return;
-    fetchReporters();
-  }, [currentSchool, activeTab, historyDateRange]);
-
-  const fetchReporters = async () => {
-    if (!currentSchool) return;
-    try {
-      const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
-      const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
-
-      const { data } = await supabase
-        .from('attendance_records')
-        .select('reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-        .eq('school_id', currentSchool.id)
-        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .gte('attendance_date', startDate)
-        .lte('attendance_date', endDate);
-
-      // Get unique reporters
-      const reporterMap = new Map<string, string>();
-      (data || []).forEach((record: any) => {
-        if (record.reporter_id && record.reporter?.full_name) {
-          reporterMap.set(record.reporter_id, record.reporter.full_name);
-        }
-      });
-
-      const uniqueReporters = Array.from(reporterMap.entries()).map(([id, name]) => ({ id, name }));
-      uniqueReporters.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-      setReporters(uniqueReporters);
-    } catch (error) {
-      console.error('Error fetching reporters:', error);
-    }
-  };
-
   const fetchClasses = async () => {
     if (!currentSchool) return;
     const { data } = await supabase
@@ -402,116 +339,6 @@ export default function Meals() {
       console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchHistory = async () => {
-    if (!currentSchool) return;
-    setIsLoadingHistory(true);
-    try {
-      const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
-      const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
-
-      // Build query - for class teachers, only fetch their class records
-      let query = supabase
-        .from('attendance_records')
-        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name), student:students(full_name, class:classes(name))')
-        .eq('school_id', currentSchool.id)
-        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .gte('attendance_date', startDate)
-        .lte('attendance_date', endDate)
-        .order('created_at', { ascending: false });
-
-      // Class teachers only see their class
-      if (isClassTeacher && teacherClassId) {
-        query = query.eq('class_id', teacherClassId);
-      } else if (historyClassFilter !== 'all') {
-        // Admin class filter
-        const selectedClassObj = classes.find(c => c.name === historyClassFilter);
-        if (selectedClassObj) {
-          query = query.eq('class_id', selectedClassObj.id);
-        }
-      }
-
-      // Reporter filter
-      if (historyReporterFilter !== 'all') {
-        query = query.eq('reporter_id', historyReporterFilter);
-      }
-
-      const { data: recordsData } = await query;
-
-      // CRITICAL FIX: First, get the latest record per student/date/meal
-      // This ensures we don't count duplicates from multiple report sessions
-      const latestByStudentDateMeal = new Map<string, any>();
-      (recordsData || []).forEach((record: any) => {
-        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
-        const existing = latestByStudentDateMeal.get(key);
-        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
-          latestByStudentDateMeal.set(key, record);
-        }
-      });
-
-      // Now group the latest records by date+meal for history display
-      const historyByDateMeal = new Map<string, HistoryRecord>();
-      
-      latestByStudentDateMeal.forEach((record) => {
-        const key = `${record.attendance_date}-${record.attendance_type}`;
-        
-        if (!historyByDateMeal.has(key)) {
-          historyByDateMeal.set(key, {
-            date: record.attendance_date,
-            meal: record.attendance_type,
-            reportedAt: record.created_at,
-            reporterId: record.reporter_id,
-            reporterName: record.reporter?.full_name || 'N/A',
-            total: 0,
-            present: 0,
-            absent: 0,
-            absentStudents: [],
-            className: isClassTeacher && teacherClassName ? teacherClassName : (historyClassFilter !== 'all' ? historyClassFilter : undefined),
-          });
-        }
-        
-        const entry = historyByDateMeal.get(key)!;
-        entry.total++;
-        if (record.status === 'present') {
-          entry.present++;
-        } else {
-          entry.absent++;
-          // Add to absent students list
-          const studentName = record.student?.full_name || 'N/A';
-          const className = record.student?.class?.name || 'N/A';
-          entry.absentStudents.push({
-            id: record.student_id,
-            name: studentName,
-            className: className,
-          });
-        }
-        
-        // Keep the latest report time for display
-        if (new Date(record.created_at) > new Date(entry.reportedAt)) {
-          entry.reportedAt = record.created_at;
-          entry.reporterId = record.reporter_id;
-          entry.reporterName = record.reporter?.full_name || 'N/A';
-        }
-      });
-
-      // Sort absent students by class then name
-      historyByDateMeal.forEach((entry) => {
-        entry.absentStudents.sort((a, b) => {
-          if (a.className !== b.className) return a.className.localeCompare(b.className, 'vi');
-          return a.name.localeCompare(b.name, 'vi');
-        });
-      });
-
-      setHistoryRecords(Array.from(historyByDateMeal.values()).sort((a, b) => 
-        b.date.localeCompare(a.date) || 
-        new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
-      ));
-    } catch (error) {
-      console.error('Error fetching history:', error);
-    } finally {
-      setIsLoadingHistory(false);
     }
   };
 
@@ -811,88 +638,6 @@ export default function Meals() {
     }
   };
 
-  const handleDeleteHistory = async (historyDate: string, meal: AttendanceType) => {
-    if (!currentSchool) return;
-    try {
-      await supabase
-        .from('attendance_records')
-        .delete()
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_date', historyDate)
-        .eq('attendance_type', meal);
-      
-      toast({ title: 'Đã xóa', description: 'Đã xóa báo cáo' });
-      fetchHistory();
-    } catch (error: any) {
-      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
-    }
-  };
-
-  // Toggle select history record for bulk delete
-  const toggleSelectHistory = (recordKey: string) => {
-    setSelectedHistoryRecords(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(recordKey)) {
-        newSet.delete(recordKey);
-      } else {
-        newSet.add(recordKey);
-      }
-      return newSet;
-    });
-  };
-
-  // Select all visible history records
-  const toggleSelectAllHistory = () => {
-    if (selectedHistoryRecords.size === historyRecords.length) {
-      setSelectedHistoryRecords(new Set());
-    } else {
-      const allKeys = historyRecords.map(r => `${r.date}-${r.meal}`);
-      setSelectedHistoryRecords(new Set(allKeys));
-    }
-  };
-
-  // Bulk delete selected history records
-  const handleBulkDeleteHistory = async () => {
-    if (!currentSchool || selectedHistoryRecords.size === 0) return;
-    
-    if (!window.confirm(`Xác nhận xóa ${selectedHistoryRecords.size} báo cáo đã chọn?`)) {
-      return;
-    }
-
-    setIsDeleting(true);
-    try {
-      // Parse selected keys and delete each
-      const deletePromises = Array.from(selectedHistoryRecords).map(key => {
-        const [date, meal] = key.split('-');
-        // Handle date format properly (yyyy-MM-dd-mealtype)
-        const dateParts = key.match(/^(\d{4}-\d{2}-\d{2})-(.+)$/);
-        if (!dateParts) return Promise.resolve();
-        
-        const historyDate = dateParts[1];
-        const mealType = dateParts[2] as AttendanceType;
-        
-        return supabase
-          .from('attendance_records')
-          .delete()
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', historyDate)
-          .eq('attendance_type', mealType);
-      });
-
-      await Promise.all(deletePromises);
-      
-      toast({ 
-        title: 'Đã xóa', 
-        description: `Đã xóa ${selectedHistoryRecords.size} báo cáo` 
-      });
-      setSelectedHistoryRecords(new Set());
-      fetchHistory();
-    } catch (error: any) {
-      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   // Handle edit meal report - load existing data and switch to edit mode
   const handleEditMealReport = async (record: HistoryRecord) => {
@@ -976,214 +721,6 @@ export default function Meals() {
     }
   }, [isEditMode, editModeData, isLoading]);
 
-  const handleExportExcel = async (rangeType: DateRangeType, selectedDate: Date) => {
-    if (!currentSchool) return;
-    setIsExporting(true);
-    
-    try {
-      const exportDateRange = getDateRange(selectedDate, rangeType);
-      const days = eachDayOfInterval({ start: exportDateRange.start, end: exportDateRange.end });
-      
-      // IMPORTANT: For Excel export, we need ALL boarding students, not just currently filtered ones
-      // Re-fetch all students to ensure we have the complete list
-      const { data: allStudentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*, class:classes(*)')
-        .eq('school_id', currentSchool.id)
-        .eq('is_active', true)
-        .eq('is_boarding', true)
-        .order('full_name');
-
-      if (studentsError) throw studentsError;
-
-      const allStudents = (allStudentsData || []).map(s => ({
-        ...s,
-        class: s.class as unknown as Class
-      })) as Student[];
-
-      // For class teachers, only export their class students
-      const studentsToExport = isClassTeacher && teacherClassId 
-        ? allStudents.filter(s => s.class_id === teacherClassId)
-        : allStudents;
-
-      console.log(`[Meal Excel Export] Starting export...`);
-      console.log(`  - All students in school: ${allStudents.length}`);
-      console.log(`  - Students to export: ${studentsToExport.length}`);
-      console.log(`  - Is class teacher: ${isClassTeacher}, Teacher class: ${teacherClassId}`);
-
-      // CRITICAL: Always fetch attendance by student IDs (not whole-school)
-      // and paginate to avoid missing classes due to row limits.
-      const studentIds = studentsToExport.map((s) => s.id);
-      if (studentIds.length === 0) {
-        toast({ title: 'Không có dữ liệu', description: 'Không có học sinh để xuất' });
-        return;
-      }
-
-      const startDate = format(exportDateRange.start, 'yyyy-MM-dd');
-      const endDate = format(exportDateRange.end, 'yyyy-MM-dd');
-
-      // Fetch attendance records with pagination
-      // IMPORTANT: Supabase has default limit of 1000 rows. We need to use explicit
-      // .limit() to override this. Using smaller page size for reliability.
-      const PAGE_SIZE = 1000;
-      const MAX_PAGES = 500; // safety cap = 500,000 rows max
-      const recordsData: any[] = [];
-      
-      console.log(`[Meal Excel Export] Fetching records for date range: ${startDate} to ${endDate}`);
-      
-      let pageNum = 0;
-      while (pageNum < MAX_PAGES) {
-        const from = pageNum * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-        
-        const { data, error } = await supabase
-          .from('attendance_records')
-          .select('*')
-          .eq('school_id', currentSchool.id)
-          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-          .gte('attendance_date', startDate)
-          .lte('attendance_date', endDate)
-          // newest first so latestByKey works even if we ever hit MAX_ROWS cap
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-
-        const page = data || [];
-        recordsData.push(...page);
-        
-        console.log(`[Meal Excel Export] Fetched page ${pageNum + 1}: ${page.length} records (total so far: ${recordsData.length})`);
-
-        // If we got less than PAGE_SIZE, we've reached the end
-        if (page.length < PAGE_SIZE) break;
-        
-        pageNum++;
-      }
-
-      console.log(`[Meal Excel Export] Total raw records fetched: ${recordsData.length}`);
-
-      // Filter to only include students we're exporting
-      const studentIdSet = new Set(studentIds);
-      const filteredRecords = recordsData.filter(r => studentIdSet.has(r.student_id));
-      
-      console.log(`[Meal Excel Export] Records after filtering to export students: ${filteredRecords.length}`);
-
-      // Create attendance map: studentId -> date -> meal -> status (based on latest report per meal/date)
-      const latestByKey = new Map<string, any>();
-      filteredRecords.forEach((record: any) => {
-        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
-        const existing = latestByKey.get(key);
-        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
-          latestByKey.set(key, record);
-        }
-      });
-
-      console.log(`[Meal Excel Export] Unique latest records: ${latestByKey.size}`);
-
-      // Debug: Count records per class (by class_id from student, not from record)
-      const classRecordCounts = new Map<string, { breakfast: number; lunch: number; dinner: number }>();
-      
-      // Build student to class mapping
-      const studentToClass = new Map<string, string>();
-      studentsToExport.forEach(s => {
-        if (s.class?.name) {
-          studentToClass.set(s.id, s.class.name);
-        }
-      });
-      
-      latestByKey.forEach((record) => {
-        const className = studentToClass.get(record.student_id) || 'Unknown';
-        if (!classRecordCounts.has(className)) {
-          classRecordCounts.set(className, { breakfast: 0, lunch: 0, dinner: 0 });
-        }
-        const counts = classRecordCounts.get(className)!;
-        if (record.attendance_type === 'breakfast') counts.breakfast++;
-        else if (record.attendance_type === 'lunch') counts.lunch++;
-        else if (record.attendance_type === 'dinner') counts.dinner++;
-      });
-
-      // Map class IDs to class names for logging
-      const classIdToName = new Map<string, string>();
-      studentsToExport.forEach(s => {
-        if (s.class_id && s.class?.name) {
-          classIdToName.set(s.class_id, s.class.name);
-        }
-      });
-
-      console.log(`[Meal Excel Export] Summary:`);
-      console.log(`  - Students to export: ${studentIds.length}`);
-      console.log(`  - Total records fetched: ${recordsData.length}`);
-      console.log(`  - Filtered records: ${filteredRecords.length}`);
-      console.log(`  - Unique records (latest): ${latestByKey.size}`);
-      console.log(`  - Date range: ${startDate} to ${endDate}`);
-      console.log(`  - Days in range: ${days.length}`);
-      console.log(`  - Records per class:`);
-      
-      // Sort by class name for consistent logging
-      const sortedClassCounts = Array.from(classRecordCounts.entries()).sort((a, b) => a[0].localeCompare(b[0], 'vi'));
-      sortedClassCounts.forEach(([className, counts]) => {
-        console.log(`    ${className}: B=${counts.breakfast}, L=${counts.lunch}, D=${counts.dinner}`);
-      });
-
-      // Build student data with null for unreported meals
-      const studentData: MealStudentData[] = studentsToExport.map(student => {
-        const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
-        
-        let studentHasRecords = false;
-        days.forEach(day => {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          const bKey = `${student.id}-${dateStr}-breakfast`;
-          const lKey = `${student.id}-${dateStr}-lunch`;
-          const dKey = `${student.id}-${dateStr}-dinner`;
-          
-          const bRecord = latestByKey.get(bKey);
-          const lRecord = latestByKey.get(lKey);
-          const dRecord = latestByKey.get(dKey);
-          
-          if (bRecord || lRecord || dRecord) studentHasRecords = true;
-          
-          // Use null if no report exists for this meal on this date
-          attendanceMap.set(dateStr, {
-            breakfast: bRecord ? bRecord.status === 'present' : null,
-            lunch: lRecord ? lRecord.status === 'present' : null,
-            dinner: dRecord ? dRecord.status === 'present' : null,
-          });
-        });
-
-        return {
-          id: student.id,
-          name: student.full_name,
-          className: student.class?.name || '',
-          classGrade: student.class?.grade,
-          roomNumber: student.room_number || undefined,
-          mealGroup: student.meal_group || undefined,
-          attendance: attendanceMap,
-        };
-      });
-
-      // For class teachers, include class name in the title
-      const teacherClass = isClassTeacher && teacherClassId 
-        ? classes.find(c => c.id === teacherClassId)?.name 
-        : null;
-      const exportTitle = teacherClass 
-        ? `THỐNG KÊ BỮA ĂN LỚP ${teacherClass}`
-        : 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ';
-
-      exportMealStatistics(studentData, {
-        schoolName: currentSchool.name,
-        title: exportTitle,
-        dateRange: exportDateRange,
-        reporterName: profile?.full_name,
-        exportTime: new Date(),
-      });
-
-      toast({ title: 'Thành công', description: 'Đã xuất file Excel' });
-    } catch (error: any) {
-      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   // For class teachers, only show their class students
   // For admins/super admins, show all students or filter by selected class
@@ -1500,296 +1037,31 @@ export default function Meals() {
             </Button>
           </TabsContent>
 
-          <TabsContent value="history" className="p-4 space-y-4">
-            {/* Date Range Selection and Export */}
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">Loại thống kê</label>
-                  <Select value={historyRangeType} onValueChange={(v) => setHistoryRangeType(v as DateRangeType)}>
-                    <SelectTrigger className="w-[130px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="day">Theo ngày</SelectItem>
-                      <SelectItem value="week">Theo tuần</SelectItem>
-                      <SelectItem value="month">Theo tháng</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">Chọn {historyRangeType === 'day' ? 'ngày' : historyRangeType === 'week' ? 'tuần' : 'tháng'}</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {historyDateRange.label}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar 
-                        mode="single" 
-                        selected={historyDate} 
-                        onSelect={(d) => d && setHistoryDate(d)} 
-                        className="pointer-events-auto" 
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                {/* Class Filter for Admin only */}
-                {!isClassTeacher && (
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-1.5 block">Lọc theo lớp</label>
-                    <Select value={historyClassFilter} onValueChange={setHistoryClassFilter}>
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue placeholder="Tất cả lớp" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tất cả lớp</SelectItem>
-                        {sortedClasses.map((cls) => (
-                          <SelectItem key={cls.id} value={cls.name}>{cls.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                {/* Reporter Filter */}
-                {!isClassTeacher && (
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-1.5 block">Lọc theo người báo cáo</label>
-                    <Select value={historyReporterFilter} onValueChange={setHistoryReporterFilter}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Tất cả người báo cáo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tất cả người báo cáo</SelectItem>
-                        {reporters.map((reporter) => (
-                          <SelectItem key={reporter.id} value={reporter.id}>{reporter.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {!isClassTeacher && (
-                  <Button 
-                    onClick={() => setDiagnosticDialogOpen(true)} 
-                    variant="outline" 
-                    size="sm"
-                    className="text-amber-600 border-amber-300 hover:bg-amber-50"
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Chẩn đoán
-                  </Button>
-                )}
-                <Button onClick={() => setExportDialogOpen(true)} variant="outline" disabled={isExporting}>
-                  {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
-                  Xuất Excel
-                </Button>
-              </div>
-            </div>
-
-            {/* Class Teacher Notice */}
-            {isClassTeacher && teacherClassName && (
-              <Alert className="border-blue-200 bg-blue-50">
-                <Users className="h-4 w-4 text-blue-500" />
-                <AlertDescription className="text-blue-700">
-                  Hiển thị lịch sử báo cáo bữa ăn của lớp <strong>{teacherClassName}</strong> - lớp bạn chủ nhiệm.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Statistics Summary */}
-            {historyRecords.length > 0 && (
-              <div className="grid grid-cols-3 gap-4">
-                <Card className="p-4 text-center bg-primary/5 border-primary/20">
-                  <p className="text-2xl font-bold text-primary">{historyRecords.length}</p>
-                  <p className="text-xs text-muted-foreground">Số báo cáo</p>
-                </Card>
-                <Card className="p-4 text-center bg-success/10 border-success/20">
-                  <p className="text-2xl font-bold text-success">{historyRecords.reduce((s, r) => s + r.present, 0)}</p>
-                  <p className="text-xs text-muted-foreground">Tổng có mặt</p>
-                </Card>
-                <Card className="p-4 text-center bg-destructive/10 border-destructive/20">
-                  <p className="text-2xl font-bold text-destructive">{historyRecords.reduce((s, r) => s + r.absent, 0)}</p>
-                  <p className="text-xs text-muted-foreground">Tổng vắng</p>
-                </Card>
-              </div>
-            )}
-
-            {/* Bulk Delete Actions */}
-            {historyRecords.length > 0 && (isSuperAdmin || isSchoolAdmin() || canDelete) && (
-              <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    checked={selectedHistoryRecords.size === historyRecords.length && historyRecords.length > 0}
-                    onCheckedChange={toggleSelectAllHistory}
-                    aria-label="Chọn tất cả"
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {selectedHistoryRecords.size > 0 
-                      ? `Đã chọn ${selectedHistoryRecords.size}/${historyRecords.length}` 
-                      : 'Chọn tất cả'}
-                  </span>
-                </div>
-                {selectedHistoryRecords.size > 0 && (
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={handleBulkDeleteHistory}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 mr-2" />
-                    )}
-                    Xóa {selectedHistoryRecords.size} báo cáo
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* History Records */}
-            {isLoadingHistory ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : historyRecords.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                Không có báo cáo trong khoảng thời gian này
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {historyRecords.map((record, idx) => {
-                  const mealInfo = mealTypes.find(m => m.type === record.meal);
-                  const MealIcon = mealInfo?.icon || Sun;
-                  const recordKey = `${record.date}-${record.meal}`;
-                  const isExpanded = expandedHistoryRecords[recordKey];
-                  const isSelected = selectedHistoryRecords.has(recordKey);
-                  const canSelectRecord = isSuperAdmin || isSchoolAdmin() || canDelete;
-                  
-                  return (
-                    <Card key={idx} className={cn("overflow-hidden", isSelected && "ring-2 ring-primary")}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {canSelectRecord && (
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={() => toggleSelectHistory(recordKey)}
-                                aria-label={`Chọn báo cáo ${record.date} ${record.meal}`}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            )}
-                            <div className={cn(
-                              "w-10 h-10 rounded-full flex items-center justify-center",
-                              record.meal === 'breakfast' && "bg-amber-100",
-                              record.meal === 'lunch' && "bg-orange-100",
-                              record.meal === 'dinner' && "bg-purple-100"
-                            )}>
-                              <MealIcon className={cn(
-                                "h-5 w-5",
-                                record.meal === 'breakfast' && "text-amber-600",
-                                record.meal === 'lunch' && "text-orange-600",
-                                record.meal === 'dinner' && "text-purple-600"
-                              )} />
-                            </div>
-                            <div>
-                              <div className="font-medium">
-                                {format(new Date(record.date), 'EEEE, dd/MM/yyyy', { locale: vi })}
-                                {record.className && <Badge variant="secondary" className="ml-2 text-xs">{record.className}</Badge>}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {mealInfo?.label} • Báo bởi: {record.reporterName}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy', { locale: vi })}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-right">
-                              <div className="text-sm">
-                                <span className="text-success font-medium">{record.present} ăn</span>
-                                {' / '}
-                                <span className="text-destructive">{record.absent} vắng</span>
-                              </div>
-                              <div className="text-xs text-muted-foreground">Tổng: {record.total}</div>
-                            </div>
-                            {record.absentStudents.length > 0 && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => setExpandedHistoryRecords(prev => ({
-                                  ...prev,
-                                  [recordKey]: !prev[recordKey]
-                                }))}
-                                className="h-8 px-2"
-                              >
-                                {isExpanded ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </Button>
-                            )}
-                            {(isSuperAdmin || isSchoolAdmin() || record.reporterId === user?.id) && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleEditMealReport(record)}
-                                className="h-8 px-2"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {(isSuperAdmin || isSchoolAdmin() || canDelete) && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => {
-                                  if (window.confirm(`Xác nhận xóa báo cáo ${mealInfo?.label} ngày ${format(new Date(record.date), 'dd/MM/yyyy')}?`)) {
-                                    handleDeleteHistory(record.date, record.meal);
-                                  }
-                                }}
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Expandable Absent Students List */}
-                        {isExpanded && record.absentStudents.length > 0 && (
-                          <div className="mt-4 pt-4 border-t">
-                            <p className="text-sm font-medium text-muted-foreground mb-2">
-                              Danh sách vắng ({record.absentStudents.length}):
-                            </p>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                              {record.absentStudents.map((student, sIdx) => (
-                                <div 
-                                  key={sIdx}
-                                  className="flex items-center gap-1.5 p-2 rounded-lg bg-destructive/5 border border-destructive/20"
-                                >
-                                  <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium truncate">{student.name}</p>
-                                    <p className="text-[10px] text-muted-foreground">{student.className}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+          <TabsContent value="history" className="p-4">
+            <MealHistoryTab
+              students={students}
+              classes={classes}
+              isClassTeacher={isClassTeacher}
+              teacherClassId={teacherClassId || null}
+              teacherClassName={teacherClassName || null}
+              canDelete={canDelete}
+              onEditReport={(date, meal, className) => {
+                // Find or construct a history record to pass to edit handler
+                const record = {
+                  date,
+                  meal,
+                  reportedAt: new Date().toISOString(),
+                  reporterId: user?.id || '',
+                  reporterName: profile?.full_name || '',
+                  total: 0,
+                  present: 0,
+                  absent: 0,
+                  absentStudents: [],
+                  className,
+                };
+                handleEditMealReport(record);
+              }}
+            />
           </TabsContent>
         </Tabs>
       </Card>
@@ -1818,27 +1090,6 @@ export default function Meals() {
         isLoading={isSaving}
         title={`${mealTypes.find(m => m.type === selectedMeal)?.label} - Chọn học sinh vắng`}
         description="Chọn học sinh vắng cho bữa này. Các học sinh không chọn sẽ được báo đủ."
-      />
-
-      {/* Diagnostic Dialog */}
-      {currentSchool && (
-        <MealDiagnosticDialog
-          open={diagnosticDialogOpen}
-          onOpenChange={setDiagnosticDialogOpen}
-          schoolId={currentSchool.id}
-          students={students}
-          classes={classes}
-          startDate={historyDateRange.start}
-          endDate={historyDateRange.end}
-        />
-      )}
-
-      {/* Export Dialog */}
-      <MealExportDialog
-        open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        onExport={handleExportExcel}
-        isExporting={isExporting}
       />
     </div>
   );
