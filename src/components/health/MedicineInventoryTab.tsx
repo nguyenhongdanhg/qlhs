@@ -151,6 +151,21 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
     return stats;
   }, [medicines, allTransactions]);
 
+  // Check if expiry date is near (within 3 months) or passed
+  const getExpiryStatus = (expiryDate?: string) => {
+    if (!expiryDate) return null;
+    const expiry = parseISO(expiryDate);
+    const now = new Date();
+    const threeMonthsFromNow = addMonths(now, 3);
+    
+    if (isBefore(expiry, now)) {
+      return 'expired';
+    } else if (isBefore(expiry, threeMonthsFromNow)) {
+      return 'expiring';
+    }
+    return 'ok';
+  };
+
   // Filter medicines
   const filteredMedicines = useMemo(() => {
     let result = medicines;
@@ -173,21 +188,6 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
     
     return result;
   }, [medicines, searchTerm, filterType]);
-
-  // Check if expiry date is near (within 3 months) or passed
-  const getExpiryStatus = (expiryDate?: string) => {
-    if (!expiryDate) return null;
-    const expiry = parseISO(expiryDate);
-    const now = new Date();
-    const threeMonthsFromNow = addMonths(now, 3);
-    
-    if (isBefore(expiry, now)) {
-      return 'expired';
-    } else if (isBefore(expiry, threeMonthsFromNow)) {
-      return 'expiring';
-    }
-    return 'ok';
-  };
 
   // Bulk selection handlers
   const toggleSelectAll = () => {
