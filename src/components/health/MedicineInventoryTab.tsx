@@ -161,12 +161,13 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
       if (error) throw error;
 
       if (initialQty > 0 && newMedicine) {
+        const currentDate = format(new Date(), 'dd/MM/yyyy HH:mm', { locale: vi });
         await supabase.from('medicine_transactions').insert({
           school_id: schoolId,
           medicine_id: newMedicine.id,
           transaction_type: 'import',
           quantity: initialQty,
-          notes: 'Nhập kho ban đầu',
+          notes: `Nhập kho ban đầu - ${currentDate}`,
           created_by: userId,
         });
       }
@@ -241,12 +242,17 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
         .eq('id', selectedMedicine.id);
       if (updateError) throw updateError;
 
+      const currentDate = format(new Date(), 'dd/MM/yyyy HH:mm', { locale: vi });
+      const noteWithDate = importNotes.trim() 
+        ? `Bổ sung - ${currentDate} - ${importNotes.trim()}`
+        : `Bổ sung - ${currentDate}`;
+      
       const { error: txError } = await supabase.from('medicine_transactions').insert({
         school_id: schoolId,
         medicine_id: selectedMedicine.id,
         transaction_type: 'import',
         quantity: importQty,
-        notes: importNotes.trim() || null,
+        notes: noteWithDate,
         created_by: userId,
       });
       if (txError) throw txError;
@@ -320,10 +326,19 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-base">Danh sách thuốc</CardTitle>
             {isAdmin && (
-              <Button size="sm" onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-4 w-4 mr-1" />
-                Thêm thuốc
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => {
+                  setSelectedMedicine(null);
+                  setShowImportDialog(true);
+                }}>
+                  <ArrowUpCircle className="h-4 w-4 mr-1" />
+                  Bổ sung thuốc
+                </Button>
+                <Button size="sm" onClick={() => setShowAddDialog(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Thêm thuốc mới
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -524,6 +539,9 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
               <Label>Ghi chú</Label>
               <Textarea placeholder="Ghi chú thêm..." value={medicineNotes} onChange={(e) => setMedicineNotes(e.target.value)} rows={2} />
             </div>
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+              📅 Ngày nhập: <strong>{format(new Date(), 'dd/MM/yyyy HH:mm', { locale: vi })}</strong> (tự động ghi nhận)
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>Hủy</Button>
@@ -571,27 +589,56 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
       </Dialog>
 
       {/* Import Medicine Dialog */}
-      <Dialog open={showImportDialog} onOpenChange={() => { setShowImportDialog(false); setSelectedMedicine(null); }}>
+      <Dialog open={showImportDialog} onOpenChange={() => { setShowImportDialog(false); setSelectedMedicine(null); setImportQty(0); setImportNotes(''); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Bổ sung thuốc vào kho</DialogTitle>
-            <DialogDescription>
-              Thuốc: <strong>{selectedMedicine?.name}</strong> (Hiện có: {selectedMedicine?.quantity} {selectedMedicine?.unit})
-            </DialogDescription>
+            {selectedMedicine ? (
+              <DialogDescription>
+                Thuốc: <strong>{selectedMedicine.name}</strong> (Hiện có: {selectedMedicine.quantity} {selectedMedicine.unit})
+              </DialogDescription>
+            ) : (
+              <DialogDescription>
+                Chọn thuốc cần bổ sung số lượng
+              </DialogDescription>
+            )}
           </DialogHeader>
           <div className="space-y-4">
+            {!selectedMedicine && (
+              <div className="space-y-2">
+                <Label>Chọn thuốc *</Label>
+                <Select onValueChange={(id) => {
+                  const med = medicines.find(m => m.id === id);
+                  if (med) setSelectedMedicine(med);
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn thuốc cần bổ sung..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {medicines.map((med) => (
+                      <SelectItem key={med.id} value={med.id}>
+                        {med.name} (Còn: {med.quantity} {med.unit})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
-              <Label>Số lượng bổ sung</Label>
+              <Label>Số lượng bổ sung *</Label>
               <Input type="number" min={1} value={importQty || ''} onChange={(e) => setImportQty(parseInt(e.target.value) || 0)} placeholder="Nhập số lượng..." />
             </div>
             <div className="space-y-2">
               <Label>Ghi chú (nguồn nhập, lô...)</Label>
               <Textarea placeholder="Ghi chú thêm..." value={importNotes} onChange={(e) => setImportNotes(e.target.value)} rows={2} />
             </div>
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+              📅 Ngày bổ sung: <strong>{format(new Date(), 'dd/MM/yyyy HH:mm', { locale: vi })}</strong> (tự động ghi nhận)
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowImportDialog(false); setSelectedMedicine(null); }}>Hủy</Button>
-            <Button onClick={() => importMutation.mutate()} disabled={importMutation.isPending || importQty <= 0}>
+            <Button variant="outline" onClick={() => { setShowImportDialog(false); setSelectedMedicine(null); setImportQty(0); setImportNotes(''); }}>Hủy</Button>
+            <Button onClick={() => importMutation.mutate()} disabled={importMutation.isPending || importQty <= 0 || !selectedMedicine}>
               {importMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Bổ sung
             </Button>
