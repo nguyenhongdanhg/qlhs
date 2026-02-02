@@ -227,27 +227,54 @@ export default function Emulation() {
         },
       }));
     } else {
+      // Only allow valid number characters
+      const cleanValue = value.replace(/[^0-9.]/g, '');
+      
       // Store raw string value for display
       setInputValues((prev) => ({
         ...prev,
         [classId]: {
           ...prev[classId],
-          [field]: value,
+          [field]: cleanValue,
         },
       }));
 
-      // Parse and validate for actual score
-      const numValue = value === '' ? 0 : parseFloat(value);
-      if (!isNaN(numValue)) {
-        const clampedValue = Math.min(10, Math.max(0, numValue));
+      // Parse for actual score - allow empty string to keep input empty
+      if (cleanValue === '') {
         setEditingScores((prev) => ({
           ...prev,
           [classId]: {
             ...prev[classId],
-            [field]: clampedValue,
+            [field]: 0,
           },
         }));
+      } else {
+        const numValue = parseFloat(cleanValue);
+        if (!isNaN(numValue)) {
+          const clampedValue = Math.min(10, Math.max(0, numValue));
+          setEditingScores((prev) => ({
+            ...prev,
+            [classId]: {
+              ...prev[classId],
+              [field]: clampedValue,
+            },
+          }));
+        }
       }
+    }
+  };
+
+  const handleScoreBlur = (classId: string, field: 'academic_score' | 'discipline_score' | 'boarding_score') => {
+    const inputValue = inputValues[classId]?.[field];
+    if (inputValue === '' || inputValue === undefined) {
+      // If empty, set to 0 visually
+      setInputValues((prev) => ({
+        ...prev,
+        [classId]: {
+          ...prev[classId],
+          [field]: '0',
+        },
+      }));
     }
   };
 
@@ -502,9 +529,10 @@ export default function Emulation() {
                               <Input
                                 type="text"
                                 inputMode="decimal"
-                                pattern="[0-9]*\.?[0-9]*"
                                 value={getScoreValue(cls.class_id, 'academic_score')}
                                 onChange={(e) => handleScoreChange(cls.class_id, 'academic_score', e.target.value)}
+                                onBlur={() => handleScoreBlur(cls.class_id, 'academic_score')}
+                                onFocus={(e) => e.target.select()}
                                 className="w-[70px] text-center mx-auto"
                               />
                             ) : (
@@ -516,9 +544,10 @@ export default function Emulation() {
                               <Input
                                 type="text"
                                 inputMode="decimal"
-                                pattern="[0-9]*\.?[0-9]*"
                                 value={getScoreValue(cls.class_id, 'discipline_score')}
                                 onChange={(e) => handleScoreChange(cls.class_id, 'discipline_score', e.target.value)}
+                                onBlur={() => handleScoreBlur(cls.class_id, 'discipline_score')}
+                                onFocus={(e) => e.target.select()}
                                 className="w-[70px] text-center mx-auto"
                               />
                             ) : (
@@ -530,9 +559,10 @@ export default function Emulation() {
                               <Input
                                 type="text"
                                 inputMode="decimal"
-                                pattern="[0-9]*\.?[0-9]*"
                                 value={getScoreValue(cls.class_id, 'boarding_score')}
                                 onChange={(e) => handleScoreChange(cls.class_id, 'boarding_score', e.target.value)}
+                                onBlur={() => handleScoreBlur(cls.class_id, 'boarding_score')}
+                                onFocus={(e) => e.target.select()}
                                 className="w-[70px] text-center mx-auto"
                               />
                             ) : (
