@@ -375,6 +375,124 @@ export type Database = {
         }
         Relationships: []
       }
+      health_record_medicines: {
+        Row: {
+          created_at: string | null
+          health_record_id: string
+          id: string
+          medicine_id: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string | null
+          health_record_id: string
+          id?: string
+          medicine_id: string
+          quantity?: number
+        }
+        Update: {
+          created_at?: string | null
+          health_record_id?: string
+          id?: string
+          medicine_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_record_medicines_health_record_id_fkey"
+            columns: ["health_record_id"]
+            isOneToOne: false
+            referencedRelation: "health_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_record_medicines_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_records: {
+        Row: {
+          created_at: string | null
+          diagnosis: string
+          discharge_date: string | null
+          hospital_date: string | null
+          hospital_name: string | null
+          hospital_result: string | null
+          id: string
+          notes: string | null
+          parent_contact_notes: string | null
+          parent_contacted: boolean | null
+          record_date: string
+          reporter_id: string | null
+          school_id: string
+          student_id: string
+          treatment_type: Database["public"]["Enums"]["health_treatment_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          diagnosis: string
+          discharge_date?: string | null
+          hospital_date?: string | null
+          hospital_name?: string | null
+          hospital_result?: string | null
+          id?: string
+          notes?: string | null
+          parent_contact_notes?: string | null
+          parent_contacted?: boolean | null
+          record_date?: string
+          reporter_id?: string | null
+          school_id: string
+          student_id: string
+          treatment_type: Database["public"]["Enums"]["health_treatment_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          diagnosis?: string
+          discharge_date?: string | null
+          hospital_date?: string | null
+          hospital_name?: string | null
+          hospital_result?: string | null
+          id?: string
+          notes?: string | null
+          parent_contact_notes?: string | null
+          parent_contacted?: boolean | null
+          record_date?: string
+          reporter_id?: string | null
+          school_id?: string
+          student_id?: string
+          treatment_type?: Database["public"]["Enums"]["health_treatment_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_records_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_records_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "health_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_history: {
         Row: {
           id: string
@@ -458,6 +576,105 @@ export type Database = {
             foreignKeyName: "meal_settings_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: true
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medicine_transactions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          medicine_id: string
+          notes: string | null
+          quantity: number
+          school_id: string
+          transaction_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          medicine_id: string
+          notes?: string | null
+          quantity: number
+          school_id: string
+          transaction_type: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          medicine_id?: string
+          notes?: string | null
+          quantity?: number
+          school_id?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicine_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medicine_transactions_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medicine_transactions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medicines: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          notes: string | null
+          quantity: number
+          school_id: string
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          notes?: string | null
+          quantity?: number
+          school_id: string
+          unit?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          notes?: string | null
+          quantity?: number
+          school_id?: string
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicines_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
             referencedRelation: "schools"
             referencedColumns: ["id"]
           },
@@ -1108,6 +1325,7 @@ export type Database = {
         | "lunch"
         | "dinner"
       gender: "male" | "female"
+      health_treatment_type: "medicine" | "first_aid" | "hospital"
       membership_status: "active" | "suspended"
     }
     CompositeTypes: {
@@ -1255,6 +1473,7 @@ export const Constants = {
         "dinner",
       ],
       gender: ["male", "female"],
+      health_treatment_type: ["medicine", "first_aid", "hospital"],
       membership_status: ["active", "suspended"],
     },
   },

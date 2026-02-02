@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 // Core pages - load immediately for fast navigation
 import Dashboard from "@/pages/Dashboard";
 import Students from "@/pages/Students";
+import Health from "@/pages/Health";
 import Boarding from "@/pages/Boarding";
 import Meals from "@/pages/Meals";
 
@@ -163,6 +164,15 @@ const App = () => (
                   element={
                     <FeatureGuard featureCode="statistics">
                       <Statistics />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/health"
+                  element={
+                    <FeatureGuard featureCode="health">
+                      <Health />
                     </FeatureGuard>
                   }
                 />
