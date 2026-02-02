@@ -14,6 +14,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ClassFilterButtons } from '@/components/attendance/ClassFilterButtons';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -28,6 +36,8 @@ import {
   Minus,
   X,
   User,
+  ChevronsUpDown,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Student, Class, Medicine, HealthTreatmentType } from '@/types';
@@ -361,41 +371,52 @@ export function HealthRecordForm({
             <div className="space-y-3">
               <Label className="text-sm">Thuốc phát cho học sinh</Label>
               
-              {/* Medicine list to select */}
-              <div className="border rounded-lg overflow-hidden">
-                <ScrollArea className="max-h-[200px]">
-                  <div className="divide-y">
-                    {medicines
-                      .filter((m) => m.quantity > 0 && !selectedMedicines.find((s) => s.medicineId === m.id))
-                      .map((med) => (
-                        <button
-                          key={med.id}
-                          type="button"
-                          onClick={() => addMedicine(med.id)}
-                          className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
-                            <span className="text-sm font-medium truncate">{med.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Badge variant="outline" className="text-xs">
-                              {med.quantity} {med.unit}
-                            </Badge>
-                            <Plus className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </button>
-                      ))}
-                    {medicines.filter((m) => m.quantity > 0 && !selectedMedicines.find((s) => s.medicineId === m.id)).length === 0 && (
-                      <p className="text-center text-sm text-muted-foreground py-4">
-                        {medicines.filter((m) => m.quantity > 0).length === 0 
-                          ? 'Chưa có thuốc trong kho' 
-                          : 'Đã chọn hết thuốc có sẵn'}
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
+              {/* Medicine dropdown combobox */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between h-10"
+                  >
+                    <span className="text-muted-foreground">Chọn thuốc từ kho...</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Tìm thuốc..." />
+                    <CommandList>
+                      <CommandEmpty>Không tìm thấy thuốc</CommandEmpty>
+                      <CommandGroup>
+                        {medicines
+                          .filter((m) => m.quantity > 0 && !selectedMedicines.find((s) => s.medicineId === m.id))
+                          .map((med) => (
+                            <CommandItem
+                              key={med.id}
+                              value={med.name}
+                              onSelect={() => addMedicine(med.id)}
+                              className="cursor-pointer"
+                            >
+                              <Pill className="mr-2 h-4 w-4 text-green-600" />
+                              <span className="flex-1">{med.name}</span>
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                Còn: {med.quantity} {med.unit}
+                              </Badge>
+                            </CommandItem>
+                          ))}
+                        {medicines.filter((m) => m.quantity > 0 && !selectedMedicines.find((s) => s.medicineId === m.id)).length === 0 && (
+                          <p className="text-center text-sm text-muted-foreground py-3">
+                            {medicines.filter((m) => m.quantity > 0).length === 0 
+                              ? 'Chưa có thuốc trong kho' 
+                              : 'Đã chọn hết thuốc có sẵn'}
+                          </p>
+                        )}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
               {/* Selected medicines */}
               {selectedMedicines.length > 0 && (

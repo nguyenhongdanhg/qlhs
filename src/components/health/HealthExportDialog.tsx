@@ -175,14 +175,14 @@ export function HealthExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Xuất báo cáo sức khỏe</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 min-h-0 flex flex-col space-y-4 overflow-hidden">
           {/* Date range selector */}
-          <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center flex-shrink-0">
             <div className="flex gap-1">
               {(['day', 'week', 'month'] as const).map((r) => (
                 <Button
@@ -197,9 +197,9 @@ export function HealthExportDialog({
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <CalendarIcon className="h-4 w-4 mr-1" />
-                  {format(selectedDate, 'dd/MM/yyyy', { locale: vi })}
+                <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                  <CalendarIcon className="h-4 w-4 mr-1 flex-shrink-0" />
+                  <span className="truncate">{format(selectedDate, 'dd/MM/yyyy', { locale: vi })}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -214,21 +214,21 @@ export function HealthExportDialog({
           </div>
 
           {/* Export mode tabs */}
-          <Tabs value={exportMode} onValueChange={(v) => setExportMode(v as any)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="image">
+          <Tabs value={exportMode} onValueChange={(v) => setExportMode(v as any)} className="flex-1 min-h-0 flex flex-col">
+            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+              <TabsTrigger value="image" className="text-xs sm:text-sm">
                 <ImageIcon className="h-4 w-4 mr-1" />
-                Ảnh
+                <span className="hidden xs:inline">Ảnh</span>
               </TabsTrigger>
-              <TabsTrigger value="excel">
+              <TabsTrigger value="excel" className="text-xs sm:text-sm">
                 <FileSpreadsheet className="h-4 w-4 mr-1" />
-                Excel
+                <span className="hidden xs:inline">Excel</span>
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="image" className="mt-4">
+            <TabsContent value="image" className="mt-4 flex-1 min-h-0 flex flex-col">
               {/* Image preview */}
-              <ScrollArea className="max-h-[400px] border rounded-lg">
+              <ScrollArea className="flex-1 min-h-0 max-h-[50vh] sm:max-h-[400px] border rounded-lg">
                 <div ref={reportRef} className="p-4 bg-white min-w-[500px]">
                   {/* Header */}
                   <div className="text-center mb-4">
@@ -314,7 +314,7 @@ export function HealthExportDialog({
               </ScrollArea>
 
               <Button
-                className="w-full mt-3"
+                className="w-full mt-3 flex-shrink-0"
                 onClick={handleExportImage}
                 disabled={isExporting || records.length === 0}
               >
@@ -323,15 +323,15 @@ export function HealthExportDialog({
                 ) : (
                   <ImageIcon className="mr-2 h-4 w-4" />
                 )}
-                Chia sẻ ảnh báo cáo
+                <span className="truncate">Chia sẻ ảnh báo cáo</span>
               </Button>
             </TabsContent>
 
-            <TabsContent value="excel" className="mt-4">
-              <div className="text-center py-8">
-                <FileSpreadsheet className="h-12 w-12 mx-auto text-green-600 mb-3" />
-                <p className="text-sm text-muted-foreground mb-4">
-                  Xuất {records.length} bản ghi ra file Excel với đầy đủ thông tin chi tiết
+            <TabsContent value="excel" className="mt-4 flex-1 min-h-0 flex flex-col justify-center">
+              <div className="text-center py-6 sm:py-8">
+                <FileSpreadsheet className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-green-600 mb-3" />
+                <p className="text-sm text-muted-foreground mb-4 px-4">
+                  Xuất {records.length} bản ghi ra file Excel
                 </p>
                 <Button
                   onClick={handleExportExcel}
@@ -339,7 +339,7 @@ export function HealthExportDialog({
                   className="gap-2"
                 >
                   <Download className="h-4 w-4" />
-                  Tải xuống Excel
+                  <span className="truncate">Tải xuống Excel</span>
                 </Button>
               </div>
             </TabsContent>
