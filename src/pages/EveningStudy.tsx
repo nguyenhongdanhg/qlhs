@@ -48,6 +48,7 @@ import { NotesDialog } from '@/components/attendance/NotesDialog';
 import { ExcuseReasonDialog } from '@/components/attendance/ExcuseReasonDialog';
 import { ShareReportDialog } from '@/components/attendance/ShareReportDialog';
 import { AttendanceHistoryTab } from '@/components/attendance/AttendanceHistoryTab';
+import { ClassFilterButtons } from '@/components/attendance/ClassFilterButtons';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -891,30 +892,12 @@ export default function EveningStudy() {
               {/* Class filter buttons */}
               <div className="md:col-span-2 lg:col-span-3">
                 <label className="text-sm text-muted-foreground mb-1.5 block">Chọn lớp</label>
-                <div className="filter-scroll">
-                  <Button
-                    variant={selectedClass === 'all' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedClass('all')}
-                    className="whitespace-nowrap"
-                  >
-                    Tất cả ({students.length})
-                  </Button>
-                  {sortedClasses.map((cls) => {
-                    const count = students.filter(s => s.class?.name === cls.name).length;
-                    return (
-                      <Button
-                        key={cls.id}
-                        variant={selectedClass === cls.name ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSelectedClass(cls.name)}
-                        className="whitespace-nowrap"
-                      >
-                        {cls.name} ({count})
-                      </Button>
-                    );
-                  })}
-                </div>
+                <ClassFilterButtons
+                  classes={sortedClasses}
+                  students={students}
+                  selectedClass={selectedClass}
+                  onSelectClass={setSelectedClass}
+                />
               </div>
 
               <div>
