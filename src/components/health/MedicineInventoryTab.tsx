@@ -74,7 +74,23 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
     enabled: !!schoolId,
   });
 
-  // Fetch transactions for history
+  // Fetch ALL transactions for all medicines to calculate stats
+  const { data: allTransactions = [] } = useQuery({
+    queryKey: ['all-medicine-transactions', schoolId],
+    queryFn: async () => {
+      if (!schoolId) return [];
+      const { data, error } = await supabase
+        .from('medicine_transactions')
+        .select('*')
+        .eq('school_id', schoolId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as MedicineTransaction[];
+    },
+    enabled: !!schoolId,
+  });
+
+  // Fetch transactions for history dialog
   const { data: transactions = [] } = useQuery({
     queryKey: ['medicine-transactions', schoolId, selectedMedicine?.id],
     queryFn: async () => {
@@ -96,6 +112,33 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
     enabled: !!schoolId && !!selectedMedicine?.id,
   });
 
+  // Calculate medicine stats (imported, supplemented, exported)
+  const medicineStats = useMemo(() => {
+    const stats: Record<string, { imported: number; supplemented: number; exported: number }> = {};
+    
+    medicines.forEach((med) => {
+      stats[med.id] = { imported: 0, supplemented: 0, exported: 0 };
+    });
+
+    allTransactions.forEach((tx) => {
+      if (!stats[tx.medicine_id]) {
+        stats[tx.medicine_id] = { imported: 0, supplemented: 0, exported: 0 };
+      }
+      
+      if (tx.transaction_type === 'import') {
+        if (tx.notes?.includes('Nhập kho ban đầu')) {
+          stats[tx.medicine_id].imported += tx.quantity;
+        } else {
+          stats[tx.medicine_id].supplemented += tx.quantity;
+        }
+      } else if (tx.transaction_type === 'export') {
+        stats[tx.medicine_id].exported += tx.quantity;
+      }
+    });
+
+    return stats;
+  }, [medicines, allTransactions]);
+
   // Filter medicines
   const filteredMedicines = useMemo(() => {
     if (!searchTerm) return medicines;
@@ -108,7 +151,6 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
     mutationFn: async () => {
       if (!medicineName.trim()) throw new Error('Vui lòng nhập tên thuốc');
       
-      // Insert medicine
       const { data: newMedicine, error } = await supabase.from('medicines').insert({
         school_id: schoolId,
         name: medicineName.trim(),
@@ -118,7 +160,6 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
       }).select().single();
       if (error) throw error;
 
-      // Log initial import transaction if quantity > 0
       if (initialQty > 0 && newMedicine) {
         await supabase.from('medicine_transactions').insert({
           school_id: schoolId,
@@ -133,7 +174,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
     onSuccess: () => {
       toast({ title: 'Thành công', description: 'Đã thêm thuốc mới' });
       queryClient.invalidateQueries({ queryKey: ['medicines'] });
-      queryClient.invalidateQueries({ queryKey: ['medicine-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['all-medicine-transactions'] });
       setShowAddDialog(false);
       setMedicineName('');
       setMedicineNotes('');
@@ -194,14 +235,12 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
     mutationFn: async () => {
       if (!selectedMedicine || importQty <= 0) throw new Error('Vui lòng nhập số lượng hợp lệ');
       
-      // Update quantity
       const { error: updateError } = await supabase
         .from('medicines')
         .update({ quantity: selectedMedicine.quantity + importQty })
         .eq('id', selectedMedicine.id);
       if (updateError) throw updateError;
 
-      // Log transaction
       const { error: txError } = await supabase.from('medicine_transactions').insert({
         school_id: schoolId,
         medicine_id: selectedMedicine.id,
@@ -215,7 +254,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
     onSuccess: () => {
       toast({ title: 'Thành công', description: 'Đã nhập thuốc vào kho' });
       queryClient.invalidateQueries({ queryKey: ['medicines'] });
-      queryClient.invalidateQueries({ queryKey: ['medicine-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['all-medicine-transactions'] });
       setShowImportDialog(false);
       setImportQty(0);
       setImportNotes('');
@@ -300,86 +339,73 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
             />
           </div>
 
-          {/* Mobile-friendly card list & Desktop table */}
-          <div className="hidden sm:block">
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
             <ScrollArea className="max-h-[400px]">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tên thuốc</TableHead>
-                    <TableHead>Đơn vị</TableHead>
-                    <TableHead className="text-center">Số lượng</TableHead>
+                    <TableHead className="text-center">Đơn vị</TableHead>
+                    <TableHead className="text-center">Nhập vào</TableHead>
+                    <TableHead className="text-center">Bổ sung</TableHead>
+                    <TableHead className="text-center">Đã phát</TableHead>
+                    <TableHead className="text-center">Còn</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMedicines.map((med) => (
-                    <TableRow key={med.id}>
-                      <TableCell>
-                        <p className="font-medium">{med.name}</p>
-                        {med.notes && (
-                          <p className="text-xs text-muted-foreground">{med.notes}</p>
-                        )}
-                      </TableCell>
-                      <TableCell>{med.unit}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          variant={med.quantity <= 10 ? 'destructive' : med.quantity <= 30 ? 'secondary' : 'default'}
-                        >
-                          {med.quantity}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          {isAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-green-600 hover:text-green-700"
-                              onClick={() => openImportDialog(med)}
-                              title="Nhập thuốc"
-                            >
-                              <ArrowUpCircle className="h-4 w-4" />
+                  {filteredMedicines.map((med) => {
+                    const stats = medicineStats[med.id] || { imported: 0, supplemented: 0, exported: 0 };
+                    return (
+                      <TableRow key={med.id}>
+                        <TableCell>
+                          <p className="font-medium">{med.name}</p>
+                          {med.notes && <p className="text-xs text-muted-foreground">{med.notes}</p>}
+                        </TableCell>
+                        <TableCell className="text-center">{med.unit}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-green-600 font-medium">{stats.imported}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-blue-600 font-medium">{stats.supplemented}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-orange-600 font-medium">{stats.exported}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={med.quantity <= 10 ? 'destructive' : med.quantity <= 30 ? 'secondary' : 'default'}>
+                            {med.quantity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {isAdmin && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600" onClick={() => openImportDialog(med)} title="Bổ sung">
+                                <ArrowUpCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openHistoryDialog(med)} title="Lịch sử">
+                              <History className="h-4 w-4" />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => openHistoryDialog(med)}
-                            title="Lịch sử"
-                          >
-                            <History className="h-4 w-4" />
-                          </Button>
-                          {isAdmin && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => openEditDialog(med)}
-                                title="Sửa"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:text-destructive"
-                                onClick={() => setDeleteMedicine(med)}
-                                title="Xóa"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {isAdmin && (
+                              <>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(med)} title="Sửa">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteMedicine(med)} title="Xóa">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {filteredMedicines.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         {searchTerm ? 'Không tìm thấy thuốc' : 'Chưa có thuốc nào trong kho'}
                       </TableCell>
                     </TableRow>
@@ -390,74 +416,73 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
           </div>
 
           {/* Mobile card list */}
-          <div className="sm:hidden space-y-2">
+          <div className="md:hidden space-y-2">
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-2 pr-2">
-                {filteredMedicines.map((med) => (
-                  <div key={med.id} className="border rounded-lg p-3 bg-card">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
-                          <p className="font-medium text-sm break-words">{med.name}</p>
+                {filteredMedicines.map((med) => {
+                  const stats = medicineStats[med.id] || { imported: 0, supplemented: 0, exported: 0 };
+                  return (
+                    <div key={med.id} className="border rounded-lg p-3 bg-card">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <p className="font-medium text-sm break-words">{med.name}</p>
+                          </div>
+                          {med.notes && <p className="text-xs text-muted-foreground mt-1">{med.notes}</p>}
                         </div>
-                        {med.notes && (
-                          <p className="text-xs text-muted-foreground mt-1 break-words">{med.notes}</p>
+                        <Badge variant={med.quantity <= 10 ? 'destructive' : med.quantity <= 30 ? 'secondary' : 'default'} className="flex-shrink-0">
+                          Còn: {med.quantity}
+                        </Badge>
+                      </div>
+                      
+                      {/* Stats row */}
+                      <div className="grid grid-cols-4 gap-2 text-center text-xs mb-2 py-2 bg-muted/30 rounded">
+                        <div>
+                          <p className="text-muted-foreground">Đơn vị</p>
+                          <p className="font-medium">{med.unit}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Nhập</p>
+                          <p className="font-medium text-green-600">{stats.imported}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Bổ sung</p>
+                          <p className="font-medium text-blue-600">{stats.supplemented}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Đã phát</p>
+                          <p className="font-medium text-orange-600">{stats.exported}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-1 pt-2 border-t">
+                        {isAdmin && (
+                          <Button variant="outline" size="sm" className="h-7 text-xs text-green-600" onClick={() => openImportDialog(med)}>
+                            <ArrowUpCircle className="h-3 w-3 mr-1" />
+                            Bổ sung
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openHistoryDialog(med)}>
+                          <History className="h-3 w-3 mr-1" />
+                          Lịch sử
+                        </Button>
+                        {isAdmin && (
+                          <>
+                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEditDialog(med)}>
+                              <Edit className="h-3 w-3 mr-1" />
+                              Sửa
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs text-destructive" onClick={() => setDeleteMedicine(med)}>
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Xóa
+                            </Button>
+                          </>
                         )}
                       </div>
-                      <Badge
-                        variant={med.quantity <= 10 ? 'destructive' : med.quantity <= 30 ? 'secondary' : 'default'}
-                        className="flex-shrink-0"
-                      >
-                        {med.quantity} {med.unit}
-                      </Badge>
                     </div>
-                    <div className="flex flex-wrap gap-1 pt-2 border-t">
-                      {isAdmin && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs text-green-600"
-                          onClick={() => openImportDialog(med)}
-                        >
-                          <ArrowUpCircle className="h-3 w-3 mr-1" />
-                          Nhập
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => openHistoryDialog(med)}
-                      >
-                        <History className="h-3 w-3 mr-1" />
-                        Lịch sử
-                      </Button>
-                      {isAdmin && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => openEditDialog(med)}
-                          >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Sửa
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs text-destructive"
-                            onClick={() => setDeleteMedicine(med)}
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Xóa
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {filteredMedicines.length === 0 && (
                   <p className="text-center py-8 text-muted-foreground text-sm">
                     {searchTerm ? 'Không tìm thấy thuốc' : 'Chưa có thuốc nào trong kho'}
@@ -478,53 +503,30 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Tên thuốc *</Label>
-              <Input
-                placeholder="Nhập tên thuốc..."
-                value={medicineName}
-                onChange={(e) => setMedicineName(e.target.value)}
-              />
+              <Input placeholder="Nhập tên thuốc..." value={medicineName} onChange={(e) => setMedicineName(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Đơn vị tính</Label>
                 <Select value={medicineUnit} onValueChange={setMedicineUnit}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {UNIT_OPTIONS.map((u) => (
-                      <SelectItem key={u} value={u}>
-                        {u}
-                      </SelectItem>
-                    ))}
+                    {UNIT_OPTIONS.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Số lượng ban đầu</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={initialQty || ''}
-                  onChange={(e) => setInitialQty(parseInt(e.target.value) || 0)}
-                />
+                <Input type="number" min={0} placeholder="0" value={initialQty || ''} onChange={(e) => setInitialQty(parseInt(e.target.value) || 0)} />
               </div>
             </div>
             <div className="space-y-2">
               <Label>Ghi chú</Label>
-              <Textarea
-                placeholder="Ghi chú thêm..."
-                value={medicineNotes}
-                onChange={(e) => setMedicineNotes(e.target.value)}
-                rows={2}
-              />
+              <Textarea placeholder="Ghi chú thêm..." value={medicineNotes} onChange={(e) => setMedicineNotes(e.target.value)} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Hủy
-            </Button>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Hủy</Button>
             <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending}>
               {addMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Thêm
@@ -542,68 +544,27 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Tên thuốc *</Label>
-              <Input
-                placeholder="Nhập tên thuốc..."
-                value={medicineName}
-                onChange={(e) => setMedicineName(e.target.value)}
-              />
+              <Input placeholder="Nhập tên thuốc..." value={medicineName} onChange={(e) => setMedicineName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Đơn vị tính</Label>
               <Select value={medicineUnit} onValueChange={setMedicineUnit}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {UNIT_OPTIONS.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
+                  {UNIT_OPTIONS.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Ghi chú</Label>
-              <Textarea
-                placeholder="Ghi chú thêm..."
-                value={medicineNotes}
-                onChange={(e) => setMedicineNotes(e.target.value)}
-                rows={2}
-              />
+              <Textarea placeholder="Ghi chú thêm..." value={medicineNotes} onChange={(e) => setMedicineNotes(e.target.value)} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditMedicine(null)}>
-              Hủy
-            </Button>
+            <Button variant="outline" onClick={() => setEditMedicine(null)}>Hủy</Button>
             <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
               {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Lưu
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirm Dialog */}
-      <Dialog open={!!deleteMedicine} onOpenChange={() => setDeleteMedicine(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Xác nhận xóa</DialogTitle>
-            <DialogDescription>
-              Bạn có chắc muốn xóa thuốc "{deleteMedicine?.name}" khỏi danh sách?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteMedicine(null)}>
-              Hủy
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteMedicine && deleteMutation.mutate(deleteMedicine.id)}
-              disabled={deleteMutation.isPending}
-            >
-              Xóa
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -613,39 +574,26 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
       <Dialog open={showImportDialog} onOpenChange={() => { setShowImportDialog(false); setSelectedMedicine(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nhập thuốc vào kho</DialogTitle>
+            <DialogTitle>Bổ sung thuốc vào kho</DialogTitle>
             <DialogDescription>
               Thuốc: <strong>{selectedMedicine?.name}</strong> (Hiện có: {selectedMedicine?.quantity} {selectedMedicine?.unit})
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Số lượng nhập</Label>
-              <Input
-                type="number"
-                min={1}
-                value={importQty || ''}
-                onChange={(e) => setImportQty(parseInt(e.target.value) || 0)}
-                placeholder="Nhập số lượng..."
-              />
+              <Label>Số lượng bổ sung</Label>
+              <Input type="number" min={1} value={importQty || ''} onChange={(e) => setImportQty(parseInt(e.target.value) || 0)} placeholder="Nhập số lượng..." />
             </div>
             <div className="space-y-2">
               <Label>Ghi chú (nguồn nhập, lô...)</Label>
-              <Textarea
-                placeholder="Ghi chú thêm..."
-                value={importNotes}
-                onChange={(e) => setImportNotes(e.target.value)}
-                rows={2}
-              />
+              <Textarea placeholder="Ghi chú thêm..." value={importNotes} onChange={(e) => setImportNotes(e.target.value)} rows={2} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowImportDialog(false); setSelectedMedicine(null); }}>
-              Hủy
-            </Button>
+            <Button variant="outline" onClick={() => { setShowImportDialog(false); setSelectedMedicine(null); }}>Hủy</Button>
             <Button onClick={() => importMutation.mutate()} disabled={importMutation.isPending || importQty <= 0}>
               {importMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Nhập kho
+              Bổ sung
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -663,37 +611,19 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
           <ScrollArea className="max-h-[300px]">
             <div className="space-y-2">
               {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className={cn(
-                    'p-3 rounded-lg text-sm',
-                    tx.transaction_type === 'import' ? 'bg-green-50' : 'bg-red-50'
-                  )}
-                >
+                <div key={tx.id} className={cn('p-3 rounded-lg text-sm', tx.transaction_type === 'import' ? 'bg-green-50' : 'bg-red-50')}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {tx.transaction_type === 'import' ? (
-                        <ArrowUpCircle className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <ArrowDownCircle className="h-4 w-4 text-red-600" />
-                      )}
-                      <span className="font-medium">
-                        {tx.transaction_type === 'import' ? 'Nhập' : 'Xuất'}: {tx.quantity} {tx.medicine?.unit}
-                      </span>
+                      {tx.transaction_type === 'import' ? <ArrowUpCircle className="h-4 w-4 text-green-600" /> : <ArrowDownCircle className="h-4 w-4 text-red-600" />}
+                      <span className="font-medium">{tx.transaction_type === 'import' ? 'Nhập' : 'Xuất'}: {tx.quantity} {tx.medicine?.unit}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(tx.created_at), 'dd/MM HH:mm', { locale: vi })}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{format(new Date(tx.created_at), 'dd/MM HH:mm', { locale: vi })}</span>
                   </div>
                   {tx.notes && <p className="text-xs text-muted-foreground mt-1">{tx.notes}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    Bởi: {tx.profile?.full_name || 'N/A'}
-                  </p>
+                  <p className="text-xs text-muted-foreground">Bởi: {tx.profile?.full_name || 'N/A'}</p>
                 </div>
               ))}
-              {transactions.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">Chưa có lịch sử giao dịch</p>
-              )}
+              {transactions.length === 0 && <p className="text-center text-muted-foreground py-4">Chưa có lịch sử giao dịch</p>}
             </div>
           </ScrollArea>
         </DialogContent>
@@ -709,14 +639,8 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDeleteMedicine(null)}>
-              Hủy
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => deleteMedicine && deleteMutation.mutate(deleteMedicine.id)}
-              disabled={deleteMutation.isPending}
-            >
+            <Button variant="outline" onClick={() => setDeleteMedicine(null)}>Hủy</Button>
+            <Button variant="destructive" onClick={() => deleteMedicine && deleteMutation.mutate(deleteMedicine.id)} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Xóa
             </Button>

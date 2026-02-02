@@ -371,68 +371,89 @@ export function HealthRecordForm({
             <div className="space-y-3">
               <Label className="text-sm">Thuốc phát cho học sinh</Label>
               
-              {/* Available medicines list - dropdown style */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/50 px-3 py-2 border-b">
-                  <p className="text-xs font-medium text-muted-foreground">Chọn thuốc từ kho (bấm để thêm)</p>
-                </div>
-                <ScrollArea className="h-[150px]">
-                  <div className="p-2 space-y-1">
-                    {medicines.length > 0 ? (
-                      medicines.map((med) => {
-                        const isSelected = selectedMedicines.find((s) => s.medicineId === med.id);
-                        const isOutOfStock = med.quantity <= 0;
-                        return (
-                          <button
-                            key={med.id}
-                            type="button"
-                            onClick={() => !isSelected && !isOutOfStock && addMedicine(med.id)}
-                            disabled={!!isSelected || isOutOfStock}
-                            className={cn(
-                              'w-full flex items-center justify-between p-2 rounded-md text-left transition-colors text-sm',
-                              isSelected 
-                                ? 'bg-green-100 text-green-700 cursor-default'
-                                : isOutOfStock
-                                  ? 'bg-muted/50 text-muted-foreground cursor-not-allowed'
-                                  : 'hover:bg-muted cursor-pointer'
-                            )}
-                          >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              {isSelected ? (
-                                <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
-                              ) : (
-                                <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
-                              )}
-                              <span className="truncate">{med.name}</span>
-                            </div>
-                            <Badge 
-                              variant={isOutOfStock ? 'destructive' : 'outline'} 
-                              className="ml-2 text-xs flex-shrink-0"
-                            >
-                              {med.quantity} {med.unit}
-                            </Badge>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <p className="text-center text-sm text-muted-foreground py-4">
-                        Chưa có thuốc trong kho
-                      </p>
-                    )}
+              {/* Dropdown button to open medicine list */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between h-10"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Pill className="h-4 w-4 text-green-600" />
+                      {selectedMedicines.length > 0 
+                        ? `Đã chọn ${selectedMedicines.length} loại thuốc`
+                        : 'Chọn thuốc từ kho...'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <div className="bg-muted/50 px-3 py-2 border-b">
+                    <p className="text-xs font-medium text-muted-foreground">Tích chọn thuốc cần phát</p>
                   </div>
-                </ScrollArea>
-              </div>
+                  <ScrollArea className="h-[200px]">
+                    <div className="p-2 space-y-1">
+                      {medicines.length > 0 ? (
+                        medicines.map((med) => {
+                          const isSelected = !!selectedMedicines.find((s) => s.medicineId === med.id);
+                          const isOutOfStock = med.quantity <= 0;
+                          return (
+                            <div
+                              key={med.id}
+                              className={cn(
+                                'flex items-center gap-2 p-2 rounded-md transition-colors',
+                                isOutOfStock ? 'opacity-50' : 'hover:bg-muted cursor-pointer'
+                              )}
+                              onClick={() => {
+                                if (isOutOfStock) return;
+                                if (isSelected) {
+                                  removeMedicine(med.id);
+                                } else {
+                                  addMedicine(med.id);
+                                }
+                              }}
+                            >
+                              <Checkbox 
+                                checked={isSelected} 
+                                disabled={isOutOfStock}
+                                className="flex-shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{med.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {isOutOfStock ? 'Hết hàng' : `Còn: ${med.quantity} ${med.unit}`}
+                                </p>
+                              </div>
+                              <Badge 
+                                variant={isOutOfStock ? 'destructive' : 'outline'} 
+                                className="text-xs flex-shrink-0"
+                              >
+                                {med.quantity}
+                              </Badge>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-center text-sm text-muted-foreground py-4">
+                          Chưa có thuốc trong kho
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
 
               {/* Selected medicines with quantity input */}
               {selectedMedicines.length > 0 && (
                 <div className="space-y-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                  <p className="text-xs font-medium text-green-700 mb-2">Thuốc đã chọn - Nhập số lượng:</p>
+                  <p className="text-xs font-medium text-green-700 mb-2">Nhập số lượng phát:</p>
                   {selectedMedicines.map((sel) => {
                     const med = medicines.find((m) => m.id === sel.medicineId);
                     if (!med) return null;
                     return (
-                      <div key={sel.medicineId} className="bg-white p-2 rounded-md space-y-2">
-                        <div className="flex items-center justify-between gap-2">
+                      <div key={sel.medicineId} className="bg-white p-2 rounded-md">
+                        <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <Pill className="h-4 w-4 text-green-600 flex-shrink-0" />
                             <span className="text-sm font-medium truncate">{med.name}</span>
@@ -441,45 +462,42 @@ export function HealthRecordForm({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive flex-shrink-0"
+                            className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
                             onClick={() => removeMedicine(sel.medicineId)}
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3 w-3" />
                           </Button>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-16">Số lượng:</span>
-                          <div className="flex items-center gap-1 flex-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => updateMedicineQty(sel.medicineId, sel.quantity - 1)}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={med.quantity}
-                              value={sel.quantity}
-                              onChange={(e) => updateMedicineQty(sel.medicineId, parseInt(e.target.value) || 1)}
-                              className="w-16 h-8 text-center text-sm"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => updateMedicineQty(sel.medicineId, sel.quantity + 1)}
-                              disabled={sel.quantity >= med.quantity}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <span className="text-xs text-muted-foreground">{med.unit}</span>
-                            <span className="text-xs text-muted-foreground ml-auto">(tối đa: {med.quantity})</span>
-                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 flex-shrink-0"
+                            onClick={() => updateMedicineQty(sel.medicineId, sel.quantity - 1)}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={med.quantity}
+                            value={sel.quantity}
+                            onChange={(e) => updateMedicineQty(sel.medicineId, parseInt(e.target.value) || 1)}
+                            className="w-16 h-8 text-center text-sm flex-shrink-0"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 flex-shrink-0"
+                            onClick={() => updateMedicineQty(sel.medicineId, sel.quantity + 1)}
+                            disabled={sel.quantity >= med.quantity}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-xs text-muted-foreground">{med.unit}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">(còn: {med.quantity})</span>
                         </div>
                       </div>
                     );
