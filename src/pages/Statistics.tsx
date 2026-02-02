@@ -1159,36 +1159,61 @@ export default function Statistics() {
     }
   };
 
-  // Handler for export dialog (like Meals page)
+  // Handler for export dialog (like Meals page) - MUST match Meals.tsx logic exactly
   const handleExportFromDialog = useCallback(async (rangeType: DateRangeType, selectedDialogDate: Date) => {
-    if (!currentSchool || filteredStudents.length === 0) return;
+    if (!currentSchool) return;
     setIsExporting(true);
 
     try {
-      const dateRange = getDateRange(selectedDialogDate, rangeType);
-      const days = eachDayOfInterval({ start: dateRange.start, end: dateRange.end });
+      const exportDateRange = getDateRange(selectedDialogDate, rangeType);
+      const days = eachDayOfInterval({ start: exportDateRange.start, end: exportDateRange.end });
 
-      // CRITICAL: Re-fetch students directly from database to ensure data integrity
-      const { data: allBoardingStudents, error: studentsError } = await supabase
+      // IMPORTANT: Re-fetch ALL boarding students to ensure complete list
+      const { data: allStudentsData, error: studentsError } = await supabase
         .from('students')
         .select('*, class:classes(*)')
         .eq('school_id', currentSchool.id)
+        .eq('is_active', true)
         .eq('is_boarding', true)
-        .eq('is_active', true);
+        .order('full_name');
 
       if (studentsError) throw studentsError;
 
-      const boardingStudents = allBoardingStudents || [];
-      const studentIdSet = new Set(boardingStudents.map(s => s.id));
+      const allStudents = (allStudentsData || []).map(s => ({
+        ...s,
+        class: s.class as unknown as Class
+      })) as Student[];
 
-      // Use pagination for large datasets
-      const PAGE_SIZE = 10000;
-      const MAX_RECORDS = 300000;
-      let allRecords: any[] = [];
-      let page = 0;
+      // For class teachers, only export their class students
+      const studentsToExport = isClassTeacher && teacherClassId
+        ? allStudents.filter(s => s.class_id === teacherClassId)
+        : allStudents;
 
-      while (allRecords.length < MAX_RECORDS) {
-        const from = page * PAGE_SIZE;
+      console.log(`[Statistics Excel Export] Starting export...`);
+      console.log(`  - All students in school: ${allStudents.length}`);
+      console.log(`  - Students to export: ${studentsToExport.length}`);
+
+      const studentIds = studentsToExport.map((s) => s.id);
+      if (studentIds.length === 0) {
+        toast({ title: 'Không có dữ liệu', description: 'Không có học sinh để xuất' });
+        setIsExporting(false);
+        return;
+      }
+
+      const startDate = format(exportDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(exportDateRange.end, 'yyyy-MM-dd');
+
+      // Fetch attendance records with pagination
+      // IMPORTANT: Supabase has default limit of 1000 rows. Use smaller page size for reliability.
+      const PAGE_SIZE = 1000;
+      const MAX_PAGES = 500; // safety cap = 500,000 rows max
+      const recordsData: any[] = [];
+
+      console.log(`[Statistics Excel Export] Fetching records for date range: ${startDate} to ${endDate}`);
+
+      let pageNum = 0;
+      while (pageNum < MAX_PAGES) {
+        const from = pageNum * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
 
         const { data, error } = await supabase
@@ -1196,27 +1221,35 @@ export default function Statistics() {
           .select('*')
           .eq('school_id', currentSchool.id)
           .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-          .gte('attendance_date', format(dateRange.start, 'yyyy-MM-dd'))
-          .lte('attendance_date', format(dateRange.end, 'yyyy-MM-dd'))
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
           .order('created_at', { ascending: false })
           .range(from, to);
 
         if (error) throw error;
-        if (!data || data.length === 0) break;
 
-        allRecords = allRecords.concat(data);
-        if (data.length < PAGE_SIZE) break;
-        page++;
+        const page = data || [];
+        recordsData.push(...page);
+
+        console.log(`[Statistics Excel Export] Fetched page ${pageNum + 1}: ${page.length} records (total so far: ${recordsData.length})`);
+
+        // If we got less than PAGE_SIZE, we've reached the end
+        if (page.length < PAGE_SIZE) break;
+
+        pageNum++;
       }
 
-      // Filter to only include records for boarding students
-      const records = allRecords.filter(r => studentIdSet.has(r.student_id));
+      console.log(`[Statistics Excel Export] Total raw records fetched: ${recordsData.length}`);
 
-      console.log(`[Excel Export Dialog] Total records: ${allRecords.length}, After filtering: ${records.length}, Students: ${boardingStudents.length}`);
+      // Filter to only include students we're exporting
+      const studentIdSet = new Set(studentIds);
+      const filteredRecords = recordsData.filter(r => studentIdSet.has(r.student_id));
 
-      // Get latest report per meal/date/student
+      console.log(`[Statistics Excel Export] Records after filtering to export students: ${filteredRecords.length}`);
+
+      // Create attendance map: studentId -> date -> meal -> status (based on latest report per meal/date)
       const latestByKey = new Map<string, any>();
-      records.forEach((record: any) => {
+      filteredRecords.forEach((record: any) => {
         const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
         const existing = latestByKey.get(key);
         if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
@@ -1224,18 +1257,23 @@ export default function Statistics() {
         }
       });
 
-      // Build student data
-      const validStudents = boardingStudents.filter(s => s.class?.name && s.class_id);
+      console.log(`[Statistics Excel Export] Unique latest records: ${latestByKey.size}`);
 
-      const studentData: MealStudentData[] = validStudents.map(student => {
+      // Build student data with null for unreported meals
+      const studentData: MealStudentData[] = studentsToExport.map(student => {
         const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
 
         days.forEach(day => {
           const dateStr = format(day, 'yyyy-MM-dd');
-          const bRecord = latestByKey.get(`${student.id}-${dateStr}-breakfast`);
-          const lRecord = latestByKey.get(`${student.id}-${dateStr}-lunch`);
-          const dRecord = latestByKey.get(`${student.id}-${dateStr}-dinner`);
+          const bKey = `${student.id}-${dateStr}-breakfast`;
+          const lKey = `${student.id}-${dateStr}-lunch`;
+          const dKey = `${student.id}-${dateStr}-dinner`;
 
+          const bRecord = latestByKey.get(bKey);
+          const lRecord = latestByKey.get(lKey);
+          const dRecord = latestByKey.get(dKey);
+
+          // Use null if no report exists for this meal on this date
           attendanceMap.set(dateStr, {
             breakfast: bRecord ? bRecord.status === 'present' : null,
             lunch: lRecord ? lRecord.status === 'present' : null,
@@ -1246,14 +1284,15 @@ export default function Statistics() {
         return {
           id: student.id,
           name: student.full_name,
-          className: student.class!.name,
-          classGrade: student.class!.grade,
+          className: student.class?.name || '',
+          classGrade: student.class?.grade,
           roomNumber: student.room_number || undefined,
           mealGroup: student.meal_group || undefined,
           attendance: attendanceMap,
         };
       });
 
+      // For class teachers, include class name in the title
       const exportTitle = teacherClassName
         ? `THỐNG KÊ BỮA ĂN LỚP ${teacherClassName}`
         : 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ';
@@ -1261,14 +1300,14 @@ export default function Statistics() {
       exportMealStatistics(studentData, {
         schoolName: currentSchool.name,
         title: exportTitle,
-        dateRange,
+        dateRange: exportDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
       });
 
       toast({
         title: 'Thành công',
-        description: `Đã xuất thống kê bữa ăn ${dateRange.label.toLowerCase()}`,
+        description: `Đã xuất thống kê bữa ăn ${exportDateRange.label.toLowerCase()}`,
       });
     } catch (error) {
       console.error('Error exporting from dialog:', error);
@@ -1280,7 +1319,7 @@ export default function Statistics() {
     } finally {
       setIsExporting(false);
     }
-  }, [currentSchool, filteredStudents, teacherClassName, profile, toast]);
+  }, [currentSchool, isClassTeacher, teacherClassId, teacherClassName, profile, toast]);
 
   // Open single meal export dialog
   const handleOpenSingleMealDialog = useCallback((mealType: AttendanceType) => {
