@@ -68,6 +68,8 @@ export default function Emulation() {
   const [editingScores, setEditingScores] = useState<Record<string, Partial<EmulationScore>>>({});
   // Store raw string values for inputs to preserve decimal formatting
   const [inputValues, setInputValues] = useState<Record<string, Record<string, string>>>({});
+  // Track which rows were changed so saving never "jumps" to wrong rows
+  const [dirtyRows, setDirtyRows] = useState<Record<string, true>>({});
   
   // Period calculation state
   const [periodFromWeek, setPeriodFromWeek] = useState(1);
@@ -211,14 +213,33 @@ export default function Emulation() {
       toast({ title: 'Đã lưu điểm thi đua' });
       setEditingScores({});
       setInputValues({});
+      setDirtyRows({});
       queryClient.invalidateQueries({ queryKey: ['emulation-scores'] });
     },
     onError: (error) => {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     },
   });
+
+  const normalizeDecimalInput = (raw: string) => {
+    // Allow both "," and "." as decimal separators.
+    // Keep at most one dot in the value.
+    const replaced = raw.replace(/,/g, '.');
+    const cleaned = replaced.replace(/[^0-9.]/g, '');
+    const firstDotIndex = cleaned.indexOf('.');
+    if (firstDotIndex === -1) return cleaned;
+    const before = cleaned.slice(0, firstDotIndex + 1);
+    const after = cleaned.slice(firstDotIndex + 1).replace(/\./g, '');
+    return before + after;
+  };
+
+  const markDirty = (classId: string) => {
+    setDirtyRows((prev) => (prev[classId] ? prev : { ...prev, [classId]: true }));
+  };
+
   const handleScoreChange = (classId: string, field: keyof EmulationScore, value: string) => {
     if (field === 'notes') {
+      markDirty(classId);
       setEditingScores((prev) => ({
         ...prev,
         [classId]: {
@@ -227,8 +248,9 @@ export default function Emulation() {
         },
       }));
     } else {
-      // Only allow valid number characters
-      const cleanValue = value.replace(/[^0-9.]/g, '');
+      markDirty(classId);
+
+      const cleanValue = normalizeDecimalInput(value);
       
       // Store raw string value for display
       setInputValues((prev) => ({
@@ -239,16 +261,10 @@ export default function Emulation() {
         },
       }));
 
-      // Parse for actual score - allow empty string to keep input empty
-      if (cleanValue === '') {
-        setEditingScores((prev) => ({
-          ...prev,
-          [classId]: {
-            ...prev[classId],
-            [field]: 0,
-          },
-        }));
-      } else {
+      // Only update numeric state when value is parseable.
+      // IMPORTANT: do NOT force numeric = 0 while user is temporarily clearing to type,
+      // otherwise clicking Save too quickly can persist 0.
+      if (cleanValue !== '') {
         const numValue = parseFloat(cleanValue);
         if (!isNaN(numValue)) {
           const clampedValue = Math.min(10, Math.max(0, numValue));
@@ -275,20 +291,52 @@ export default function Emulation() {
           [field]: '0',
         },
       }));
+
+      // Ensure numeric state has a deterministic value after leaving the field
+      setEditingScores((prev) => ({
+        ...prev,
+        [classId]: {
+          ...prev[classId],
+          [field]: 0,
+        },
+      }));
     }
   };
 
   const handleSave = () => {
-    const scoresToSave: EmulationScore[] = Object.entries(editingScores).map(([classId, scores]) => ({
-      school_id: currentSchool!.id,
-      class_id: classId,
-      week_number: selectedWeek,
-      school_year: schoolYear,
-      academic_score: scores.academic_score ?? 0,
-      discipline_score: scores.discipline_score ?? 0,
-      boarding_score: scores.boarding_score ?? 0,
-      notes: scores.notes,
-    }));
+    const getScoreForSave = (classId: string, field: 'academic_score' | 'discipline_score' | 'boarding_score') => {
+      // Prefer raw input if present (even if user typed ",")
+      const raw = inputValues[classId]?.[field];
+      if (raw !== undefined) {
+        const normalized = normalizeDecimalInput(raw);
+        if (normalized === '') return 0;
+        const parsed = parseFloat(normalized);
+        if (Number.isFinite(parsed)) return Math.min(10, Math.max(0, parsed));
+      }
+
+      const editing = editingScores[classId]?.[field];
+      if (editing !== undefined) return Number(editing) || 0;
+
+      const existing = weeklyScores.find((s) => s.class_id === classId);
+      return existing ? Number(existing[field]) || 0 : 0;
+    };
+
+    const scoresToSave: EmulationScore[] = Object.keys(dirtyRows).map((classId) => {
+      const notes = editingScores[classId]?.notes;
+      const existing = weeklyScores.find((s) => s.class_id === classId);
+
+      return {
+        school_id: currentSchool!.id,
+        class_id: classId,
+        week_number: selectedWeek,
+        school_year: schoolYear,
+        academic_score: getScoreForSave(classId, 'academic_score'),
+        discipline_score: getScoreForSave(classId, 'discipline_score'),
+        boarding_score: getScoreForSave(classId, 'boarding_score'),
+        // If notes isn't edited, keep current notes from DB
+        notes: notes !== undefined ? notes : (existing?.notes ?? undefined),
+      };
+    });
     
     if (scoresToSave.length > 0) {
       saveMutation.mutate(scoresToSave);
@@ -459,7 +507,7 @@ export default function Emulation() {
                   <Button variant="outline" size="icon" onClick={() => refetch()}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
-                  {canEdit && Object.keys(editingScores).length > 0 && (
+                  {canEdit && Object.keys(dirtyRows).length > 0 && (
                     <Button onClick={handleSave} disabled={saveMutation.isPending}>
                       <Save className="h-4 w-4 mr-2" />
                       Lưu
