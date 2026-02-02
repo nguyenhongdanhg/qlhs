@@ -618,6 +618,31 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteMedicine} onOpenChange={() => setDeleteMedicine(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xóa thuốc</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa <strong>{deleteMedicine?.name}</strong> khỏi kho thuốc?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteMedicine(null)}>
+              Hủy
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deleteMedicine && deleteMutation.mutate(deleteMedicine.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
