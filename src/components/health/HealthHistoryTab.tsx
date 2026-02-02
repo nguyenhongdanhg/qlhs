@@ -123,16 +123,19 @@ export function HealthHistoryTab({
 
   // Delete mutation - restore medicine quantities before deleting
   const deleteMutation = useMutation({
-    mutationFn: async (record: HealthRecord) => {
+    mutationFn: async (record: any) => {
       // If the record has medicines, restore their quantities to inventory
       if (record.treatment_type === 'medicine' && record.medicines && record.medicines.length > 0) {
         for (const item of record.medicines) {
-          if (item.medicine_id && item.quantity > 0) {
+          // Get medicine_id from nested medicine object or direct field
+          const medicineId = item.medicine?.id || item.medicine_id;
+          
+          if (medicineId && item.quantity > 0) {
             // Get current medicine quantity
             const { data: medicine, error: fetchError } = await supabase
               .from('medicines')
               .select('quantity')
-              .eq('id', item.medicine_id)
+              .eq('id', medicineId)
               .single();
             
             if (fetchError) throw fetchError;
@@ -141,7 +144,7 @@ export function HealthHistoryTab({
             const { error: updateError } = await supabase
               .from('medicines')
               .update({ quantity: (medicine?.quantity || 0) + item.quantity })
-              .eq('id', item.medicine_id);
+              .eq('id', medicineId);
             
             if (updateError) throw updateError;
             
@@ -150,7 +153,7 @@ export function HealthHistoryTab({
               .from('medicine_transactions')
               .insert({
                 school_id: record.school_id,
-                medicine_id: item.medicine_id,
+                medicine_id: medicineId,
                 transaction_type: 'import',
                 quantity: item.quantity,
                 notes: `Hoàn trả từ xóa lịch sử (HS: ${record.student?.full_name || 'N/A'})`
