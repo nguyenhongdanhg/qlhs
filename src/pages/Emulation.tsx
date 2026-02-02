@@ -66,6 +66,8 @@ export default function Emulation() {
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [activeTab, setActiveTab] = useState('weekly');
   const [editingScores, setEditingScores] = useState<Record<string, Partial<EmulationScore>>>({});
+  // Store raw string values for inputs to preserve decimal formatting
+  const [inputValues, setInputValues] = useState<Record<string, Record<string, string>>>({});
   
   // Period calculation state
   const [periodFromWeek, setPeriodFromWeek] = useState(1);
@@ -208,13 +210,13 @@ export default function Emulation() {
     onSuccess: () => {
       toast({ title: 'Đã lưu điểm thi đua' });
       setEditingScores({});
+      setInputValues({});
       queryClient.invalidateQueries({ queryKey: ['emulation-scores'] });
     },
     onError: (error) => {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     },
   });
-
   const handleScoreChange = (classId: string, field: keyof EmulationScore, value: string) => {
     if (field === 'notes') {
       setEditingScores((prev) => ({
@@ -225,16 +227,27 @@ export default function Emulation() {
         },
       }));
     } else {
-      const numValue = parseFloat(value) || 0;
-      const clampedValue = Math.min(10, Math.max(0, numValue));
-      
-      setEditingScores((prev) => ({
+      // Store raw string value for display
+      setInputValues((prev) => ({
         ...prev,
         [classId]: {
           ...prev[classId],
-          [field]: clampedValue,
+          [field]: value,
         },
       }));
+
+      // Parse and validate for actual score
+      const numValue = value === '' ? 0 : parseFloat(value);
+      if (!isNaN(numValue)) {
+        const clampedValue = Math.min(10, Math.max(0, numValue));
+        setEditingScores((prev) => ({
+          ...prev,
+          [classId]: {
+            ...prev[classId],
+            [field]: clampedValue,
+          },
+        }));
+      }
     }
   };
 
@@ -330,12 +343,20 @@ export default function Emulation() {
     toast({ title: `Đã tính trung bình từ tuần ${periodFromWeek} đến tuần ${periodToWeek}` });
   };
 
-  const getScoreValue = (classId: string, field: 'academic_score' | 'discipline_score' | 'boarding_score') => {
-    const editing = editingScores[classId];
-    if (editing && editing[field] !== undefined) return editing[field];
+  const getScoreValue = (classId: string, field: 'academic_score' | 'discipline_score' | 'boarding_score'): string => {
+    // First check if there's a raw input value being edited
+    const inputValue = inputValues[classId]?.[field];
+    if (inputValue !== undefined) return inputValue;
     
+    // Then check editing scores
+    const editing = editingScores[classId];
+    if (editing && editing[field] !== undefined) {
+      return String(editing[field]);
+    }
+    
+    // Finally use saved score from database
     const score = weeklyScores.find((s) => s.class_id === classId);
-    return score ? Number(score[field]) : 0;
+    return score ? String(Number(score[field])) : '0';
   };
 
   const getNotesValue = (classId: string) => {
@@ -479,10 +500,9 @@ export default function Emulation() {
                           <TableCell className="text-center">
                             {canEdit ? (
                               <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                step={0.1}
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*\.?[0-9]*"
                                 value={getScoreValue(cls.class_id, 'academic_score')}
                                 onChange={(e) => handleScoreChange(cls.class_id, 'academic_score', e.target.value)}
                                 className="w-[70px] text-center mx-auto"
@@ -494,10 +514,9 @@ export default function Emulation() {
                           <TableCell className="text-center">
                             {canEdit ? (
                               <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                step={0.1}
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*\.?[0-9]*"
                                 value={getScoreValue(cls.class_id, 'discipline_score')}
                                 onChange={(e) => handleScoreChange(cls.class_id, 'discipline_score', e.target.value)}
                                 className="w-[70px] text-center mx-auto"
@@ -509,10 +528,9 @@ export default function Emulation() {
                           <TableCell className="text-center">
                             {canEdit ? (
                               <Input
-                                type="number"
-                                min={0}
-                                max={10}
-                                step={0.1}
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*\.?[0-9]*"
                                 value={getScoreValue(cls.class_id, 'boarding_score')}
                                 onChange={(e) => handleScoreChange(cls.class_id, 'boarding_score', e.target.value)}
                                 className="w-[70px] text-center mx-auto"
