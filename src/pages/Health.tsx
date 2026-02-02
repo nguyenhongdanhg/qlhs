@@ -53,15 +53,18 @@ import { HealthExportDialog } from '@/components/health/HealthExportDialog';
 export default function Health() {
   const { user, isSchoolAdmin, isSuperAdmin, currentSchool } = useAuth();
   const { isFeatureEnabled } = useSchool();
-  const { canCreate, canEdit, canDelete } = useFeaturePermission('health');
+  const { canCreate, canEdit, canDelete, canView } = useFeaturePermission('health');
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('record');
-  const [showExportDialog, setShowExportDialog] = useState(false);
-
+  
   const isAdmin = isSchoolAdmin() || isSuperAdmin;
   // Users with health permission can manage health records and medicines
   const canManageHealth = isAdmin || canCreate || canEdit;
+  
+  // Determine default active tab based on permissions
+  // If user can't manage health, they can only view history
+  const [activeTab, setActiveTab] = useState(canManageHealth ? 'record' : 'history');
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   // Fetch students
   const { data: students = [], isLoading: loadingStudents } = useQuery({
@@ -136,31 +139,37 @@ export default function Health() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto">
-          <TabsTrigger value="record" className="text-xs sm:text-sm py-2">
-            <Stethoscope className="h-4 w-4 mr-1.5" />
-            Ghi nhận
-          </TabsTrigger>
+        <TabsList className={cn("grid w-full h-auto", canManageHealth ? "grid-cols-3" : "grid-cols-1")}>
+          {canManageHealth && (
+            <TabsTrigger value="record" className="text-xs sm:text-sm py-2">
+              <Stethoscope className="h-4 w-4 mr-1.5" />
+              Ghi nhận
+            </TabsTrigger>
+          )}
           <TabsTrigger value="history" className="text-xs sm:text-sm py-2">
             <CalendarIcon className="h-4 w-4 mr-1.5" />
             Lịch sử
           </TabsTrigger>
-          <TabsTrigger value="inventory" className="text-xs sm:text-sm py-2">
-            <Package className="h-4 w-4 mr-1.5" />
-            Kho thuốc
-          </TabsTrigger>
+          {canManageHealth && (
+            <TabsTrigger value="inventory" className="text-xs sm:text-sm py-2">
+              <Package className="h-4 w-4 mr-1.5" />
+              Kho thuốc
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="record" className="mt-4">
-          <HealthRecordForm 
-            students={students}
-            classes={classes}
-            medicines={medicines}
-            schoolId={currentSchool?.id || ''}
-            userId={user?.id || ''}
-            isAdmin={canManageHealth}
-          />
-        </TabsContent>
+        {canManageHealth && (
+          <TabsContent value="record" className="mt-4">
+            <HealthRecordForm 
+              students={students}
+              classes={classes}
+              medicines={medicines}
+              schoolId={currentSchool?.id || ''}
+              userId={user?.id || ''}
+              isAdmin={canManageHealth}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="history" className="mt-4">
           <HealthHistoryTab
@@ -173,14 +182,16 @@ export default function Health() {
           />
         </TabsContent>
 
-        <TabsContent value="inventory" className="mt-4">
-          <MedicineInventoryTab
-            schoolId={currentSchool?.id || ''}
-            isAdmin={canManageHealth}
-            userId={user?.id || ''}
-            canDelete={isAdmin || canDelete}
-          />
-        </TabsContent>
+        {canManageHealth && (
+          <TabsContent value="inventory" className="mt-4">
+            <MedicineInventoryTab
+              schoolId={currentSchool?.id || ''}
+              isAdmin={canManageHealth}
+              userId={user?.id || ''}
+              canDelete={isAdmin || canDelete}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Export Dialog */}
