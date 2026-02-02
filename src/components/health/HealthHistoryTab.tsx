@@ -121,15 +121,55 @@ export function HealthHistoryTab({
     });
   }, [records, filterType, searchTerm]);
 
-  // Delete mutation
+  // Delete mutation - restore medicine quantities before deleting
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('health_records').delete().eq('id', id);
+    mutationFn: async (record: HealthRecord) => {
+      // If the record has medicines, restore their quantities to inventory
+      if (record.treatment_type === 'medicine' && record.medicines && record.medicines.length > 0) {
+        for (const item of record.medicines) {
+          if (item.medicine_id && item.quantity > 0) {
+            // Get current medicine quantity
+            const { data: medicine, error: fetchError } = await supabase
+              .from('medicines')
+              .select('quantity')
+              .eq('id', item.medicine_id)
+              .single();
+            
+            if (fetchError) throw fetchError;
+            
+            // Update medicine quantity (add back the dispensed amount)
+            const { error: updateError } = await supabase
+              .from('medicines')
+              .update({ quantity: (medicine?.quantity || 0) + item.quantity })
+              .eq('id', item.medicine_id);
+            
+            if (updateError) throw updateError;
+            
+            // Record the return transaction
+            const { error: txError } = await supabase
+              .from('medicine_transactions')
+              .insert({
+                school_id: record.school_id,
+                medicine_id: item.medicine_id,
+                transaction_type: 'import',
+                quantity: item.quantity,
+                notes: `Hoàn trả từ xóa lịch sử (HS: ${record.student?.full_name || 'N/A'})`
+              });
+            
+            if (txError) throw txError;
+          }
+        }
+      }
+      
+      // Delete the health record (health_record_medicines will cascade delete)
+      const { error } = await supabase.from('health_records').delete().eq('id', record.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: 'Đã xóa', description: 'Đã xóa bản ghi sức khỏe' });
+      toast({ title: 'Đã xóa', description: 'Đã xóa bản ghi và hoàn trả thuốc về kho' });
       queryClient.invalidateQueries({ queryKey: ['health-records'] });
+      queryClient.invalidateQueries({ queryKey: ['medicines'] });
+      queryClient.invalidateQueries({ queryKey: ['medicine-transactions'] });
       setDeleteRecord(null);
     },
     onError: (error: any) => {
@@ -400,7 +440,7 @@ export function HealthHistoryTab({
             </Button>
             <Button
               variant="destructive"
-              onClick={() => deleteRecord && deleteMutation.mutate(deleteRecord.id)}
+              onClick={() => deleteRecord && deleteMutation.mutate(deleteRecord)}
               disabled={deleteMutation.isPending}
             >
               Xóa
