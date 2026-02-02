@@ -1821,20 +1821,10 @@ export default function Statistics() {
                           variant="ghost"
                           size="sm"
                           className="justify-start"
-                          onClick={() => handleExportDailyMealExcel()}
-                          disabled={isExporting}
-                        >
-                          <FileSpreadsheet className="h-4 w-4 mr-2" />
-                          Xuất Excel ngày này
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start"
                           onClick={() => setExportDialogOpen(true)}
                         >
                           <FileSpreadsheet className="h-4 w-4 mr-2" />
-                          Xuất Excel theo khoảng thời gian
+                          Xuất Excel
                         </Button>
                       </div>
                     </PopoverContent>
