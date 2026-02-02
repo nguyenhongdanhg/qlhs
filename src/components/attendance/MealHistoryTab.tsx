@@ -39,6 +39,7 @@ import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } fr
 import { MealDiagnosticDialog } from '@/components/attendance/MealDiagnosticDialog';
 import { MealExportDialog } from '@/components/attendance/MealExportDialog';
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface AbsentStudentInfo {
   id: string;
@@ -93,6 +94,7 @@ export function MealHistoryTab({
   onEditReport,
 }: MealHistoryTabProps) {
   const { currentSchool, user, profile, isSuperAdmin, isSchoolAdmin } = useAuth();
+  const { toast } = useToast();
 
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
@@ -387,8 +389,124 @@ export function MealHistoryTab({
   };
 
   const handleExportExcel = async (rangeType: DateRangeType, selectedDate: Date) => {
-    // Redirect to parent component for now
-    // This would typically call the export function
+    if (!currentSchool) return;
+    setIsExporting(true);
+    
+    try {
+      const dateRange = getDateRange(selectedDate, rangeType);
+      const startDateStr = format(dateRange.start, 'yyyy-MM-dd');
+      const endDateStr = format(dateRange.end, 'yyyy-MM-dd');
+      
+      // Fetch attendance records for the date range
+      let query = supabase
+        .from('attendance_records')
+        .select('*, student:students(id, full_name, class:classes(name, grade), room_number, meal_group)')
+        .eq('school_id', currentSchool.id)
+        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+        .gte('attendance_date', startDateStr)
+        .lte('attendance_date', endDateStr);
+
+      // Filter for class teacher
+      if (isClassTeacher && teacherClassId) {
+        query = query.eq('class_id', teacherClassId);
+      } else if (historyClassFilter !== 'all') {
+        const selectedClassObj = classes.find(c => c.name === historyClassFilter);
+        if (selectedClassObj) {
+          query = query.eq('class_id', selectedClassObj.id);
+        }
+      }
+
+      const { data: records, error } = await query;
+      if (error) throw error;
+
+      // Get relevant students
+      let relevantStudents = students.filter(s => s.is_boarding);
+      if (isClassTeacher && teacherClassId) {
+        relevantStudents = relevantStudents.filter(s => s.class_id === teacherClassId);
+      } else if (historyClassFilter !== 'all') {
+        relevantStudents = relevantStudents.filter(s => s.class?.name === historyClassFilter);
+      }
+
+      // Get latest record per student/date/meal
+      const latestByKey = new Map<string, any>();
+      (records || []).forEach((record: any) => {
+        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
+        const existing = latestByKey.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+          latestByKey.set(key, record);
+        }
+      });
+
+      // Build MealStudentData for export
+      const studentDataMap = new Map<string, MealStudentData>();
+      
+      relevantStudents.forEach(student => {
+        studentDataMap.set(student.id, {
+          id: student.id,
+          name: student.full_name,
+          className: student.class?.name || '',
+          classGrade: student.class?.grade,
+          roomNumber: student.room_number || '',
+          mealGroup: student.meal_group || '',
+          attendance: new Map(),
+        });
+      });
+
+      // Populate attendance data
+      latestByKey.forEach((record) => {
+        const studentData = studentDataMap.get(record.student_id);
+        if (!studentData) return;
+
+        const dateStr = record.attendance_date;
+        if (!studentData.attendance.has(dateStr)) {
+          studentData.attendance.set(dateStr, { breakfast: null, lunch: null, dinner: null });
+        }
+
+        const dayData = studentData.attendance.get(dateStr)!;
+        const isPresent = record.status === 'present';
+        
+        if (record.attendance_type === 'breakfast') {
+          dayData.breakfast = isPresent;
+        } else if (record.attendance_type === 'lunch') {
+          dayData.lunch = isPresent;
+        } else if (record.attendance_type === 'dinner') {
+          dayData.dinner = isPresent;
+        }
+      });
+
+      const mealStudents = Array.from(studentDataMap.values());
+      
+      // Determine export title suffix
+      let titleSuffix = '';
+      if (isClassTeacher && teacherClassName) {
+        titleSuffix = ` - Lớp ${teacherClassName}`;
+      } else if (historyClassFilter !== 'all') {
+        titleSuffix = ` - Lớp ${historyClassFilter}`;
+      }
+
+      // Export
+      exportMealStatistics(mealStudents, {
+        schoolName: currentSchool.name + titleSuffix,
+        title: `THỐNG KÊ BỮA ĂN${titleSuffix}`,
+        dateRange,
+        reporterName: profile?.full_name || '',
+        exportTime: new Date(),
+      });
+
+      toast({
+        title: 'Thành công',
+        description: `Đã xuất báo cáo Excel${titleSuffix}`,
+      });
+    } catch (error: any) {
+      console.error('Export error:', error);
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể xuất Excel',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Calculate summary stats
