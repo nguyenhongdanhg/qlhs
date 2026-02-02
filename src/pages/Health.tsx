@@ -5,6 +5,7 @@ import { vi } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
+import { useFeaturePermission } from '@/components/guards/FeatureGuard';
 import { useToast } from '@/hooks/use-toast';
 import { useImageExport } from '@/hooks/use-image-export';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -52,12 +53,15 @@ import { HealthExportDialog } from '@/components/health/HealthExportDialog';
 export default function Health() {
   const { user, isSchoolAdmin, isSuperAdmin, currentSchool } = useAuth();
   const { isFeatureEnabled } = useSchool();
+  const { canCreate, canEdit, canDelete } = useFeaturePermission('health');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('record');
   const [showExportDialog, setShowExportDialog] = useState(false);
 
   const isAdmin = isSchoolAdmin() || isSuperAdmin;
+  // Users with health permission can manage health records and medicines
+  const canManageHealth = isAdmin || canCreate || canEdit;
 
   // Fetch students
   const { data: students = [], isLoading: loadingStudents } = useQuery({
@@ -154,7 +158,7 @@ export default function Health() {
             medicines={medicines}
             schoolId={currentSchool?.id || ''}
             userId={user?.id || ''}
-            isAdmin={isAdmin}
+            isAdmin={canManageHealth}
           />
         </TabsContent>
 
@@ -163,16 +167,18 @@ export default function Health() {
             schoolId={currentSchool?.id || ''}
             students={students}
             classes={classes}
-            isAdmin={isAdmin}
+            isAdmin={canManageHealth}
             userId={user?.id || ''}
+            canDelete={isAdmin || canDelete}
           />
         </TabsContent>
 
         <TabsContent value="inventory" className="mt-4">
           <MedicineInventoryTab
             schoolId={currentSchool?.id || ''}
-            isAdmin={isAdmin}
+            isAdmin={canManageHealth}
             userId={user?.id || ''}
+            canDelete={isAdmin || canDelete}
           />
         </TabsContent>
       </Tabs>

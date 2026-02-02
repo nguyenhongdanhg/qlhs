@@ -33,11 +33,12 @@ interface MedicineInventoryTabProps {
   schoolId: string;
   isAdmin: boolean;
   userId: string;
+  canDelete?: boolean;
 }
 
 const UNIT_OPTIONS = ['viên', 'gói', 'lọ', 'tuýp', 'hộp', 'chai', 'vỉ', 'ống'];
 
-export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInventoryTabProps) {
+export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = false }: MedicineInventoryTabProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -404,14 +405,14 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
                               <History className="h-4 w-4" />
                             </Button>
                             {isAdmin && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(med)} title="Sửa">
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteMedicine(med)} title="Xóa">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(med)} title="Sửa">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteMedicine(med)} title="Xóa">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -483,16 +484,16 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId }: MedicineInve
                           Lịch sử
                         </Button>
                         {isAdmin && (
-                          <>
-                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEditDialog(med)}>
-                              <Edit className="h-3 w-3 mr-1" />
-                              Sửa
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-7 text-xs text-destructive" onClick={() => setDeleteMedicine(med)}>
-                              <Trash2 className="h-3 w-3 mr-1" />
-                              Xóa
-                            </Button>
-                          </>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEditDialog(med)}>
+                            <Edit className="h-3 w-3 mr-1" />
+                            Sửa
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="outline" size="sm" className="h-7 text-xs text-destructive" onClick={() => setDeleteMedicine(med)}>
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Xóa
+                          </Button>
                         )}
                       </div>
                     </div>

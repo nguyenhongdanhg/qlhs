@@ -34,6 +34,7 @@ interface HealthHistoryTabProps {
   classes: Class[];
   isAdmin: boolean;
   userId: string;
+  canDelete?: boolean;
 }
 
 const TREATMENT_LABELS: Record<HealthTreatmentType, { label: string; color: string; icon: any }> = {
@@ -48,6 +49,7 @@ export function HealthHistoryTab({
   classes,
   isAdmin,
   userId,
+  canDelete = false,
 }: HealthHistoryTabProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
