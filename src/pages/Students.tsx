@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -49,6 +49,8 @@ import {
   GraduationCap,
   Utensils,
   Edit,
+  Image,
+  Link,
 } from 'lucide-react';
 import { cn, naturalSort } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
@@ -89,6 +91,8 @@ export default function Students() {
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string | null>(null);
   const [selectedMealFilter, setSelectedMealFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('students');
+  const [isBulkAvatarOpen, setIsBulkAvatarOpen] = useState(false);
+  const [bulkAvatarText, setBulkAvatarText] = useState('');
   
   // Room and meal group lists derived from students - using natural sort
   const roomNumbers = useMemo(() => {
@@ -117,6 +121,7 @@ export default function Students() {
     room_number: '',
     meal_group: '',
     notes: '',
+    avatar_url: '',
     is_boarding: true,
   });
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -197,6 +202,7 @@ export default function Students() {
         room_number: student.room_number || '',
         meal_group: student.meal_group || '',
         notes: student.notes || '',
+        avatar_url: student.avatar_url || '',
         is_boarding: student.is_boarding,
       });
     } else {
@@ -214,6 +220,7 @@ export default function Students() {
         room_number: '',
         meal_group: '',
         notes: '',
+        avatar_url: '',
         is_boarding: true,
       });
     }
@@ -252,6 +259,7 @@ export default function Students() {
         room_number: formData.room_number || null,
         meal_group: formData.meal_group || null,
         notes: formData.notes || null,
+        avatar_url: formData.avatar_url || null,
         is_boarding: formData.is_boarding,
       };
 
@@ -558,6 +566,45 @@ export default function Students() {
     setIsBatchUpdateOpen(true);
   };
 
+  const handleBulkAvatarUpdate = async () => {
+    if (!bulkAvatarText.trim()) return;
+    
+    // Parse lines: "student_code URL" or "student_code,URL" or "student_code\tURL"
+    const lines = bulkAvatarText.trim().split('\n').filter(l => l.trim());
+    let updated = 0;
+    let notFound: string[] = [];
+    
+    for (const line of lines) {
+      const parts = line.trim().split(/[,\t]+|\s{2,}/);
+      if (parts.length < 2) continue;
+      
+      const code = parts[0].trim();
+      const url = parts.slice(1).join(' ').trim();
+      if (!code || !url) continue;
+      
+      const student = students.find(s => s.student_code === code);
+      if (student) {
+        const { error } = await supabase
+          .from('students')
+          .update({ avatar_url: url })
+          .eq('id', student.id);
+        if (!error) updated++;
+      } else {
+        notFound.push(code);
+      }
+    }
+    
+    if (updated > 0) {
+      toast({ title: 'Thành công', description: `Đã cập nhật ảnh cho ${updated} học sinh${notFound.length > 0 ? `. Không tìm thấy: ${notFound.join(', ')}` : ''}` });
+      fetchData();
+    } else {
+      toast({ title: 'Lỗi', description: notFound.length > 0 ? `Không tìm thấy mã HS: ${notFound.join(', ')}` : 'Không có dữ liệu hợp lệ', variant: 'destructive' });
+    }
+    
+    setIsBulkAvatarOpen(false);
+    setBulkAvatarText('');
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -653,6 +700,10 @@ export default function Students() {
                 <Button variant="outline" size="sm" onClick={handleExportExcel}>
                   <Download className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Xuất Excel</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsBulkAvatarOpen(true)}>
+                  <Image className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Cập nhật ảnh</span>
                 </Button>
                 {selectedIds.size > 0 ? (
                   <Button variant="destructive" size="sm" onClick={handleDeleteSelected}>
@@ -824,6 +875,25 @@ export default function Students() {
                         />
                       </div>
 
+                      <div className="space-y-1.5">
+                        <Label htmlFor="avatar_url">Link ảnh (URL)</Label>
+                        <Input
+                          id="avatar_url"
+                          value={formData.avatar_url}
+                          onChange={(e) => setFormData({ ...formData, avatar_url: e.target.value })}
+                          placeholder="https://..."
+                        />
+                        {formData.avatar_url && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={formData.avatar_url} alt="Preview" className="object-cover" />
+                              <AvatarFallback>?</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-muted-foreground">Xem trước</span>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex items-center gap-2">
                         <Checkbox
                           id="is_boarding"
@@ -949,6 +1019,7 @@ export default function Students() {
                       />
                     )}
                     <Avatar className="h-10 w-10 bg-primary/10 flex-shrink-0">
+                      {student.avatar_url && <AvatarImage src={student.avatar_url} alt={student.full_name} className="object-cover" />}
                       <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
                         {getInitials(student.full_name)}
                       </AvatarFallback>
@@ -1175,6 +1246,7 @@ export default function Students() {
               {selectedStudent && (
                 <>
                   <Avatar className="h-12 w-12 bg-primary">
+                    {selectedStudent.avatar_url && <AvatarImage src={selectedStudent.avatar_url} alt={selectedStudent.full_name} className="object-cover" />}
                     <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                       {getInitials(selectedStudent.full_name)}
                     </AvatarFallback>
@@ -1375,6 +1447,48 @@ export default function Students() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBatchUpdateOpen(false)}>Hủy</Button>
             <Button onClick={handleBatchUpdate}>Cập nhật</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Avatar Update Dialog */}
+      <Dialog open={isBulkAvatarOpen} onOpenChange={setIsBulkAvatarOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Image className="h-5 w-5 text-primary" />
+              Cập nhật ảnh hàng loạt
+            </DialogTitle>
+            <DialogDescription>
+              Nhập mỗi dòng gồm: <strong>Mã học sinh</strong> và <strong>Link ảnh</strong>, cách nhau bởi dấu phẩy hoặc tab.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-1">
+              <p className="font-medium">Ví dụ:</p>
+              <pre className="text-muted-foreground whitespace-pre-wrap">
+{`HS001, https://example.com/photo1.jpg
+HS002, https://example.com/photo2.jpg
+HS003, https://example.com/photo3.jpg`}
+              </pre>
+            </div>
+            <Textarea
+              value={bulkAvatarText}
+              onChange={(e) => setBulkAvatarText(e.target.value)}
+              placeholder="Mã HS, Link ảnh (mỗi dòng 1 học sinh)"
+              rows={8}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              Hỗ trợ link Google Drive, Facebook, hoặc bất kỳ URL ảnh công khai nào.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsBulkAvatarOpen(false); setBulkAvatarText(''); }}>Hủy</Button>
+            <Button onClick={handleBulkAvatarUpdate} disabled={!bulkAvatarText.trim()}>
+              <Link className="h-4 w-4 mr-1" />
+              Cập nhật
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
