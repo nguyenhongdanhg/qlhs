@@ -32,6 +32,7 @@ import {
   Trash2,
   RefreshCw,
   Lock,
+  CalendarOff,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,7 @@ import { ShareAbsentByMealGroupDialog } from '@/components/attendance/ShareAbsen
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
 import { ShareSingleMealDialog } from '@/components/attendance/ShareSingleMealDialog';
 import { MealExportDialog } from '@/components/attendance/MealExportDialog';
+import { MealDayOffDialog } from '@/components/attendance/MealDayOffDialog';
 import { useToast } from '@/hooks/use-toast';
 import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
 import { cn } from '@/lib/utils';
@@ -144,6 +146,11 @@ export default function Statistics() {
   
   // Finalize (Chốt) state
   const [isFinalizingMeal, setIsFinalizingMeal] = useState<AttendanceType | null>(null);
+  
+  // Day off (Nghỉ) state
+  const [dayOffDialogOpen, setDayOffDialogOpen] = useState(false);
+  const [dayOffMealType, setDayOffMealType] = useState<AttendanceType>('breakfast');
+  const [isDeletingDayOff, setIsDeletingDayOff] = useState(false);
   
   // Meal settings for deadline check
   const [mealDeadlines, setMealDeadlines] = useState<{
@@ -361,6 +368,56 @@ export default function Statistics() {
       setIsFinalizingMeal(null);
     }
   }, [currentSchool, user, selectedDate, students, toast]);
+
+  // Handle day off - delete attendance records for selected classes
+  const handleDayOff = useCallback(async (classIds: string[]) => {
+    if (!currentSchool || classIds.length === 0) return;
+
+    setIsDeletingDayOff(true);
+    try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+      // Delete records for each selected class
+      for (const classId of classIds) {
+        const { error } = await supabase
+          .from('attendance_records')
+          .delete()
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', dayOffMealType)
+          .eq('class_id', classId);
+
+        if (error) throw error;
+      }
+
+      const mealLabel = dayOffMealType === 'breakfast' ? 'Bữa sáng' : dayOffMealType === 'lunch' ? 'Bữa trưa' : 'Bữa tối';
+      toast({
+        title: 'Thành công',
+        description: `Đã xóa báo cáo ${mealLabel} của ${classIds.length} lớp`,
+      });
+
+      setDayOffDialogOpen(false);
+
+      // Refresh data
+      setTimeout(() => {
+        fetchDailyData();
+      }, 500);
+    } catch (error) {
+      console.error('Error deleting meal reports:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xóa báo cáo. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingDayOff(false);
+    }
+  }, [currentSchool, selectedDate, dayOffMealType, toast]);
+
+  const handleOpenDayOffDialog = useCallback((mealType: AttendanceType) => {
+    setDayOffMealType(mealType);
+    setDayOffDialogOpen(true);
+  }, []);
 
   // Fetch meal settings on mount
   useEffect(() => {
@@ -1386,6 +1443,17 @@ export default function Statistics() {
                   Chốt ({stats.classesNotReported.length} lớp)
                 </Button>
               )}
+              {stats.hasReport && !isClassTeacher && canSupplementReports && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => handleOpenDayOffDialog(mealType)}
+                >
+                  <CalendarOff className="h-3 w-3" />
+                  Nghỉ
+                </Button>
+              )}
               {stats.hasReport && (
                 <Button
                   variant="outline"
@@ -2249,6 +2317,23 @@ export default function Statistics() {
         onOpenChange={setExportDialogOpen}
         onExport={handleExportFromDialog}
         isExporting={isExporting}
+      />
+
+      {/* Day Off Dialog */}
+      <MealDayOffDialog
+        open={dayOffDialogOpen}
+        onOpenChange={setDayOffDialogOpen}
+        mealType={dayOffMealType as 'breakfast' | 'lunch' | 'dinner'}
+        mealLabel={dayOffMealType === 'breakfast' ? 'Bữa sáng' : dayOffMealType === 'lunch' ? 'Bữa trưa' : 'Bữa tối'}
+        dateLabel={format(selectedDate, 'dd/MM/yyyy')}
+        classes={sortedClasses}
+        reportedClassIds={
+          dailyMealStats
+            ? (dailyMealStats[dayOffMealType as keyof DailyMealSummary] as MealStats)?.classReportInfos?.map(i => i.classId) || []
+            : []
+        }
+        isDeleting={isDeletingDayOff}
+        onConfirm={handleDayOff}
       />
     </div>
   );
