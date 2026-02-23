@@ -233,22 +233,26 @@ export default function Students() {
     setIsDetailOpen(true);
   };
 
+  const generateStudentCode = () => `HS${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
   const handleSave = async () => {
     if (!currentSchool) return;
-    if (!formData.student_code || !formData.full_name) {
+    if (!formData.full_name) {
       toast({
         title: 'Lỗi',
-        description: 'Vui lòng điền mã học sinh và họ tên',
+        description: 'Vui lòng điền họ tên học sinh',
         variant: 'destructive',
       });
       return;
     }
 
+    const studentCode = formData.student_code || formData.cccd || generateStudentCode();
+
     setIsSaving(true);
     try {
       const studentData = {
         school_id: currentSchool.id,
-        student_code: formData.student_code,
+        student_code: studentCode,
         full_name: formData.full_name,
         class_id: formData.class_id || null,
         gender: (formData.gender as 'male' | 'female') || null,
@@ -325,7 +329,7 @@ export default function Students() {
 
     const studentsToInsert = importData.map((row, index) => ({
       school_id: currentSchool.id,
-      student_code: `HS${Date.now()}${index}`,
+      student_code: row.cccd || `HS${Date.now()}${index}`,
       full_name: row.full_name,
       date_of_birth: row.date_of_birth || null,
       gender: row.gender,
@@ -737,12 +741,12 @@ export default function Students() {
                     <div className="grid gap-3 py-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                          <Label htmlFor="student_code">Mã HS *</Label>
+                          <Label htmlFor="student_code">Mã HS</Label>
                           <Input
                             id="student_code"
                             value={formData.student_code}
                             onChange={(e) => setFormData({ ...formData, student_code: e.target.value })}
-                            placeholder="HS001"
+                            placeholder="Tự động từ CCCD"
                           />
                         </div>
                         <div className="space-y-1.5">
@@ -801,7 +805,14 @@ export default function Students() {
                           <Input
                             id="cccd"
                             value={formData.cccd}
-                            onChange={(e) => setFormData({ ...formData, cccd: e.target.value })}
+                            onChange={(e) => {
+                              const cccd = e.target.value;
+                              const newData: typeof formData = { ...formData, cccd };
+                              if (!formData.student_code || formData.student_code === formData.cccd) {
+                                newData.student_code = cccd;
+                              }
+                              setFormData(newData);
+                            }}
                             placeholder="001234567890"
                           />
                         </div>
