@@ -1103,6 +1103,26 @@ export default function DutySchedule() {
     return daySchedules;
   };
 
+  // Personal duty summary when a person is selected
+  const personalDutySummary = useMemo(() => {
+    if (!calendarFilterName || calendarFilterName === 'all') return null;
+    
+    const personSchedules = schedules
+      .filter(s => s.user_id === calendarFilterName)
+      .sort((a, b) => a.duty_date.localeCompare(b.duty_date));
+    
+    const personName = scheduledPeople.find(p => p.id === calendarFilterName)?.name || '';
+    
+    return personSchedules.map(ps => {
+      const colleagues = schedules
+        .filter(s => s.duty_date === ps.duty_date && s.user_id !== calendarFilterName);
+      return {
+        date: ps.duty_date,
+        colleagues,
+      };
+    });
+  }, [calendarFilterName, schedules, scheduledPeople]);
+
   if (!currentSchool) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -1571,7 +1591,7 @@ export default function DutySchedule() {
                   <Select value={calendarFilterName} onValueChange={setCalendarFilterName}>
                     <SelectTrigger className="w-[180px]">
                       <Search className="h-4 w-4 mr-1" />
-                      <SelectValue placeholder="Tất cả người trực" />
+                      <SelectValue placeholder="Lọc theo người" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tất cả</SelectItem>
@@ -1601,6 +1621,58 @@ export default function DutySchedule() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Personal Duty Summary */}
+          {personalDutySummary && personalDutySummary.length > 0 && (
+            <Card className="mb-4 border-primary/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">
+                    Lịch trực của {scheduledPeople.find(p => p.id === calendarFilterName)?.name}
+                  </span>
+                  <Badge variant="secondary">{personalDutySummary.length} ngày</Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {personalDutySummary.map(item => {
+                    const d = new Date(item.date);
+                    const dayOfWeek = getDay(d);
+                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                    return (
+                      <div
+                        key={item.date}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                          isToday(d) && "border-primary bg-primary/5",
+                          isWeekend && !isToday(d) && "border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20"
+                        )}
+                      >
+                        <div className="font-medium whitespace-nowrap">
+                          {format(d, 'dd/MM')}
+                          <span className={cn(
+                            "ml-1 text-xs",
+                            isWeekend ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"
+                          )}>
+                            ({format(d, 'EEEE', { locale: vi })})
+                          </span>
+                        </div>
+                        {item.colleagues.length > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
+                            <span>cùng</span>
+                            {item.colleagues.map(c => (
+                              <Badge key={c.id} variant="outline" className="text-[10px] px-1 py-0">
+                                {c.profile?.full_name?.split(' ').pop()}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Calendar Grid */}
           {isLoading ? (
