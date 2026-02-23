@@ -69,7 +69,10 @@ import {
   UserPlus,
   Save,
   BarChart3,
+  ArrowLeftRight,
+  Search,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -115,6 +118,14 @@ export default function DutySchedule() {
   const [availableMembers, setAvailableMembers] = useState<DutyMember[]>([]);
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [selectedNewMembers, setSelectedNewMembers] = useState<string[]>([]);
+  
+  // Filter by person name in calendar tab
+  const [calendarFilterName, setCalendarFilterName] = useState('');
+  
+  // Swap duty state
+  const [showSwapDialog, setShowSwapDialog] = useState(false);
+  const [swapSource, setSwapSource] = useState<{ userId: string; date: string } | null>(null);
+  const [swapTarget, setSwapTarget] = useState<{ userId: string; date: string } | null>(null);
 
   // Get days in current month
   const daysInMonth = useMemo(() => {
@@ -1035,6 +1046,63 @@ export default function DutySchedule() {
     return schedules.filter(s => s.duty_date === dateStr);
   };
 
+  // Swap duty between two people
+  const handleSwapDuty = async () => {
+    if (!currentSchool || !swapSource || !swapTarget) return;
+    if (swapSource.userId === swapTarget.userId && swapSource.date === swapTarget.date) return;
+    
+    setIsSaving(true);
+    try {
+      const sourceSchedule = schedules.find(s => s.user_id === swapSource.userId && s.duty_date === swapSource.date);
+      const targetSchedule = schedules.find(s => s.user_id === swapTarget.userId && s.duty_date === swapTarget.date);
+      
+      if (!sourceSchedule || !targetSchedule) {
+        toast({ title: 'Lỗi', description: 'Không tìm thấy lịch trực để đổi', variant: 'destructive' });
+        return;
+      }
+      
+      // Update source to target's date and vice versa
+      const [res1, res2] = await Promise.all([
+        supabase.from('duty_schedules').update({ user_id: swapTarget.userId }).eq('id', sourceSchedule.id),
+        supabase.from('duty_schedules').update({ user_id: swapSource.userId }).eq('id', targetSchedule.id),
+      ]);
+      
+      if (res1.error) throw res1.error;
+      if (res2.error) throw res2.error;
+      
+      toast({ title: 'Thành công', description: 'Đã đổi lịch trực thành công' });
+      setShowSwapDialog(false);
+      setSwapSource(null);
+      setSwapTarget(null);
+      fetchSchedules();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Get unique people who have schedules for current month (for filter)
+  const scheduledPeople = useMemo(() => {
+    const peopleMap = new Map<string, string>();
+    schedules.forEach(s => {
+      if (s.profile?.full_name && !peopleMap.has(s.user_id)) {
+        peopleMap.set(s.user_id, s.profile.full_name);
+      }
+    });
+    return Array.from(peopleMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [schedules]);
+
+  // Filtered schedules for calendar
+  const getFilteredSchedulesForDay = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    let daySchedules = schedules.filter(s => s.duty_date === dateStr);
+    if (calendarFilterName && calendarFilterName !== 'all') {
+      daySchedules = daySchedules.filter(s => s.user_id === calendarFilterName);
+    }
+    return daySchedules;
+  };
+
   if (!currentSchool) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -1246,6 +1314,21 @@ export default function DutySchedule() {
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1" 
+                        disabled={isSaving || schedules.length === 0}
+                        onClick={() => {
+                          setSwapSource(null);
+                          setSwapTarget(null);
+                          setShowSwapDialog(true);
+                        }}
+                      >
+                        <ArrowLeftRight className="h-4 w-4" />
+                        Đổi lịch trực
+                      </Button>
                     </>
                   )}
                 </div>
@@ -1483,7 +1566,20 @@ export default function DutySchedule() {
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Filter by person */}
+                  <Select value={calendarFilterName} onValueChange={setCalendarFilterName}>
+                    <SelectTrigger className="w-[180px]">
+                      <Search className="h-4 w-4 mr-1" />
+                      <SelectValue placeholder="Tất cả người trực" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      {scheduledPeople.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="link"
                     size="sm"
@@ -1519,7 +1615,7 @@ export default function DutySchedule() {
               "grid-cols-2 sm:grid-cols-4 md:grid-cols-7"
             )}>
               {getSchedulesForRange().map(day => {
-                const daySchedules = getSchedulesForDay(day);
+                const daySchedules = getFilteredSchedulesForDay(day);
                 const today = isToday(day);
                 const dayName = getDayName(day);
                 const isWeekend = dayName === "CN" || dayName === "T7";
@@ -1667,6 +1763,116 @@ export default function DutySchedule() {
             >
               <Save className="h-4 w-4 mr-1" />
               Thêm ({selectedNewMembers.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Swap Duty Dialog */}
+      <Dialog open={showSwapDialog} onOpenChange={setShowSwapDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowLeftRight className="h-5 w-5" />
+              Đổi lịch trực
+            </DialogTitle>
+            <DialogDescription>
+              Chọn hai người để đổi lịch trực cho nhau
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Source */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Người 1</label>
+              <div className="flex gap-2">
+                <Select 
+                  value={swapSource?.userId || ''} 
+                  onValueChange={(v) => setSwapSource(prev => ({ userId: v, date: prev?.date || '' }))}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Chọn người" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dutyMembers.map(m => (
+                      <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select 
+                  value={swapSource?.date || ''} 
+                  onValueChange={(v) => setSwapSource(prev => ({ userId: prev?.userId || '', date: v }))}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Ngày trực" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {swapSource?.userId && schedules
+                      .filter(s => s.user_id === swapSource.userId)
+                      .map(s => (
+                        <SelectItem key={s.duty_date} value={s.duty_date}>
+                          {format(new Date(s.duty_date), 'dd/MM (EEE)', { locale: vi })}
+                        </SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <ArrowLeftRight className="h-5 w-5 text-muted-foreground" />
+            </div>
+
+            {/* Target */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Người 2</label>
+              <div className="flex gap-2">
+                <Select 
+                  value={swapTarget?.userId || ''} 
+                  onValueChange={(v) => setSwapTarget(prev => ({ userId: v, date: prev?.date || '' }))}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Chọn người" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dutyMembers.filter(m => m.id !== swapSource?.userId).map(m => (
+                      <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select 
+                  value={swapTarget?.date || ''} 
+                  onValueChange={(v) => setSwapTarget(prev => ({ userId: prev?.userId || '', date: v }))}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Ngày trực" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {swapTarget?.userId && schedules
+                      .filter(s => s.user_id === swapTarget.userId)
+                      .map(s => (
+                        <SelectItem key={s.duty_date} value={s.duty_date}>
+                          {format(new Date(s.duty_date), 'dd/MM (EEE)', { locale: vi })}
+                        </SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSwapDialog(false)}>
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleSwapDuty} 
+              disabled={!swapSource?.userId || !swapSource?.date || !swapTarget?.userId || !swapTarget?.date || isSaving}
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ArrowLeftRight className="h-4 w-4 mr-1" />}
+              Đổi lịch
             </Button>
           </DialogFooter>
         </DialogContent>
