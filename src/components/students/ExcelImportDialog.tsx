@@ -169,6 +169,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
                       <TableHead>SĐT</TableHead>
                       <TableHead>Phòng</TableHead>
                       <TableHead>Mâm</TableHead>
+                      <TableHead>Ảnh</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -185,6 +186,11 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
                         <TableCell>{row.phone || '-'}</TableCell>
                         <TableCell>{row.room_number || '-'}</TableCell>
                         <TableCell>{row.meal_group || '-'}</TableCell>
+                        <TableCell>
+                          {row.avatar_url ? (
+                            <img src={row.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+                          ) : '-'}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

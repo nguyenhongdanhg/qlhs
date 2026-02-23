@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Search,
   Plus,
@@ -95,6 +96,14 @@ export default function Students() {
   const [bulkAvatarText, setBulkAvatarText] = useState('');
   const [zoomAvatarUrl, setZoomAvatarUrl] = useState<string | null>(null);
   
+  // Duplicate import state
+  const [duplicateData, setDuplicateData] = useState<{
+    newStudents: any[];
+    duplicates: { existing: Student; imported: StudentImportRow; updates: Record<string, { old: any; new: any }> }[];
+  } | null>(null);
+  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+  const [isImportingSave, setIsImportingSave] = useState(false);
+
   // Room and meal group lists derived from students - using natural sort
   const roomNumbers = useMemo(() => {
     const rooms = new Set<string>();
@@ -321,32 +330,133 @@ export default function Students() {
   const handleExcelImport = async (importData: StudentImportRow[]) => {
     if (!currentSchool) throw new Error('Chưa chọn trường');
 
-    // Map class names to class IDs
     const classMap: Record<string, string> = {};
     classes.forEach(cls => {
       classMap[cls.name.toLowerCase()] = cls.id;
     });
 
-    const studentsToInsert = importData.map((row, index) => ({
-      school_id: currentSchool.id,
-      student_code: row.cccd || `HS${Date.now()}${index}`,
-      full_name: row.full_name,
-      date_of_birth: row.date_of_birth || null,
-      gender: row.gender,
-      class_id: classMap[row.class_name.toLowerCase()] || null,
-      cccd: row.cccd || null,
-      phone: row.phone || null,
-      address: row.address || null,
-      room_number: row.room_number || null,
-      meal_group: row.meal_group || null,
-      is_boarding: true,
-      is_active: true,
-    }));
+    // Check for duplicates by cccd or full_name
+    const duplicates: { existing: Student; imported: StudentImportRow; updates: Record<string, { old: any; new: any }> }[] = [];
+    const newRows: StudentImportRow[] = [];
 
-    const { error } = await supabase.from('students').insert(studentsToInsert);
-    if (error) throw error;
+    for (const row of importData) {
+      const existing = students.find(s => 
+        (row.cccd && s.cccd === row.cccd) || 
+        (row.full_name && s.full_name.toLowerCase() === row.full_name.toLowerCase() && row.class_name && s.class?.name?.toLowerCase() === row.class_name.toLowerCase())
+      );
+
+      if (existing) {
+        const updates: Record<string, { old: any; new: any }> = {};
+        const fieldMap: { key: keyof Student; importKey: keyof StudentImportRow; label: string; transform?: (v: string) => any }[] = [
+          { key: 'phone', importKey: 'phone', label: 'SĐT' },
+          { key: 'address', importKey: 'address', label: 'Địa chỉ' },
+          { key: 'room_number', importKey: 'room_number', label: 'Phòng KTX' },
+          { key: 'meal_group', importKey: 'meal_group', label: 'Mâm ăn' },
+          { key: 'avatar_url', importKey: 'avatar_url', label: 'Link ảnh' },
+          { key: 'cccd', importKey: 'cccd', label: 'CCCD' },
+          { key: 'date_of_birth', importKey: 'date_of_birth', label: 'Ngày sinh' },
+        ];
+
+        for (const field of fieldMap) {
+          const importVal = row[field.importKey];
+          const existingVal = existing[field.key];
+          if (importVal && importVal !== existingVal) {
+            updates[field.key] = { old: existingVal || '(trống)', new: importVal };
+          }
+        }
+        // Check gender
+        if (row.gender && row.gender !== existing.gender) {
+          updates['gender'] = { old: existing.gender === 'male' ? 'Nam' : existing.gender === 'female' ? 'Nữ' : '(trống)', new: row.gender === 'male' ? 'Nam' : 'Nữ' };
+        }
+        // Check class
+        const newClassId = classMap[row.class_name?.toLowerCase()] || null;
+        if (newClassId && newClassId !== existing.class_id) {
+          updates['class_id'] = { old: existing.class?.name || '(trống)', new: row.class_name };
+        }
+
+        if (Object.keys(updates).length > 0) {
+          duplicates.push({ existing, imported: row, updates });
+        }
+      } else {
+        newRows.push(row);
+      }
+    }
+
+    // Insert new students
+    if (newRows.length > 0) {
+      const studentsToInsert = newRows.map((row, index) => ({
+        school_id: currentSchool.id,
+        student_code: row.cccd || `HS${Date.now()}${index}`,
+        full_name: row.full_name,
+        date_of_birth: row.date_of_birth || null,
+        gender: row.gender,
+        class_id: classMap[row.class_name?.toLowerCase()] || null,
+        cccd: row.cccd || null,
+        phone: row.phone || null,
+        address: row.address || null,
+        room_number: row.room_number || null,
+        meal_group: row.meal_group || null,
+        avatar_url: row.avatar_url || null,
+        is_boarding: true,
+        is_active: true,
+      }));
+
+      const { error } = await supabase.from('students').insert(studentsToInsert);
+      if (error) throw error;
+    }
+
+    // If there are duplicates, show the merge dialog
+    if (duplicates.length > 0) {
+      setDuplicateData({ newStudents: newRows, duplicates });
+      setIsDuplicateDialogOpen(true);
+      if (newRows.length > 0) {
+        toast({ title: `Đã nhập ${newRows.length} học sinh mới`, description: `Phát hiện ${duplicates.length} học sinh trùng cần xác nhận cập nhật` });
+      }
+    } else {
+      toast({ title: 'Thành công', description: `Đã nhập ${newRows.length} học sinh mới` });
+    }
 
     fetchData();
+  };
+
+  const handleConfirmDuplicateUpdate = async () => {
+    if (!duplicateData) return;
+    setIsImportingSave(true);
+
+    const classMap: Record<string, string> = {};
+    classes.forEach(cls => {
+      classMap[cls.name.toLowerCase()] = cls.id;
+    });
+
+    try {
+      for (const dup of duplicateData.duplicates) {
+        const updateData: Record<string, any> = {};
+        for (const [key, val] of Object.entries(dup.updates)) {
+          if (key === 'gender') {
+            updateData[key] = dup.imported.gender;
+          } else if (key === 'class_id') {
+            updateData[key] = classMap[dup.imported.class_name?.toLowerCase()] || null;
+          } else {
+            updateData[key] = (dup.imported as any)[key] || null;
+          }
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          const { error } = await supabase.from('students').update(updateData).eq('id', dup.existing.id);
+          if (error) console.error('Error updating student:', dup.existing.full_name, error);
+        }
+      }
+
+      toast({ title: 'Thành công', description: `Đã cập nhật ${duplicateData.duplicates.length} học sinh trùng` });
+      setIsDuplicateDialogOpen(false);
+      setDuplicateData(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error updating duplicates:', error);
+      toast({ title: 'Lỗi', description: 'Không thể cập nhật học sinh trùng', variant: 'destructive' });
+    } finally {
+      setIsImportingSave(false);
+    }
   };
 
   const handleExportExcel = () => {
@@ -1524,6 +1634,61 @@ HS003, https://example.com/photo3.jpg`}
               className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Import Dialog */}
+      <Dialog open={isDuplicateDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsDuplicateDialogOpen(false);
+          setDuplicateData(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Phát hiện học sinh trùng</DialogTitle>
+            <DialogDescription>
+              Có {duplicateData?.duplicates.length || 0} học sinh đã tồn tại với thông tin khác biệt. Bạn có muốn cập nhật?
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="flex-1 max-h-[50vh]">
+            <div className="space-y-3 pr-4">
+              {duplicateData?.duplicates.map((dup, index) => (
+                <div key={index} className="border rounded-lg p-3 space-y-2">
+                  <div className="font-medium text-sm">{dup.existing.full_name} {dup.existing.class?.name ? `(${dup.existing.class.name})` : ''}</div>
+                  <div className="space-y-1">
+                    {Object.entries(dup.updates).map(([key, val]) => (
+                      <div key={key} className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground w-20">{
+                          key === 'phone' ? 'SĐT' :
+                          key === 'address' ? 'Địa chỉ' :
+                          key === 'room_number' ? 'Phòng' :
+                          key === 'meal_group' ? 'Mâm' :
+                          key === 'avatar_url' ? 'Ảnh' :
+                          key === 'cccd' ? 'CCCD' :
+                          key === 'date_of_birth' ? 'Ngày sinh' :
+                          key === 'gender' ? 'Giới tính' :
+                          key === 'class_id' ? 'Lớp' : key
+                        }:</span>
+                        <span className="line-through text-muted-foreground">{String(val.old)}</span>
+                        <span>→</span>
+                        <span className="font-medium text-primary">{String(val.new)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsDuplicateDialogOpen(false); setDuplicateData(null); }}>
+              Bỏ qua
+            </Button>
+            <Button onClick={handleConfirmDuplicateUpdate} disabled={isImportingSave}>
+              {isImportingSave && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Cập nhật {duplicateData?.duplicates.length || 0} học sinh
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
