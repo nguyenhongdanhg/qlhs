@@ -871,13 +871,19 @@ export default function Statistics() {
       const startDate = format(riceDateRange.start, 'yyyy-MM-dd');
       const endDate = format(riceDateRange.end, 'yyyy-MM-dd');
 
+      // Fetch ALL records - must use sufficient limit to avoid default 1000 row cap
+      // For a month with ~500 students x 2 meals x 30 days = ~30,000 records
+      const studentIds = students.map(s => s.id);
       const { data: records } = await supabase
         .from('attendance_records')
         .select('*')
         .eq('school_id', currentSchool.id)
+        .in('student_id', studentIds)
         .in('attendance_type', ['lunch', 'dinner'])
         .gte('attendance_date', startDate)
-        .lte('attendance_date', endDate);
+        .lte('attendance_date', endDate)
+        .order('created_at', { ascending: false })
+        .limit(100000);
 
       const allRecords = records || [];
       const days = eachDayOfInterval({ start: riceDateRange.start, end: riceDateRange.end });
