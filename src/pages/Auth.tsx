@@ -1,27 +1,15 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User, Building2, Shield, Sparkles } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User, Sparkles } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
-import { ForgotPasswordDialog } from '@/components/auth/ForgotPasswordDialog';
-import { supabase } from '@/integrations/supabase/client';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
-interface School {
-  id: string;
-  name: string;
-  code: string;
-}
+
+import { ForgotPasswordDialog } from '@/components/auth/ForgotPasswordDialog';
 
 // Helper to convert phone to email format for Supabase auth
 const phoneToEmail = (phone: string) => {
@@ -29,7 +17,7 @@ const phoneToEmail = (phone: string) => {
   return `${cleanPhone}@phone.local`;
 };
 
-const SUPER_ADMIN_OPTION = '__SUPER_ADMIN__';
+
 
 const signupSchema = z.object({
   phone: z.string().min(9, 'Số điện thoại phải có ít nhất 9 số').regex(/^[0-9\s\-+()]+$/, 'Số điện thoại không hợp lệ'),
@@ -40,7 +28,7 @@ const signupSchema = z.object({
 export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp, user, selectSchool } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
@@ -48,54 +36,14 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-  // Schools list
-  const [schools, setSchools] = useState<School[]>([]);
-  const [isLoadingSchools, setIsLoadingSchools] = useState(true);
-
   // Login form state
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [selectedSchoolId, setSelectedSchoolId] = useState('');
 
   // Signup form state
   const [signupPhone, setSignupPhone] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupFullName, setSignupFullName] = useState('');
-
-  // Check if phone number is valid (9+ digits)
-  const isPhoneValid = useMemo(() => {
-    const cleanPhone = loginPhone.replace(/\D/g, '');
-    return cleanPhone.length >= 9;
-  }, [loginPhone]);
-
-  // Determine if school selection is required
-  const requireSchoolSelection = useMemo(() => {
-    // Only require school selection if phone is valid and there are multiple schools
-    return isPhoneValid && schools.length > 1;
-  }, [isPhoneValid, schools.length]);
-
-  // Fetch schools list
-  useEffect(() => {
-    const fetchSchools = async () => {
-      setIsLoadingSchools(true);
-      const { data, error } = await supabase
-        .from('schools')
-        .select('id, name, code')
-        .eq('is_active', true)
-        .order('name');
-      
-      if (!error && data) {
-        setSchools(data);
-        // Auto-select if only one school
-        if (data.length === 1) {
-          setSelectedSchoolId(data[0].id);
-        }
-      }
-      setIsLoadingSchools(false);
-    };
-    
-    fetchSchools();
-  }, []);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -127,15 +75,6 @@ export default function Auth() {
       return;
     }
 
-    // Only validate school selection if there are multiple schools
-    if (schools.length > 1 && !selectedSchoolId) {
-      toast({
-        title: 'Lỗi',
-        description: 'Vui lòng chọn trường hoặc quyền truy cập',
-        variant: 'destructive',
-      });
-      return;
-    }
 
     setIsLoading(true);
     const email = phoneToEmail(loginPhone);
@@ -158,18 +97,9 @@ export default function Auth() {
       description: 'Chào mừng bạn quay trở lại!',
     });
 
-    // If Super Admin option selected, redirect to superadmin page
-    if (selectedSchoolId === SUPER_ADMIN_OPTION) {
-      navigate('/superadmin', { replace: true });
-    } else {
-      // Set the selected school after login
-      const selectedSchool = schools.find(s => s.id === selectedSchoolId);
-      if (selectedSchool) {
-        selectSchool(selectedSchool as any);
-      }
-      navigate('/dashboard', { replace: true });
-    }
-  }, [loginPhone, loginPassword, selectedSchoolId, schools, signIn, selectSchool, navigate, toast]);
+    // AuthContext will handle school selection (auto-select if 1, redirect to select-school if multiple)
+    navigate('/', { replace: true });
+  }, [loginPhone, loginPassword, signIn, navigate, toast]);
 
   const handleSignup = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,44 +219,6 @@ export default function Auth() {
               </div>
             </div>
 
-            {/* School Selection - Only show when phone is valid and multiple schools exist */}
-            {schools.length > 1 && (
-              <div className="space-y-2 animate-fade-in">
-                <div className="relative group">
-                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground z-10 group-focus-within:text-primary transition-colors" />
-                  <Select
-                    value={selectedSchoolId}
-                    onValueChange={setSelectedSchoolId}
-                    disabled={isLoading || isLoadingSchools}
-                  >
-                    <SelectTrigger className="pl-12 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-0 shadow-lg shadow-black/5 text-base">
-                      <SelectValue placeholder={isLoadingSchools ? "Đang tải..." : "Chọn trường học"} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-lg z-50 border-0 shadow-xl rounded-xl">
-                      <SelectItem value={SUPER_ADMIN_OPTION} className="text-primary font-semibold py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                            <Shield className="h-4 w-4 text-primary" />
-                          </div>
-                          <span>Quản trị hệ thống</span>
-                        </div>
-                      </SelectItem>
-                      {schools.length > 0 && <div className="h-px bg-border my-1" />}
-                      {schools.map((school) => (
-                        <SelectItem key={school.id} value={school.id} className="py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <span>{school.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
 
             <div className="space-y-2">
               <div className="relative group">
