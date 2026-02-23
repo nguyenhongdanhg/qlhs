@@ -1294,6 +1294,10 @@ export type Database = {
         Args: { sid: string; uid: string }
         Returns: boolean
       }
+      has_emulation_permission: {
+        Args: { sid: string; uid: string }
+        Returns: boolean
+      }
       has_health_permission: {
         Args: { sid: string; uid: string }
         Returns: boolean

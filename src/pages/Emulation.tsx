@@ -55,8 +55,12 @@ export default function Emulation() {
   const { hasPermission } = useSchool();
   const queryClient = useQueryClient();
   
-  const currentYear = new Date().getFullYear();
-  const schoolYear = `${currentYear}-${currentYear + 1}`;
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1; // 1-12
+  // School year starts in September: Aug and before = previous year start
+  const startYear = currentMonth >= 9 ? currentYear : currentYear - 1;
+  const schoolYear = `${startYear}-${startYear + 1}`;
   
   const { currentWeek, weekSettings, getWeekDateRange, refetch: refetchWeekSettings } = useCurrentWeek(
     currentSchool?.id,
@@ -225,7 +229,7 @@ export default function Emulation() {
     // Allow both "," and "." as decimal separators.
     // Keep at most one dot in the value.
     const replaced = raw.replace(/,/g, '.');
-    const cleaned = replaced.replace(/[^0-9.]/g, '');
+    const cleaned = replaced.replace(/[^0-9.\-]/g, '');
     const firstDotIndex = cleaned.indexOf('.');
     if (firstDotIndex === -1) return cleaned;
     const before = cleaned.slice(0, firstDotIndex + 1);
@@ -267,7 +271,7 @@ export default function Emulation() {
       if (cleanValue !== '') {
         const numValue = parseFloat(cleanValue);
         if (!isNaN(numValue)) {
-          const clampedValue = Math.min(10, Math.max(0, numValue));
+          const clampedValue = numValue;
           setEditingScores((prev) => ({
             ...prev,
             [classId]: {
@@ -311,7 +315,7 @@ export default function Emulation() {
         const normalized = normalizeDecimalInput(raw);
         if (normalized === '') return 0;
         const parsed = parseFloat(normalized);
-        if (Number.isFinite(parsed)) return Math.min(10, Math.max(0, parsed));
+        if (Number.isFinite(parsed)) return parsed;
       }
 
       const editing = editingScores[classId]?.[field];
