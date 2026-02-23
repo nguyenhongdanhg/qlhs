@@ -35,7 +35,9 @@ import {
   XCircle,
   Edit,
   Trash2,
+  UserPlus,
 } from 'lucide-react';
+import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDialog';
 
 export default function SuperAdmin() {
   const { isSuperAdmin } = useAuth();
@@ -46,6 +48,8 @@ export default function SuperAdmin() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [adminSchool, setAdminSchool] = useState<{ id: string; name: string } | null>(null);
 
   const [formData, setFormData] = useState({
     code: '',
@@ -415,6 +419,17 @@ export default function SuperAdmin() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Tạo Admin"
+                            onClick={() => {
+                              setAdminSchool({ id: school.id, name: school.name });
+                              setAdminDialogOpen(true);
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4 text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleOpenDialog(school)}
                           >
                             <Edit className="h-4 w-4" />
@@ -448,6 +463,12 @@ export default function SuperAdmin() {
           )}
         </CardContent>
       </Card>
+      <CreateSchoolAdminDialog
+        open={adminDialogOpen}
+        onOpenChange={setAdminDialogOpen}
+        school={adminSchool}
+        onComplete={fetchData}
+      />
     </div>
   );
 }
