@@ -43,7 +43,7 @@ import {
   ArrowDownCircle,
   Filter,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, vietnameseNameSortCompare } from '@/lib/utils';
 import type { Student, Class, Medicine, HealthRecord, MedicineTransaction, HealthTreatmentType, Profile } from '@/types';
 import { HealthRecordForm } from '@/components/health/HealthRecordForm';
 import { HealthHistoryTab } from '@/components/health/HealthHistoryTab';
@@ -78,7 +78,7 @@ export default function Health() {
         .eq('is_active', true)
         .order('full_name');
       if (error) throw error;
-      return data as Student[];
+      return (data as Student[]).sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
     },
     enabled: !!currentSchool?.id,
   });
