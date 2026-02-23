@@ -868,74 +868,61 @@ export default function Statistics() {
     setIsLoadingRice(true);
 
     try {
-      const startDate = format(riceDateRange.start, 'yyyy-MM-dd');
-      const endDate = format(riceDateRange.end, 'yyyy-MM-dd');
-      const studentIds = new Set(students.map(s => s.id));
-
-      // Fetch ALL records using pagination to avoid row limits
-      let allRecords: any[] = [];
-      const PAGE_SIZE = 10000;
-      let page = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        const from = page * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-        const { data } = await supabase
-          .from('attendance_records')
-          .select('student_id, attendance_date, attendance_type, status, created_at')
-          .eq('school_id', currentSchool.id)
-          .in('attendance_type', ['lunch', 'dinner'])
-          .gte('attendance_date', startDate)
-          .lte('attendance_date', endDate)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (data && data.length > 0) {
-          allRecords = allRecords.concat(data);
-          hasMore = data.length === PAGE_SIZE;
-        } else {
-          hasMore = false;
-        }
-        page++;
-      }
-
       const days = eachDayOfInterval({ start: riceDateRange.start, end: riceDateRange.end });
-
-      // Get latest record per student per date per meal (same logic as overview tab)
-      const latestByKey = new Map<string, any>();
-      allRecords.forEach((record: any) => {
-        if (!studentIds.has(record.student_id)) return;
-        const key = `${record.attendance_date}-${record.attendance_type}-${record.student_id}`;
-        if (!latestByKey.has(key)) {
-          // Already sorted by created_at DESC, so first occurrence is latest
-          latestByKey.set(key, record);
-        }
-      });
-
-      // Calculate rice per day
       const dailyRice: { date: string; rice: number }[] = [];
       let totalRice = 0;
 
-      days.forEach(day => {
+      // Use the SAME approach as the overview tab: fetch lunch and dinner separately per day
+      // and use getLatestRecordsPerClass logic to count present students
+      // This ensures rice stats EXACTLY match the overview tab numbers
+      
+      for (const day of days) {
         const dateStr = format(day, 'yyyy-MM-dd');
-        let dayPresent = 0;
+        
+        // Fetch lunch and dinner records for this day (same as overview tab approach)
+        const [lunchRes, dinnerRes] = await Promise.all([
+          supabase
+            .from('attendance_records')
+            .select('student_id, class_id, status, created_at')
+            .eq('school_id', currentSchool.id)
+            .eq('attendance_date', dateStr)
+            .eq('attendance_type', 'lunch')
+            .order('created_at', { ascending: false })
+            .limit(5000),
+          supabase
+            .from('attendance_records')
+            .select('student_id, class_id, status, created_at')
+            .eq('school_id', currentSchool.id)
+            .eq('attendance_date', dateStr)
+            .eq('attendance_type', 'dinner')
+            .order('created_at', { ascending: false })
+            .limit(5000),
+        ]);
 
-        students.forEach(student => {
-          const lunchKey = `${dateStr}-lunch-${student.id}`;
-          const dinnerKey = `${dateStr}-dinner-${student.id}`;
-          
-          const lunchRecord = latestByKey.get(lunchKey);
-          const dinnerRecord = latestByKey.get(dinnerKey);
+        // Use same getLatestRecordsPerClass logic as overview tab
+        const getLatestPerStudent = (records: any[]) => {
+          const latestByStudent = new Map<string, any>();
+          records.forEach(r => {
+            const key = `${r.class_id || 'unknown'}-${r.student_id}`;
+            const existing = latestByStudent.get(key);
+            const currentTime = new Date(r.created_at || 0).getTime();
+            if (!existing || currentTime > new Date(existing.created_at || 0).getTime()) {
+              latestByStudent.set(key, r);
+            }
+          });
+          return Array.from(latestByStudent.values());
+        };
 
-          if (lunchRecord?.status === 'present') dayPresent++;
-          if (dinnerRecord?.status === 'present') dayPresent++;
-        });
+        const lunchLatest = getLatestPerStudent(lunchRes.data || []);
+        const dinnerLatest = getLatestPerStudent(dinnerRes.data || []);
 
-        const dayRice = dayPresent * 0.2;
+        const lunchPresent = lunchLatest.filter(r => r.status === 'present').length;
+        const dinnerPresent = dinnerLatest.filter(r => r.status === 'present').length;
+
+        const dayRice = (lunchPresent + dinnerPresent) * 0.2;
         totalRice += dayRice;
         dailyRice.push({ date: dateStr, rice: dayRice });
-      });
+      }
 
       setRiceStats(dailyRice);
       setTotalRiceInRange(totalRice);
@@ -1149,56 +1136,59 @@ export default function Statistics() {
     try {
       const days = eachDayOfInterval({ start: riceDateRange.start, end: riceDateRange.end });
 
-      // CRITICAL FIX: Query ALL meal records using pagination to avoid row limits
-      const studentIdSet = new Set(filteredStudents.map(s => s.id));
-      
-      let allRecords: any[] = [];
-      const PAGE_SIZE = 10000;
-      let page = 0;
-      let hasMore = true;
+      // Use the SAME per-day, per-meal-type approach as overview tab
+      // Fetch ALL records for the date range using per-meal-type queries (matching overview logic)
+      const startDate = format(riceDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(riceDateRange.end, 'yyyy-MM-dd');
 
-      while (hasMore) {
-        const from = page * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-        const { data, error } = await supabase
+      const [breakfastRes, lunchRes, dinnerRes] = await Promise.all([
+        supabase
           .from('attendance_records')
-          .select('student_id, attendance_date, attendance_type, status, created_at')
+          .select('student_id, class_id, attendance_date, attendance_type, status, created_at')
           .eq('school_id', currentSchool.id)
-          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-          .gte('attendance_date', format(riceDateRange.start, 'yyyy-MM-dd'))
-          .lte('attendance_date', format(riceDateRange.end, 'yyyy-MM-dd'))
+          .eq('attendance_type', 'breakfast')
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
           .order('created_at', { ascending: false })
-          .range(from, to);
+          .limit(50000),
+        supabase
+          .from('attendance_records')
+          .select('student_id, class_id, attendance_date, attendance_type, status, created_at')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_type', 'lunch')
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
+          .order('created_at', { ascending: false })
+          .limit(50000),
+        supabase
+          .from('attendance_records')
+          .select('student_id, class_id, attendance_date, attendance_type, status, created_at')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_type', 'dinner')
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
+          .order('created_at', { ascending: false })
+          .limit(50000),
+      ]);
 
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allRecords = allRecords.concat(data);
-          hasMore = data.length === PAGE_SIZE;
-        } else {
-          hasMore = false;
-        }
-        page++;
-      }
+      const allRecords = [
+        ...(breakfastRes.data || []),
+        ...(lunchRes.data || []),
+        ...(dinnerRes.data || []),
+      ];
 
-      // Filter to only include records for students in our filtered list
-      const records = allRecords.filter(r => studentIdSet.has(r.student_id));
-
-      // Get latest report per meal/date/student (already sorted by created_at DESC)
+      // Get latest record per student/date/meal using same logic as overview
       const latestByKey = new Map<string, any>();
-      records.forEach((record: any) => {
+      allRecords.forEach((record: any) => {
         const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
-        if (!latestByKey.has(key)) {
+        const existing = latestByKey.get(key);
+        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
           latestByKey.set(key, record);
         }
       });
 
       // Build student data - use filteredStudents for class teachers
-      // CRITICAL: Only include students that have valid class data to avoid grouping issues
       const validStudents = filteredStudents.filter(s => s.class?.name && s.class_id);
-      
-      if (validStudents.length !== filteredStudents.length) {
-        console.warn(`[Excel Export] ${filteredStudents.length - validStudents.length} students excluded due to missing class data`);
-      }
       
       const studentData: MealStudentData[] = validStudents.map(student => {
         const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
@@ -1227,7 +1217,6 @@ export default function Statistics() {
         };
       });
 
-      // For class teachers, include class name in the title
       const exportTitle = teacherClassName 
         ? `THỐNG KÊ BỮA ĂN LỚP ${teacherClassName}`
         : 'THỐNG KÊ BỮA ĂN HỌC SINH NỘI TRÚ';
