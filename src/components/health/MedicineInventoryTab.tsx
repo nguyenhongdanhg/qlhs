@@ -30,8 +30,10 @@ import {
   History,
   CalendarIcon,
   AlertTriangle,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MedicineExcelImportDialog } from './MedicineExcelImportDialog';
 import type { Medicine, MedicineTransaction } from '@/types';
 
 interface MedicineInventoryTabProps {
@@ -59,6 +61,7 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
   // Bulk delete states
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [showExcelImportDialog, setShowExcelImportDialog] = useState(false);
 
   // Form states
   const [medicineName, setMedicineName] = useState('');
@@ -491,6 +494,10 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
                 }}>
                   <ArrowUpCircle className="h-4 w-4 mr-1" />
                   Bổ sung
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowExcelImportDialog(true)}>
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  Nhập Excel
                 </Button>
                 <Button size="sm" onClick={() => setShowAddDialog(true)}>
                   <Plus className="h-4 w-4 mr-1" />
@@ -1002,6 +1009,14 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Excel Import Dialog */}
+      <MedicineExcelImportDialog
+        open={showExcelImportDialog}
+        onOpenChange={setShowExcelImportDialog}
+        schoolId={schoolId}
+        userId={userId}
+      />
     </div>
   );
 }
