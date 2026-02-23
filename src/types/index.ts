@@ -88,6 +88,7 @@ export interface Student {
   is_boarding: boolean;
   is_active: boolean;
   notes?: string;
+  avatar_url?: string;
   created_at: string;
   updated_at: string;
   class?: Class;
