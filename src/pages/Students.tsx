@@ -93,6 +93,7 @@ export default function Students() {
   const [activeTab, setActiveTab] = useState('students');
   const [isBulkAvatarOpen, setIsBulkAvatarOpen] = useState(false);
   const [bulkAvatarText, setBulkAvatarText] = useState('');
+  const [zoomAvatarUrl, setZoomAvatarUrl] = useState<string | null>(null);
   
   // Room and meal group lists derived from students - using natural sort
   const roomNumbers = useMemo(() => {
@@ -1018,7 +1019,10 @@ export default function Students() {
                         className="shrink-0"
                       />
                     )}
-                    <Avatar className="h-10 w-10 bg-primary/10 flex-shrink-0">
+                    <Avatar
+                      className={cn("h-10 w-10 bg-primary/10 flex-shrink-0", student.avatar_url && "cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all")}
+                      onClick={(e) => { if (student.avatar_url) { e.stopPropagation(); setZoomAvatarUrl(student.avatar_url); } }}
+                    >
                       {student.avatar_url && <AvatarImage src={student.avatar_url} alt={student.full_name} className="object-cover" />}
                       <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
                         {getInitials(student.full_name)}
@@ -1245,7 +1249,10 @@ export default function Students() {
             <DialogTitle className="flex items-center gap-3">
               {selectedStudent && (
                 <>
-                  <Avatar className="h-12 w-12 bg-primary">
+                  <Avatar
+                    className={cn("h-12 w-12 bg-primary", selectedStudent.avatar_url && "cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all")}
+                    onClick={() => { if (selectedStudent.avatar_url) setZoomAvatarUrl(selectedStudent.avatar_url); }}
+                  >
                     {selectedStudent.avatar_url && <AvatarImage src={selectedStudent.avatar_url} alt={selectedStudent.full_name} className="object-cover" />}
                     <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                       {getInitials(selectedStudent.full_name)}
@@ -1490,6 +1497,22 @@ HS003, https://example.com/photo3.jpg`}
               Cập nhật
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Zoom Avatar Dialog */}
+      <Dialog open={!!zoomAvatarUrl} onOpenChange={() => setZoomAvatarUrl(null)}>
+        <DialogContent className="max-w-lg p-2 bg-background">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Ảnh học sinh</DialogTitle>
+          </DialogHeader>
+          {zoomAvatarUrl && (
+            <img
+              src={zoomAvatarUrl}
+              alt="Ảnh học sinh"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
