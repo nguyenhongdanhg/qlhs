@@ -11,10 +11,10 @@ export const MainHeader = memo(function MainHeader() {
     <header className="sticky top-0 z-30 hidden lg:flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur px-6">
       <div>
         <h1 className="text-lg font-semibold text-foreground">
-          {currentSchool?.name || 'QUẢN LÝ HỌC SINH'}
+          {currentSchool?.name || 'QUẢN LÝ NỘI TRÚ/BÁN TRÚ'}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Ứng dụng thông tin quản lý học sinh
+          Ứng dụng quản lý nội trú/bán trú
         </p>
       </div>
 
