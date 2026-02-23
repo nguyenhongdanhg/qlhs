@@ -393,43 +393,79 @@ export function MealHistoryTab({
     setIsExporting(true);
     
     try {
-      const dateRange = getDateRange(selectedDate, rangeType);
-      const startDateStr = format(dateRange.start, 'yyyy-MM-dd');
-      const endDateStr = format(dateRange.end, 'yyyy-MM-dd');
-      
-      // Fetch attendance records for the date range
-      let query = supabase
-        .from('attendance_records')
-        .select('*, student:students(id, full_name, class:classes(name, grade), room_number, meal_group)')
+      const exportDateRange = getDateRange(selectedDate, rangeType);
+      const days = eachDayOfInterval({ start: exportDateRange.start, end: exportDateRange.end });
+
+      // CRITICAL: Re-fetch ALL boarding students directly from DB to ensure complete list
+      const { data: allStudentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*, class:classes(*)')
         .eq('school_id', currentSchool.id)
-        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .gte('attendance_date', startDateStr)
-        .lte('attendance_date', endDateStr);
+        .eq('is_active', true)
+        .eq('is_boarding', true)
+        .order('full_name');
 
-      // Filter for class teacher
+      if (studentsError) throw studentsError;
+
+      const allStudents = (allStudentsData || []).map(s => ({
+        ...s,
+        class: s.class as unknown as Class
+      })) as Student[];
+
+      // For class teachers, only export their class students
+      let studentsToExport = allStudents;
       if (isClassTeacher && teacherClassId) {
-        query = query.eq('class_id', teacherClassId);
+        studentsToExport = allStudents.filter(s => s.class_id === teacherClassId);
       } else if (historyClassFilter !== 'all') {
-        const selectedClassObj = classes.find(c => c.name === historyClassFilter);
-        if (selectedClassObj) {
-          query = query.eq('class_id', selectedClassObj.id);
-        }
+        studentsToExport = allStudents.filter(s => s.class?.name === historyClassFilter);
       }
 
-      const { data: records, error } = await query;
-      if (error) throw error;
-
-      // Get relevant students
-      let relevantStudents = students.filter(s => s.is_boarding);
-      if (isClassTeacher && teacherClassId) {
-        relevantStudents = relevantStudents.filter(s => s.class_id === teacherClassId);
-      } else if (historyClassFilter !== 'all') {
-        relevantStudents = relevantStudents.filter(s => s.class?.name === historyClassFilter);
+      const studentIds = studentsToExport.map(s => s.id);
+      if (studentIds.length === 0) {
+        toast({ title: 'Không có dữ liệu', description: 'Không có học sinh để xuất' });
+        setIsExporting(false);
+        return;
       }
+
+      const startDate = format(exportDateRange.start, 'yyyy-MM-dd');
+      const endDate = format(exportDateRange.end, 'yyyy-MM-dd');
+
+      // Fetch attendance records with pagination to ensure complete data
+      const PAGE_SIZE = 1000;
+      const MAX_PAGES = 500;
+      const recordsData: any[] = [];
+
+      let pageNum = 0;
+      while (pageNum < MAX_PAGES) {
+        const from = pageNum * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from('attendance_records')
+          .select('*')
+          .eq('school_id', currentSchool.id)
+          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+
+        const page = data || [];
+        recordsData.push(...page);
+
+        if (page.length < PAGE_SIZE) break;
+        pageNum++;
+      }
+
+      // Filter to only include students we're exporting
+      const studentIdSet = new Set(studentIds);
+      const filteredRecords = recordsData.filter(r => studentIdSet.has(r.student_id));
 
       // Get latest record per student/date/meal
       const latestByKey = new Map<string, any>();
-      (records || []).forEach((record: any) => {
+      filteredRecords.forEach((record: any) => {
         const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
         const existing = latestByKey.get(key);
         if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
@@ -437,65 +473,53 @@ export function MealHistoryTab({
         }
       });
 
-      // Build MealStudentData for export
-      const studentDataMap = new Map<string, MealStudentData>();
-      
-      relevantStudents.forEach(student => {
-        studentDataMap.set(student.id, {
+      // Build student data with null for unreported meals
+      const mealStudents: MealStudentData[] = studentsToExport.map(student => {
+        const attendanceMap = new Map<string, { breakfast: boolean | null; lunch: boolean | null; dinner: boolean | null }>();
+
+        days.forEach(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const bRecord = latestByKey.get(`${student.id}-${dateStr}-breakfast`);
+          const lRecord = latestByKey.get(`${student.id}-${dateStr}-lunch`);
+          const dRecord = latestByKey.get(`${student.id}-${dateStr}-dinner`);
+
+          attendanceMap.set(dateStr, {
+            breakfast: bRecord ? bRecord.status === 'present' : null,
+            lunch: lRecord ? lRecord.status === 'present' : null,
+            dinner: dRecord ? dRecord.status === 'present' : null,
+          });
+        });
+
+        return {
           id: student.id,
           name: student.full_name,
           className: student.class?.name || '',
           classGrade: student.class?.grade,
-          roomNumber: student.room_number || '',
-          mealGroup: student.meal_group || '',
-          attendance: new Map(),
-        });
+          roomNumber: student.room_number || undefined,
+          mealGroup: student.meal_group || undefined,
+          attendance: attendanceMap,
+        };
       });
 
-      // Populate attendance data
-      latestByKey.forEach((record) => {
-        const studentData = studentDataMap.get(record.student_id);
-        if (!studentData) return;
-
-        const dateStr = record.attendance_date;
-        if (!studentData.attendance.has(dateStr)) {
-          studentData.attendance.set(dateStr, { breakfast: null, lunch: null, dinner: null });
-        }
-
-        const dayData = studentData.attendance.get(dateStr)!;
-        const isPresent = record.status === 'present';
-        
-        if (record.attendance_type === 'breakfast') {
-          dayData.breakfast = isPresent;
-        } else if (record.attendance_type === 'lunch') {
-          dayData.lunch = isPresent;
-        } else if (record.attendance_type === 'dinner') {
-          dayData.dinner = isPresent;
-        }
-      });
-
-      const mealStudents = Array.from(studentDataMap.values());
-      
-      // Determine export title suffix
+      // Determine export title
       let titleSuffix = '';
       if (isClassTeacher && teacherClassName) {
-        titleSuffix = ` - Lớp ${teacherClassName}`;
+        titleSuffix = ` LỚP ${teacherClassName}`;
       } else if (historyClassFilter !== 'all') {
-        titleSuffix = ` - Lớp ${historyClassFilter}`;
+        titleSuffix = ` LỚP ${historyClassFilter}`;
       }
 
-      // Export
       exportMealStatistics(mealStudents, {
-        schoolName: currentSchool.name + titleSuffix,
-        title: `THỐNG KÊ BỮA ĂN${titleSuffix}`,
-        dateRange,
+        schoolName: currentSchool.name,
+        title: `THỐNG KÊ BỮA ĂN${titleSuffix ? titleSuffix : ' HỌC SINH NỘI TRÚ'}`,
+        dateRange: exportDateRange,
         reporterName: profile?.full_name || '',
         exportTime: new Date(),
       });
 
       toast({
         title: 'Thành công',
-        description: `Đã xuất báo cáo Excel${titleSuffix}`,
+        description: `Đã xuất báo cáo Excel${titleSuffix || ''}`,
       });
     } catch (error: any) {
       console.error('Export error:', error);
