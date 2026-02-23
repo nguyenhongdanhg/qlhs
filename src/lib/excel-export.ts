@@ -418,6 +418,7 @@ function createMealStatsSheet(
 }
 
 // Create summary sheet with class totals (Sheet 1: Toàn trường)
+// Now includes per-day breakdown columns for each class
 function createSchoolSummarySheet(
   students: MealStudentData[],
   days: Date[],
@@ -443,44 +444,89 @@ function createSchoolSummarySheet(
     return a[0].localeCompare(b[0], 'vi');
   });
 
-  // Calculate totals per class
-  const classRows: { className: string; breakfast: number; lunch: number; dinner: number }[] = [];
-  
-  sortedClasses.forEach(([className, classData]) => {
-    let breakfastTotal = 0;
-    let lunchTotal = 0;
-    let dinnerTotal = 0;
+  // Build header row with day columns
+  const headerRow: any[] = ['STT', 'Lớp', 'Sĩ số'];
+  days.forEach(day => {
+    headerRow.push(format(day, 'dd/MM'));
+  });
+  headerRow.push('Tổng sáng', 'Tổng trưa', 'Tổng tối', 'Gạo (kg)');
 
-    classData.students.forEach(student => {
-      // Iterate over each day in the range
-      days.forEach(day => {
-        const dateStr = format(day, 'yyyy-MM-dd');
+  // Build data rows - one per class with daily totals
+  const dataRows: any[][] = [];
+  const dayTotals = new Map<string, { breakfast: number; lunch: number; dinner: number }>();
+  let grandBreakfast = 0, grandLunch = 0, grandDinner = 0;
+  
+  sortedClasses.forEach(([className, classData], idx) => {
+    const row: any[] = [idx + 1, className, classData.students.length];
+    let classBreakfast = 0, classLunch = 0, classDinner = 0;
+
+    days.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      let bPresent = 0, lPresent = 0, dPresent = 0;
+      let hasAnyReport = false;
+
+      classData.students.forEach(student => {
         const dayData = student.attendance.get(dateStr);
-        
         if (dayData) {
-          // Use strict boolean check - true means present/eating
-          if (dayData.breakfast === true) breakfastTotal++;
-          if (dayData.lunch === true) lunchTotal++;
-          if (dayData.dinner === true) dinnerTotal++;
+          if (dayData.breakfast !== null || dayData.lunch !== null || dayData.dinner !== null) {
+            hasAnyReport = true;
+          }
+          if (dayData.breakfast === true) bPresent++;
+          if (dayData.lunch === true) lPresent++;
+          if (dayData.dinner === true) dPresent++;
         }
       });
+
+      if (!hasAnyReport) {
+        row.push('-');
+      } else {
+        row.push(`${bPresent}/${lPresent}/${dPresent}`);
+      }
+
+      // Accumulate per-day school totals
+      if (!dayTotals.has(dateStr)) {
+        dayTotals.set(dateStr, { breakfast: 0, lunch: 0, dinner: 0 });
+      }
+      const dt = dayTotals.get(dateStr)!;
+      dt.breakfast += bPresent;
+      dt.lunch += lPresent;
+      dt.dinner += dPresent;
+
+      classBreakfast += bPresent;
+      classLunch += lPresent;
+      classDinner += dPresent;
     });
 
-    // Debug log for classes with 0 values
-    if (breakfastTotal === 0 && lunchTotal === 0 && dinnerTotal === 0 && classData.students.length > 0) {
-      console.warn(`[Excel Export] Class ${className} has ${classData.students.length} students but 0 attendance for all meals. Checking first student attendance:`, 
-        classData.students[0]?.attendance);
-    }
+    const classRice = (classLunch + classDinner) * 0.2;
+    row.push(classBreakfast, classLunch, classDinner, classRice.toFixed(1));
+    dataRows.push(row);
 
-    classRows.push({
-      className,
-      breakfast: breakfastTotal,
-      lunch: lunchTotal,
-      dinner: dinnerTotal,
-    });
+    grandBreakfast += classBreakfast;
+    grandLunch += classLunch;
+    grandDinner += classDinner;
   });
 
-  // Build worksheet data
+  // Totals row
+  const totalsRow: any[] = ['', 'TỔNG CỘNG', students.length];
+  days.forEach(day => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const dt = dayTotals.get(dateStr);
+    if (!dt) {
+      totalsRow.push('-');
+    } else {
+      totalsRow.push(`${dt.breakfast}/${dt.lunch}/${dt.dinner}`);
+    }
+  });
+  const grandRice = (grandLunch + grandDinner) * 0.2;
+  totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1));
+
+  // Note row
+  const noteRows: any[][] = [
+    [],
+    ['Ghi chú: Mỗi ô ngày hiển thị Sáng/Trưa/Tối (số suất ăn). Gạo = 0.2kg × (Trưa + Tối)'],
+  ];
+
+  // Header info rows
   const headerInfoRows: any[][] = [
     ['THỐNG KÊ BỮA ĂN TOÀN TRƯỜNG'],
     [`Trường: ${config.schoolName}`],
@@ -490,38 +536,24 @@ function createSchoolSummarySheet(
     [],
   ];
 
-  const headerRow = ['STT', 'Lớp', 'Bữa sáng', 'Bữa trưa', 'Bữa tối', 'Số gạo (kg)'];
-  
-  const dataRows: any[][] = classRows.map((row, idx) => {
-    const rice = (row.lunch + row.dinner) * 0.2;
-    return [
-      idx + 1,
-      row.className,
-      row.breakfast,
-      row.lunch,
-      row.dinner,
-      rice.toFixed(1),
-    ];
-  });
+  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...noteRows];
+  const numCols = headerRow.length;
 
-  // Calculate grand totals
-  const grandBreakfast = classRows.reduce((sum, r) => sum + r.breakfast, 0);
-  const grandLunch = classRows.reduce((sum, r) => sum + r.lunch, 0);
-  const grandDinner = classRows.reduce((sum, r) => sum + r.dinner, 0);
-  const grandRice = (grandLunch + grandDinner) * 0.2;
-  
-  const totalsRow = ['', 'TỔNG CỘNG', grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1)];
-
-  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow];
+  // Column widths
+  const columnWidths = [
+    5, 12, 6,
+    ...days.map(() => 10),
+    8, 8, 8, 9,
+  ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+  ws['!cols'] = columnWidths.map(w => ({ wch: w }));
 
   // Merge header info cells
   if (!ws['!merges']) ws['!merges'] = [];
   for (let i = 0; i < 5; i++) {
     if (wsData[i] && wsData[i][0]) {
-      ws['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: 5 } });
+      ws['!merges'].push({ s: { r: i, c: 0 }, e: { r: i, c: numCols - 1 } });
     }
   }
 
@@ -529,17 +561,16 @@ function createSchoolSummarySheet(
   const columnAlignments: CellAlign[] = [
     'center', // STT
     'left',   // Lớp
-    'center', // Bữa sáng
-    'center', // Bữa trưa
-    'center', // Bữa tối
-    'center', // Số gạo
+    'center', // Sĩ số
+    ...days.map(() => 'center' as CellAlign),
+    'center', 'center', 'center', 'center',
   ];
   
   applyProfessionalStyle(ws, {
     headerRowIndex: 6,
     dataStartRow: 7,
     dataRowCount: dataRows.length,
-    numCols: 6,
+    numCols,
     columnAlignments,
     hasTotalsRow: true,
     totalsRowIndex: 7 + dataRows.length + 1,
