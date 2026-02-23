@@ -40,7 +40,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
+import { cn, vietnameseNameSortCompare } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -314,6 +314,7 @@ export default function Meals() {
         ...s,
         class: s.class as unknown as Class
       })) as Student[];
+      typedStudents.sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
       setStudents(typedStudents);
 
       const dateStr = format(date, 'yyyy-MM-dd');

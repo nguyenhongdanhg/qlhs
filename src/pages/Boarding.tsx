@@ -35,7 +35,7 @@ import {
   Image,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
+import { cn, vietnameseNameSortCompare } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -409,6 +409,7 @@ export default function Boarding() {
         ...s,
         class: s.class as unknown as Class
       })) as Student[];
+      typedStudents.sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
       setStudents(typedStudents);
 
       // Always start with all students marked as 'present' (no absent by default)

@@ -53,7 +53,7 @@ import {
   Image,
   Link,
 } from 'lucide-react';
-import { cn, naturalSort } from '@/lib/utils';
+import { cn, naturalSort, vietnameseNameSortCompare } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
 import { exportStudentsToExcel, StudentImportRow } from '@/lib/excel-utils';
 
@@ -182,19 +182,22 @@ export default function Students() {
     }
   };
 
-  const filteredStudents = students.filter((student) => {
-    const query = searchQuery.toLowerCase();
-    const matchesSearch =
-      student.full_name.toLowerCase().includes(query) ||
-      student.student_code.toLowerCase().includes(query) ||
-      student.room_number?.toLowerCase().includes(query) ||
-      student.meal_group?.toLowerCase().includes(query);
-    const matchesClass =
-      selectedClassFilter === 'all' || student.class_id === selectedClassFilter;
-    const matchesRoom = !selectedRoomFilter || student.room_number === selectedRoomFilter;
-    const matchesMeal = !selectedMealFilter || student.meal_group === selectedMealFilter;
-    return matchesSearch && matchesClass && matchesRoom && matchesMeal;
-  });
+  const filteredStudents = useMemo(() => {
+    const filtered = students.filter((student) => {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch =
+        student.full_name.toLowerCase().includes(query) ||
+        student.student_code.toLowerCase().includes(query) ||
+        student.room_number?.toLowerCase().includes(query) ||
+        student.meal_group?.toLowerCase().includes(query);
+      const matchesClass =
+        selectedClassFilter === 'all' || student.class_id === selectedClassFilter;
+      const matchesRoom = !selectedRoomFilter || student.room_number === selectedRoomFilter;
+      const matchesMeal = !selectedMealFilter || student.meal_group === selectedMealFilter;
+      return matchesSearch && matchesClass && matchesRoom && matchesMeal;
+    });
+    return filtered.sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
+  }, [students, searchQuery, selectedClassFilter, selectedRoomFilter, selectedMealFilter]);
 
   const handleOpenDialog = (student?: Student) => {
     if (student) {
