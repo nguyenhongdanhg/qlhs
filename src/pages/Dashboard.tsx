@@ -122,31 +122,54 @@ export default function Dashboard() {
 
       const totalBoardingStudents = boardingStudentsResult.data?.length || 0;
 
-      const getSnapshotFromRecords = (records: any[], total: number): AttendanceSnapshot => {
+      // For meals: get latest record per student (across all classes/reporters)
+      const getMealSnapshot = (records: any[], total: number): AttendanceSnapshot => {
+        if (!records || records.length === 0) {
+          return { present: 0, absent: 0, total, hasReport: false };
+        }
+        // Get latest record per student by created_at
+        const latestByStudent = new Map<string, any>();
+        records.forEach(r => {
+          const existing = latestByStudent.get(r.student_id);
+          if (!existing || new Date(r.created_at!).getTime() > new Date(existing.created_at!).getTime()) {
+            latestByStudent.set(r.student_id, r);
+          }
+        });
+        const latestRecords = Array.from(latestByStudent.values());
+        const presentCount = latestRecords.filter(r => r.status === 'present').length;
+        const absentCount = latestRecords.filter(r => r.status !== 'present').length;
+        // Find latest created_at for timestamp
+        const sorted = [...records].sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime());
+        return {
+          present: presentCount,
+          absent: absentCount,
+          total: latestRecords.length, // total reported students
+          hasReport: true,
+          lastReportTime: sorted[0].created_at,
+        };
+      };
+
+      // For boarding/evening_study: get latest reporter batch (60s window), same as Statistics
+      const getReportSnapshot = (records: any[], total: number): AttendanceSnapshot => {
         if (!records || records.length === 0) {
           return { present: 0, absent: 0, total, hasReport: false };
         }
         const sorted = [...records].sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime());
         const latestTime = new Date(sorted[0].created_at!).getTime();
-        const windowStart = latestTime - 60 * 1000;
-        const snapshotRecords = sorted.filter(r => {
+        const latestReporterId = sorted[0].reporter_id;
+        // Get batch from same reporter within 60s
+        const batchRecords = sorted.filter(r => {
           const recordTime = new Date(r.created_at!).getTime();
-          return recordTime >= windowStart && recordTime <= latestTime;
+          return r.reporter_id === latestReporterId && Math.abs(latestTime - recordTime) <= 60000;
         });
-        const latestByStudent = new Map<string, string>();
-        for (const r of snapshotRecords) {
-          if (!latestByStudent.has(r.student_id)) {
-            latestByStudent.set(r.student_id, r.status);
-          }
-        }
-        let present = 0;
-        latestByStudent.forEach(status => { if (status === 'present') present++; });
-        return { 
-          present, 
-          absent: total - present,
-          total, 
-          hasReport: true, 
-          lastReportTime: sorted[0].created_at 
+        const presentCount = batchRecords.filter(r => r.status === 'present').length;
+        const absentCount = batchRecords.filter(r => r.status !== 'present').length;
+        return {
+          present: presentCount,
+          absent: absentCount,
+          total,
+          hasReport: true,
+          lastReportTime: sorted[0].created_at,
         };
       };
 
@@ -156,11 +179,11 @@ export default function Dashboard() {
       const boardingRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'boarding');
       const eveningStudyRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'evening_study');
 
-      const breakfastStats = getSnapshotFromRecords(breakfastRecords, totalStudentsCount);
-      const lunchStats = getSnapshotFromRecords(lunchRecords, totalStudentsCount);
-      const dinnerStats = getSnapshotFromRecords(dinnerRecords, totalStudentsCount);
-      const boardingStats = getSnapshotFromRecords(boardingRecords, totalBoardingStudents);
-      const eveningStudyStats = getSnapshotFromRecords(eveningStudyRecords, totalStudentsCount);
+      const breakfastStats = getMealSnapshot(breakfastRecords, totalStudentsCount);
+      const lunchStats = getMealSnapshot(lunchRecords, totalStudentsCount);
+      const dinnerStats = getMealSnapshot(dinnerRecords, totalStudentsCount);
+      const boardingStats = getReportSnapshot(boardingRecords, totalBoardingStudents);
+      const eveningStudyStats = getReportSnapshot(eveningStudyRecords, totalStudentsCount);
 
       // Grade stats
       const { data: studentsWithGrades } = await supabase
@@ -263,12 +286,14 @@ export default function Dashboard() {
 
       const classScores = scores.map((s: any) => {
         const avg = ((s.academic_score || 0) * 2 + (s.discipline_score || 0) + (s.boarding_score || 0)) / 4;
-        return { className: s.class?.name || 'N/A', avgScore: Math.round(avg * 10) / 10, rank: 0 };
+        return { className: s.class?.name || 'N/A', avgScore: Math.round(avg * 100) / 100, rank: 0 };
       }).sort((a, b) => b.avgScore - a.avgScore);
 
-      classScores.forEach((c, i) => { c.rank = i + 1; });
+      // Only rank classes with score > 0 (matching Emulation page logic)
+      classScores.forEach((c, i) => { c.rank = c.avgScore > 0 ? i + 1 : 0; });
+      const ranked = classScores.filter(c => c.rank > 0);
 
-      return { weekNumber: latestScore.week_number, topClasses: classScores.slice(0, 3) };
+      return { weekNumber: latestScore.week_number, topClasses: ranked.slice(0, 3) };
     },
     enabled: !!currentSchool,
     staleTime: 1000 * 60 * 5,
