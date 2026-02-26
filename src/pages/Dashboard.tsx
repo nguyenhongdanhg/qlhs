@@ -268,7 +268,7 @@ export default function Dashboard() {
 
       classScores.forEach((c, i) => { c.rank = i + 1; });
 
-      return { weekNumber: latestScore.week_number, topClasses: classScores.slice(0, 5) };
+      return { weekNumber: latestScore.week_number, topClasses: classScores.slice(0, 3) };
     },
     enabled: !!currentSchool,
     staleTime: 1000 * 60 * 5,
@@ -466,8 +466,8 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Teacher Attendance Stats */}
-          <TeacherAttendanceStats />
+          {/* Teacher Attendance Stats - only for class teachers (admin already sees data above) */}
+          {isClassTeacher && <TeacherAttendanceStats />}
 
           {/* Emulation & Duty */}
           <div className="grid gap-2 grid-cols-2">
