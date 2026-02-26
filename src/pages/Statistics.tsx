@@ -114,6 +114,7 @@ export default function Statistics() {
   // Rice statistics
   const [riceRangeType, setRiceRangeType] = useState<DateRangeType>('month');
   const [riceDate, setRiceDate] = useState<Date>(new Date());
+  const [riceCustomEndDate, setRiceCustomEndDate] = useState<Date>(new Date());
   const [riceStats, setRiceStats] = useState<{ date: string; rice: number }[]>([]);
   const [totalRiceInRange, setTotalRiceInRange] = useState(0);
   const [isLoadingRice, setIsLoadingRice] = useState(false);
@@ -179,7 +180,7 @@ export default function Statistics() {
     notReported: false,
   });
 
-  const riceDateRange = useMemo(() => getDateRange(riceDate, riceRangeType), [riceDate, riceRangeType]);
+  const riceDateRange = useMemo(() => getDateRange(riceDate, riceRangeType, riceCustomEndDate), [riceDate, riceRangeType, riceCustomEndDate]);
 
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
@@ -2234,26 +2235,67 @@ export default function Statistics() {
                       <SelectItem value="day">Ngày</SelectItem>
                       <SelectItem value="week">Tuần</SelectItem>
                       <SelectItem value="month">Tháng</SelectItem>
+                      <SelectItem value="custom">Tùy chọn</SelectItem>
                     </SelectContent>
                   </Select>
 
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-[180px]">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {riceDateRange.label}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={riceDate}
-                        onSelect={(d) => d && setRiceDate(d)}
-                        locale={vi}
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  {riceRangeType === 'custom' ? (
+                    <div className="flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-[150px]">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {format(riceDate, 'dd/MM/yyyy')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={riceDate}
+                            onSelect={(d) => d && setRiceDate(d)}
+                            locale={vi}
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <span className="text-sm text-muted-foreground">đến</span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-[150px]">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {format(riceCustomEndDate, 'dd/MM/yyyy')}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={riceCustomEndDate}
+                            onSelect={(d) => d && setRiceCustomEndDate(d)}
+                            locale={vi}
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  ) : (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-[180px]">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {riceDateRange.label}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={riceDate}
+                          onSelect={(d) => d && setRiceDate(d)}
+                          locale={vi}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
 
                   <Button
                     variant="outline"

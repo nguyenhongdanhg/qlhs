@@ -11,7 +11,7 @@ import {
   getColumnAlignments 
 } from './excel-styles';
 
-export type DateRangeType = 'day' | 'week' | 'month';
+export type DateRangeType = 'day' | 'week' | 'month' | 'custom';
 
 export interface DateRange {
   start: Date;
@@ -20,7 +20,7 @@ export interface DateRange {
 }
 
 // Get date range based on type
-export function getDateRange(date: Date, rangeType: DateRangeType): DateRange {
+export function getDateRange(date: Date, rangeType: DateRangeType, customEnd?: Date): DateRange {
   switch (rangeType) {
     case 'day':
       return {
@@ -40,6 +40,14 @@ export function getDateRange(date: Date, rangeType: DateRangeType): DateRange {
         end: endOfMonth(date),
         label: `Tháng ${format(date, 'MM/yyyy')}`,
       };
+    case 'custom': {
+      const end = customEnd || date;
+      return {
+        start: date,
+        end: end,
+        label: `${format(date, 'dd/MM/yyyy')} - ${format(end, 'dd/MM/yyyy')}`,
+      };
+    }
   }
 }
 
