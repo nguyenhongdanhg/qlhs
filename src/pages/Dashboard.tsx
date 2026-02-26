@@ -116,7 +116,7 @@ export default function Dashboard() {
         supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('is_active', true).eq('is_boarding', true),
         supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('is_active', true),
         supabase.from('school_memberships').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('status', 'active'),
-        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id').eq('school_id', currentSchool.id).eq('attendance_date', dateStr),
+        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id').eq('school_id', currentSchool.id).eq('attendance_date', dateStr).limit(10000),
         supabase.from('students').select('id').eq('school_id', currentSchool.id).eq('is_active', true).eq('is_boarding', true),
       ]);
 
