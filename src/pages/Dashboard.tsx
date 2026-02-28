@@ -589,7 +589,7 @@ export default function Dashboard() {
                   <Users className="h-4 w-4 text-primary" />
                   <span className="text-sm font-semibold">Theo khối</span>
                 </div>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(60px, 1fr))` }}>
                   {stats.gradeStats.map(({ grade, total, boarding }) => (
                     <div key={grade} className="text-center p-1.5 rounded-lg bg-muted/50">
                       <p className="text-[10px] text-muted-foreground">K{grade}</p>
