@@ -77,31 +77,43 @@ export function HealthHistoryTab({
     return { startDate: start, endDate: end };
   }, [dateRange, selectedDate]);
 
-  // Fetch health records
+  // Fetch health records with pagination to get all results
   const { data: records = [], isLoading } = useQuery({
     queryKey: ['health-records', schoolId, format(startDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!schoolId) return [];
-      const { data, error } = await supabase
-        .from('health_records')
-        .select(`
-          *,
-          student:students(id, full_name, student_code, class:classes(name)),
-          reporter:profiles(id, full_name),
-          medicines:health_record_medicines(
-            id,
-            quantity,
-            medicine:medicines(id, name, unit)
-          )
-        `)
-        .eq('school_id', schoolId)
-        .gte('record_date', format(startDate, 'yyyy-MM-dd'))
-        .lte('record_date', format(endDate, 'yyyy-MM-dd'))
-        .order('record_date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const PAGE_SIZE = 1000;
+      let allRecords: any[] = [];
+      let from = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data as any[];
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('health_records')
+          .select(`
+            *,
+            student:students(id, full_name, student_code, class:classes(name)),
+            reporter:profiles(id, full_name),
+            medicines:health_record_medicines(
+              id,
+              quantity,
+              medicine:medicines(id, name, unit)
+            )
+          `)
+          .eq('school_id', schoolId)
+          .gte('record_date', format(startDate, 'yyyy-MM-dd'))
+          .lte('record_date', format(endDate, 'yyyy-MM-dd'))
+          .order('record_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) throw error;
+        allRecords = [...allRecords, ...(data || [])];
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        from += PAGE_SIZE;
+      }
+
+      return allRecords;
     },
     enabled: !!schoolId,
   });

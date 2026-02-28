@@ -75,31 +75,43 @@ export function HealthExportDialog({
     return { startDate: start, endDate: end };
   }, [dateRange, selectedDate]);
 
-  // Fetch health records
+  // Fetch health records with pagination
   const { data: records = [], isLoading } = useQuery({
     queryKey: ['health-records-export', schoolId, format(startDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!schoolId) return [];
-      const { data, error } = await supabase
-        .from('health_records')
-        .select(`
-          *,
-          student:students(id, full_name, student_code, class:classes(name), parent_phone),
-          reporter:profiles(id, full_name),
-          medicines:health_record_medicines(
-            id,
-            quantity,
-            medicine:medicines(id, name, unit)
-          )
-        `)
-        .eq('school_id', schoolId)
-        .gte('record_date', format(startDate, 'yyyy-MM-dd'))
-        .lte('record_date', format(endDate, 'yyyy-MM-dd'))
-        .order('record_date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const PAGE_SIZE = 1000;
+      let allRecords: any[] = [];
+      let from = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data as any[];
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('health_records')
+          .select(`
+            *,
+            student:students(id, full_name, student_code, class:classes(name), parent_phone),
+            reporter:profiles(id, full_name),
+            medicines:health_record_medicines(
+              id,
+              quantity,
+              medicine:medicines(id, name, unit)
+            )
+          `)
+          .eq('school_id', schoolId)
+          .gte('record_date', format(startDate, 'yyyy-MM-dd'))
+          .lte('record_date', format(endDate, 'yyyy-MM-dd'))
+          .order('record_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) throw error;
+        allRecords = [...allRecords, ...(data || [])];
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        from += PAGE_SIZE;
+      }
+
+      return allRecords;
     },
     enabled: open && !!schoolId,
   });
@@ -135,7 +147,8 @@ export function HealthExportDialog({
     try {
       const data = records.map((r, idx) => ({
         'STT': idx + 1,
-        'Ngày': format(new Date(r.record_date), 'dd/MM/yyyy'),
+        'Ngày ghi nhận': format(new Date(r.record_date), 'dd/MM/yyyy'),
+        'Thời gian tạo': r.created_at ? format(new Date(r.created_at), 'HH:mm dd/MM/yyyy') : '',
         'Họ tên học sinh': r.student?.full_name || '',
         'Lớp': r.student?.class?.name || '',
         'Mã HS': r.student?.student_code || '',
@@ -154,7 +167,7 @@ export function HealthExportDialog({
       
       // Set column widths
       ws['!cols'] = [
-        { wch: 5 }, { wch: 12 }, { wch: 25 }, { wch: 8 }, { wch: 10 },
+        { wch: 5 }, { wch: 12 }, { wch: 18 }, { wch: 25 }, { wch: 8 }, { wch: 10 },
         { wch: 30 }, { wch: 12 }, { wch: 40 }, { wch: 20 }, { wch: 12 },
         { wch: 30 }, { wch: 18 },
       ];
@@ -271,6 +284,7 @@ export function HealthExportDialog({
                         <div key={r.id} className="text-xs border-b pb-1.5 sm:pb-2">
                           <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                             <span className="font-medium">{idx + 1}.</span>
+                            <span className="text-muted-foreground text-[10px] sm:text-xs">{format(new Date(r.record_date), 'dd/MM')}</span>
                             <span className="font-medium break-words">{r.student?.full_name}</span>
                             <span className="text-muted-foreground text-[10px] sm:text-xs">({r.student?.class?.name})</span>
                             <Badge
