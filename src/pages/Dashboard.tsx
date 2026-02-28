@@ -32,6 +32,7 @@ interface AttendanceSnapshot {
   total: number;
   hasReport: boolean;
   lastReportTime?: string;
+  lastReportDate?: string;
 }
 
 interface DashboardStats {
@@ -111,25 +112,31 @@ export default function Dashboard() {
       
       const totalStudentsCount = allStudents?.length || 0;
 
-      const [studentsResult, boardingResult, classesResult, teachersResult, attendanceResult, boardingStudentsResult] = await Promise.all([
+      const [studentsResult, boardingResult, classesResult, teachersResult, mealAttendanceResult, boardingStudentsResult, latestBoardingResult, latestStudyResult] = await Promise.all([
         supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('is_active', true),
         supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('is_active', true).eq('is_boarding', true),
         supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('is_active', true),
         supabase.from('school_memberships').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('status', 'active'),
-        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id').eq('school_id', currentSchool.id).eq('attendance_date', dateStr).limit(10000),
+        // Meals: only today
+        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id').eq('school_id', currentSchool.id).eq('attendance_date', dateStr).in('attendance_type', ['breakfast', 'lunch', 'dinner']).limit(10000),
         supabase.from('students').select('id').eq('school_id', currentSchool.id).eq('is_active', true).eq('is_boarding', true),
+        // Boarding: latest date with data (last 7 days)
+        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id, attendance_date').eq('school_id', currentSchool.id).eq('attendance_type', 'boarding').gte('attendance_date', format(new Date(today.getTime() - 7 * 86400000), 'yyyy-MM-dd')).lte('attendance_date', dateStr).order('attendance_date', { ascending: false }).limit(10000),
+        // Evening study: latest date with data (last 7 days)
+        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id, attendance_date').eq('school_id', currentSchool.id).eq('attendance_type', 'evening_study').gte('attendance_date', format(new Date(today.getTime() - 7 * 86400000), 'yyyy-MM-dd')).lte('attendance_date', dateStr).order('attendance_date', { ascending: false }).limit(10000),
       ]);
 
       const totalBoardingStudents = boardingStudentsResult.data?.length || 0;
 
       // Unified snapshot logic: latest-per-student (same as Statistics page)
-      const getSnapshot = (records: any[], total: number): AttendanceSnapshot => {
-        if (!records || records.length === 0) {
+      const getSnapshot = (records: any[], total: number, filterDate?: string): AttendanceSnapshot => {
+        // If filterDate provided, only use records from that date
+        const filtered = filterDate ? records.filter(r => r.attendance_date === filterDate) : records;
+        if (!filtered || filtered.length === 0) {
           return { present: 0, absent: 0, total, hasReport: false };
         }
-        // Get latest record per student by created_at
         const latestByStudent = new Map<string, any>();
-        records.forEach(r => {
+        filtered.forEach(r => {
           const existing = latestByStudent.get(r.student_id);
           if (!existing || new Date(r.created_at!).getTime() > new Date(existing.created_at!).getTime()) {
             latestByStudent.set(r.student_id, r);
@@ -138,28 +145,39 @@ export default function Dashboard() {
         const latestRecords = Array.from(latestByStudent.values());
         const presentCount = latestRecords.filter(r => r.status === 'present').length;
         const absentCount = latestRecords.filter(r => r.status !== 'present').length;
-        // Find latest created_at for timestamp
-        const sorted = [...records].sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime());
+        const sorted = [...filtered].sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime());
         return {
           present: presentCount,
           absent: absentCount,
-          total, // Always use actual student count as denominator
+          total,
           hasReport: true,
           lastReportTime: sorted[0].created_at,
+          lastReportDate: filterDate || sorted[0].attendance_date,
         };
       };
 
-      const breakfastRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'breakfast');
-      const lunchRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'lunch');
-      const dinnerRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'dinner');
-      const boardingRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'boarding');
-      const eveningStudyRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'evening_study');
+      // Meals: today only
+      const breakfastRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'breakfast');
+      const lunchRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'lunch');
+      const dinnerRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'dinner');
 
       const breakfastStats = getSnapshot(breakfastRecords, totalStudentsCount);
       const lunchStats = getSnapshot(lunchRecords, totalStudentsCount);
       const dinnerStats = getSnapshot(dinnerRecords, totalStudentsCount);
-      const boardingStats = getSnapshot(boardingRecords, totalBoardingStudents);
-      const eveningStudyStats = getSnapshot(eveningStudyRecords, totalStudentsCount);
+
+      // Boarding: find latest date with records
+      const boardingAllRecords = latestBoardingResult.data || [];
+      const latestBoardingDate = boardingAllRecords.length > 0 ? boardingAllRecords[0].attendance_date : null;
+      const boardingStats = latestBoardingDate
+        ? getSnapshot(boardingAllRecords, totalBoardingStudents, latestBoardingDate)
+        : { present: 0, absent: 0, total: totalBoardingStudents, hasReport: false } as AttendanceSnapshot;
+
+      // Evening study: find latest date with records
+      const studyAllRecords = latestStudyResult.data || [];
+      const latestStudyDate = studyAllRecords.length > 0 ? studyAllRecords[0].attendance_date : null;
+      const eveningStudyStats = latestStudyDate
+        ? getSnapshot(studyAllRecords, totalStudentsCount, latestStudyDate)
+        : { present: 0, absent: 0, total: totalStudentsCount, hasReport: false } as AttendanceSnapshot;
 
       // Grade stats
       const { data: studentsWithGrades } = await supabase
@@ -451,11 +469,18 @@ export default function Dashboard() {
                             -{itemStats.absent}
                           </p>
                         )}
-                        <div className="flex items-center justify-center gap-0.5 mt-0.5">
-                          <Clock className="h-2 w-2 text-muted-foreground" />
-                          <span className="text-[8px] text-muted-foreground">
-                            {formatTimeShort(itemStats.lastReportTime)}
-                          </span>
+                        <div className="flex flex-col items-center gap-0 mt-0.5">
+                          {itemStats.lastReportDate && itemStats.lastReportDate !== dateStr && (
+                            <span className="text-[7px] text-muted-foreground">
+                              {format(new Date(itemStats.lastReportDate), 'dd/MM')}
+                            </span>
+                          )}
+                          <div className="flex items-center justify-center gap-0.5">
+                            <Clock className="h-2 w-2 text-muted-foreground" />
+                            <span className="text-[8px] text-muted-foreground">
+                              {formatTimeShort(itemStats.lastReportTime)}
+                            </span>
+                          </div>
                         </div>
                       </>
                     ) : (
