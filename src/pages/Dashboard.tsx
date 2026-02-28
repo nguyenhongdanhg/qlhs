@@ -474,7 +474,7 @@ export default function Dashboard() {
             <div className="bg-gradient-to-r from-primary/5 to-accent/5 px-3 py-2 border-b border-border/50">
               <div className="flex items-center justify-between">
                 <span className="text-sm sm:text-base font-semibold text-foreground">Số liệu điểm danh gần nhất</span>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[11px] sm:text-xs text-muted-foreground">
                   {[stats?.hasBreakfast, stats?.hasLunch, stats?.hasDinner, stats?.hasBoarding, stats?.hasEveningStudy].filter(Boolean).length}/5 đã báo cáo
                 </span>
               </div>
@@ -501,17 +501,17 @@ export default function Dashboard() {
                         <p className={cn("text-xl sm:text-2xl font-bold leading-tight", color)}>
                           {itemStats.present}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-[11px] sm:text-xs text-muted-foreground">
                           /{itemStats.total}
                         </p>
                         {itemStats.absent > 0 && (
-                          <p className="text-[10px] text-destructive font-semibold">
+                          <p className="text-[11px] sm:text-xs text-destructive font-semibold">
                             -{itemStats.absent}
                           </p>
                         )}
                         <div className="flex items-center justify-center gap-0.5 mt-1">
                           <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[11px] sm:text-xs text-muted-foreground">
                             {formatTimeShort(itemStats.lastReportTime)}
                             {' '}
                             {itemStats.lastReportDate === dateStr ? 'hôm nay' : itemStats.lastReportDate ? format(new Date(itemStats.lastReportDate), 'dd/MM') : ''}
@@ -553,12 +553,12 @@ export default function Dashboard() {
                             <span className="text-sm">{i < 3 ? rankMedals[i] : `#${c.rank}`}</span>
                             <span className="font-medium truncate">{c.className}</span>
                           </div>
-                          <span className="font-bold text-primary text-[11px]">{c.avgScore}</span>
+                          <span className="font-bold text-primary text-xs">{c.avgScore}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-muted-foreground text-center py-3">Chưa có dữ liệu</p>
+                    <p className="text-[11px] text-muted-foreground text-center py-3">Chưa có dữ liệu</p>
                   )}
                 </CardContent>
               </Card>
@@ -570,10 +570,7 @@ export default function Dashboard() {
                 <CardContent className="p-2.5 sm:p-3">
                   <div className="flex items-center gap-1.5 mb-2">
                     <CalendarCheck className="h-4 w-4 text-primary" />
-                    <div>
-                      <span className="text-xs sm:text-sm font-semibold">Ca trực hiện tại</span>
-                      <p className="text-[10px] text-muted-foreground">Click xem lịch trực</p>
-                    </div>
+                    <span className="text-xs sm:text-sm font-semibold">Ca trực hiện tại</span>
                   </div>
                   {dutyToday && dutyToday.length > 0 ? (
                     <div className="space-y-1">
@@ -584,11 +581,11 @@ export default function Dashboard() {
                         </div>
                       ))}
                       {dutyToday.length > 4 && (
-                        <p className="text-[10px] text-muted-foreground text-center">+{dutyToday.length - 4} người khác</p>
+                        <p className="text-[11px] text-muted-foreground text-center">+{dutyToday.length - 4} người khác</p>
                       )}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-muted-foreground text-center py-3">Chưa phân công</p>
+                    <p className="text-[11px] text-muted-foreground text-center py-3">Chưa phân công</p>
                   )}
                 </CardContent>
               </Card>
@@ -618,8 +615,8 @@ export default function Dashboard() {
                           <div key={grade} className="text-center p-2 rounded-lg bg-muted/50 space-y-0.5">
                             <p className="text-xs font-bold text-primary">Khối {grade}</p>
                             <p className="text-base font-bold text-foreground leading-tight">{total}</p>
-                            <p className="text-[9px] text-muted-foreground">{classCount} lớp</p>
-                            <div className="flex justify-center gap-1.5 text-[9px]">
+                            <p className="text-[10px] text-muted-foreground">{classCount} lớp</p>
+                            <div className="flex justify-center gap-1.5 text-[10px]">
                               <span className="text-blue-600">♂{male}</span>
                               <span className="text-pink-500">♀{female}</span>
                             </div>
@@ -632,8 +629,8 @@ export default function Dashboard() {
                             <div key={grade} className="text-center p-2 rounded-lg bg-muted/50 space-y-0.5">
                               <p className="text-xs font-bold text-primary">Khối {grade}</p>
                               <p className="text-base font-bold text-foreground leading-tight">{total}</p>
-                              <p className="text-[9px] text-muted-foreground">{classCount} lớp</p>
-                              <div className="flex justify-center gap-1.5 text-[9px]">
+                              <p className="text-[10px] text-muted-foreground">{classCount} lớp</p>
+                              <div className="flex justify-center gap-1.5 text-[10px]">
                                 <span className="text-blue-600">♂{male}</span>
                                 <span className="text-pink-500">♀{female}</span>
                               </div>
