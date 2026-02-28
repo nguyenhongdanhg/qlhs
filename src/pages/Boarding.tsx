@@ -86,9 +86,9 @@ type ExcuseMap = Record<string, ExcuseInfo>;
 type BoardingSession = { id: string; label: string };
 
 const DEFAULT_SESSIONS: BoardingSession[] = [
-  { id: 'morning', label: 'Sáng' },
-  { id: 'noon', label: 'Trưa' },
-  { id: 'night', label: 'Tối' },
+  { id: 'morning', label: 'Điểm danh thể dục buổi sáng' },
+  { id: 'noon', label: 'Điểm danh giờ ngủ trưa' },
+  { id: 'night', label: 'Điểm danh giờ ngủ tối' },
   { id: 'emergency', label: 'Đột xuất' },
 ];
 
@@ -116,9 +116,9 @@ const detectBoardingSessionLabel = (reportedAt: string): string => {
   const minutes = date.getMinutes();
   const time = hours * 60 + minutes;
   
-  if (time >= 360 && time < 660) return 'Sáng';
-  if (time >= 660 && time < 840) return 'Trưa';
-  if (time >= 1080 && time <= 1439) return 'Tối';
+  if (time >= 360 && time < 660) return 'Điểm danh thể dục buổi sáng';
+  if (time >= 660 && time < 840) return 'Điểm danh giờ ngủ trưa';
+  if (time >= 1080 && time <= 1439) return 'Điểm danh giờ ngủ tối';
   return 'Đột xuất';
 };
 
