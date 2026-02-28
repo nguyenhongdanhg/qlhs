@@ -103,8 +103,8 @@ export function HealthHistoryTab({
           .eq('school_id', schoolId)
           .gte('record_date', format(startDate, 'yyyy-MM-dd'))
           .lte('record_date', format(endDate, 'yyyy-MM-dd'))
-          .order('record_date', { ascending: false })
-          .order('created_at', { ascending: false })
+          .order('record_date', { ascending: true })
+          .order('created_at', { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
 
         if (error) throw error;
@@ -283,6 +283,7 @@ export function HealthHistoryTab({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">STT</TableHead>
                 <TableHead>Ngày</TableHead>
                 <TableHead>Học sinh</TableHead>
                 <TableHead>Chuẩn đoán</TableHead>
@@ -291,11 +292,12 @@ export function HealthHistoryTab({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRecords.map((record) => {
+              {filteredRecords.map((record, idx) => {
                 const treatment = TREATMENT_LABELS[record.treatment_type as HealthTreatmentType];
                 const TreatmentIcon = treatment.icon;
                 return (
                   <TableRow key={record.id}>
+                    <TableCell className="text-center text-muted-foreground text-xs">{idx + 1}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       {format(new Date(record.record_date), 'dd/MM', { locale: vi })}
                     </TableCell>
@@ -346,7 +348,7 @@ export function HealthHistoryTab({
               })}
               {filteredRecords.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Không có bản ghi trong khoảng thời gian này
                   </TableCell>
                 </TableRow>
