@@ -52,6 +52,7 @@ import {
 } from '@/lib/excel-export';
 import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
 import { MealHistoryTab } from '@/components/attendance/MealHistoryTab';
+import { StudentSearchInput } from '@/components/attendance/StudentSearchInput';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -134,6 +135,7 @@ export default function Meals() {
 
   // Edit mode tracking for editing existing reports
   const [isEditMode, setIsEditMode] = useState(false);
+  const [studentSearch, setStudentSearch] = useState('');
   const [editModeData, setEditModeData] = useState<{
     attendance: AttendanceMap;
     date: string;
@@ -734,9 +736,14 @@ export default function Meals() {
     } else if (selectedClass !== 'all') {
       filtered = students.filter(s => s.class?.name === selectedClass);
     }
+
+    if (studentSearch.trim()) {
+      const searchLower = studentSearch.toLowerCase().trim();
+      filtered = filtered.filter(s => s.full_name.toLowerCase().includes(searchLower));
+    }
     
     return filtered;
-  }, [students, selectedClass, isClassTeacher, teacherClassId]);
+  }, [students, selectedClass, isClassTeacher, teacherClassId, studentSearch]);
 
   // Get the teacher's class name for display
   const teacherClassName = useMemo(() => {
@@ -1001,6 +1008,14 @@ export default function Meals() {
                 </Badge>
               </div>
             </div>
+
+            {/* Student Search */}
+            <StudentSearchInput
+              value={studentSearch}
+              onChange={setStudentSearch}
+              resultCount={filteredStudents.length}
+              totalCount={students.length}
+            />
 
             {/* Compact Students Grid */}
             {isLoading ? (
