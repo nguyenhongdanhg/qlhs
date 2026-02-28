@@ -307,11 +307,21 @@ export default function EveningStudy() {
         const dateStr = record.attendance_date;
         if (!reportsByDate.has(dateStr)) {
           const reporterName = record.reporter?.full_name || 'N/A';
+          const detectStudyLabel = (reportedAt: string): string => {
+            const d = new Date(reportedAt);
+            const h = d.getHours();
+            const m = d.getMinutes();
+            const t = h * 60 + m;
+            if (t >= 420 && t < 660) return 'Tự học sáng';
+            if (t >= 810 && t < 1020) return 'Tự học chiều';
+            if (t >= 1140 && t <= 1380) return 'Tự học tối';
+            return 'Tự học';
+          };
           reportsByDate.set(dateStr, {
             id: `${dateStr}_evening_study`,
             date: dateStr,
             session: 'evening_study',
-            sessionLabel: 'Tự học tối',
+            sessionLabel: detectStudyLabel(record.created_at),
             total: totalStudents,
             present: 0,
             absent: 0,

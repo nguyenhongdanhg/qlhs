@@ -34,6 +34,40 @@ import { Class, AttendanceStatus } from '@/types';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ShareReportDialog } from './ShareReportDialog';
 
+// Auto-detect boarding session label from report time
+const detectBoardingSessionLabel = (reportedAt: string): string => {
+  const date = new Date(reportedAt);
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const time = hours * 60 + minutes;
+  
+  // 6:00 - 11:00 -> Sáng
+  if (time >= 360 && time < 660) return 'Sáng';
+  // 11:00 - 14:00 -> Trưa
+  if (time >= 660 && time < 840) return 'Trưa';
+  // 18:00 - 23:59 -> Tối
+  if (time >= 1080 && time <= 1439) return 'Tối';
+  // Other -> Đột xuất
+  return 'Đột xuất';
+};
+
+// Auto-detect evening study session label from report time
+const detectStudySessionLabel = (reportedAt: string): string => {
+  const date = new Date(reportedAt);
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const time = hours * 60 + minutes;
+  
+  // 7:00 - 11:00 -> Tự học sáng
+  if (time >= 420 && time < 660) return 'Tự học sáng';
+  // 13:30 - 17:00 -> Tự học chiều
+  if (time >= 810 && time < 1020) return 'Tự học chiều';
+  // 19:00 - 23:00 -> Tự học tối
+  if (time >= 1140 && time <= 1380) return 'Tự học tối';
+  // Default
+  return 'Tự học';
+};
+
 interface AbsentStudentInfo {
   id: string;
   name: string;
@@ -338,23 +372,28 @@ export function AttendanceHistoryTab({
     if (!currentSchool) return;
     setIsExporting(true);
     try {
-      const exportData: AttendanceReportData[] = historyRecords.map(record => ({
-        date: record.date,
-        session: attendanceType,
-        sessionLabel: typeLabel,
-        total: record.total,
-        present: record.present,
-        absent: record.absent,
-        reporter: record.reporterName,
-        reportTime: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
-        notes: record.notes || '',
-        absentStudents: record.absentStudents.map(s => ({
-          name: s.name,
-          className: s.className,
-          excused: s.excused,
-          reason: s.reason,
-        })),
-      }));
+      const detectLabel = attendanceType === 'boarding' ? detectBoardingSessionLabel : detectStudySessionLabel;
+      
+      const exportData: AttendanceReportData[] = historyRecords.map(record => {
+        const sessionLabel = detectLabel(record.reportedAt);
+        return {
+          date: record.date,
+          session: attendanceType,
+          sessionLabel,
+          total: record.total,
+          present: record.present,
+          absent: record.absent,
+          reporter: record.reporterName,
+          reportTime: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
+          notes: record.notes || '',
+          absentStudents: record.absentStudents.map(s => ({
+            name: s.name,
+            className: s.className,
+            excused: s.excused,
+            reason: s.reason,
+          })),
+        };
+      });
 
       const config = {
         schoolName: currentSchool.name,
@@ -549,7 +588,12 @@ export function AttendanceHistoryTab({
                       {/* Reporter Info */}
                       <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                         <span>Người báo cáo: <span className="font-medium text-foreground">{record.reporterName}</span></span>
-                        <span>{format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy', { locale: vi })}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {attendanceType === 'boarding' ? detectBoardingSessionLabel(record.reportedAt) : detectStudySessionLabel(record.reportedAt)}
+                          </Badge>
+                          <span>{format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy', { locale: vi })}</span>
+                        </div>
                       </div>
 
                       {/* Notes */}
@@ -632,7 +676,9 @@ export function AttendanceHistoryTab({
             id: `${attendanceType}_${reportToShare.date}`,
             date: reportToShare.date,
             session: attendanceType,
-            sessionLabel: typeLabel,
+            sessionLabel: attendanceType === 'boarding' 
+              ? detectBoardingSessionLabel(reportToShare.reportedAt) 
+              : detectStudySessionLabel(reportToShare.reportedAt),
             total: reportToShare.total,
             present: reportToShare.present,
             absent: reportToShare.absent,
@@ -647,7 +693,7 @@ export function AttendanceHistoryTab({
             })),
           }}
           schoolName={currentSchool?.name || ''}
-          title={`Điểm danh ${typeLabel}`}
+          title={`Điểm danh ${attendanceType === 'boarding' ? detectBoardingSessionLabel(reportToShare.reportedAt) : detectStudySessionLabel(reportToShare.reportedAt)}`}
         />
       )}
     </div>
