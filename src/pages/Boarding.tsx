@@ -99,14 +99,27 @@ const detectSessionByTime = (): string => {
   const minutes = now.getMinutes();
   const time = hours * 60 + minutes; // Convert to minutes for easier comparison
   
-  // 6:00 - 7:00 (360 - 420 minutes) -> Sáng
-  if (time >= 360 && time <= 420) return 'morning';
-  // 11:00 - 13:00 (660 - 780 minutes) -> Trưa
-  if (time >= 660 && time <= 780) return 'noon';
-  // 21:30 - 23:00 (1290 - 1380 minutes) -> Tối
-  if (time >= 1290 && time <= 1380) return 'night';
+  // 6:00 - 11:00 -> Sáng
+  if (time >= 360 && time < 660) return 'morning';
+  // 11:00 - 14:00 -> Trưa
+  if (time >= 660 && time < 840) return 'noon';
+  // 18:00 - 23:59 -> Tối
+  if (time >= 1080 && time <= 1439) return 'night';
   // Other times -> Đột xuất
   return 'emergency';
+};
+
+// Detect boarding session label from a report timestamp
+const detectBoardingSessionLabel = (reportedAt: string): string => {
+  const date = new Date(reportedAt);
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const time = hours * 60 + minutes;
+  
+  if (time >= 360 && time < 660) return 'Sáng';
+  if (time >= 660 && time < 840) return 'Trưa';
+  if (time >= 1080 && time <= 1439) return 'Tối';
+  return 'Đột xuất';
 };
 
 // Database-based history record (replaces localStorage SavedReport)
@@ -666,7 +679,7 @@ export default function Boarding() {
       const reportData: AttendanceReportData[] = historyRecords.map(record => ({
         date: record.date,
         session: 'boarding',
-        sessionLabel: 'Nội trú',
+        sessionLabel: detectBoardingSessionLabel(record.reportedAt),
         reporter: record.reporterName,
         reportTime: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
         total: record.total,
@@ -1048,7 +1061,7 @@ export default function Boarding() {
                   id: `${record.date}_boarding_${Date.now()}`,
                   date: record.date,
                   session: 'boarding',
-                  sessionLabel: 'Nội trú',
+                  sessionLabel: detectBoardingSessionLabel(record.reportedAt),
                   total: record.total,
                   present: record.present,
                   absent: record.absent,
