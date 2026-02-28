@@ -112,7 +112,7 @@ export default function DutySchedule() {
   const [isSaving, setIsSaving] = useState(false);
   // Default tab based on permission - teachers see calendar first, admins see assignment
   const [activeTab, setActiveTab] = useState(canManageDuty ? 'assignment' : 'calendar');
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [timeRemaining, setTimeRemaining] = useState({ hours: 0, minutes: 0 });
   const [availableMembers, setAvailableMembers] = useState<DutyMember[]>([]);
@@ -1104,15 +1104,32 @@ export default function DutySchedule() {
     return daySchedules;
   };
 
-  // Personal duty summary when a person is selected
+  // Get the date range for current calendar view
+  const calendarViewRange = useMemo(() => {
+    let start: Date, end: Date;
+    if (viewMode === 'day') {
+      start = selectedDate;
+      end = selectedDate;
+    } else if (viewMode === 'week') {
+      start = startOfWeek(selectedDate, { weekStartsOn: 1 });
+      end = endOfWeek(selectedDate, { weekStartsOn: 1 });
+    } else {
+      start = startOfMonth(selectedDate);
+      end = endOfMonth(selectedDate);
+    }
+    return {
+      start: format(start, 'yyyy-MM-dd'),
+      end: format(end, 'yyyy-MM-dd'),
+    };
+  }, [viewMode, selectedDate]);
+
+  // Personal duty summary when a person is selected - filtered by current view range
   const personalDutySummary = useMemo(() => {
     if (!calendarFilterName || calendarFilterName === 'all') return null;
     
     const personSchedules = schedules
-      .filter(s => s.user_id === calendarFilterName)
+      .filter(s => s.user_id === calendarFilterName && s.duty_date >= calendarViewRange.start && s.duty_date <= calendarViewRange.end)
       .sort((a, b) => a.duty_date.localeCompare(b.duty_date));
-    
-    const personName = scheduledPeople.find(p => p.id === calendarFilterName)?.name || '';
     
     return personSchedules.map(ps => {
       const colleagues = schedules
@@ -1122,7 +1139,7 @@ export default function DutySchedule() {
         colleagues,
       };
     });
-  }, [calendarFilterName, schedules, scheduledPeople]);
+  }, [calendarFilterName, schedules, calendarViewRange]);
 
   if (!currentSchool) {
     return (
@@ -1627,13 +1644,16 @@ export default function DutySchedule() {
           {personalDutySummary && personalDutySummary.length > 0 && (
             <Card className="mb-4 border-primary/20">
               <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-1">
                   <Users className="h-4 w-4 text-primary" />
                   <span className="font-medium text-sm">
                     Lịch trực của {scheduledPeople.find(p => p.id === calendarFilterName)?.name}
                   </span>
                   <Badge variant="secondary">{personalDutySummary.length} ngày</Badge>
                 </div>
+                <p className="text-xs text-muted-foreground mb-3 italic">
+                  * Chú ý chọn đúng tuần và tháng cần xem
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                   {personalDutySummary.map(item => {
                     const d = new Date(item.date);
