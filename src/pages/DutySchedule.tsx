@@ -224,10 +224,11 @@ export default function DutySchedule() {
     setIsLoading(true);
 
     try {
-      const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-      const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+      // Extend range by 7 days before/after month to cover cross-month weeks and current/next duty
+      const monthStart = format(addDays(startOfMonth(currentMonth), -7), 'yyyy-MM-dd');
+      const monthEnd = format(addDays(endOfMonth(currentMonth), 7), 'yyyy-MM-dd');
       
-      // Also fetch previous month for comparison
+      // Also fetch previous month for comparison (statistics)
       const prevMonth = subMonths(currentMonth, 1);
       const prevMonthStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
       const prevMonthEnd = format(endOfMonth(prevMonth), 'yyyy-MM-dd');
