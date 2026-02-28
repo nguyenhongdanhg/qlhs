@@ -2232,7 +2232,7 @@ export default function Statistics() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="week">Tuần</SelectItem>
+                      <SelectItem value="day">Ngày</SelectItem>
                       <SelectItem value="week">Tuần</SelectItem>
                       <SelectItem value="month">Tháng</SelectItem>
                       <SelectItem value="custom">Tùy chọn</SelectItem>
