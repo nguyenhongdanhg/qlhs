@@ -122,8 +122,8 @@ export default function Dashboard() {
 
       const totalBoardingStudents = boardingStudentsResult.data?.length || 0;
 
-      // For meals: get latest record per student (across all classes/reporters)
-      const getMealSnapshot = (records: any[], total: number): AttendanceSnapshot => {
+      // Unified snapshot logic: latest-per-student (same as Statistics page)
+      const getSnapshot = (records: any[], total: number): AttendanceSnapshot => {
         if (!records || records.length === 0) {
           return { present: 0, absent: 0, total, hasReport: false };
         }
@@ -143,31 +143,7 @@ export default function Dashboard() {
         return {
           present: presentCount,
           absent: absentCount,
-          total: latestRecords.length, // total reported students
-          hasReport: true,
-          lastReportTime: sorted[0].created_at,
-        };
-      };
-
-      // For boarding/evening_study: get latest reporter batch (60s window), same as Statistics
-      const getReportSnapshot = (records: any[], total: number): AttendanceSnapshot => {
-        if (!records || records.length === 0) {
-          return { present: 0, absent: 0, total, hasReport: false };
-        }
-        const sorted = [...records].sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime());
-        const latestTime = new Date(sorted[0].created_at!).getTime();
-        const latestReporterId = sorted[0].reporter_id;
-        // Get batch from same reporter within 60s
-        const batchRecords = sorted.filter(r => {
-          const recordTime = new Date(r.created_at!).getTime();
-          return r.reporter_id === latestReporterId && Math.abs(latestTime - recordTime) <= 60000;
-        });
-        const presentCount = batchRecords.filter(r => r.status === 'present').length;
-        const absentCount = batchRecords.filter(r => r.status !== 'present').length;
-        return {
-          present: presentCount,
-          absent: absentCount,
-          total,
+          total, // Always use actual student count as denominator
           hasReport: true,
           lastReportTime: sorted[0].created_at,
         };
@@ -179,11 +155,11 @@ export default function Dashboard() {
       const boardingRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'boarding');
       const eveningStudyRecords = (attendanceResult.data || []).filter(r => r.attendance_type === 'evening_study');
 
-      const breakfastStats = getMealSnapshot(breakfastRecords, totalStudentsCount);
-      const lunchStats = getMealSnapshot(lunchRecords, totalStudentsCount);
-      const dinnerStats = getMealSnapshot(dinnerRecords, totalStudentsCount);
-      const boardingStats = getReportSnapshot(boardingRecords, totalBoardingStudents);
-      const eveningStudyStats = getReportSnapshot(eveningStudyRecords, totalStudentsCount);
+      const breakfastStats = getSnapshot(breakfastRecords, totalStudentsCount);
+      const lunchStats = getSnapshot(lunchRecords, totalStudentsCount);
+      const dinnerStats = getSnapshot(dinnerRecords, totalStudentsCount);
+      const boardingStats = getSnapshot(boardingRecords, totalBoardingStudents);
+      const eveningStudyStats = getSnapshot(eveningStudyRecords, totalStudentsCount);
 
       // Grade stats
       const { data: studentsWithGrades } = await supabase
