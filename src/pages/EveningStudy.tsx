@@ -144,7 +144,7 @@ export default function EveningStudy() {
 
   // History filter
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
-  const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
+  const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('week');
   const [isExporting, setIsExporting] = useState(false);
 
   // Share image dialog

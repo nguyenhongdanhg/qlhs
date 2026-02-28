@@ -97,7 +97,7 @@ export function MealHistoryTab({
   const { toast } = useToast();
 
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
-  const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('month');
+  const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('week');
   const [historyClassFilter, setHistoryClassFilter] = useState<string>('all');
   const [historyReporterFilter, setHistoryReporterFilter] = useState<string>('all');
   const [reporters, setReporters] = useState<{ id: string; name: string }[]>([]);
@@ -565,7 +565,7 @@ export function MealHistoryTab({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">Theo tuần</SelectItem>
+              <SelectItem value="day">Theo ngày</SelectItem>
               <SelectItem value="week">Theo tuần</SelectItem>
               <SelectItem value="month">Theo tháng</SelectItem>
             </SelectContent>
