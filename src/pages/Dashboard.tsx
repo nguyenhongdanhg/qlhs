@@ -130,7 +130,6 @@ export default function Dashboard() {
 
       // Unified snapshot logic: latest-per-student (same as Statistics page)
       const getSnapshot = (records: any[], total: number, filterDate?: string): AttendanceSnapshot => {
-        // If filterDate provided, only use records from that date
         const filtered = filterDate ? records.filter(r => r.attendance_date === filterDate) : records;
         if (!filtered || filtered.length === 0) {
           return { present: 0, absent: 0, total, hasReport: false };
@@ -156,14 +155,43 @@ export default function Dashboard() {
         };
       };
 
+      // Meals: use getLatestRecordsPerClass logic (same as Statistics page)
+      // This gets the latest record per student, and total = number of reported students
+      const getMealSnapshot = (records: any[]): AttendanceSnapshot => {
+        if (!records || records.length === 0) {
+          return { present: 0, absent: 0, total: totalStudentsCount, hasReport: false };
+        }
+        // Get latest record per student (same as Statistics getLatestRecordsPerClass)
+        const latestByStudent = new Map<string, any>();
+        records.forEach(r => {
+          const key = `${r.class_id || 'unknown'}-${r.student_id}`;
+          const existing = latestByStudent.get(key);
+          if (!existing || new Date(r.created_at!).getTime() > new Date(existing.created_at!).getTime()) {
+            latestByStudent.set(key, r);
+          }
+        });
+        const latestRecords = Array.from(latestByStudent.values());
+        const presentCount = latestRecords.filter(r => r.status === 'present').length;
+        const absentCount = latestRecords.filter(r => r.status !== 'present').length;
+        const sorted = [...records].sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime());
+        return {
+          present: presentCount,
+          absent: absentCount,
+          total: latestRecords.length, // total = reported students (same as Statistics)
+          hasReport: true,
+          lastReportTime: sorted[0].created_at,
+          lastReportDate: sorted[0].attendance_date,
+        };
+      };
+
       // Meals: today only
       const breakfastRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'breakfast');
       const lunchRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'lunch');
       const dinnerRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'dinner');
 
-      const breakfastStats = getSnapshot(breakfastRecords, totalStudentsCount);
-      const lunchStats = getSnapshot(lunchRecords, totalStudentsCount);
-      const dinnerStats = getSnapshot(dinnerRecords, totalStudentsCount);
+      const breakfastStats = getMealSnapshot(breakfastRecords);
+      const lunchStats = getMealSnapshot(lunchRecords);
+      const dinnerStats = getMealSnapshot(dinnerRecords);
 
       // Boarding: find latest date with records
       const boardingAllRecords = latestBoardingResult.data || [];
@@ -458,33 +486,33 @@ export default function Dashboard() {
                     <p className="text-[10px] text-muted-foreground">{label}</p>
                     {itemStats?.hasReport ? (
                       <>
-                        <p className={cn("text-base font-bold leading-tight", color)}>
+                        <p className={cn("text-xl sm:text-2xl font-bold leading-tight", color)}>
                           {itemStats.present}
                         </p>
-                        <p className="text-[9px] text-muted-foreground">
+                        <p className="text-[10px] text-muted-foreground">
                           /{itemStats.total}
                         </p>
                         {itemStats.absent > 0 && (
-                          <p className="text-[9px] text-destructive font-medium">
+                          <p className="text-[10px] text-destructive font-semibold">
                             -{itemStats.absent}
                           </p>
                         )}
-                        <div className="flex flex-col items-center gap-0 mt-0.5">
+                        <div className="flex flex-col items-center gap-0 mt-1">
                           {itemStats.lastReportDate && itemStats.lastReportDate !== dateStr && (
-                            <span className="text-[7px] text-muted-foreground">
+                            <span className="text-[9px] font-medium text-muted-foreground">
                               {format(new Date(itemStats.lastReportDate), 'dd/MM')}
                             </span>
                           )}
                           <div className="flex items-center justify-center gap-0.5">
-                            <Clock className="h-2 w-2 text-muted-foreground" />
-                            <span className="text-[8px] text-muted-foreground">
+                            <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+                            <span className="text-[10px] text-muted-foreground">
                               {formatTimeShort(itemStats.lastReportTime)}
                             </span>
                           </div>
                         </div>
                       </>
                     ) : (
-                      <p className="text-xs text-muted-foreground mt-1">--</p>
+                      <p className="text-sm text-muted-foreground mt-2">--</p>
                     )}
                   </div>
                 ))}
