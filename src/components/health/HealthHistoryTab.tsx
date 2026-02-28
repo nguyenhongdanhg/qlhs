@@ -278,7 +278,7 @@ export function HealthHistoryTab({
         </div>
 
         {/* Table */}
-        <ScrollArea className="max-h-[400px]">
+        <ScrollArea className="max-h-[600px] lg:max-h-[calc(100vh-400px)]">
           <Table>
             <TableHeader>
               <TableRow>
