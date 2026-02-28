@@ -47,6 +47,7 @@ import { MealExportDialog } from '@/components/attendance/MealExportDialog';
 import { MealDayOffDialog } from '@/components/attendance/MealDayOffDialog';
 import { useToast } from '@/hooks/use-toast';
 import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
+import { AttendanceStatsTab } from '@/components/statistics/AttendanceStatsTab';
 import { cn } from '@/lib/utils';
 
 interface AbsentStudent {
@@ -1783,8 +1784,9 @@ export default function Statistics() {
         </div>
       ) : (
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-3'}`}>
             <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+            {!isClassTeacher && <TabsTrigger value="attendance">Điểm danh</TabsTrigger>}
             {!isClassTeacher && <TabsTrigger value="rice">Thống kê gạo</TabsTrigger>}
           </TabsList>
 
@@ -2086,6 +2088,17 @@ export default function Statistics() {
               )}
             </div>
           </TabsContent>
+
+          {!isClassTeacher && (
+            <TabsContent value="attendance" className="space-y-4">
+              <AttendanceStatsTab
+                currentSchool={currentSchool}
+                classes={classes}
+                students={students}
+                profile={profile}
+              />
+            </TabsContent>
+          )}
 
           <TabsContent value="rice" className="space-y-4">
             {/* Rice Inventory Card */}
