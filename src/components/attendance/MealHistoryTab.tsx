@@ -135,6 +135,25 @@ export function MealHistoryTab({
     fetchHistory();
   }, [currentSchool, historyDateRange, historyClassFilter, historyReporterFilter, classes]);
 
+  const fetchAllRecords = async (baseQuery: any) => {
+    const PAGE_SIZE = 5000;
+    let allData: any[] = [];
+    let from = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const { data, error } = await baseQuery.range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+      if (data && data.length > 0) {
+        allData = allData.concat(data);
+        from += PAGE_SIZE;
+        hasMore = data.length === PAGE_SIZE;
+      } else {
+        hasMore = false;
+      }
+    }
+    return allData;
+  };
+
   const fetchReporters = async () => {
     if (!currentSchool) return;
     try {
@@ -154,7 +173,7 @@ export function MealHistoryTab({
         query = query.eq('class_id', teacherClassId);
       }
 
-      const { data } = await query;
+      const data = await fetchAllRecords(query);
 
       // Get unique reporters
       const reporterMap = new Map<string, string>();
@@ -203,7 +222,7 @@ export function MealHistoryTab({
         query = query.eq('reporter_id', historyReporterFilter);
       }
 
-      const { data: recordsData } = await query;
+      const recordsData = await fetchAllRecords(query);
 
       // Get latest record per student/date/meal
       const latestByStudentDateMeal = new Map<string, any>();

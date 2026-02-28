@@ -116,19 +116,40 @@ export function AttendanceHistoryTab({
     fetchHistory();
   }, [currentSchool, historyDateRange, historyReporterFilter]);
 
+  const fetchAllRecords = async (baseQuery: any) => {
+    const PAGE_SIZE = 5000;
+    let allData: any[] = [];
+    let from = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const { data, error } = await baseQuery.range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+      if (data && data.length > 0) {
+        allData = allData.concat(data);
+        from += PAGE_SIZE;
+        hasMore = data.length === PAGE_SIZE;
+      } else {
+        hasMore = false;
+      }
+    }
+    return allData;
+  };
+
   const fetchReporters = async () => {
     if (!currentSchool) return;
     try {
       const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
       const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
 
-      const { data } = await supabase
-        .from('attendance_records')
-        .select('reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_type', attendanceType)
-        .gte('attendance_date', startDate)
-        .lte('attendance_date', endDate);
+      const data = await fetchAllRecords(
+        supabase
+          .from('attendance_records')
+          .select('reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_type', attendanceType)
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
+      );
 
       const reporterMap = new Map<string, string>();
       (data || []).forEach((record: any) => {
@@ -169,15 +190,14 @@ export function AttendanceHistoryTab({
         .eq('attendance_type', attendanceType)
         .gte('attendance_date', startDate)
         .lte('attendance_date', endDate)
-        .order('created_at', { ascending: false })
-        .limit(50000);
+        .order('created_at', { ascending: false });
 
       // Reporter filter
       if (historyReporterFilter !== 'all') {
         query = query.eq('reporter_id', historyReporterFilter);
       }
 
-      const { data: recordsData } = await query;
+      const recordsData = await fetchAllRecords(query);
 
       // Get latest record per student/date
       const latestByStudentDate = new Map<string, any>();
