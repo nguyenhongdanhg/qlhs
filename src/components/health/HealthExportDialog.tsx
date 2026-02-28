@@ -101,8 +101,8 @@ export function HealthExportDialog({
           .eq('school_id', schoolId)
           .gte('record_date', format(startDate, 'yyyy-MM-dd'))
           .lte('record_date', format(endDate, 'yyyy-MM-dd'))
-          .order('record_date', { ascending: false })
-          .order('created_at', { ascending: false })
+          .order('record_date', { ascending: true })
+          .order('created_at', { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
 
         if (error) throw error;
