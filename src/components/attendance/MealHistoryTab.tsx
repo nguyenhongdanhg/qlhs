@@ -565,7 +565,7 @@ export function MealHistoryTab({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="day">Theo ngày</SelectItem>
+              <SelectItem value="week">Theo tuần</SelectItem>
               <SelectItem value="week">Theo tuần</SelectItem>
               <SelectItem value="month">Theo tháng</SelectItem>
             </SelectContent>
