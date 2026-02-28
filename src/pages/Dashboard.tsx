@@ -112,13 +112,15 @@ export default function Dashboard() {
       
       const totalStudentsCount = allStudents?.length || 0;
 
-      const [studentsResult, boardingResult, classesResult, teachersResult, mealAttendanceResult, boardingStudentsResult, latestBoardingResult, latestStudyResult] = await Promise.all([
+      const [studentsResult, boardingResult, classesResult, teachersResult, breakfastResult, lunchResult, dinnerResult, boardingStudentsResult, latestBoardingResult, latestStudyResult] = await Promise.all([
         supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('is_active', true),
         supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('is_active', true).eq('is_boarding', true),
         supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('is_active', true),
         supabase.from('school_memberships').select('*', { count: 'exact', head: true }).eq('school_id', currentSchool.id).eq('status', 'active'),
-        // Meals: only today
-        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id').eq('school_id', currentSchool.id).eq('attendance_date', dateStr).in('attendance_type', ['breakfast', 'lunch', 'dinner']).limit(10000),
+        // Meals: separate queries per type (same as Statistics page)
+        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id, class_id').eq('school_id', currentSchool.id).eq('attendance_date', dateStr).eq('attendance_type', 'breakfast').order('created_at', { ascending: false }).limit(5000),
+        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id, class_id').eq('school_id', currentSchool.id).eq('attendance_date', dateStr).eq('attendance_type', 'lunch').order('created_at', { ascending: false }).limit(5000),
+        supabase.from('attendance_records').select('attendance_type, status, created_at, student_id, class_id').eq('school_id', currentSchool.id).eq('attendance_date', dateStr).eq('attendance_type', 'dinner').order('created_at', { ascending: false }).limit(5000),
         supabase.from('students').select('id').eq('school_id', currentSchool.id).eq('is_active', true).eq('is_boarding', true),
         // Boarding: latest date with data (last 7 days)
         supabase.from('attendance_records').select('attendance_type, status, created_at, student_id, attendance_date').eq('school_id', currentSchool.id).eq('attendance_type', 'boarding').gte('attendance_date', format(new Date(today.getTime() - 7 * 86400000), 'yyyy-MM-dd')).lte('attendance_date', dateStr).order('attendance_date', { ascending: false }).limit(10000),
@@ -184,11 +186,10 @@ export default function Dashboard() {
         };
       };
 
-      // Meals: today only
-      const breakfastRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'breakfast');
-      const lunchRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'lunch');
-      const dinnerRecords = (mealAttendanceResult.data || []).filter(r => r.attendance_type === 'dinner');
-
+      // Meals: today only (each fetched separately like Statistics page)
+      const breakfastRecords = breakfastResult.data || [];
+      const lunchRecords = lunchResult.data || [];
+      const dinnerRecords = dinnerResult.data || [];
       const breakfastStats = getMealSnapshot(breakfastRecords);
       const lunchStats = getMealSnapshot(lunchRecords);
       const dinnerStats = getMealSnapshot(dinnerRecords);
