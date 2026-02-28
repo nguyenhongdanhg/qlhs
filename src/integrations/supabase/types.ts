@@ -1079,6 +1079,7 @@ export type Database = {
           class_id: string | null
           created_at: string | null
           date_of_birth: string | null
+          ethnicity: string | null
           full_name: string
           gender: Database["public"]["Enums"]["gender"] | null
           id: string
@@ -1100,6 +1101,7 @@ export type Database = {
           class_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          ethnicity?: string | null
           full_name: string
           gender?: Database["public"]["Enums"]["gender"] | null
           id?: string
@@ -1121,6 +1123,7 @@ export type Database = {
           class_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
+          ethnicity?: string | null
           full_name?: string
           gender?: Database["public"]["Enums"]["gender"] | null
           id?: string

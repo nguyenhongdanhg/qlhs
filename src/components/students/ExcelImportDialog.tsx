@@ -167,6 +167,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
                       <TableHead>Lớp</TableHead>
                       <TableHead>CCCD</TableHead>
                       <TableHead>SĐT</TableHead>
+                      <TableHead>Dân tộc</TableHead>
                       <TableHead>Phòng</TableHead>
                       <TableHead>Mâm</TableHead>
                       <TableHead>Ảnh</TableHead>
@@ -184,6 +185,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
                         <TableCell>{row.class_name || '-'}</TableCell>
                         <TableCell>{row.cccd || '-'}</TableCell>
                         <TableCell>{row.phone || '-'}</TableCell>
+                        <TableCell>{row.ethnicity || '-'}</TableCell>
                         <TableCell>{row.room_number || '-'}</TableCell>
                         <TableCell>{row.meal_group || '-'}</TableCell>
                         <TableCell>

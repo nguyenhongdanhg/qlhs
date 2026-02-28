@@ -85,6 +85,7 @@ export interface Student {
   cccd?: string;
   room_number?: string;
   meal_group?: string;
+  ethnicity?: string;
   is_boarding: boolean;
   is_active: boolean;
   notes?: string;

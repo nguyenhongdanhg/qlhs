@@ -11,6 +11,7 @@ export const STUDENT_IMPORT_COLUMNS = [
   'CCCD',
   'Điện thoại',
   'Địa chỉ',
+  'Dân tộc',
   'Phòng KTX',
   'Mâm ăn',
   'Link ảnh',
@@ -25,6 +26,7 @@ export interface StudentImportRow {
   cccd: string;
   phone: string;
   address: string;
+  ethnicity: string;
   room_number: string;
   meal_group: string;
   avatar_url: string;
@@ -34,8 +36,8 @@ export interface StudentImportRow {
 export function generateStudentTemplate(): Blob {
   const ws = XLSX.utils.aoa_to_sheet([
     STUDENT_IMPORT_COLUMNS,
-    [1, 'Nguyễn Văn A', '15/03/2008', 'Nam', '10A1', '001234567890', '0901234567', 'Hà Nội', 'P101', 'Mâm 1', 'https://example.com/photo1.jpg'],
-    [2, 'Trần Thị B', '20/05/2008', 'Nữ', '10A2', '001234567891', '0901234568', 'Hà Nam', 'P102', 'Mâm 2', ''],
+    [1, 'Nguyễn Văn A', '15/03/2008', 'Nam', '10A1', '001234567890', '0901234567', 'Hà Nội', 'Kinh', 'P101', 'Mâm 1', 'https://example.com/photo1.jpg'],
+    [2, 'Trần Thị B', '20/05/2008', 'Nữ', '10A2', '001234567891', '0901234568', 'Hà Nam', 'Tày', 'P102', 'Mâm 2', ''],
   ]);
 
   // Set column widths
@@ -48,6 +50,7 @@ export function generateStudentTemplate(): Blob {
     { wch: 15 }, // CCCD
     { wch: 12 }, // Điện thoại
     { wch: 30 }, // Địa chỉ
+    { wch: 12 }, // Dân tộc
     { wch: 10 }, // Phòng KTX
     { wch: 10 }, // Mâm ăn
     { wch: 40 }, // Link ảnh
@@ -87,9 +90,10 @@ export function parseStudentImportFile(file: File): Promise<StudentImportRow[]> 
             cccd: String(row[5] || '').trim(),
             phone: String(row[6] || '').trim(),
             address: String(row[7] || '').trim(),
-            room_number: String(row[8] || '').trim(),
-            meal_group: String(row[9] || '').trim(),
-            avatar_url: String(row[10] || '').trim(),
+            ethnicity: String(row[8] || '').trim(),
+            room_number: String(row[9] || '').trim(),
+            meal_group: String(row[10] || '').trim(),
+            avatar_url: String(row[11] || '').trim(),
           });
         }
 
@@ -116,6 +120,7 @@ export function exportStudentsToExcel(students: Student[], classes: Class[], fil
     'Điện thoại': student.phone || '',
     'SĐT Phụ huynh': student.parent_phone || '',
     'Địa chỉ': student.address || '',
+    'Dân tộc': student.ethnicity || '',
     'Phòng KTX': student.room_number || '',
     'Mâm ăn': student.meal_group || '',
     'Nội trú': student.is_boarding ? 'Có' : 'Không',
