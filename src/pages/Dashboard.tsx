@@ -325,16 +325,24 @@ export default function Dashboard() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch today's duty schedule
+  // Fetch current duty schedule (shift runs 6am to 6am next day)
+  const dutyDateStr = useMemo(() => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    // Before 6am means still on previous day's shift
+    const dutyDate = currentHour < 6 ? new Date(now.getTime() - 86400000) : now;
+    return format(dutyDate, 'yyyy-MM-dd');
+  }, []);
+
   const { data: dutyToday } = useQuery({
-    queryKey: ['dashboard-duty', currentSchool?.id, dateStr],
+    queryKey: ['dashboard-duty', currentSchool?.id, dutyDateStr],
     queryFn: async (): Promise<DutyPerson[]> => {
       if (!currentSchool) return [];
       const { data: schedules } = await supabase
         .from('duty_schedules')
         .select(`user_id, shift, profile:profiles!inner(id, full_name)`)
         .eq('school_id', currentSchool.id)
-        .eq('duty_date', dateStr);
+        .eq('duty_date', dutyDateStr);
       if (!schedules) return [];
       return schedules.map((s: any) => ({
         id: s.user_id,
@@ -562,7 +570,7 @@ export default function Dashboard() {
                 <CardContent className="p-2.5 sm:p-3">
                   <div className="flex items-center gap-1.5 mb-2">
                     <CalendarCheck className="h-4 w-4 text-primary" />
-                    <span className="text-xs sm:text-sm font-semibold">Trực hôm nay</span>
+                    <span className="text-xs sm:text-sm font-semibold">Đang trực</span>
                   </div>
                   {dutyToday && dutyToday.length > 0 ? (
                     <div className="space-y-1">
