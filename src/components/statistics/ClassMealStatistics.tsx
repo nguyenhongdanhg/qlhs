@@ -321,7 +321,7 @@ export const ClassMealStatistics = memo(function ClassMealStatistics({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="day">Theo ngày</SelectItem>
+                <SelectItem value="week">Theo tuần</SelectItem>
                 <SelectItem value="week">Theo tuần</SelectItem>
                 <SelectItem value="month">Theo tháng</SelectItem>
               </SelectContent>
