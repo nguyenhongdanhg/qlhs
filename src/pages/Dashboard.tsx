@@ -41,7 +41,7 @@ interface DashboardStats {
   totalTeachers: number;
   totalClasses: number;
   mealStats: { breakfast: number; lunch: number; dinner: number };
-  gradeStats: { grade: number; total: number; boarding: number }[];
+  gradeStats: { grade: number; total: number; boarding: number; male: number; female: number; classCount: number }[];
   className?: string;
   classId?: string;
   classStudentCount?: number;
@@ -208,25 +208,28 @@ export default function Dashboard() {
         ? getSnapshot(studyAllRecords, totalStudentsCount, latestStudyDate)
         : { present: 0, absent: 0, total: totalStudentsCount, hasReport: false } as AttendanceSnapshot;
 
-      // Grade stats
+      // Grade stats with gender and class count
       const { data: studentsWithGrades } = await supabase
         .from('students')
-        .select('is_boarding, class:classes!inner(grade)')
+        .select('is_boarding, gender, class_id, class:classes!inner(grade)')
         .eq('school_id', currentSchool.id)
         .eq('is_active', true)
         .eq('classes.is_active', true);
 
-      const gradeMap = new Map<number, { total: number; boarding: number }>();
+      const gradeMap = new Map<number, { total: number; boarding: number; male: number; female: number; classIds: Set<string> }>();
       (studentsWithGrades || []).forEach((student: any) => {
         const grade = student.class?.grade;
         if (grade !== undefined) {
-          const current = gradeMap.get(grade) || { total: 0, boarding: 0 };
+          const current = gradeMap.get(grade) || { total: 0, boarding: 0, male: 0, female: 0, classIds: new Set<string>() };
           current.total++;
           if (student.is_boarding) current.boarding++;
+          if (student.gender === 'male') current.male++;
+          if (student.gender === 'female') current.female++;
+          if (student.class_id) current.classIds.add(student.class_id);
           gradeMap.set(grade, current);
         }
       });
-      const gradeStats = Array.from(gradeMap.entries()).sort(([a], [b]) => a - b).map(([grade, stats]) => ({ grade, ...stats }));
+      const gradeStats = Array.from(gradeMap.entries()).sort(([a], [b]) => a - b).map(([grade, s]) => ({ grade, total: s.total, boarding: s.boarding, male: s.male, female: s.female, classCount: s.classIds.size }));
 
       // Class teacher specific data
       let className: string | undefined;
@@ -587,17 +590,49 @@ export default function Dashboard() {
               <CardContent className="p-2.5 sm:p-3">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Users className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Theo khối</span>
+                  <span className="text-sm font-semibold">Số liệu học sinh</span>
                 </div>
-                <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(60px, 1fr))` }}>
-                  {stats.gradeStats.map(({ grade, total, boarding }) => (
-                    <div key={grade} className="text-center p-1.5 rounded-lg bg-muted/50">
-                      <p className="text-[10px] text-muted-foreground">K{grade}</p>
-                      <p className="text-sm font-bold text-foreground leading-none">{total}</p>
-                      <p className="text-[9px] text-primary">{boarding} NT</p>
+                {(() => {
+                  const items = stats.gradeStats;
+                  const total = items.length;
+                  // Split into 2 rows as evenly as possible
+                  const firstRowCount = Math.ceil(total / 2);
+                  const firstRow = items.slice(0, firstRowCount);
+                  const secondRow = items.slice(firstRowCount);
+                  
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${firstRowCount}, 1fr)` }}>
+                        {firstRow.map(({ grade, total, classCount, male, female }) => (
+                          <div key={grade} className="text-center p-2 rounded-lg bg-muted/50 space-y-0.5">
+                            <p className="text-xs font-bold text-primary">Khối {grade}</p>
+                            <p className="text-base font-bold text-foreground leading-tight">{total}</p>
+                            <p className="text-[9px] text-muted-foreground">{classCount} lớp</p>
+                            <div className="flex justify-center gap-1.5 text-[9px]">
+                              <span className="text-blue-600">♂{male}</span>
+                              <span className="text-pink-500">♀{female}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {secondRow.length > 0 && (
+                        <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${secondRow.length}, 1fr)` }}>
+                          {secondRow.map(({ grade, total, classCount, male, female }) => (
+                            <div key={grade} className="text-center p-2 rounded-lg bg-muted/50 space-y-0.5">
+                              <p className="text-xs font-bold text-primary">Khối {grade}</p>
+                              <p className="text-base font-bold text-foreground leading-tight">{total}</p>
+                              <p className="text-[9px] text-muted-foreground">{classCount} lớp</p>
+                              <div className="flex justify-center gap-1.5 text-[9px]">
+                                <span className="text-blue-600">♂{male}</span>
+                                <span className="text-pink-500">♀{female}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           )}
