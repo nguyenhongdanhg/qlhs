@@ -382,7 +382,7 @@ export default function Dashboard() {
 
   const attendanceItems = [
     {
-      label: 'Sáng',
+      label: 'Bữa sáng',
       icon: Sun,
       stats: stats?.breakfastStats,
       color: 'text-amber-600',
@@ -391,7 +391,7 @@ export default function Dashboard() {
       iconBg: 'bg-amber-100 dark:bg-amber-900/50',
     },
     {
-      label: 'Trưa',
+      label: 'Bữa trưa',
       icon: UtensilsCrossed,
       stats: stats?.lunchStats,
       color: 'text-orange-600',
@@ -400,7 +400,7 @@ export default function Dashboard() {
       iconBg: 'bg-orange-100 dark:bg-orange-900/50',
     },
     {
-      label: 'Tối',
+      label: 'Bữa tối',
       icon: Sunset,
       stats: stats?.dinnerStats,
       color: 'text-rose-600',
@@ -473,7 +473,7 @@ export default function Dashboard() {
           <Card className="border-0 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-primary/5 to-accent/5 px-3 py-2 border-b border-border/50">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">Điểm danh hôm nay</span>
+                <span className="text-sm sm:text-base font-semibold text-foreground">Số liệu điểm danh gần nhất</span>
                 <span className="text-[10px] text-muted-foreground">
                   {[stats?.hasBreakfast, stats?.hasLunch, stats?.hasDinner, stats?.hasBoarding, stats?.hasEveningStudy].filter(Boolean).length}/5 đã báo cáo
                 </span>
@@ -495,7 +495,7 @@ export default function Dashboard() {
                         itemStats?.hasReport ? color : "text-muted-foreground"
                       )} />
                     </div>
-                    <p className="text-[10px] text-muted-foreground">{label}</p>
+                    <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">{label}</p>
                     {itemStats?.hasReport ? (
                       <>
                         <p className={cn("text-xl sm:text-2xl font-bold leading-tight", color)}>
@@ -539,9 +539,9 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1.5 mb-2">
                     <Trophy className="h-4 w-4 text-warning" />
                     <div>
-                      <span className="text-xs sm:text-sm font-semibold">Thi đua</span>
+                      <span className="text-xs sm:text-sm font-semibold">Xếp loại thi đua</span>
                       {emulationData?.weekNumber && (
-                        <span className="text-[10px] text-muted-foreground ml-1">T{emulationData.weekNumber}</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground ml-1">tuần {emulationData.weekNumber}</span>
                       )}
                     </div>
                   </div>
@@ -570,7 +570,10 @@ export default function Dashboard() {
                 <CardContent className="p-2.5 sm:p-3">
                   <div className="flex items-center gap-1.5 mb-2">
                     <CalendarCheck className="h-4 w-4 text-primary" />
-                    <span className="text-xs sm:text-sm font-semibold">Đang trực</span>
+                    <div>
+                      <span className="text-xs sm:text-sm font-semibold">Ca trực hiện tại</span>
+                      <p className="text-[10px] text-muted-foreground">Click xem lịch trực</p>
+                    </div>
                   </div>
                   {dutyToday && dutyToday.length > 0 ? (
                     <div className="space-y-1">
@@ -598,7 +601,7 @@ export default function Dashboard() {
               <CardContent className="p-2.5 sm:p-3">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Users className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-semibold">Số liệu học sinh</span>
+                  <span className="text-sm sm:text-base font-semibold">Thông tin lớp học</span>
                 </div>
                 {(() => {
                   const items = stats.gradeStats;
