@@ -49,6 +49,7 @@ import { ExcuseReasonDialog } from '@/components/attendance/ExcuseReasonDialog';
 import { ShareReportDialog } from '@/components/attendance/ShareReportDialog';
 import { AttendanceHistoryTab } from '@/components/attendance/AttendanceHistoryTab';
 import { ClassFilterButtons } from '@/components/attendance/ClassFilterButtons';
+import { StudentSearchInput } from '@/components/attendance/StudentSearchInput';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -152,6 +153,7 @@ export default function EveningStudy() {
 
   // Edit mode tracking - prevents auto-refresh from overwriting data when editing a report
   const [isEditMode, setIsEditMode] = useState(false);
+  const [studentSearch, setStudentSearch] = useState('');
   const [editModeData, setEditModeData] = useState<{attendance: AttendanceMap, excuse: ExcuseMap, notes: string} | null>(null);
 
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
@@ -794,9 +796,16 @@ export default function EveningStudy() {
   }, [isEditMode, editModeData]);
 
   const filteredStudents = useMemo(() => {
-    if (selectedClass === 'all' || selectedClass === 'Tất cả') return students;
-    return students.filter(s => s.class?.name === selectedClass);
-  }, [students, selectedClass]);
+    let filtered = students;
+    if (selectedClass !== 'all' && selectedClass !== 'Tất cả') {
+      filtered = filtered.filter(s => s.class?.name === selectedClass);
+    }
+    if (studentSearch.trim()) {
+      const searchLower = studentSearch.toLowerCase().trim();
+      filtered = filtered.filter(s => s.full_name.toLowerCase().includes(searchLower));
+    }
+    return filtered;
+  }, [students, selectedClass, studentSearch]);
 
   const presentCount = Object.values(attendance).filter(s => s === 'present').length;
   const absentCount = Object.values(attendance).filter(s => s === 'absent' || s === 'excused').length;
@@ -959,6 +968,14 @@ export default function EveningStudy() {
                 </Button>
               </div>
             )}
+
+            {/* Student Search */}
+            <StudentSearchInput
+              value={studentSearch}
+              onChange={setStudentSearch}
+              resultCount={filteredStudents.length}
+              totalCount={students.length}
+            />
 
             {/* Students List - Compact for mobile */}
             {isLoading ? (
