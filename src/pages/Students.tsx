@@ -52,6 +52,7 @@ import {
   Edit,
   Image,
   Link,
+  BarChart3,
 } from 'lucide-react';
 import { cn, naturalSort, vietnameseNameSortCompare } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
@@ -95,6 +96,7 @@ export default function Students() {
   const [isBulkAvatarOpen, setIsBulkAvatarOpen] = useState(false);
   const [bulkAvatarText, setBulkAvatarText] = useState('');
   const [zoomAvatarUrl, setZoomAvatarUrl] = useState<string | null>(null);
+  const [statsView, setStatsView] = useState<'school' | 'level' | 'grade' | 'class'>('school');
   
   // Duplicate import state
   const [duplicateData, setDuplicateData] = useState<{
@@ -128,6 +130,7 @@ export default function Students() {
     parent_phone: '',
     address: '',
     cccd: '',
+    ethnicity: '',
     room_number: '',
     meal_group: '',
     notes: '',
@@ -212,6 +215,7 @@ export default function Students() {
         parent_phone: student.parent_phone || '',
         address: student.address || '',
         cccd: student.cccd || '',
+        ethnicity: student.ethnicity || '',
         room_number: student.room_number || '',
         meal_group: student.meal_group || '',
         notes: student.notes || '',
@@ -230,6 +234,7 @@ export default function Students() {
         parent_phone: '',
         address: '',
         cccd: '',
+        ethnicity: '',
         room_number: '',
         meal_group: '',
         notes: '',
@@ -273,6 +278,7 @@ export default function Students() {
         parent_phone: formData.parent_phone || null,
         address: formData.address || null,
         cccd: formData.cccd || null,
+        ethnicity: formData.ethnicity || null,
         room_number: formData.room_number || null,
         meal_group: formData.meal_group || null,
         notes: formData.notes || null,
@@ -353,6 +359,7 @@ export default function Students() {
         const fieldMap: { key: keyof Student; importKey: keyof StudentImportRow; label: string; transform?: (v: string) => any }[] = [
           { key: 'phone', importKey: 'phone', label: 'SĐT' },
           { key: 'address', importKey: 'address', label: 'Địa chỉ' },
+          { key: 'ethnicity', importKey: 'ethnicity', label: 'Dân tộc' },
           { key: 'room_number', importKey: 'room_number', label: 'Phòng KTX' },
           { key: 'meal_group', importKey: 'meal_group', label: 'Mâm ăn' },
           { key: 'avatar_url', importKey: 'avatar_url', label: 'Link ảnh' },
@@ -397,6 +404,7 @@ export default function Students() {
         cccd: row.cccd || null,
         phone: row.phone || null,
         address: row.address || null,
+        ethnicity: row.ethnicity || null,
         room_number: row.room_number || null,
         meal_group: row.meal_group || null,
         avatar_url: row.avatar_url || null,
@@ -752,7 +760,7 @@ export default function Students() {
           setSelectedMealFilter(null);
         }
       }} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-4">
+        <TabsList className="grid w-full grid-cols-5 mb-4">
           <TabsTrigger value="students" className="flex items-center gap-1">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Học sinh</span>
@@ -763,11 +771,15 @@ export default function Students() {
           </TabsTrigger>
           <TabsTrigger value="rooms" className="flex items-center gap-1">
             <Building className="h-4 w-4" />
-            <span className="hidden sm:inline">Phòng KTX</span>
+            <span className="hidden sm:inline">Phòng</span>
           </TabsTrigger>
           <TabsTrigger value="meals" className="flex items-center gap-1">
             <Utensils className="h-4 w-4" />
             <span className="hidden sm:inline">Mâm ăn</span>
+          </TabsTrigger>
+          <TabsTrigger value="stats" className="flex items-center gap-1">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Thống kê</span>
           </TabsTrigger>
         </TabsList>
 
@@ -979,14 +991,31 @@ export default function Students() {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <Label htmlFor="address">Địa chỉ</Label>
-                        <Input
-                          id="address"
-                          value={formData.address}
-                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                          placeholder="Địa chỉ nhà"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="address">Địa chỉ</Label>
+                          <Input
+                            id="address"
+                            value={formData.address}
+                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                            placeholder="Thôn/xã/huyện/tỉnh"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="ethnicity">Dân tộc</Label>
+                          <Input
+                            id="ethnicity"
+                            value={formData.ethnicity}
+                            onChange={(e) => setFormData({ ...formData, ethnicity: e.target.value })}
+                            placeholder="Kinh"
+                            list="ethnicity-suggestions"
+                          />
+                          <datalist id="ethnicity-suggestions">
+                            {Array.from(new Set(students.map(s => s.ethnicity).filter(Boolean))).sort().map(e => (
+                              <option key={e} value={e!} />
+                            ))}
+                          </datalist>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5">
@@ -1364,6 +1393,180 @@ export default function Students() {
             )}
           </div>
         </TabsContent>
+
+        {/* Statistics Tab */}
+        <TabsContent value="stats" className="mt-0">
+          <div className="page-header">
+            <h1 className="page-title flex items-center gap-2">
+              <BarChart3 className="h-6 w-6 text-primary" />
+              Thống kê học sinh
+            </h1>
+          </div>
+
+          {(() => {
+            const getLevel = (grade: number) => grade <= 9 ? 'THCS' : 'THPT';
+            const getAge = (dob?: string) => {
+              if (!dob) return null;
+              const birth = new Date(dob);
+              const today = new Date();
+              return today.getFullYear() - birth.getFullYear();
+            };
+
+            // Group data
+            type GroupKey = 'school' | string; // className, gradeName, levelName
+            interface GroupStats {
+              label: string;
+              total: number;
+              male: number;
+              female: number;
+              ethnicities: Record<string, number>;
+              ages: Record<string, number>;
+              addresses: Record<string, number>;
+            }
+
+            const buildStats = (label: string, list: typeof students): GroupStats => {
+              const s: GroupStats = { label, total: list.length, male: 0, female: 0, ethnicities: {}, ages: {}, addresses: {} };
+              list.forEach(st => {
+                if (st.gender === 'male') s.male++;
+                if (st.gender === 'female') s.female++;
+                const eth = st.ethnicity || 'Chưa rõ';
+                s.ethnicities[eth] = (s.ethnicities[eth] || 0) + 1;
+                const age = getAge(st.date_of_birth);
+                const ageKey = age ? `${age} tuổi` : 'Chưa rõ';
+                s.ages[ageKey] = (s.ages[ageKey] || 0) + 1;
+                // Parse address for commune/village
+                const addr = st.address || 'Chưa rõ';
+                s.addresses[addr] = (s.addresses[addr] || 0) + 1;
+              });
+              return s;
+            };
+
+
+            let groups: GroupStats[] = [];
+            if (statsView === 'school') {
+              groups = [buildStats('Toàn trường', students)];
+            } else if (statsView === 'level') {
+              const thcs = students.filter(s => s.class && s.class.grade <= 9);
+              const thpt = students.filter(s => s.class && s.class.grade >= 10);
+              if (thcs.length > 0) groups.push(buildStats('THCS', thcs));
+              if (thpt.length > 0) groups.push(buildStats('THPT', thpt));
+            } else if (statsView === 'grade') {
+              const gradeMap = new Map<number, typeof students>();
+              students.forEach(s => {
+                const g = s.class?.grade;
+                if (g !== undefined) {
+                  if (!gradeMap.has(g)) gradeMap.set(g, []);
+                  gradeMap.get(g)!.push(s);
+                }
+              });
+              Array.from(gradeMap.entries()).sort(([a], [b]) => a - b).forEach(([g, list]) => {
+                groups.push(buildStats(`Khối ${g}`, list));
+              });
+            } else {
+              const classMap = new Map<string, typeof students>();
+              students.forEach(s => {
+                const cn = s.class?.name || 'Chưa xếp';
+                if (!classMap.has(cn)) classMap.set(cn, []);
+                classMap.get(cn)!.push(s);
+              });
+              const sortedClasses = [...classes].sort((a, b) => {
+                if (a.grade !== b.grade) return a.grade - b.grade;
+                return a.name.localeCompare(b.name, 'vi');
+              });
+              sortedClasses.forEach(cls => {
+                const list = classMap.get(cls.name);
+                if (list && list.length > 0) groups.push(buildStats(cls.name, list));
+              });
+              const unassigned = classMap.get('Chưa xếp');
+              if (unassigned && unassigned.length > 0) groups.push(buildStats('Chưa xếp', unassigned));
+            }
+
+            const sortEntries = (obj: Record<string, number>) =>
+              Object.entries(obj).sort(([, a], [, b]) => b - a);
+
+            return (
+              <>
+                <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                  {(['school', 'level', 'grade', 'class'] as const).map(v => (
+                    <Button
+                      key={v}
+                      variant={statsView === v ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setStatsView(v)}
+                      className="whitespace-nowrap"
+                    >
+                      {v === 'school' ? 'Toàn trường' : v === 'level' ? 'Bậc học' : v === 'grade' ? 'Khối' : 'Lớp'}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="space-y-4">
+                  {groups.map(group => (
+                    <Card key={group.label}>
+                      <CardContent className="p-4 space-y-3">
+                        <h3 className="font-semibold text-sm flex items-center justify-between">
+                          <span>{group.label}</span>
+                          <Badge variant="secondary">{group.total} HS</Badge>
+                        </h3>
+
+                        {/* Gender */}
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Giới tính</p>
+                          <div className="flex gap-3 text-sm">
+                            <span className="text-blue-600">Nam: <strong>{group.male}</strong></span>
+                            <span className="text-pink-500">Nữ: <strong>{group.female}</strong></span>
+                            {group.total - group.male - group.female > 0 && (
+                              <span className="text-muted-foreground">Chưa rõ: {group.total - group.male - group.female}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Ethnicity */}
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Dân tộc</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {sortEntries(group.ethnicities).map(([eth, count]) => (
+                              <Badge key={eth} variant="outline" className="text-xs">
+                                {eth}: {count}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Age */}
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Độ tuổi</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {sortEntries(group.ages).map(([age, count]) => (
+                              <Badge key={age} variant="outline" className="text-xs">
+                                {age}: {count}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Address */}
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Địa chỉ (Thôn/Xã)</p>
+                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                            {sortEntries(group.addresses).slice(0, 20).map(([addr, count]) => (
+                              <Badge key={addr} variant="outline" className="text-xs">
+                                {addr.length > 30 ? addr.substring(0, 30) + '...' : addr}: {count}
+                              </Badge>
+                            ))}
+                            {sortEntries(group.addresses).length > 20 && (
+                              <span className="text-xs text-muted-foreground">...và {sortEntries(group.addresses).length - 20} địa chỉ khác</span>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+        </TabsContent>
       </Tabs>
 
       {/* Detail Modal */}
@@ -1469,6 +1672,7 @@ export default function Students() {
                 <InfoItem icon={Users} label="Lớp" value={selectedStudent.class?.name || 'Chưa xếp'} />
                 <InfoItem icon={User} label="Giới tính" value={selectedStudent.gender === 'male' ? 'Nam' : selectedStudent.gender === 'female' ? 'Nữ' : '-'} />
                 <InfoItem icon={Calendar} label="Ngày sinh" value={selectedStudent.date_of_birth ? new Date(selectedStudent.date_of_birth).toLocaleDateString('vi-VN') : '-'} />
+                <InfoItem icon={Users} label="Dân tộc" value={selectedStudent.ethnicity || '-'} />
                 <InfoItem icon={Home} label="Phòng KTX" value={selectedStudent.room_number || '-'} />
                 <InfoItem icon={UtensilsCrossed} label="Mâm ăn" value={selectedStudent.meal_group || '-'} />
                 <InfoItem icon={CreditCard} label="CCCD" value={selectedStudent.cccd || '-'} />
@@ -1670,6 +1874,7 @@ HS003, https://example.com/photo3.jpg`}
                           key === 'avatar_url' ? 'Ảnh' :
                           key === 'cccd' ? 'CCCD' :
                           key === 'date_of_birth' ? 'Ngày sinh' :
+                          key === 'ethnicity' ? 'Dân tộc' :
                           key === 'gender' ? 'Giới tính' :
                           key === 'class_id' ? 'Lớp' : key
                         }:</span>
