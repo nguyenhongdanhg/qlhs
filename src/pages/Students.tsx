@@ -97,6 +97,7 @@ export default function Students() {
   const [bulkAvatarText, setBulkAvatarText] = useState('');
   const [zoomAvatarUrl, setZoomAvatarUrl] = useState<string | null>(null);
   const [statsView, setStatsView] = useState<'school' | 'level' | 'grade' | 'class'>('school');
+  const [statsFilter, setStatsFilter] = useState<'gender' | 'ethnicity' | 'age' | 'address'>('gender');
   
   // Duplicate import state
   const [duplicateData, setDuplicateData] = useState<{
@@ -1396,15 +1397,7 @@ export default function Students() {
 
         {/* Statistics Tab */}
         <TabsContent value="stats" className="mt-0">
-          <div className="page-header">
-            <h1 className="page-title flex items-center gap-2">
-              <BarChart3 className="h-6 w-6 text-primary" />
-              Thống kê học sinh
-            </h1>
-          </div>
-
           {(() => {
-            const getLevel = (grade: number) => grade <= 9 ? 'THCS' : 'THPT';
             const getAge = (dob?: string) => {
               if (!dob) return null;
               const birth = new Date(dob);
@@ -1412,8 +1405,6 @@ export default function Students() {
               return today.getFullYear() - birth.getFullYear();
             };
 
-            // Group data
-            type GroupKey = 'school' | string; // className, gradeName, levelName
             interface GroupStats {
               label: string;
               total: number;
@@ -1432,15 +1423,13 @@ export default function Students() {
                 const eth = st.ethnicity || 'Chưa rõ';
                 s.ethnicities[eth] = (s.ethnicities[eth] || 0) + 1;
                 const age = getAge(st.date_of_birth);
-                const ageKey = age ? `${age} tuổi` : 'Chưa rõ';
+                const ageKey = age ? `${age}` : 'Chưa rõ';
                 s.ages[ageKey] = (s.ages[ageKey] || 0) + 1;
-                // Parse address for commune/village
                 const addr = st.address || 'Chưa rõ';
                 s.addresses[addr] = (s.addresses[addr] || 0) + 1;
               });
               return s;
             };
-
 
             let groups: GroupStats[] = [];
             if (statsView === 'school') {
@@ -1484,81 +1473,146 @@ export default function Students() {
             const sortEntries = (obj: Record<string, number>) =>
               Object.entries(obj).sort(([, a], [, b]) => b - a);
 
+            const filterLabels = {
+              gender: 'Giới tính',
+              ethnicity: 'Dân tộc',
+              age: 'Độ tuổi',
+              address: 'Địa chỉ',
+            };
+
+            const ProgressBar = ({ value, max, color }: { value: number; max: number; color: string }) => (
+              <div className="flex items-center gap-2 flex-1">
+                <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${color}`}
+                    style={{ width: `${max > 0 ? (value / max) * 100 : 0}%` }}
+                  />
+                </div>
+                <span className="text-xs font-medium tabular-nums w-16 text-right">
+                  {value} ({max > 0 ? ((value / max) * 100).toFixed(0) : 0}%)
+                </span>
+              </div>
+            );
+
+            const renderStatsContent = (group: GroupStats) => {
+              if (statsFilter === 'gender') {
+                const unknown = group.total - group.male - group.female;
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs w-10 text-muted-foreground">Nam</span>
+                      <ProgressBar value={group.male} max={group.total} color="bg-blue-500" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs w-10 text-muted-foreground">Nữ</span>
+                      <ProgressBar value={group.female} max={group.total} color="bg-pink-500" />
+                    </div>
+                    {unknown > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs w-10 text-muted-foreground">N/A</span>
+                        <ProgressBar value={unknown} max={group.total} color="bg-muted-foreground/30" />
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (statsFilter === 'ethnicity') {
+                const entries = sortEntries(group.ethnicities);
+                return (
+                  <div className="space-y-1.5">
+                    {entries.map(([eth, count]) => (
+                      <div key={eth} className="flex items-center gap-2">
+                        <span className="text-xs w-20 truncate text-muted-foreground" title={eth}>{eth}</span>
+                        <ProgressBar value={count} max={group.total} color="bg-primary" />
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
+              if (statsFilter === 'age') {
+                const entries = sortEntries(group.ages).sort(([a], [b]) => {
+                  if (a === 'Chưa rõ') return 1;
+                  if (b === 'Chưa rõ') return -1;
+                  return parseInt(a) - parseInt(b);
+                });
+                return (
+                  <div className="space-y-1.5">
+                    {entries.map(([age, count]) => (
+                      <div key={age} className="flex items-center gap-2">
+                        <span className="text-xs w-20 text-muted-foreground">{age === 'Chưa rõ' ? age : `${age} tuổi`}</span>
+                        <ProgressBar value={count} max={group.total} color="bg-accent-foreground/60" />
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
+              // address
+              const entries = sortEntries(group.addresses);
+              return (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {entries.slice(0, 30).map(([addr, count]) => (
+                    <div key={addr} className="flex items-center gap-2">
+                      <span className="text-xs w-32 truncate text-muted-foreground" title={addr}>{addr}</span>
+                      <ProgressBar value={count} max={group.total} color="bg-secondary-foreground/40" />
+                    </div>
+                  ))}
+                  {entries.length > 30 && (
+                    <p className="text-xs text-muted-foreground pl-1">...và {entries.length - 30} địa chỉ khác</p>
+                  )}
+                </div>
+              );
+            };
+
             return (
               <>
-                <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                {/* View mode */}
+                <div className="flex flex-wrap gap-2 mb-3">
                   {(['school', 'level', 'grade', 'class'] as const).map(v => (
                     <Button
                       key={v}
                       variant={statsView === v ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setStatsView(v)}
-                      className="whitespace-nowrap"
+                      className="whitespace-nowrap text-xs h-8"
                     >
                       {v === 'school' ? 'Toàn trường' : v === 'level' ? 'Bậc học' : v === 'grade' ? 'Khối' : 'Lớp'}
                     </Button>
                   ))}
                 </div>
 
-                <div className="space-y-4">
+                {/* Filter type */}
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {(Object.entries(filterLabels) as [typeof statsFilter, string][]).map(([key, label]) => (
+                    <Badge
+                      key={key}
+                      variant={statsFilter === key ? 'default' : 'outline'}
+                      className={cn(
+                        "cursor-pointer text-xs px-3 py-1 transition-colors",
+                        statsFilter === key && "bg-primary text-primary-foreground"
+                      )}
+                      onClick={() => setStatsFilter(key)}
+                    >
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+
+                {/* Stats cards */}
+                <div className={cn(
+                  "gap-3",
+                  groups.length === 1 ? "space-y-3" : "grid grid-cols-1 md:grid-cols-2"
+                )}>
                   {groups.map(group => (
-                    <Card key={group.label}>
-                      <CardContent className="p-4 space-y-3">
-                        <h3 className="font-semibold text-sm flex items-center justify-between">
-                          <span>{group.label}</span>
-                          <Badge variant="secondary">{group.total} HS</Badge>
-                        </h3>
-
-                        {/* Gender */}
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Giới tính</p>
-                          <div className="flex gap-3 text-sm">
-                            <span className="text-blue-600">Nam: <strong>{group.male}</strong></span>
-                            <span className="text-pink-500">Nữ: <strong>{group.female}</strong></span>
-                            {group.total - group.male - group.female > 0 && (
-                              <span className="text-muted-foreground">Chưa rõ: {group.total - group.male - group.female}</span>
-                            )}
-                          </div>
+                    <Card key={group.label} className="overflow-hidden">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-semibold text-sm">{group.label}</h3>
+                          <Badge variant="secondary" className="text-xs">{group.total} HS</Badge>
                         </div>
-
-                        {/* Ethnicity */}
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Dân tộc</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {sortEntries(group.ethnicities).map(([eth, count]) => (
-                              <Badge key={eth} variant="outline" className="text-xs">
-                                {eth}: {count}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Age */}
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Độ tuổi</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {sortEntries(group.ages).map(([age, count]) => (
-                              <Badge key={age} variant="outline" className="text-xs">
-                                {age}: {count}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Address */}
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Địa chỉ (Thôn/Xã)</p>
-                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-                            {sortEntries(group.addresses).slice(0, 20).map(([addr, count]) => (
-                              <Badge key={addr} variant="outline" className="text-xs">
-                                {addr.length > 30 ? addr.substring(0, 30) + '...' : addr}: {count}
-                              </Badge>
-                            ))}
-                            {sortEntries(group.addresses).length > 20 && (
-                              <span className="text-xs text-muted-foreground">...và {sortEntries(group.addresses).length - 20} địa chỉ khác</span>
-                            )}
-                          </div>
-                        </div>
+                        {renderStatsContent(group)}
                       </CardContent>
                     </Card>
                   ))}
