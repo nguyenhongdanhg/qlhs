@@ -498,18 +498,13 @@ export default function Dashboard() {
                             -{itemStats.absent}
                           </p>
                         )}
-                        <div className="flex flex-col items-center gap-0 mt-1">
-                          {itemStats.lastReportDate && itemStats.lastReportDate !== dateStr && (
-                            <span className="text-[9px] font-medium text-muted-foreground">
-                              {format(new Date(itemStats.lastReportDate), 'dd/MM')}
-                            </span>
-                          )}
-                          <div className="flex items-center justify-center gap-0.5">
-                            <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-                            <span className="text-[10px] text-muted-foreground">
-                              {formatTimeShort(itemStats.lastReportTime)}
-                            </span>
-                          </div>
+                        <div className="flex items-center justify-center gap-0.5 mt-1">
+                          <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatTimeShort(itemStats.lastReportTime)}
+                            {' '}
+                            {itemStats.lastReportDate === dateStr ? 'hôm nay' : itemStats.lastReportDate ? format(new Date(itemStats.lastReportDate), 'dd/MM') : ''}
+                          </span>
                         </div>
                       </>
                     ) : (
