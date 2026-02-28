@@ -278,7 +278,8 @@ export function HealthHistoryTab({
         </div>
 
         {/* Table */}
-        <ScrollArea className="max-h-[600px] lg:max-h-[calc(100vh-400px)]">
+        <div className="border rounded-lg">
+          <div className="max-h-[500px] lg:max-h-[calc(100vh-420px)] overflow-y-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -352,7 +353,8 @@ export function HealthHistoryTab({
               )}
             </TableBody>
           </Table>
-        </ScrollArea>
+          </div>
+        </div>
       </CardContent>
 
       {/* View Detail Dialog */}
