@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   CalendarIcon,
@@ -498,11 +498,14 @@ export function AttendanceHistoryTab({
                     )}
                     <CollapsibleTrigger className="flex-1 flex items-center justify-between hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div>
+                        <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">
                             {format(new Date(record.date), 'EEEE, dd/MM', { locale: vi })}
                           </span>
-                          <span className="text-xs text-muted-foreground ml-2">
+                          {isToday(new Date(record.date)) && (
+                            <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">Hôm nay</Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
                             {format(new Date(record.reportedAt), 'HH:mm')}
                           </span>
                         </div>

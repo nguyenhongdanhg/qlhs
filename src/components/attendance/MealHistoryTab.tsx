@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, eachDayOfInterval } from 'date-fns';
+import { format, eachDayOfInterval, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   CalendarIcon,
@@ -751,6 +751,9 @@ export function MealHistoryTab({
                         <span className="font-medium text-sm">
                           {format(new Date(day.date), 'EEEE, dd/MM', { locale: vi })}
                         </span>
+                        {isToday(new Date(day.date)) && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground">Hôm nay</Badge>
+                        )}
                         {meals.breakfast?.className && (
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{meals.breakfast.className}</Badge>
                         )}
