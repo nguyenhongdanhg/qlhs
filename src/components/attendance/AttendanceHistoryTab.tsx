@@ -41,14 +41,14 @@ const detectBoardingSessionLabel = (reportedAt: string): string => {
   const minutes = date.getMinutes();
   const time = hours * 60 + minutes;
   
-  // 6:00 - 11:00 -> Sáng
-  if (time >= 360 && time < 660) return 'Sáng';
-  // 11:00 - 14:00 -> Trưa
-  if (time >= 660 && time < 840) return 'Trưa';
-  // 18:00 - 23:59 -> Tối
-  if (time >= 1080 && time <= 1439) return 'Tối';
-  // Other -> Đột xuất
-  return 'Đột xuất';
+  // 6:00 - 11:00 -> Thể Dục Sáng
+  if (time >= 360 && time < 660) return 'Thể Dục Sáng';
+  // 11:00 - 14:00 -> Giờ Ngủ Trưa
+  if (time >= 660 && time < 840) return 'Giờ Ngủ Trưa';
+  // 18:00 - 23:59 -> Giờ Ngủ Tối
+  if (time >= 1080 && time <= 1439) return 'Giờ Ngủ Tối';
+  // Other -> Kiểm Tra Đột Xuất
+  return 'Kiểm Tra Đột Xuất';
 };
 
 // Auto-detect evening study session label from report time
