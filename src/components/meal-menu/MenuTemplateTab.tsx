@@ -167,6 +167,22 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     );
   };
 
+  const removeDishFromTemplate = async (dayOfWeek: number, mealType: string, dishName: string) => {
+    const existing = templates.find(t => t.day_of_week === dayOfWeek && t.meal_type === mealType);
+    if (!existing) return;
+    const currentDishes = existing.dishes.split(', ').filter(Boolean);
+    const updatedDishes = currentDishes.filter(d => d !== dishName);
+    await supabase.from('weekly_menu_templates').upsert({
+      id: existing.id,
+      school_id: schoolId,
+      day_of_week: dayOfWeek,
+      meal_type: mealType,
+      dishes: updatedDishes.join(', '),
+    }, { onConflict: 'school_id,day_of_week,meal_type' });
+    fetchTemplates();
+    toast({ title: `Đã xóa "${dishName}"` });
+  };
+
   const saveCellDishes = async () => {
     setLoading(true);
     const existing = templates.find(t => t.day_of_week === cellDay && t.meal_type === cellMeal);
@@ -389,11 +405,24 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
                             )}
                             onClick={() => openCellDialog(dayIdx + 1, mealType)}
                           >
-                            <div className="text-xs min-h-[40px] flex items-center justify-center">
+                             <div className="text-xs min-h-[40px] flex items-center justify-center">
                               {dishesStr ? (
                                 <div className="flex flex-wrap gap-1 justify-center">
                                   {dishesStr.split(', ').map((d, i) => (
-                                    <Badge key={i} variant="secondary" className="text-[10px]">{d}</Badge>
+                                    <Badge key={i} variant="secondary" className="text-[10px] gap-1">
+                                      {d}
+                                      {canEdit && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeDishFromTemplate(dayIdx + 1, mealType, d);
+                                          }}
+                                          className="text-destructive hover:text-destructive/80"
+                                        >
+                                          <Trash2 className="h-2.5 w-2.5" />
+                                        </button>
+                                      )}
+                                    </Badge>
                                   ))}
                                 </div>
                               ) : (
