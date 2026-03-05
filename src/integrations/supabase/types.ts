@@ -203,6 +203,96 @@ export type Database = {
           },
         ]
       }
+      dormitory_exit_requests: {
+        Row: {
+          approved_at: string | null
+          approver_id: string | null
+          class_id: string | null
+          created_at: string | null
+          exit_time: string
+          expected_return_time: string
+          id: string
+          reason: string | null
+          rejection_reason: string | null
+          request_date: string
+          requester_id: string
+          school_id: string
+          status: string
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approver_id?: string | null
+          class_id?: string | null
+          created_at?: string | null
+          exit_time: string
+          expected_return_time: string
+          id?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          request_date?: string
+          requester_id: string
+          school_id: string
+          status?: string
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approver_id?: string | null
+          class_id?: string | null
+          created_at?: string | null
+          exit_time?: string
+          expected_return_time?: string
+          id?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          request_date?: string
+          requester_id?: string
+          school_id?: string
+          status?: string
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dormitory_exit_requests_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dormitory_exit_requests_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dormitory_exit_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dormitory_exit_requests_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dormitory_exit_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       duty_members: {
         Row: {
           created_at: string
@@ -1296,6 +1386,10 @@ export type Database = {
     }
     Functions: {
       get_teacher_class: { Args: { sid: string; uid: string }; Returns: string }
+      has_dormitory_exit_permission: {
+        Args: { sid: string; uid: string }
+        Returns: boolean
+      }
       has_duty_permission: {
         Args: { sid: string; uid: string }
         Returns: boolean

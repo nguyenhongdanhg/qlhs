@@ -17,6 +17,7 @@ import {
   Trophy,
   HelpCircle,
   Heart,
+  DoorOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Trophy,
   HelpCircle,
   Heart,
+  DoorOpen,
 };
 
 interface NavItem {
@@ -54,6 +56,7 @@ const navItems: NavItem[] = [
   { code: 'boarding', label: 'Điểm danh nội trú', icon: 'Home', path: '/boarding' },
   { code: 'evening_study', label: 'Điểm danh giờ học', icon: 'BookOpen', path: '/evening-study' },
   { code: 'meals', label: 'Báo cáo bữa ăn', icon: 'UtensilsCrossed', path: '/meals' },
+  { code: 'dormitory_exit', label: 'Ra vào KTX', icon: 'DoorOpen', path: '/dormitory-exit' },
   { code: 'health', label: 'Sức khỏe', icon: 'Heart', path: '/health' },
   { code: 'emulation', label: 'Thi đua', icon: 'Trophy', path: '/emulation' },
   { code: 'statistics', label: 'Thống kê', icon: 'BarChart3', path: '/statistics' },
