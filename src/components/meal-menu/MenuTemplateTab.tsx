@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -7,19 +7,26 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, startOfWeek, endOfWeek, addDays, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarIcon, Edit2, Save, Plus, Copy, Check } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Save, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
 const MEAL_LABELS: Record<string, string> = { breakfast: 'Sáng', lunch: 'Trưa', dinner: 'Tối' };
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'] as const;
+
+interface FoodItem {
+  id: string;
+  name: string;
+  category: string;
+  is_active: boolean;
+}
 
 interface MenuTemplate {
   id?: string;
@@ -43,25 +50,44 @@ interface MenuTemplateTabProps {
 export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [dishes, setDishes] = useState<FoodItem[]>([]);
   const [templates, setTemplates] = useState<MenuTemplate[]>([]);
   const [assignments, setAssignments] = useState<MenuAssignment[]>([]);
-  const [editingTemplate, setEditingTemplate] = useState<MenuTemplate | null>(null);
-  const [selectedWeekDate, setSelectedWeekDate] = useState(new Date());
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState("dishes");
+  const [newDishName, setNewDishName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<string>("template");
 
+  // Assign dialog state
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [selectedDish, setSelectedDish] = useState<FoodItem | null>(null);
+  const [selectedMealType, setSelectedMealType] = useState<string>("breakfast");
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+
+  // Weekly view
+  const [selectedWeekDate, setSelectedWeekDate] = useState(new Date());
   const weekStart = startOfWeek(selectedWeekDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedWeekDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   useEffect(() => {
+    fetchDishes();
     fetchTemplates();
   }, [schoolId]);
 
   useEffect(() => {
     fetchAssignments();
   }, [schoolId, weekStart.toISOString()]);
+
+  const fetchDishes = async () => {
+    const { data } = await supabase
+      .from('food_items')
+      .select('*')
+      .eq('school_id', schoolId)
+      .eq('category', 'dish')
+      .eq('is_active', true)
+      .order('name');
+    if (data) setDishes(data as FoodItem[]);
+  };
 
   const fetchTemplates = async () => {
     const { data } = await supabase
@@ -83,31 +109,91 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     if (data) setAssignments(data);
   };
 
-  const saveTemplate = async (template: MenuTemplate) => {
+  const addDish = async () => {
+    if (!newDishName.trim()) return;
     setLoading(true);
-    const { error } = await supabase
-      .from('weekly_menu_templates')
-      .upsert({
-        id: template.id || undefined,
-        school_id: schoolId,
-        day_of_week: template.day_of_week,
-        meal_type: template.meal_type,
-        dishes: template.dishes,
-      }, { onConflict: 'school_id,day_of_week,meal_type' });
-
+    const { error } = await supabase.from('food_items').insert({
+      school_id: schoolId,
+      name: newDishName.trim(),
+      category: 'dish',
+    });
     if (error) {
-      toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+      toast({ title: "Lỗi", description: error.message.includes('duplicate') ? "Món ăn đã tồn tại" : error.message, variant: "destructive" });
     } else {
-      toast({ title: "Đã lưu thực đơn mẫu" });
-      fetchTemplates();
-      setEditingTemplate(null);
+      toast({ title: "Đã thêm món" });
+      setNewDishName("");
+      fetchDishes();
     }
+    setLoading(false);
+  };
+
+  const deleteDish = async (id: string) => {
+    const { error } = await supabase.from('food_items').update({ is_active: false }).eq('id', id);
+    if (!error) fetchDishes();
+  };
+
+  const openAssignDialog = (dish: FoodItem) => {
+    setSelectedDish(dish);
+    setSelectedMealType("breakfast");
+    // Pre-select days where this dish is already assigned
+    const existingDays = templates
+      .filter(t => t.dishes.includes(dish.name))
+      .reduce((acc, t) => {
+        if (t.meal_type === "breakfast") acc.push(t.day_of_week);
+        return acc;
+      }, [] as number[]);
+    setSelectedDays(existingDays);
+    setShowAssignDialog(true);
+  };
+
+  const toggleDay = (day: number) => {
+    setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  };
+
+  const saveAssignment = async () => {
+    if (!selectedDish) return;
+    setLoading(true);
+
+    // For each selected day, upsert the template adding this dish
+    for (const dayOfWeek of selectedDays) {
+      const existing = templates.find(t => t.day_of_week === dayOfWeek && t.meal_type === selectedMealType);
+      const currentDishes = existing?.dishes || '';
+      const dishList = currentDishes ? currentDishes.split(', ').filter(Boolean) : [];
+      if (!dishList.includes(selectedDish.name)) {
+        dishList.push(selectedDish.name);
+      }
+
+      await supabase.from('weekly_menu_templates').upsert({
+        id: existing?.id || undefined,
+        school_id: schoolId,
+        day_of_week: dayOfWeek,
+        meal_type: selectedMealType,
+        dishes: dishList.join(', '),
+      }, { onConflict: 'school_id,day_of_week,meal_type' });
+    }
+
+    // Remove dish from unselected days
+    const allDays = [1, 2, 3, 4, 5, 6, 7];
+    const unselectedDays = allDays.filter(d => !selectedDays.includes(d));
+    for (const dayOfWeek of unselectedDays) {
+      const existing = templates.find(t => t.day_of_week === dayOfWeek && t.meal_type === selectedMealType);
+      if (existing && existing.dishes.includes(selectedDish.name)) {
+        const dishList = existing.dishes.split(', ').filter(d => d !== selectedDish.name);
+        await supabase.from('weekly_menu_templates').update({
+          dishes: dishList.join(', '),
+        }).eq('id', existing.id!);
+      }
+    }
+
+    toast({ title: "Đã lưu thực đơn mẫu" });
+    fetchTemplates();
+    setShowAssignDialog(false);
     setLoading(false);
   };
 
   const assignTemplateToWeek = async () => {
     setLoading(true);
-    const upserts = templates.map(t => ({
+    const upserts = templates.filter(t => t.dishes.trim()).map(t => ({
       school_id: schoolId,
       menu_date: format(addDays(weekStart, t.day_of_week - 1), 'yyyy-MM-dd'),
       meal_type: t.meal_type,
@@ -116,7 +202,7 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     }));
 
     if (upserts.length === 0) {
-      toast({ title: "Chưa có thực đơn mẫu", description: "Vui lòng tạo thực đơn mẫu trước", variant: "destructive" });
+      toast({ title: "Chưa có thực đơn mẫu", variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -130,7 +216,6 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     } else {
       toast({ title: "Đã gán thực đơn cho tuần" });
       fetchAssignments();
-      setShowAssignDialog(false);
     }
     setLoading(false);
   };
@@ -148,14 +233,61 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     <div className="space-y-4">
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
         <TabsList>
+          <TabsTrigger value="dishes">Danh sách món ăn</TabsTrigger>
           <TabsTrigger value="template">Thực đơn mẫu</TabsTrigger>
           <TabsTrigger value="weekly">Thực đơn tuần</TabsTrigger>
         </TabsList>
 
+        {/* Tab 1: Dish list */}
+        <TabsContent value="dishes" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Danh sách món ăn</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {canEdit && (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Nhập tên món (VD: Xôi, Gà rán...)"
+                    value={newDishName}
+                    onChange={e => setNewDishName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addDish()}
+                  />
+                  <Button onClick={addDish} disabled={loading} size="sm">
+                    <Plus className="h-4 w-4 mr-1" />Thêm
+                  </Button>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {dishes.map(dish => (
+                  <Badge key={dish.id} variant="secondary" className="text-sm py-1.5 px-3 gap-2">
+                    {canEdit ? (
+                      <button onClick={() => openAssignDialog(dish)} className="hover:underline">
+                        {dish.name}
+                      </button>
+                    ) : (
+                      dish.name
+                    )}
+                    {canEdit && (
+                      <button onClick={() => deleteDish(dish.id)} className="text-destructive hover:text-destructive/80">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+                {dishes.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Chưa có món ăn nào. Hãy thêm món ăn mới.</p>
+                )}
+              </div>
+              {canEdit && dishes.length > 0 && (
+                <p className="text-xs text-muted-foreground">💡 Nhấn vào tên món để gán vào thực đơn mẫu</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: Template grid */}
         <TabsContent value="template" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Thực đơn mẫu hàng tuần</h3>
-          </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -173,24 +305,20 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
                       <Badge variant="outline">{MEAL_LABELS[mealType]}</Badge>
                     </td>
                     {DAY_LABELS.map((_, dayIdx) => {
-                      const dishes = getTemplateDishes(dayIdx + 1, mealType);
+                      const dishesStr = getTemplateDishes(dayIdx + 1, mealType);
                       return (
                         <td key={dayIdx} className="p-2 text-center">
-                          {canEdit ? (
-                            <button
-                              onClick={() => setEditingTemplate({
-                                ...templates.find(t => t.day_of_week === dayIdx + 1 && t.meal_type === mealType),
-                                day_of_week: dayIdx + 1,
-                                meal_type: mealType,
-                                dishes: dishes,
-                              })}
-                              className="w-full min-h-[40px] p-1 text-xs rounded border border-dashed border-muted-foreground/30 hover:border-primary hover:bg-accent transition-colors text-left"
-                            >
-                              {dishes || <span className="text-muted-foreground italic">+ Thêm</span>}
-                            </button>
-                          ) : (
-                            <span className="text-xs">{dishes || '-'}</span>
-                          )}
+                          <div className="text-xs min-h-[40px] flex items-center justify-center">
+                            {dishesStr ? (
+                              <div className="flex flex-wrap gap-1 justify-center">
+                                {dishesStr.split(', ').map((d, i) => (
+                                  <Badge key={i} variant="secondary" className="text-[10px]">{d}</Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </div>
                         </td>
                       );
                     })}
@@ -199,8 +327,14 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
               </tbody>
             </table>
           </div>
+          {canEdit && (
+            <p className="text-xs text-muted-foreground">
+              💡 Vào tab "Danh sách món ăn", nhấn vào tên món để gán cho các ngày/bữa trong tuần
+            </p>
+          )}
         </TabsContent>
 
+        {/* Tab 3: Weekly assignments */}
         <TabsContent value="weekly" className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 justify-between">
             <div className="flex items-center gap-2">
@@ -213,19 +347,14 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={selectedWeekDate}
-                    onSelect={(d) => d && setSelectedWeekDate(d)}
-                    locale={vi}
-                  />
+                  <Calendar mode="single" selected={selectedWeekDate} onSelect={(d) => d && setSelectedWeekDate(d)} locale={vi} />
                 </PopoverContent>
               </Popover>
             </div>
             {canEdit && (
-              <Button size="sm" onClick={() => setShowAssignDialog(true)}>
-                <Copy className="h-4 w-4 mr-1" />
-                Gán từ thực đơn mẫu
+              <Button size="sm" onClick={assignTemplateToWeek} disabled={loading}>
+                <Check className="h-4 w-4 mr-1" />
+                Lên thực đơn từ mẫu
               </Button>
             )}
           </div>
@@ -250,10 +379,18 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
                       <Badge variant="outline">{MEAL_LABELS[mealType]}</Badge>
                     </td>
                     {weekDays.map((day, dayIdx) => {
-                      const dishes = getAssignmentDishes(day, mealType);
+                      const dishesStr = getAssignmentDishes(day, mealType);
                       return (
                         <td key={dayIdx} className={cn("p-2 text-center", isSameDay(day, new Date()) && "bg-primary/5")}>
-                          <span className="text-xs">{dishes || <span className="text-muted-foreground">-</span>}</span>
+                          {dishesStr ? (
+                            <div className="flex flex-wrap gap-1 justify-center">
+                              {dishesStr.split(', ').map((d, i) => (
+                                <Badge key={i} variant="secondary" className="text-[10px]">{d}</Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </td>
                       );
                     })}
@@ -265,43 +402,54 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
         </TabsContent>
       </Tabs>
 
-      {/* Edit template dialog */}
-      <Dialog open={!!editingTemplate} onOpenChange={() => setEditingTemplate(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Sửa thực đơn - {editingTemplate ? `${DAY_LABELS[editingTemplate.day_of_week - 1]} / ${MEAL_LABELS[editingTemplate.meal_type]}` : ''}
-            </DialogTitle>
-          </DialogHeader>
-          <Textarea
-            value={editingTemplate?.dishes || ''}
-            onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, dishes: e.target.value } : null)}
-            placeholder="Nhập thực đơn (VD: Xôi, Gà rán, Canh rau...)"
-            rows={4}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingTemplate(null)}>Hủy</Button>
-            <Button onClick={() => editingTemplate && saveTemplate(editingTemplate)} disabled={loading}>
-              <Save className="h-4 w-4 mr-1" />Lưu
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Assign dialog */}
+      {/* Assign dish dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Gán thực đơn mẫu cho tuần</DialogTitle>
+            <DialogTitle>Gán món: {selectedDish?.name}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Gán thực đơn mẫu cho tuần từ {format(weekStart, 'dd/MM/yyyy')} đến {format(weekEnd, 'dd/MM/yyyy')}?
-            Thực đơn đã có sẽ được cập nhật.
-          </p>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">Chọn bữa ăn:</p>
+              <div className="flex gap-2">
+                {MEAL_TYPES.map(mt => (
+                  <Button
+                    key={mt}
+                    size="sm"
+                    variant={selectedMealType === mt ? "default" : "outline"}
+                    onClick={() => {
+                      setSelectedMealType(mt);
+                      // Update selected days for this meal type
+                      const existingDays = templates
+                        .filter(t => t.meal_type === mt && t.dishes.includes(selectedDish?.name || ''))
+                        .map(t => t.day_of_week);
+                      setSelectedDays(existingDays);
+                    }}
+                  >
+                    {MEAL_LABELS[mt]}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Gán cho các ngày:</p>
+              <div className="grid grid-cols-4 gap-2">
+                {DAY_LABELS.map((label, idx) => (
+                  <label key={idx} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={selectedDays.includes(idx + 1)}
+                      onCheckedChange={() => toggleDay(idx + 1)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAssignDialog(false)}>Hủy</Button>
-            <Button onClick={assignTemplateToWeek} disabled={loading}>
-              <Check className="h-4 w-4 mr-1" />Xác nhận
+            <Button onClick={saveAssignment} disabled={loading}>
+              <Save className="h-4 w-4 mr-1" />Lưu
             </Button>
           </DialogFooter>
         </DialogContent>
