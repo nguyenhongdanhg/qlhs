@@ -551,6 +551,7 @@ export type Database = {
       health_records: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           diagnosis: string
           discharge_date: string | null
           hospital_date: string | null
@@ -569,6 +570,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           diagnosis: string
           discharge_date?: string | null
           hospital_date?: string | null
@@ -587,6 +589,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           diagnosis?: string
           discharge_date?: string | null
           hospital_date?: string | null
