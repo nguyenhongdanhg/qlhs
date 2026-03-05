@@ -103,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
+          // Set profile loading BEFORE setTimeout to prevent race condition
+          setIsProfileLoading(true);
           // Defer profile fetch with setTimeout to avoid deadlock
           setTimeout(() => {
             fetchProfile(session.user.id);
