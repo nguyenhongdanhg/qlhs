@@ -148,28 +148,34 @@ export default function DormitoryExit() {
     setIsLoading(false);
   };
 
+  // For class teachers, only show their class students
+  const teacherClassId = useMemo(() => {
+    if (isSchoolAdmin() || isSuperAdmin) return null;
+    if (currentMembership?.class_id) {
+      const cls = classes.find(c => c.name === currentMembership.class_id);
+      return cls?.id || null;
+    }
+    return null;
+  }, [currentMembership, classes, isSuperAdmin]);
+
   const availableStudents = useMemo(() => {
     let filtered = students;
-    if (isClassTeacher && currentMembership?.class_id) {
-      const teacherClass = classes.find(c => c.name === currentMembership.class_id);
-      if (teacherClass) filtered = students.filter(s => s.class_id === teacherClass.id);
+    if (teacherClassId) {
+      filtered = students.filter(s => s.class_id === teacherClassId);
     }
     if (studentSearch) {
       const q = studentSearch.toLowerCase();
       filtered = filtered.filter(s => s.full_name.toLowerCase().includes(q));
     }
     return filtered;
-  }, [students, isClassTeacher, currentMembership, classes, studentSearch]);
+  }, [students, teacherClassId, studentSearch]);
 
   const filteredRequests = useMemo(() => {
     let filtered = requests;
     
     // GVCN only sees requests for their own class
-    if (isClassTeacher && currentMembership?.class_id && !isSchoolAdmin() && !isSuperAdmin) {
-      const teacherClass = classes.find(c => c.name === currentMembership.class_id);
-      if (teacherClass) {
-        filtered = filtered.filter(r => r.class_id === teacherClass.id || r.requester_id === user?.id);
-      }
+    if (teacherClassId) {
+      filtered = filtered.filter(r => r.class_id === teacherClassId || r.requester_id === user?.id);
     }
     
     if (searchQuery) {
@@ -181,7 +187,7 @@ export default function DormitoryExit() {
       );
     }
     return filtered;
-  }, [requests, searchQuery, isClassTeacher, currentMembership, classes, isSchoolAdmin, isSuperAdmin, user]);
+  }, [requests, searchQuery, teacherClassId, user]);
 
   const pendingRequests = useMemo(() => filteredRequests.filter(r => r.status === 'pending'), [filteredRequests]);
   const approvedRequests = useMemo(() => filteredRequests.filter(r => r.status === 'approved'), [filteredRequests]);
