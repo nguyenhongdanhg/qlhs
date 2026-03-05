@@ -636,6 +636,7 @@ export type Database = {
           notes: string | null
           quantity: number
           school_id: string
+          supplier: string | null
           total_amount: number | null
           transaction_date: string
           transaction_type: string
@@ -651,6 +652,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           school_id: string
+          supplier?: string | null
           total_amount?: number | null
           transaction_date?: string
           transaction_type?: string
@@ -666,6 +668,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           school_id?: string
+          supplier?: string | null
           total_amount?: number | null
           transaction_date?: string
           transaction_type?: string

@@ -29,6 +29,7 @@ interface KitchenTransaction {
   transaction_type: string;
   created_by: string | null;
   created_at: string | null;
+  supplier: string | null;
 }
 
 interface Profile {
@@ -42,6 +43,15 @@ interface KitchenStatisticsTabProps {
 
 type RangeType = 'day' | 'week' | 'month' | 'custom';
 
+interface GroupedStat {
+  item_name: string;
+  unit: string;
+  unit_price: number;
+  supplier: string;
+  totalQty: number;
+  totalAmount: number;
+}
+
 export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
   const { toast } = useToast();
   const { user, currentSchool } = useAuth();
@@ -54,6 +64,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
   const [loading, setLoading] = useState(false);
   const [importOpen, setImportOpen] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
+  const [supplierFilter, setSupplierFilter] = useState<string>('all');
   const importImageRef = useRef<HTMLDivElement>(null);
   const exportImageRef = useRef<HTMLDivElement>(null);
 
@@ -106,21 +117,45 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
     setLoading(false);
   };
 
+  // Get unique suppliers for filter
+  const suppliers = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach(t => {
+      if (t.supplier) set.add(t.supplier);
+    });
+    return Array.from(set).sort();
+  }, [transactions]);
+
+  // Filter transactions by supplier
+  const filteredTransactions = useMemo(() => {
+    if (supplierFilter === 'all') return transactions;
+    if (supplierFilter === 'none') return transactions.filter(t => !t.supplier);
+    return transactions.filter(t => t.supplier === supplierFilter);
+  }, [transactions, supplierFilter]);
+
   const { importStats, exportStats, importTotal, exportTotal } = useMemo(() => {
-    const groupBy = (items: KitchenTransaction[]) => {
-      const map = new Map<string, { item_name: string; unit: string; totalQty: number; totalAmount: number }>();
+    // Group by item_name + unit + unit_price + supplier (split rows when price differs)
+    const groupBy = (items: KitchenTransaction[]): GroupedStat[] => {
+      const map = new Map<string, GroupedStat>();
       items.forEach(t => {
-        const key = `${t.item_name}|${t.unit}`;
-        const existing = map.get(key) || { item_name: t.item_name, unit: t.unit, totalQty: 0, totalAmount: 0 };
+        const key = `${t.item_name}|${t.unit}|${t.unit_price}|${t.supplier || ''}`;
+        const existing = map.get(key) || {
+          item_name: t.item_name,
+          unit: t.unit,
+          unit_price: t.unit_price,
+          supplier: t.supplier || '',
+          totalQty: 0,
+          totalAmount: 0,
+        };
         existing.totalQty += t.quantity;
         existing.totalAmount += t.quantity * t.unit_price;
         map.set(key, existing);
       });
-      return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
+      return Array.from(map.values()).sort((a, b) => a.item_name.localeCompare(b.item_name) || a.unit_price - b.unit_price);
     };
 
-    const imports = transactions.filter(t => t.transaction_type === 'import');
-    const exports = transactions.filter(t => t.transaction_type === 'export');
+    const imports = filteredTransactions.filter(t => t.transaction_type === 'import');
+    const exports = filteredTransactions.filter(t => t.transaction_type === 'export');
 
     return {
       importStats: groupBy(imports),
@@ -128,7 +163,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
       importTotal: imports.reduce((s, t) => s + t.quantity * t.unit_price, 0),
       exportTotal: exports.reduce((s, t) => s + t.quantity * t.unit_price, 0),
     };
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   const formatCurrency = (n: number) => n.toLocaleString('vi-VN') + 'đ';
 
@@ -137,6 +172,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
     : `${format(fromDate, 'dd/MM/yyyy')} → ${format(toDate, 'dd/MM/yyyy')}`;
 
   const currentUserName = user?.id ? profiles.get(user.id) || '' : '';
+  const filterLabel = supplierFilter === 'all' ? '' : supplierFilter === 'none' ? ' (Không có NCC)' : ` (NCC: ${supplierFilter})`;
 
   const handleExportImage = async (type: 'import' | 'export') => {
     const ref = type === 'import' ? importImageRef : exportImageRef;
@@ -158,29 +194,30 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
     const rangeLabel = `${format(fromDate, 'dd/MM/yyyy')} - ${format(toDate, 'dd/MM/yyyy')}`;
+    const supplierLabel = supplierFilter !== 'all' ? (supplierFilter === 'none' ? ' - Không có NCC' : ` - NCC: ${supplierFilter}`) : '';
 
     // === Sheet 1: Nhập kho ===
-    const importHeaders = ['STT', 'Tên thực phẩm', 'ĐVT', 'Tổng SL', 'Tổng tiền'];
+    const importHeaders = ['STT', 'Tên thực phẩm', 'NCC', 'ĐVT', 'Đơn giá', 'Tổng SL', 'Tổng tiền'];
     const importData = [
-      [`THỐNG KÊ NHẬP KHO`],
+      [`THỐNG KÊ NHẬP KHO${supplierLabel}`],
       [rangeLabel],
       [],
       importHeaders,
-      ...importStats.map((item, idx) => [idx + 1, item.item_name, item.unit, item.totalQty, item.totalAmount]),
-      ['', '', '', 'TỔNG:', importTotal],
+      ...importStats.map((item, idx) => [idx + 1, item.item_name, item.supplier || '-', item.unit, item.unit_price, item.totalQty, item.totalAmount]),
+      ['', '', '', '', '', 'TỔNG:', importTotal],
     ];
     const wsImport = XLSX.utils.aoa_to_sheet(importData);
-    wsImport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 15 }];
+    wsImport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }];
     wsImport['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
     ];
-    const importColAligns: CellAlign[] = ['center', 'left', 'center', 'center', 'right'];
+    const importColAligns: CellAlign[] = ['center', 'left', 'left', 'center', 'right', 'center', 'right'];
     applyProfessionalStyle(wsImport, {
       headerRowIndex: 3,
       dataStartRow: 4,
       dataRowCount: importStats.length,
-      numCols: 5,
+      numCols: 7,
       columnAlignments: importColAligns,
       hasTotalsRow: true,
       totalsRowIndex: 4 + importStats.length,
@@ -189,26 +226,26 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
     XLSX.utils.book_append_sheet(wb, wsImport, 'Nhập kho');
 
     // === Sheet 2: Xuất kho ===
-    const exportHeaders = ['STT', 'Tên thực phẩm', 'ĐVT', 'Tổng SL', 'Tổng tiền'];
+    const exportHeaders = ['STT', 'Tên thực phẩm', 'NCC', 'ĐVT', 'Đơn giá', 'Tổng SL', 'Tổng tiền'];
     const exportData = [
-      [`THỐNG KÊ XUẤT KHO`],
+      [`THỐNG KÊ XUẤT KHO${supplierLabel}`],
       [rangeLabel],
       [],
       exportHeaders,
-      ...exportStats.map((item, idx) => [idx + 1, item.item_name, item.unit, item.totalQty, item.totalAmount]),
-      ['', '', '', 'TỔNG:', exportTotal],
+      ...exportStats.map((item, idx) => [idx + 1, item.item_name, item.supplier || '-', item.unit, item.unit_price, item.totalQty, item.totalAmount]),
+      ['', '', '', '', '', 'TỔNG:', exportTotal],
     ];
     const wsExport = XLSX.utils.aoa_to_sheet(exportData);
-    wsExport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 15 }];
+    wsExport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }];
     wsExport['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
     ];
     applyProfessionalStyle(wsExport, {
       headerRowIndex: 3,
       dataStartRow: 4,
       dataRowCount: exportStats.length,
-      numCols: 5,
+      numCols: 7,
       columnAlignments: importColAligns,
       hasTotalsRow: true,
       totalsRowIndex: 4 + exportStats.length,
@@ -217,17 +254,18 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
     XLSX.utils.book_append_sheet(wb, wsExport, 'Xuất kho');
 
     // === Sheet 3: Chi tiết ===
-    const detailHeaders = ['STT', 'Ngày', 'Loại', 'Tên thực phẩm', 'ĐVT', 'SL', 'Đơn giá', 'Thành tiền', 'Người nhập', 'Thời gian nhập'];
+    const detailHeaders = ['STT', 'Ngày', 'Loại', 'Tên thực phẩm', 'NCC', 'ĐVT', 'SL', 'Đơn giá', 'Thành tiền', 'Người nhập', 'Thời gian nhập'];
     const detailData = [
-      [`CHI TIẾT GIAO DỊCH`],
+      [`CHI TIẾT GIAO DỊCH${supplierLabel}`],
       [rangeLabel],
       [],
       detailHeaders,
-      ...transactions.map((t, idx) => [
+      ...filteredTransactions.map((t, idx) => [
         idx + 1,
         format(new Date(t.transaction_date), 'dd/MM/yyyy'),
         t.transaction_type === 'import' ? 'Nhập' : 'Xuất',
         t.item_name,
+        t.supplier || '-',
         t.unit,
         t.quantity,
         t.unit_price,
@@ -237,17 +275,17 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
       ]),
     ];
     const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
-    wsDetail['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 8 }, { wch: 25 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 18 }];
+    wsDetail['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 8 }, { wch: 25 }, { wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 18 }];
     wsDetail['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
     ];
-    const detailColAligns: CellAlign[] = ['center', 'center', 'center', 'left', 'center', 'center', 'right', 'right', 'left', 'center'];
+    const detailColAligns: CellAlign[] = ['center', 'center', 'center', 'left', 'left', 'center', 'center', 'right', 'right', 'left', 'center'];
     applyProfessionalStyle(wsDetail, {
       headerRowIndex: 3,
       dataStartRow: 4,
-      dataRowCount: transactions.length,
-      numCols: 10,
+      dataRowCount: filteredTransactions.length,
+      numCols: 11,
       columnAlignments: detailColAligns,
       numTitleRows: 2,
     });
@@ -259,7 +297,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
   };
 
   const StatsTable = ({ data, title, total, icon: Icon, type, isOpen, onToggle }: {
-    data: typeof importStats; title: string; total: number; icon: typeof TrendingUp;
+    data: GroupedStat[]; title: string; total: number; icon: typeof TrendingUp;
     type: 'import' | 'export';
     isOpen: boolean; onToggle: (open: boolean) => void;
   }) => (
@@ -269,7 +307,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
           <CardHeader className="pb-2 cursor-pointer hover:bg-accent/30 transition-colors">
             <CardTitle className="text-base flex items-center gap-2">
               <Icon className="h-4 w-4" />
-              {title}
+              {title}{filterLabel}
               <Badge variant="secondary" className="ml-auto">{formatCurrency(total)}</Badge>
               <div className="flex items-center gap-1">
                 <Button
@@ -287,18 +325,18 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
         <CollapsibleContent>
           <CardContent className="p-0">
             <div className="px-4 py-2 bg-muted/30 text-sm font-medium border-b">
-              {title} - {dateLabel}
+              {title} - {dateLabel}{filterLabel}
             </div>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10">STT</TableHead>
                   <TableHead>Tên thực phẩm</TableHead>
+                  <TableHead className="w-24">NCC</TableHead>
                   <TableHead className="w-16">ĐVT</TableHead>
+                  <TableHead className="w-24 text-right">Đơn giá</TableHead>
                   <TableHead className="w-20 text-right">Tổng SL</TableHead>
                   <TableHead className="w-28 text-right">Tổng tiền</TableHead>
-                  <TableHead className="w-28">Người nhập</TableHead>
-                  <TableHead className="w-32">Thời gian</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -307,15 +345,15 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-6">Không có dữ liệu</TableCell>
                   </TableRow>
                 ) : rangeType === 'day' ? (
-                  transactions.filter(t => t.transaction_type === type).map((t, idx) => (
+                  filteredTransactions.filter(t => t.transaction_type === type).map((t, idx) => (
                     <TableRow key={t.id}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell className="font-medium">{t.item_name}</TableCell>
+                      <TableCell className="text-xs">{t.supplier || '-'}</TableCell>
                       <TableCell>{t.unit}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(t.unit_price)}</TableCell>
                       <TableCell className="text-right">{t.quantity}</TableCell>
                       <TableCell className="text-right">{formatCurrency(t.quantity * t.unit_price)}</TableCell>
-                      <TableCell className="text-xs">{t.created_by ? profiles.get(t.created_by) || '-' : '-'}</TableCell>
-                      <TableCell className="text-xs">{t.created_at ? format(new Date(t.created_at), 'HH:mm dd/MM') : '-'}</TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -323,19 +361,19 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
                     <TableRow key={idx}>
                       <TableCell>{idx + 1}</TableCell>
                       <TableCell className="font-medium">{item.item_name}</TableCell>
+                      <TableCell className="text-xs">{item.supplier || '-'}</TableCell>
                       <TableCell>{item.unit}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.unit_price)}</TableCell>
                       <TableCell className="text-right">{item.totalQty}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.totalAmount)}</TableCell>
-                      <TableCell className="text-xs">-</TableCell>
-                      <TableCell className="text-xs">-</TableCell>
                     </TableRow>
                   ))
                 )}
-                {((rangeType === 'day' ? transactions.filter(t => t.transaction_type === type).length : data.length) > 0) && (
+                {((rangeType === 'day' ? filteredTransactions.filter(t => t.transaction_type === type).length : data.length) > 0) && (
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={4} className="text-right">TỔNG:</TableCell>
+                    <TableCell colSpan={5} className="text-right">TỔNG:</TableCell>
+                    <TableCell />
                     <TableCell className="text-right text-primary">{formatCurrency(total)}</TableCell>
-                    <TableCell colSpan={2} />
                   </TableRow>
                 )}
               </TableBody>
@@ -386,6 +424,19 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
           </div>
         )}
 
+        <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+          <SelectTrigger className="w-[160px] h-8">
+            <SelectValue placeholder="Nhà cung cấp" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả NCC</SelectItem>
+            <SelectItem value="none">Không có NCC</SelectItem>
+            {suppliers.map(s => (
+              <SelectItem key={s} value={s}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Button size="sm" variant="outline" onClick={exportExcel} className="ml-auto">
           <Download className="h-4 w-4 mr-1" />Xuất Excel
         </Button>
@@ -408,7 +459,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
         <KitchenStatsImageCard
           ref={importImageRef}
           schoolName={schoolName}
-          title="THỐNG KÊ NHẬP KHO"
+          title={`THỐNG KÊ NHẬP KHO${filterLabel}`}
           dateLabel={dateLabel}
           type="import"
           items={importStats}
@@ -419,7 +470,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
         <KitchenStatsImageCard
           ref={exportImageRef}
           schoolName={schoolName}
-          title="THỐNG KÊ XUẤT KHO"
+          title={`THỐNG KÊ XUẤT KHO${filterLabel}`}
           dateLabel={dateLabel}
           type="export"
           items={exportStats}
