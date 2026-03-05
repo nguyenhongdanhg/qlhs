@@ -48,7 +48,7 @@ export default function Auth() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
       navigate(from, { replace: true });
     }
   }, [user, location.state, navigate]);

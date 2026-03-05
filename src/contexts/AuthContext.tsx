@@ -31,9 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentSchool, setCurrentSchool] = useState<School | null>(null);
   const [currentMembership, setCurrentMembership] = useState<SchoolMembership | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const fetchProfile = useCallback(async (userId: string) => {
+    setIsProfileLoading(true);
     try {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -88,6 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+    } finally {
+      setIsProfileLoading(false);
     }
   }, []);
 
@@ -178,6 +182,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return currentMembership?.role === 'admin';
   };
 
+  // Combined loading: initial auth check OR profile fetch in progress
+  const combinedLoading = isLoading || isProfileLoading;
+
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     user,
@@ -186,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     memberships,
     currentSchool,
     currentMembership,
-    isLoading,
+    isLoading: combinedLoading,
     isSuperAdmin,
     signIn,
     signUp,
@@ -202,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     memberships,
     currentSchool,
     currentMembership,
-    isLoading,
+    combinedLoading,
     isSuperAdmin,
     hasRole,
     isSchoolAdmin,
