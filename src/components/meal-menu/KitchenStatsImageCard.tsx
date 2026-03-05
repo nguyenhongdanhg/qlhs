@@ -3,6 +3,8 @@ import { forwardRef } from 'react';
 interface StatsItem {
   item_name: string;
   unit: string;
+  unit_price: number;
+  supplier: string;
   totalQty: number;
   totalAmount: number;
 }
@@ -37,7 +39,7 @@ export const KitchenStatsImageCard = forwardRef<HTMLDivElement, KitchenStatsImag
       <div
         ref={ref}
         style={{
-          width: '380px',
+          width: '440px',
           backgroundColor: 'white',
           padding: '16px',
           fontFamily: '"Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif',
@@ -106,11 +108,13 @@ export const KitchenStatsImageCard = forwardRef<HTMLDivElement, KitchenStatsImag
                 fontWeight: 600,
                 ...baseTextStyle,
               }}>
-                <div style={{ width: '28px', textAlign: 'center' }}>STT</div>
-                <div style={{ flex: 1, paddingLeft: '8px' }}>Tên thực phẩm</div>
-                <div style={{ width: '35px', textAlign: 'center' }}>ĐVT</div>
-                <div style={{ width: '40px', textAlign: 'right' }}>SL</div>
-                <div style={{ width: '80px', textAlign: 'right' }}>Thành tiền</div>
+                <div style={{ width: '24px', textAlign: 'center' }}>STT</div>
+                <div style={{ flex: 1, paddingLeft: '6px' }}>Tên TP</div>
+                <div style={{ width: '60px', paddingLeft: '4px' }}>NCC</div>
+                <div style={{ width: '30px', textAlign: 'center' }}>ĐVT</div>
+                <div style={{ width: '55px', textAlign: 'right' }}>Đơn giá</div>
+                <div style={{ width: '35px', textAlign: 'right' }}>SL</div>
+                <div style={{ width: '70px', textAlign: 'right' }}>T.tiền</div>
               </div>
               {/* Table rows */}
               {items.map((item, idx) => (
@@ -118,18 +122,20 @@ export const KitchenStatsImageCard = forwardRef<HTMLDivElement, KitchenStatsImag
                   key={idx}
                   style={{
                     display: 'flex',
-                    padding: '5px 10px',
-                    fontSize: '11px',
+                    padding: '4px 10px',
+                    fontSize: '10px',
                     borderBottom: idx < items.length - 1 ? `1px solid ${borderAccent}` : 'none',
                     backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.6)',
                     ...baseTextStyle,
                   }}
                 >
-                  <div style={{ width: '28px', textAlign: 'center', color: '#6b7280' }}>{idx + 1}</div>
-                  <div style={{ flex: 1, paddingLeft: '8px', fontWeight: 500 }}>{item.item_name}</div>
-                  <div style={{ width: '35px', textAlign: 'center', color: '#6b7280' }}>{item.unit}</div>
-                  <div style={{ width: '40px', textAlign: 'right' }}>{item.totalQty}</div>
-                  <div style={{ width: '80px', textAlign: 'right', fontWeight: 500 }}>{formatCurrency(item.totalAmount)}</div>
+                  <div style={{ width: '24px', textAlign: 'center', color: '#6b7280' }}>{idx + 1}</div>
+                  <div style={{ flex: 1, paddingLeft: '6px', fontWeight: 500 }}>{item.item_name}</div>
+                  <div style={{ width: '60px', paddingLeft: '4px', color: '#6b7280', fontSize: '9px' }}>{item.supplier || '-'}</div>
+                  <div style={{ width: '30px', textAlign: 'center', color: '#6b7280' }}>{item.unit}</div>
+                  <div style={{ width: '55px', textAlign: 'right', color: '#6b7280' }}>{formatCurrency(item.unit_price)}</div>
+                  <div style={{ width: '35px', textAlign: 'right' }}>{item.totalQty}</div>
+                  <div style={{ width: '70px', textAlign: 'right', fontWeight: 500 }}>{formatCurrency(item.totalAmount)}</div>
                 </div>
               ))}
               {/* Total row */}
@@ -143,7 +149,7 @@ export const KitchenStatsImageCard = forwardRef<HTMLDivElement, KitchenStatsImag
                 ...baseTextStyle,
               }}>
                 <div style={{ flex: 1, textAlign: 'right', paddingRight: '8px' }}>TỔNG CỘNG:</div>
-                <div style={{ width: '80px', textAlign: 'right', color: accentColor }}>{formatCurrency(total)}</div>
+                <div style={{ width: '70px', textAlign: 'right', color: accentColor }}>{formatCurrency(total)}</div>
               </div>
             </div>
           </div>

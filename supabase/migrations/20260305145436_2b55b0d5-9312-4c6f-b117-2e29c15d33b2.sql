@@ -1,0 +1,1 @@
+ALTER TABLE public.kitchen_transactions ADD COLUMN supplier text DEFAULT NULL;

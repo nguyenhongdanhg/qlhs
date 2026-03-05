@@ -33,6 +33,7 @@ interface KitchenTransaction {
   transaction_type: string;
   notes: string | null;
   created_by: string | null;
+  supplier: string | null;
 }
 
 interface KitchenInventoryTabProps {
@@ -55,7 +56,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [newItem, setNewItem] = useState({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '' });
+  const [newItem, setNewItem] = useState({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' });
   const [newFoodItem, setNewFoodItem] = useState({ name: '', unit: 'kg', default_price: 0 });
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -136,13 +137,14 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       unit_price: newItem.unit_price,
       transaction_type: transactionType,
       notes: newItem.notes || null,
+      supplier: newItem.supplier || null,
       created_by: user?.id,
     });
     if (error) {
       toast({ title: "Lỗi", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Đã thêm" });
-      setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '' });
+      setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' });
       setShowAddDialog(false);
       fetchTransactions();
     }
@@ -158,6 +160,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       quantity: editingItem.quantity,
       unit_price: editingItem.unit_price,
       notes: editingItem.notes,
+      supplier: editingItem.supplier,
     }).eq('id', editingItem.id);
     if (error) {
       toast({ title: "Lỗi", description: error.message, variant: "destructive" });
@@ -199,6 +202,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       unit_price: item.unit_price,
       transaction_type: transactionType,
       notes: `Sao chép từ ${format(copyFromDate, 'dd/MM/yyyy')}`,
+      supplier: item.supplier || null,
       created_by: user?.id,
     }));
 
@@ -266,7 +270,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <Button size="sm" variant="outline" onClick={() => setShowCopyDialog(true)}>
               <Copy className="h-4 w-4 mr-1" />Sao chép
             </Button>
-            <Button size="sm" onClick={() => { setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '' }); setShowAddDialog(true); }}>
+            <Button size="sm" onClick={() => { setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' }); setShowAddDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" />Thêm
             </Button>
           </div>
@@ -281,6 +285,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
               <TableRow>
                 <TableHead className="w-10">STT</TableHead>
                 <TableHead>Tên thực phẩm</TableHead>
+                <TableHead className="w-28">NCC</TableHead>
                 <TableHead className="w-20">ĐVT</TableHead>
                 <TableHead className="w-24 text-right">Số lượng</TableHead>
                 <TableHead className="w-28 text-right">Đơn giá</TableHead>
@@ -291,7 +296,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <TableBody>
               {transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canEdit ? 7 : 6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={canEdit ? 8 : 7} className="text-center text-muted-foreground py-8">
                     Chưa có dữ liệu {transactionType === 'import' ? 'nhập' : 'xuất'} kho ngày {format(selectedDate, 'dd/MM/yyyy')}
                   </TableCell>
                 </TableRow>
@@ -300,6 +305,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
                   <TableRow key={t.id}>
                     <TableCell>{idx + 1}</TableCell>
                     <TableCell className="font-medium">{t.item_name}</TableCell>
+                    <TableCell className="text-xs">{t.supplier || '-'}</TableCell>
                     <TableCell>{t.unit}</TableCell>
                     <TableCell className="text-right">{t.quantity}</TableCell>
                     <TableCell className="text-right">{formatCurrency(t.unit_price)}</TableCell>
@@ -321,7 +327,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
               )}
               {transactions.length > 0 && (
                 <TableRow className="bg-muted/50 font-bold">
-                  <TableCell colSpan={5} className="text-right">TỔNG CỘNG:</TableCell>
+                  <TableCell colSpan={6} className="text-right">TỔNG CỘNG:</TableCell>
                   <TableCell className="text-right text-primary">{formatCurrency(totalAmount)}</TableCell>
                   {canEdit && <TableCell />}
                 </TableRow>
@@ -375,6 +381,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <div className="text-right text-sm text-muted-foreground">
               Thành tiền: <span className="font-semibold text-foreground">{formatCurrency(newItem.quantity * newItem.unit_price)}</span>
             </div>
+            <Input placeholder="Nhà cung cấp" value={newItem.supplier} onChange={e => setNewItem(p => ({ ...p, supplier: e.target.value }))} />
             <Input placeholder="Ghi chú" value={newItem.notes} onChange={e => setNewItem(p => ({ ...p, notes: e.target.value }))} />
           </div>
           <DialogFooter>
@@ -413,6 +420,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
           {editingItem && (
             <div className="space-y-3">
               <Input placeholder="Tên thực phẩm" value={editingItem.item_name || ''} onChange={e => setEditingItem(p => p ? { ...p, item_name: e.target.value } : null)} />
+              <Input placeholder="Nhà cung cấp" value={editingItem.supplier || ''} onChange={e => setEditingItem(p => p ? { ...p, supplier: e.target.value } : null)} />
               <div className="grid grid-cols-3 gap-2">
                 <Input placeholder="ĐVT" value={editingItem.unit || ''} onChange={e => setEditingItem(p => p ? { ...p, unit: e.target.value } : null)} />
                 <Input type="number" placeholder="Số lượng" value={editingItem.quantity || ''} onChange={e => setEditingItem(p => p ? { ...p, quantity: parseFloat(e.target.value) || 0 } : null)} />
