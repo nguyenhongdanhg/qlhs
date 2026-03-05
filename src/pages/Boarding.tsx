@@ -50,6 +50,7 @@ import { ShareReportDialog } from '@/components/attendance/ShareReportDialog';
 import { AttendanceHistoryTab } from '@/components/attendance/AttendanceHistoryTab';
 import { ClassFilterButtons } from '@/components/attendance/ClassFilterButtons';
 import { StudentSearchInput } from '@/components/attendance/StudentSearchInput';
+import { AdminReportOptions } from '@/components/attendance/AdminReportOptions';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -210,6 +211,9 @@ export default function Boarding() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
   const [editModeData, setEditModeData] = useState<{attendance: AttendanceMap, excuse: ExcuseMap, notes: string} | null>(null);
+
+  // Admin report on behalf
+  const [selectedReporterId, setSelectedReporterId] = useState(user?.id || '');
 
   // Total boarding students count for accurate stats
   const [totalBoardingStudents, setTotalBoardingStudents] = useState(0);
@@ -501,20 +505,21 @@ export default function Boarding() {
     if (!currentSchool || !user) return;
     const sessionToUse = validateBeforeSave();
 
+    const reporterId = (isSchoolAdmin() || isSuperAdmin) && selectedReporterId ? selectedReporterId : user.id;
+
     setIsSaving(true);
     setShowWarnings(false);
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      // Only delete records created by the current reporter (not all records)
-      // This allows multiple teachers to report without overwriting each other
+      // Only delete records created by the selected reporter
       await supabase
         .from('attendance_records')
         .delete()
         .eq('school_id', currentSchool.id)
         .eq('attendance_date', dateStr)
         .eq('attendance_type', 'boarding')
-        .eq('reporter_id', user.id);
+        .eq('reporter_id', reporterId);
 
       const records = students.map((student) => ({
         school_id: currentSchool.id,
@@ -523,7 +528,7 @@ export default function Boarding() {
         attendance_date: dateStr,
         attendance_type: 'boarding' as const,
         status: attendance[student.id] || 'present',
-        reporter_id: user.id,
+        reporter_id: reporterId,
         excused_reason: excuseInfo[student.id]?.reason || null,
         notes: reportNotes || null,
       }));
@@ -919,6 +924,17 @@ export default function Boarding() {
                   onSelectClass={setSelectedClass}
                 />
               </div>
+
+              {/* Admin: Report on behalf */}
+              {(isSchoolAdmin() || isSuperAdmin) && (
+                <AdminReportOptions
+                  schoolId={currentSchool.id}
+                  currentUserId={user?.id || ''}
+                  isAdmin={true}
+                  selectedReporterId={selectedReporterId}
+                  onReporterChange={setSelectedReporterId}
+                />
+              )}
 
               <div>
                 <label className="text-sm text-muted-foreground mb-1.5 block">&nbsp;</label>
