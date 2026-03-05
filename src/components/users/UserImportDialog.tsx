@@ -70,7 +70,15 @@ const POSITION_ROLE_MAP: Record<string, string> = {
   'nhà bếp': 'kitchen',
   'bếp': 'kitchen',
   'kitchen': 'kitchen',
+  'ban giám hiệu': 'board',
+  'bgh': 'board',
+  'board': 'board',
+  'nhân viên': 'staff',
+  'nv': 'staff',
+  'staff': 'staff',
 };
+
+const VALID_POSITIONS = 'Quản trị, Giáo viên, GVCN, Kế toán, Nhà bếp, Ban giám hiệu, Nhân viên';
 
 export default function UserImportDialog({
   open,
@@ -85,6 +93,7 @@ export default function UserImportDialog({
   const [isImporting, setIsImporting] = useState(false);
   const [importData, setImportData] = useState<UserImportRow[]>([]);
   const [importStep, setImportStep] = useState<'upload' | 'preview'>('upload');
+  const [importResults, setImportResults] = useState<string[]>([]);
 
   const handleDownloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
@@ -165,16 +174,28 @@ export default function UserImportDialog({
             // Validate required fields
             if (!full_name) {
               isValid = false;
-              error = 'Thiếu họ tên';
+              error = 'Thiếu họ và tên';
             } else if (!phone && !email) {
               isValid = false;
-              error = 'Cần có SĐT hoặc email';
-            } else if (!password || password.length < 6) {
+              error = 'Cần có số điện thoại hoặc email';
+            } else if (phone && !/^0\d{9,10}$/.test(phone.replace(/\s/g, ''))) {
               isValid = false;
-              error = 'Mật khẩu phải >= 6 ký tự';
-            } else if (!position || !POSITION_ROLE_MAP[position.toLowerCase()]) {
+              error = 'Số điện thoại không hợp lệ (phải bắt đầu bằng 0, 10-11 số)';
+            } else if (!password) {
               isValid = false;
-              error = 'Chức vụ không hợp lệ';
+              error = 'Thiếu mật khẩu';
+            } else if (password.length < 6) {
+              isValid = false;
+              error = 'Mật khẩu phải có ít nhất 6 ký tự';
+            } else if (!position) {
+              isValid = false;
+              error = 'Thiếu chức vụ';
+            } else if (!POSITION_ROLE_MAP[position.toLowerCase()]) {
+              isValid = false;
+              error = `Chức vụ "${position}" không hợp lệ. Hợp lệ: ${VALID_POSITIONS}`;
+            } else if (POSITION_ROLE_MAP[position.toLowerCase()] === 'class_teacher' && !class_teacher) {
+              isValid = false;
+              error = 'GVCN phải điền tên lớp chủ nhiệm';
             }
 
             users.push({
@@ -214,6 +235,7 @@ export default function UserImportDialog({
     }
 
     setIsImporting(true);
+    setImportResults([]);
     let successCount = 0;
     let failCount = 0;
     const failedUsers: string[] = [];
@@ -221,7 +243,6 @@ export default function UserImportDialog({
     try {
       for (const user of validUsers) {
         try {
-          // Create auth user using Edge Function (doesn't affect current session)
           const authEmail = user.email || `${user.phone}@phone.local`;
           const role = POSITION_ROLE_MAP[user.position.toLowerCase()] || 'teacher';
           
@@ -239,7 +260,7 @@ export default function UserImportDialog({
 
           if (error) {
             console.error('Error creating user:', user.full_name, error);
-            failedUsers.push(`${user.full_name}: ${error.message}`);
+            failedUsers.push(`Dòng ${user.stt} - ${user.full_name}: ${translateUserError(error.message)}`);
             failCount++;
             continue;
           }
@@ -247,41 +268,43 @@ export default function UserImportDialog({
           if (data?.error) {
             console.error('API error creating user:', user.full_name, data.error);
             if (data.code !== 'USER_EXISTS') {
-              failedUsers.push(`${user.full_name}: ${data.error}`);
+              failedUsers.push(`Dòng ${user.stt} - ${user.full_name}: ${translateUserError(data.error)}`);
               failCount++;
             } else {
-              // User already exists - treat as success
               successCount++;
             }
             continue;
           }
 
           successCount++;
-          
-          // Add delay to prevent rate limiting
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error: unknown) {
           console.error('Error creating user:', user.full_name, error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          failedUsers.push(`${user.full_name}: ${errorMessage}`);
+          const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+          failedUsers.push(`Dòng ${user.stt} - ${user.full_name}: ${translateUserError(errorMessage)}`);
           failCount++;
         }
       }
 
-      if (failCount > 0 && failedUsers.length > 0) {
-        console.log('Failed users:', failedUsers);
+      if (failedUsers.length > 0) {
+        setImportResults(failedUsers);
       }
 
       toast({
-        title: 'Hoàn thành',
+        title: failCount === 0 ? 'Hoàn thành' : 'Hoàn thành (có lỗi)',
         description: `Đã tạo ${successCount} tài khoản${failCount > 0 ? `, ${failCount} thất bại` : ''}`,
-        variant: failCount > 0 ? 'default' : 'default',
+        variant: failCount > 0 ? 'destructive' : 'default',
       });
 
-      onOpenChange(false);
-      setImportStep('upload');
-      setImportData([]);
-      onImportComplete();
+      if (failCount === 0) {
+        onOpenChange(false);
+        setImportStep('upload');
+        setImportData([]);
+        setImportResults([]);
+        onImportComplete();
+      } else {
+        onImportComplete();
+      }
     } catch (error) {
       console.error('Import error:', error);
       toast({
@@ -346,9 +369,9 @@ export default function UserImportDialog({
                 <h4 className="font-medium mb-2">Hướng dẫn:</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• <strong>Họ và tên:</strong> Bắt buộc</li>
-                  <li>• <strong>Chức vụ:</strong> Quản trị / Giáo viên / GVCN / Kế toán / Nhà bếp</li>
+                  <li>• <strong>Chức vụ:</strong> {VALID_POSITIONS}</li>
                   <li>• <strong>GVCN Lớp:</strong> Chỉ điền nếu là Giáo viên chủ nhiệm</li>
-                  <li>• <strong>Số điện thoại:</strong> Dùng để đăng nhập</li>
+                  <li>• <strong>Số điện thoại:</strong> Dùng để đăng nhập (bắt đầu bằng 0)</li>
                   <li>• <strong>Mật khẩu:</strong> Tối thiểu 6 ký tự</li>
                   <li>• <strong>Email:</strong> Tùy chọn</li>
                 </ul>
@@ -356,6 +379,21 @@ export default function UserImportDialog({
             </div>
           ) : (
             <div className="space-y-4 py-4 h-full flex flex-col">
+              {/* Import result errors */}
+              {importResults.length > 0 && (
+                <div className="rounded-lg border border-destructive bg-destructive/10 p-3 space-y-1 flex-shrink-0">
+                  <div className="flex items-center gap-2 text-destructive font-medium text-sm">
+                    <AlertCircle className="h-4 w-4" />
+                    Chi tiết lỗi khi tạo tài khoản:
+                  </div>
+                  <ScrollArea className="max-h-[120px]">
+                    {importResults.map((err, i) => (
+                      <p key={i} className="text-sm text-destructive ml-6">• {err}</p>
+                    ))}
+                  </ScrollArea>
+                </div>
+              )}
+
               <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex gap-4">
                   <Badge variant="secondary" className="flex items-center gap-1">
@@ -375,6 +413,7 @@ export default function UserImportDialog({
                   onClick={() => {
                     setImportStep('upload');
                     setImportData([]);
+                    setImportResults([]);
                   }}
                 >
                   Chọn file khác
@@ -440,4 +479,15 @@ export default function UserImportDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function translateUserError(msg: string): string {
+  if (msg.includes('already been registered') || msg.includes('already exists')) return 'Email hoặc SĐT đã được đăng ký trước đó';
+  if (msg.includes('rate limit') || msg.includes('too many')) return 'Quá nhiều yêu cầu, vui lòng thử lại sau';
+  if (msg.includes('invalid email')) return 'Định dạng email không hợp lệ';
+  if (msg.includes('password')) return 'Mật khẩu không đáp ứng yêu cầu (tối thiểu 6 ký tự)';
+  if (msg.includes('permission') || msg.includes('unauthorized') || msg.includes('403')) return 'Bạn không có quyền tạo tài khoản';
+  if (msg.includes('timeout') || msg.includes('TIMEOUT')) return 'Quá thời gian xử lý, thử lại sau';
+  if (msg.includes('network') || msg.includes('fetch')) return 'Lỗi kết nối mạng';
+  return msg;
 }
