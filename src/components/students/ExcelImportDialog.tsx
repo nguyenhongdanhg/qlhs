@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ExcelImportDialogProps {
   open: boolean;
@@ -40,6 +41,10 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
   const [isImporting, setIsImporting] = useState(false);
   const [parsedData, setParsedData] = useState<StudentImportRow[]>([]);
   const [fileName, setFileName] = useState('');
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+
+  const validCount = parsedData.filter(r => r.isValid).length;
+  const invalidCount = parsedData.length - validCount;
 
   const handleDownloadTemplate = () => {
     const blob = generateStudentTemplate();
@@ -53,19 +58,29 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
 
     setIsLoading(true);
     setFileName(file.name);
+    setImportErrors([]);
 
     try {
       const data = await parseStudentImportFile(file);
       setParsedData(data);
-      toast({ 
-        title: 'Đọc file thành công', 
-        description: `Tìm thấy ${data.length} học sinh` 
-      });
+      const invalid = data.filter(r => !r.isValid);
+      if (invalid.length > 0) {
+        toast({ 
+          title: `Phát hiện ${invalid.length} dòng lỗi`, 
+          description: 'Kiểm tra bảng xem trước để xem chi tiết',
+          variant: 'destructive'
+        });
+      } else {
+        toast({ 
+          title: 'Đọc file thành công', 
+          description: `Tìm thấy ${data.length} học sinh hợp lệ` 
+        });
+      }
     } catch (error) {
       console.error('Error parsing file:', error);
       toast({ 
         title: 'Lỗi', 
-        description: 'Không thể đọc file. Vui lòng kiểm tra định dạng.', 
+        description: 'Không thể đọc file. Vui lòng kiểm tra định dạng (chỉ hỗ trợ .xlsx, .xls).', 
         variant: 'destructive' 
       });
       setParsedData([]);
@@ -75,20 +90,26 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
   };
 
   const handleImport = async () => {
-    if (parsedData.length === 0) return;
+    const validData = parsedData.filter(r => r.isValid);
+    if (validData.length === 0) return;
 
     setIsImporting(true);
+    setImportErrors([]);
     try {
-      await onImport(parsedData);
+      await onImport(validData);
       toast({ 
         title: 'Nhập thành công', 
-        description: `Đã nhập ${parsedData.length} học sinh` 
+        description: `Đã nhập ${validData.length} học sinh` 
       });
       handleClose();
     } catch (error: any) {
+      const msg = error.message || 'Không thể nhập học sinh';
+      // Parse common Supabase errors to Vietnamese
+      const vietnameseError = translateError(msg);
+      setImportErrors([vietnameseError]);
       toast({ 
-        title: 'Lỗi', 
-        description: error.message || 'Không thể nhập học sinh', 
+        title: 'Lỗi nhập dữ liệu', 
+        description: vietnameseError, 
         variant: 'destructive' 
       });
     } finally {
@@ -99,6 +120,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
   const handleClose = () => {
     setParsedData([]);
     setFileName('');
+    setImportErrors([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -144,6 +166,19 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
             </div>
           </div>
 
+          {/* Import errors */}
+          {importErrors.length > 0 && (
+            <div className="rounded-lg border border-destructive bg-destructive/10 p-3 space-y-1">
+              <div className="flex items-center gap-2 text-destructive font-medium text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Lỗi khi nhập dữ liệu:
+              </div>
+              {importErrors.map((err, i) => (
+                <p key={i} className="text-sm text-destructive ml-6">• {err}</p>
+              ))}
+            </div>
+          )}
+
           {/* Preview */}
           {parsedData.length > 0 && (
             <div className="border rounded-lg overflow-hidden">
@@ -151,10 +186,20 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
                 <span className="text-sm font-medium">
                   Xem trước ({parsedData.length} học sinh)
                 </span>
-                <Badge variant="secondary" className="bg-green-100 text-green-700">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Sẵn sàng nhập
-                </Badge>
+                <div className="flex gap-2">
+                  {validCount > 0 && (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      {validCount} hợp lệ
+                    </Badge>
+                  )}
+                  {invalidCount > 0 && (
+                    <Badge variant="destructive">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      {invalidCount} lỗi
+                    </Badge>
+                  )}
+                </div>
               </div>
               <ScrollArea className="h-[300px]">
                 <Table>
@@ -170,28 +215,48 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
                       <TableHead>Dân tộc</TableHead>
                       <TableHead>Phòng</TableHead>
                       <TableHead>Mâm</TableHead>
-                      <TableHead>Ảnh</TableHead>
+                      <TableHead>Trạng thái</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {parsedData.map((row, index) => (
-                      <TableRow key={index}>
+                      <TableRow key={index} className={!row.isValid ? 'bg-destructive/10' : ''}>
                         <TableCell>{row.stt}</TableCell>
-                        <TableCell className="font-medium">{row.full_name}</TableCell>
-                        <TableCell>{row.date_of_birth}</TableCell>
+                        <TableCell className="font-medium">{row.full_name || <span className="text-destructive italic">Trống</span>}</TableCell>
+                        <TableCell>{row.date_of_birth || '-'}</TableCell>
                         <TableCell>
                           {row.gender === 'male' ? 'Nam' : row.gender === 'female' ? 'Nữ' : '-'}
                         </TableCell>
-                        <TableCell>{row.class_name || '-'}</TableCell>
+                        <TableCell>{row.class_name || <span className="text-destructive italic">Trống</span>}</TableCell>
                         <TableCell>{row.cccd || '-'}</TableCell>
                         <TableCell>{row.phone || '-'}</TableCell>
                         <TableCell>{row.ethnicity || '-'}</TableCell>
                         <TableCell>{row.room_number || '-'}</TableCell>
                         <TableCell>{row.meal_group || '-'}</TableCell>
                         <TableCell>
-                          {row.avatar_url ? (
-                            <img src={row.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
-                          ) : '-'}
+                          {row.isValid ? (
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                              Hợp lệ
+                            </Badge>
+                          ) : (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Badge variant="destructive" className="text-xs cursor-help">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                    Lỗi
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-[300px]">
+                                  <ul className="text-xs space-y-0.5">
+                                    {row.errors.map((err, i) => (
+                                      <li key={i}>• {err}</li>
+                                    ))}
+                                  </ul>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -216,13 +281,36 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
           </Button>
           <Button 
             onClick={handleImport} 
-            disabled={parsedData.length === 0 || isImporting}
+            disabled={validCount === 0 || isImporting}
           >
             {isImporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Nhập {parsedData.length} học sinh
+            Nhập {validCount} học sinh
+            {invalidCount > 0 && ` (bỏ qua ${invalidCount} lỗi)`}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+// Translate common DB/Supabase errors to Vietnamese
+function translateError(msg: string): string {
+  if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
+    if (msg.includes('student_code')) return 'Trùng mã học sinh. Vui lòng kiểm tra cột CCCD hoặc mã học sinh.';
+    if (msg.includes('cccd')) return 'Trùng số CCCD với học sinh đã có trong hệ thống.';
+    return 'Dữ liệu bị trùng lặp với hồ sơ đã tồn tại.';
+  }
+  if (msg.includes('not-null') || msg.includes('null value')) {
+    if (msg.includes('full_name')) return 'Thiếu họ và tên học sinh (cột bắt buộc).';
+    if (msg.includes('school_id')) return 'Lỗi hệ thống: thiếu thông tin trường.';
+    if (msg.includes('student_code')) return 'Thiếu mã học sinh hoặc CCCD.';
+    return 'Thiếu dữ liệu bắt buộc. Vui lòng kiểm tra lại file Excel.';
+  }
+  if (msg.includes('foreign key') || msg.includes('violates foreign key')) {
+    if (msg.includes('class_id')) return 'Lớp học không tồn tại trong hệ thống. Vui lòng tạo lớp trước khi nhập.';
+    return 'Dữ liệu tham chiếu không hợp lệ.';
+  }
+  if (msg.includes('permission') || msg.includes('policy')) return 'Bạn không có quyền nhập học sinh.';
+  if (msg.includes('timeout')) return 'Quá thời gian xử lý. Thử nhập ít học sinh hơn.';
+  return msg;
 }

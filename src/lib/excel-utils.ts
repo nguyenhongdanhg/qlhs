@@ -30,6 +30,8 @@ export interface StudentImportRow {
   room_number: string;
   meal_group: string;
   avatar_url: string;
+  isValid: boolean;
+  errors: string[];
 }
 
 // Generate student import template
@@ -81,19 +83,35 @@ export function parseStudentImportFile(file: File): Promise<StudentImportRow[]> 
           const row = jsonData[i];
           if (!row[1]) continue; // Skip empty rows
 
+          const full_name = String(row[1] || '').trim();
+          const date_of_birth = parseDateString(String(row[2] || ''));
+          const genderStr = String(row[3] || '').trim();
+          const gender = parseGender(genderStr);
+          const class_name = String(row[4] || '').trim();
+          const phone = String(row[6] || '').trim();
+
+          // Validate
+          const errors: string[] = [];
+          if (!full_name) errors.push('Thiếu họ và tên');
+          if (!class_name) errors.push('Thiếu lớp');
+          if (genderStr && !gender) errors.push(`Giới tính "${genderStr}" không hợp lệ (nhập Nam/Nữ)`);
+          if (date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) errors.push('Ngày sinh không đúng định dạng (dd/mm/yyyy)');
+
           students.push({
             stt: row[0] || i,
-            full_name: String(row[1] || '').trim(),
-            date_of_birth: parseDateString(String(row[2] || '')),
-            gender: parseGender(String(row[3] || '')),
-            class_name: String(row[4] || '').trim(),
+            full_name,
+            date_of_birth,
+            gender,
+            class_name,
             cccd: String(row[5] || '').trim(),
-            phone: String(row[6] || '').trim(),
+            phone,
             address: String(row[7] || '').trim(),
             ethnicity: String(row[8] || '').trim(),
             room_number: String(row[9] || '').trim(),
             meal_group: String(row[10] || '').trim(),
             avatar_url: String(row[11] || '').trim(),
+            isValid: errors.length === 0,
+            errors,
           });
         }
 
