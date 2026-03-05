@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useImageExport } from "@/hooks/use-image-export";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,11 +9,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarIcon, Download, TrendingUp, TrendingDown, Camera } from "lucide-react";
+import { CalendarIcon, Download, TrendingUp, TrendingDown, Camera, ChevronDown, Share2 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
-import html2canvas from "html2canvas";
 
 interface KitchenTransaction {
   id: string;
@@ -37,15 +38,20 @@ interface KitchenStatisticsTabProps {
 }
 
 type RangeType = 'day' | 'week' | 'month' | 'custom';
+type ViewType = 'import' | 'export';
 
 export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
   const { toast } = useToast();
+  const { exportAndShare, isExporting } = useImageExport();
   const [transactions, setTransactions] = useState<KitchenTransaction[]>([]);
   const [profiles, setProfiles] = useState<Map<string, string>>(new Map());
   const [rangeType, setRangeType] = useState<RangeType>('day');
   const [fromDate, setFromDate] = useState(new Date());
   const [toDate, setToDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
+  const [viewType, setViewType] = useState<ViewType>('import');
+  const [importOpen, setImportOpen] = useState(true);
+  const [exportOpen, setExportOpen] = useState(false);
   const importRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -80,8 +86,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
 
     if (data) {
       setTransactions(data as KitchenTransaction[]);
-      // Fetch profile names for creators
-      const creatorIds = [...new Set(data.filter(t => t.created_by).map(t => t.created_by!))] ;
+      const creatorIds = [...new Set(data.filter(t => t.created_by).map(t => t.created_by!))];
       if (creatorIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('profiles')
@@ -97,7 +102,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
     setLoading(false);
   };
 
-  const { importStats, exportStats, importTotal, exportTotal, detailList } = useMemo(() => {
+  const { importStats, exportStats, importTotal, exportTotal } = useMemo(() => {
     const groupBy = (items: KitchenTransaction[]) => {
       const map = new Map<string, { item_name: string; unit: string; totalQty: number; totalAmount: number }>();
       items.forEach(t => {
@@ -118,35 +123,21 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
       exportStats: groupBy(exports),
       importTotal: imports.reduce((s, t) => s + t.quantity * t.unit_price, 0),
       exportTotal: exports.reduce((s, t) => s + t.quantity * t.unit_price, 0),
-      detailList: transactions,
     };
   }, [transactions]);
 
   const formatCurrency = (n: number) => n.toLocaleString('vi-VN') + 'đ';
 
-  const captureImage = async (ref: React.RefObject<HTMLDivElement>, filename: string) => {
-    if (!ref.current) return;
-    try {
-      const canvas = await html2canvas(ref.current, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
-      });
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      toast({ title: "Đã tải ảnh" });
-    } catch {
-      toast({ title: "Lỗi xuất ảnh", variant: "destructive" });
-    }
+  const handleExportImage = (ref: React.RefObject<HTMLDivElement>, type: string) => {
+    const rangeLabel = format(fromDate, 'dd/MM/yyyy');
+    const title = `${type === 'import' ? 'Nhập kho' : 'Xuất kho'}_${format(fromDate, 'ddMMyyyy')}`;
+    exportAndShare(ref as React.RefObject<HTMLElement>, title, `Thống kê ${type === 'import' ? 'nhập kho' : 'xuất kho'} - ${rangeLabel}`, 'share');
   };
 
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
     const rangeLabel = `${format(fromDate, 'dd/MM/yyyy')} - ${format(toDate, 'dd/MM/yyyy')}`;
 
-    // Import sheet
     const importData = [
       [`THỐNG KÊ NHẬP KHO - ${rangeLabel}`],
       [],
@@ -159,7 +150,6 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
     wsImport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 15 }];
     XLSX.utils.book_append_sheet(wb, wsImport, 'Nhập kho');
 
-    // Export sheet
     const exportData = [
       [`THỐNG KÊ XUẤT KHO - ${rangeLabel}`],
       [],
@@ -172,7 +162,6 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
     wsExport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 15 }];
     XLSX.utils.book_append_sheet(wb, wsExport, 'Xuất kho');
 
-    // Detail sheet with creator info
     const detailData = [
       [`CHI TIẾT GIAO DỊCH - ${rangeLabel}`],
       [],
@@ -199,85 +188,96 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
     toast({ title: "Đã xuất Excel" });
   };
 
-  const StatsTable = ({ data, title, total, icon: Icon, tableRef, type }: {
+  const StatsTable = ({ data, title, total, icon: Icon, tableRef, type, isOpen, onToggle }: {
     data: typeof importStats; title: string; total: number; icon: typeof TrendingUp;
     tableRef: React.RefObject<HTMLDivElement>; type: string;
+    isOpen: boolean; onToggle: (open: boolean) => void;
   }) => (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Icon className="h-4 w-4" />
-          {title}
-          <Badge variant="secondary" className="ml-auto">{formatCurrency(total)}</Badge>
-          {rangeType === 'day' && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => captureImage(tableRef, `${type}_${format(fromDate, 'ddMMyyyy')}.png`)}>
-              <Camera className="h-4 w-4" />
-            </Button>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div ref={tableRef}>
-          {rangeType === 'day' && (
-            <div className="px-4 py-2 bg-muted/30 text-sm font-medium border-b">
-              {title} - Ngày {format(fromDate, 'dd/MM/yyyy')}
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="pb-2 cursor-pointer hover:bg-accent/30 transition-colors">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Icon className="h-4 w-4" />
+              {title}
+              <Badge variant="secondary" className="ml-auto">{formatCurrency(total)}</Badge>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7"
+                  disabled={isExporting}
+                  onClick={(e) => { e.stopPropagation(); handleExportImage(tableRef, type); }}
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+                <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </CardTitle>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="p-0">
+            <div ref={tableRef}>
+              <div className="px-4 py-2 bg-muted/30 text-sm font-medium border-b">
+                {title} - {rangeType === 'day'
+                  ? `Ngày ${format(fromDate, 'dd/MM/yyyy')}`
+                  : `${format(fromDate, 'dd/MM/yyyy')} → ${format(toDate, 'dd/MM/yyyy')}`}
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">STT</TableHead>
+                    <TableHead>Tên thực phẩm</TableHead>
+                    <TableHead className="w-16">ĐVT</TableHead>
+                    <TableHead className="w-20 text-right">Tổng SL</TableHead>
+                    <TableHead className="w-28 text-right">Tổng tiền</TableHead>
+                    <TableHead className="w-28">Người nhập</TableHead>
+                    <TableHead className="w-32">Thời gian</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">Không có dữ liệu</TableCell>
+                    </TableRow>
+                  ) : rangeType === 'day' ? (
+                    transactions.filter(t => t.transaction_type === type).map((t, idx) => (
+                      <TableRow key={t.id}>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell className="font-medium">{t.item_name}</TableCell>
+                        <TableCell>{t.unit}</TableCell>
+                        <TableCell className="text-right">{t.quantity}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(t.quantity * t.unit_price)}</TableCell>
+                        <TableCell className="text-xs">{t.created_by ? profiles.get(t.created_by) || '-' : '-'}</TableCell>
+                        <TableCell className="text-xs">{t.created_at ? format(new Date(t.created_at), 'HH:mm dd/MM') : '-'}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    data.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell className="font-medium">{item.item_name}</TableCell>
+                        <TableCell>{item.unit}</TableCell>
+                        <TableCell className="text-right">{item.totalQty}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.totalAmount)}</TableCell>
+                        <TableCell className="text-xs">-</TableCell>
+                        <TableCell className="text-xs">-</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                  {((rangeType === 'day' ? transactions.filter(t => t.transaction_type === type).length : data.length) > 0) && (
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell colSpan={4} className="text-right">TỔNG:</TableCell>
+                      <TableCell className="text-right text-primary">{formatCurrency(total)}</TableCell>
+                      <TableCell colSpan={2} />
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          )}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">STT</TableHead>
-                <TableHead>Tên thực phẩm</TableHead>
-                <TableHead className="w-16">ĐVT</TableHead>
-                <TableHead className="w-20 text-right">Tổng SL</TableHead>
-                <TableHead className="w-28 text-right">Tổng tiền</TableHead>
-                <TableHead className="w-28">Người nhập</TableHead>
-                <TableHead className="w-32">Thời gian</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-6">Không có dữ liệu</TableCell>
-                </TableRow>
-              ) : rangeType === 'day' ? (
-                // Show individual transactions for day view
-                transactions.filter(t => t.transaction_type === type).map((t, idx) => (
-                  <TableRow key={t.id}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell className="font-medium">{t.item_name}</TableCell>
-                    <TableCell>{t.unit}</TableCell>
-                    <TableCell className="text-right">{t.quantity}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(t.quantity * t.unit_price)}</TableCell>
-                    <TableCell className="text-xs">{t.created_by ? profiles.get(t.created_by) || '-' : '-'}</TableCell>
-                    <TableCell className="text-xs">{t.created_at ? format(new Date(t.created_at), 'HH:mm dd/MM') : '-'}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                data.map((item, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell className="font-medium">{item.item_name}</TableCell>
-                    <TableCell>{item.unit}</TableCell>
-                    <TableCell className="text-right">{item.totalQty}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.totalAmount)}</TableCell>
-                    <TableCell className="text-xs">-</TableCell>
-                    <TableCell className="text-xs">-</TableCell>
-                  </TableRow>
-                ))
-              )}
-              {((rangeType === 'day' ? transactions.filter(t => t.transaction_type === type).length : data.length) > 0) && (
-                <TableRow className="bg-muted/50 font-bold">
-                  <TableCell colSpan={4} className="text-right">TỔNG:</TableCell>
-                  <TableCell className="text-right text-primary">{formatCurrency(total)}</TableCell>
-                  <TableCell colSpan={2} />
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 
   return (
@@ -325,10 +325,18 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
         </Button>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <StatsTable data={importStats} title="Nhập kho" total={importTotal} icon={TrendingUp} tableRef={importRef as React.RefObject<HTMLDivElement>} type="import" />
-        <StatsTable data={exportStats} title="Xuất kho" total={exportTotal} icon={TrendingDown} tableRef={exportRef as React.RefObject<HTMLDivElement>} type="export" />
+      {/* Stats tables with collapsible */}
+      <div className="space-y-3">
+        <StatsTable
+          data={importStats} title="Nhập kho" total={importTotal} icon={TrendingUp}
+          tableRef={importRef as React.RefObject<HTMLDivElement>} type="import"
+          isOpen={importOpen} onToggle={setImportOpen}
+        />
+        <StatsTable
+          data={exportStats} title="Xuất kho" total={exportTotal} icon={TrendingDown}
+          tableRef={exportRef as React.RefObject<HTMLDivElement>} type="export"
+          isOpen={exportOpen} onToggle={setExportOpen}
+        />
       </div>
     </div>
   );
