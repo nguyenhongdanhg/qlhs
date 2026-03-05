@@ -662,20 +662,89 @@ export default function DormitoryExit() {
               <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1" rows={2} />
             </div>
             <div>
-              <Label className="text-sm">Chọn học sinh ({selectedStudents.length} đã chọn)</Label>
-              <Input placeholder="Tìm kiếm..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="mt-1 mb-2" />
-              <div className="border rounded-md max-h-[250px] overflow-y-auto divide-y">
-                {availableStudents.map(student => (
-                  <label key={student.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer">
-                    <Checkbox
-                      checked={selectedStudents.includes(student.id)}
-                      onCheckedChange={(checked) => setSelectedStudents(prev => checked ? [...prev, student.id] : prev.filter(id => id !== student.id))}
-                    />
-                    <span className="text-sm flex-1">{student.full_name}</span>
-                    <span className="text-xs text-muted-foreground">{getClassName(student.class_id || null)}</span>
-                  </label>
-                ))}
-                {availableStudents.length === 0 && <p className="text-center py-4 text-sm text-muted-foreground">Không tìm thấy</p>}
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-sm">Chọn học sinh</Label>
+                <span className="text-xs font-medium text-primary">{selectedStudents.length} đã chọn</span>
+              </div>
+              <Input placeholder="Tìm học sinh..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="mb-2 h-8 text-sm" />
+              <div className="border rounded-md max-h-[300px] overflow-y-auto">
+                {(() => {
+                  // Group students by class
+                  const grouped = new Map<string, { className: string; students: typeof availableStudents }>();
+                  availableStudents.forEach(s => {
+                    const clsName = getClassName(s.class_id || null) || 'Khác';
+                    if (!grouped.has(clsName)) grouped.set(clsName, { className: clsName, students: [] });
+                    grouped.get(clsName)!.students.push(s);
+                  });
+                  const entries = Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0], 'vi'));
+                  
+                  if (entries.length === 0) return <p className="text-center py-4 text-sm text-muted-foreground">Không tìm thấy</p>;
+
+                  return entries.map(([clsName, group]) => {
+                    const allSelected = group.students.every(s => selectedStudents.includes(s.id));
+                    const someSelected = group.students.some(s => selectedStudents.includes(s.id));
+                    const selectedCount = group.students.filter(s => selectedStudents.includes(s.id)).length;
+
+                    const toggleAll = () => {
+                      if (allSelected) {
+                        setSelectedStudents(prev => prev.filter(id => !group.students.some(s => s.id === id)));
+                      } else {
+                        const newIds = group.students.map(s => s.id).filter(id => !selectedStudents.includes(id));
+                        setSelectedStudents(prev => [...prev, ...newIds]);
+                      }
+                    };
+
+                    return (
+                      <div key={clsName} className="border-b last:border-b-0">
+                        <button
+                          type="button"
+                          onClick={toggleAll}
+                          className="w-full flex items-center justify-between p-2 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Checkbox checked={allSelected} className={cn(someSelected && !allSelected && "opacity-50")} />
+                            <span className="font-medium text-sm">{clsName}</span>
+                            <Badge variant="secondary" className="text-[10px]">{group.students.length}</Badge>
+                          </div>
+                          {selectedCount > 0 && (
+                            <Badge variant="default" className="text-[10px]">{selectedCount} chọn</Badge>
+                          )}
+                        </button>
+                        <div className="px-2 pb-2">
+                          <div className="grid grid-cols-3 gap-0.5">
+                            {group.students.map(student => (
+                              <button
+                                key={student.id}
+                                type="button"
+                                onClick={() => setSelectedStudents(prev =>
+                                  prev.includes(student.id) ? prev.filter(id => id !== student.id) : [...prev, student.id]
+                                )}
+                                className={cn(
+                                  "flex items-center gap-1 px-1.5 py-1 rounded text-left transition-colors",
+                                  selectedStudents.includes(student.id)
+                                    ? "bg-primary/15 text-primary"
+                                    : "hover:bg-muted/50"
+                                )}
+                              >
+                                <div className={cn(
+                                  "w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center",
+                                  selectedStudents.includes(student.id)
+                                    ? "border-primary bg-primary"
+                                    : "border-muted-foreground/50"
+                                )}>
+                                  {selectedStudents.includes(student.id) && (
+                                    <span className="text-primary-foreground text-[8px] font-bold">✓</span>
+                                  )}
+                                </div>
+                                <span className="truncate text-[11px] leading-tight">{student.full_name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           </div>
