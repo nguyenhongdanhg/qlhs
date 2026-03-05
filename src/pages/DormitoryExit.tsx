@@ -61,7 +61,7 @@ export default function DormitoryExit() {
   const [requests, setRequests] = useState<ExitRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [filterRange, setFilterRange] = useState<FilterRange>('day');
+  const [filterRange, setFilterRange] = useState<FilterRange>('week');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Create request dialog
@@ -85,6 +85,13 @@ export default function DormitoryExit() {
   // Delete confirm dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Batch selection for pending requests
+  const [selectedPending, setSelectedPending] = useState<string[]>([]);
+
+  // Batch reject dialog
+  const [showBatchRejectDialog, setShowBatchRejectDialog] = useState(false);
+  const [batchRejectionReason, setBatchRejectionReason] = useState('');
 
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
@@ -173,9 +180,11 @@ export default function DormitoryExit() {
   const filteredRequests = useMemo(() => {
     let filtered = requests;
     
-    // GVCN only sees requests for their own class
+    // GVCN only sees pending/rejected for their own class, but ALL accounts see approved
     if (teacherClassId) {
-      filtered = filtered.filter(r => r.class_id === teacherClassId || r.requester_id === user?.id);
+      filtered = filtered.filter(r => 
+        r.status === 'approved' || r.class_id === teacherClassId || r.requester_id === user?.id
+      );
     }
     
     if (searchQuery) {
@@ -317,6 +326,41 @@ export default function DormitoryExit() {
       if (error) throw error;
       for (const req of pendingRequests) await autoMarkExcused(req);
       toast({ title: 'Đã duyệt tất cả', description: `${ids.length} đơn đã được phê duyệt` });
+      setSelectedPending([]);
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleBatchApprove = async () => {
+    if (!user || selectedPending.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('dormitory_exit_requests')
+        .update({ status: 'approved', approver_id: user.id, approved_at: new Date().toISOString() })
+        .in('id', selectedPending);
+      if (error) throw error;
+      const selected = pendingRequests.filter(r => selectedPending.includes(r.id));
+      for (const req of selected) await autoMarkExcused(req);
+      toast({ title: 'Đã duyệt', description: `${selectedPending.length} đơn đã được phê duyệt` });
+      setSelectedPending([]);
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleBatchReject = async () => {
+    if (!user || selectedPending.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('dormitory_exit_requests')
+        .update({ status: 'rejected', approver_id: user.id, rejection_reason: batchRejectionReason || null })
+        .in('id', selectedPending);
+      if (error) throw error;
+      toast({ title: 'Đã từ chối', description: `${selectedPending.length} đơn đã bị từ chối` });
+      setSelectedPending([]);
+      setShowBatchRejectDialog(false);
+      setBatchRejectionReason('');
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     }
@@ -494,10 +538,38 @@ export default function DormitoryExit() {
         {/* Pending tab */}
         <TabsContent value="requests" className="space-y-2 mt-2">
           {canApprove && pendingRequests.length > 0 && (
-            <div className="flex justify-end">
-              <Button size="sm" onClick={handleApproveAll}>
-                <Check className="h-4 w-4 mr-1" /> Duyệt tất cả ({pendingRequests.length})
-              </Button>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedPending.length === pendingRequests.length && pendingRequests.length > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedPending(pendingRequests.map(r => r.id));
+                    } else {
+                      setSelectedPending([]);
+                    }
+                  }}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {selectedPending.length > 0 ? `Đã chọn ${selectedPending.length}/${pendingRequests.length}` : 'Chọn tất cả'}
+                </span>
+              </div>
+              <div className="flex gap-1">
+                {selectedPending.length > 0 ? (
+                  <>
+                    <Button size="sm" onClick={handleBatchApprove}>
+                      <Check className="h-4 w-4 mr-1" /> Duyệt ({selectedPending.length})
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-destructive" onClick={() => setShowBatchRejectDialog(true)}>
+                      <X className="h-4 w-4 mr-1" /> Từ chối ({selectedPending.length})
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" onClick={handleApproveAll}>
+                    <Check className="h-4 w-4 mr-1" /> Duyệt tất cả ({pendingRequests.length})
+                  </Button>
+                )}
+              </div>
             </div>
           )}
           {isLoading ? (
@@ -507,9 +579,22 @@ export default function DormitoryExit() {
           ) : (
             <div className="space-y-2">
               {pendingRequests.map(req => (
-                <Card key={req.id}>
+                <Card key={req.id} className={cn(selectedPending.includes(req.id) && "ring-1 ring-primary")}>
                   <CardContent className="p-3">
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      {canApprove && (
+                        <Checkbox
+                          checked={selectedPending.includes(req.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPending(prev => [...prev, req.id]);
+                            } else {
+                              setSelectedPending(prev => prev.filter(id => id !== req.id));
+                            }
+                          }}
+                          className="mt-1 shrink-0"
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm">{req.student?.full_name}</span>
@@ -779,7 +864,21 @@ export default function DormitoryExit() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm dialog */}
+      {/* Batch reject dialog */}
+      <Dialog open={showBatchRejectDialog} onOpenChange={setShowBatchRejectDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Từ chối {selectedPending.length} đơn</DialogTitle></DialogHeader>
+          <div>
+            <Label>Lý do từ chối (không bắt buộc)</Label>
+            <Textarea value={batchRejectionReason} onChange={(e) => setBatchRejectionReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBatchRejectDialog(false)}>Hủy</Button>
+            <Button variant="destructive" onClick={handleBatchReject}>Từ chối ({selectedPending.length})</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>Xác nhận xóa</DialogTitle></DialogHeader>
