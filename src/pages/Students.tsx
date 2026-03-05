@@ -337,7 +337,7 @@ export default function Students() {
     }
   };
 
-  const handleExcelImport = async (importData: StudentImportRow[]) => {
+  const handleExcelImport = async (importData: StudentImportRow[]): Promise<import('@/components/students/ExcelImportDialog').ImportRowError[]> => {
     if (!currentSchool) throw new Error('Chưa chọn trường');
 
     const classMap: Record<string, string> = {};
@@ -393,40 +393,59 @@ export default function Students() {
       }
     }
 
-    // Insert new students
-    if (newRows.length > 0) {
-      const studentsToInsert = newRows.map((row, index) => ({
-        school_id: currentSchool.id,
-        student_code: row.cccd || `HS${Date.now()}${index}`,
-        full_name: row.full_name,
-        date_of_birth: row.date_of_birth || null,
-        gender: row.gender,
-        class_id: classMap[row.class_name?.toLowerCase()] || null,
-        cccd: row.cccd || null,
-        phone: row.phone || null,
-        address: row.address || null,
-        ethnicity: row.ethnicity || null,
-        room_number: row.room_number || null,
-        meal_group: row.meal_group || null,
-        avatar_url: row.avatar_url || null,
-        is_boarding: true,
-        is_active: true,
-      }));
-
-      const { error } = await supabase.from('students').insert(studentsToInsert);
-      if (error) throw error;
+    // Insert new students ONE BY ONE to catch per-row errors
+    const rowErrors: import('@/components/students/ExcelImportDialog').ImportRowError[] = [];
+    
+    for (const row of newRows) {
+      try {
+        const { error } = await supabase.from('students').insert({
+          school_id: currentSchool.id,
+          student_code: row.cccd || `HS${Date.now()}${row.stt}`,
+          full_name: row.full_name,
+          date_of_birth: row.date_of_birth || null,
+          gender: row.gender,
+          class_id: classMap[row.class_name?.toLowerCase()] || null,
+          cccd: row.cccd || null,
+          phone: row.phone || null,
+          address: row.address || null,
+          ethnicity: row.ethnicity || null,
+          room_number: row.room_number || null,
+          meal_group: row.meal_group || null,
+          avatar_url: row.avatar_url || null,
+          is_boarding: true,
+          is_active: true,
+        });
+        
+        if (error) {
+          rowErrors.push({
+            stt: row.stt,
+            full_name: row.full_name,
+            error: translateImportError(error.message),
+          });
+        }
+      } catch (err: any) {
+        rowErrors.push({
+          stt: row.stt,
+          full_name: row.full_name,
+          error: translateImportError(err.message || 'Lỗi không xác định'),
+        });
+      }
     }
 
     // If there are duplicates, show the merge dialog
     if (duplicates.length > 0) {
       setDuplicateData({ newStudents: newRows, duplicates });
       setIsDuplicateDialogOpen(true);
-      if (newRows.length > 0) {
-        toast({ title: `Đã nhập ${newRows.length} học sinh mới`, description: `Phát hiện ${duplicates.length} học sinh trùng cần xác nhận cập nhật` });
+      const successCount = newRows.length - rowErrors.length;
+      if (successCount > 0) {
+        toast({ title: `Đã nhập ${successCount} học sinh mới`, description: `Phát hiện ${duplicates.length} học sinh trùng cần xác nhận cập nhật` });
       }
-    } else {
+    } else if (rowErrors.length === 0) {
       toast({ title: 'Thành công', description: `Đã nhập ${newRows.length} học sinh mới` });
     }
+
+    fetchData();
+    return rowErrors;
 
     fetchData();
   };
@@ -1970,4 +1989,24 @@ function InfoItem({ icon: Icon, label, value }: { icon: any; label: string; valu
       </div>
     </div>
   );
+}
+
+function translateImportError(msg: string): string {
+  if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
+    if (msg.includes('student_code')) return 'Trùng mã học sinh (CCCD đã tồn tại trong hệ thống)';
+    if (msg.includes('cccd')) return 'Trùng số CCCD với học sinh đã có';
+    return 'Dữ liệu bị trùng lặp với hồ sơ đã tồn tại';
+  }
+  if (msg.includes('not-null') || msg.includes('null value')) {
+    if (msg.includes('full_name')) return 'Thiếu họ và tên';
+    if (msg.includes('student_code')) return 'Thiếu mã học sinh hoặc CCCD';
+    return 'Thiếu dữ liệu bắt buộc';
+  }
+  if (msg.includes('foreign key') || msg.includes('violates foreign key')) {
+    if (msg.includes('class_id')) return 'Lớp học không tồn tại - hãy tạo lớp trước';
+    return 'Dữ liệu tham chiếu không hợp lệ';
+  }
+  if (msg.includes('permission') || msg.includes('policy')) return 'Không có quyền thêm học sinh';
+  if (msg.includes('timeout')) return 'Quá thời gian xử lý';
+  return msg;
 }
