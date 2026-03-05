@@ -162,14 +162,26 @@ export default function DormitoryExit() {
   }, [students, isClassTeacher, currentMembership, classes, studentSearch]);
 
   const filteredRequests = useMemo(() => {
-    if (!searchQuery) return requests;
-    const q = searchQuery.toLowerCase();
-    return requests.filter(r =>
-      r.student?.full_name?.toLowerCase().includes(q) ||
-      r.class?.name?.toLowerCase().includes(q) ||
-      r.reason?.toLowerCase().includes(q)
-    );
-  }, [requests, searchQuery]);
+    let filtered = requests;
+    
+    // GVCN only sees requests for their own class
+    if (isClassTeacher && currentMembership?.class_id && !isSchoolAdmin() && !isSuperAdmin) {
+      const teacherClass = classes.find(c => c.name === currentMembership.class_id);
+      if (teacherClass) {
+        filtered = filtered.filter(r => r.class_id === teacherClass.id || r.requester_id === user?.id);
+      }
+    }
+    
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(r =>
+        r.student?.full_name?.toLowerCase().includes(q) ||
+        r.class?.name?.toLowerCase().includes(q) ||
+        r.reason?.toLowerCase().includes(q)
+      );
+    }
+    return filtered;
+  }, [requests, searchQuery, isClassTeacher, currentMembership, classes, isSchoolAdmin, isSuperAdmin, user]);
 
   const pendingRequests = useMemo(() => filteredRequests.filter(r => r.status === 'pending'), [filteredRequests]);
   const approvedRequests = useMemo(() => filteredRequests.filter(r => r.status === 'approved'), [filteredRequests]);
