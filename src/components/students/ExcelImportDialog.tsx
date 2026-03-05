@@ -28,10 +28,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+export interface ImportRowError {
+  stt: number;
+  full_name: string;
+  error: string;
+}
+
 interface ExcelImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (students: StudentImportRow[]) => Promise<void>;
+  onImport: (students: StudentImportRow[]) => Promise<ImportRowError[]>;
 }
 
 export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportDialogProps) {
@@ -42,6 +48,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
   const [parsedData, setParsedData] = useState<StudentImportRow[]>([]);
   const [fileName, setFileName] = useState('');
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [rowErrors, setRowErrors] = useState<ImportRowError[]>([]);
 
   const validCount = parsedData.filter(r => r.isValid).length;
   const invalidCount = parsedData.length - validCount;
@@ -59,6 +66,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
     setIsLoading(true);
     setFileName(file.name);
     setImportErrors([]);
+    setRowErrors([]);
 
     try {
       const data = await parseStudentImportFile(file);
@@ -95,16 +103,35 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
 
     setIsImporting(true);
     setImportErrors([]);
+    setRowErrors([]);
     try {
-      await onImport(validData);
-      toast({ 
-        title: 'Nhập thành công', 
-        description: `Đã nhập ${validData.length} học sinh` 
-      });
-      handleClose();
+      const errors = await onImport(validData);
+      if (errors.length > 0) {
+        setRowErrors(errors);
+        // Mark failed rows in parsedData
+        const failedStts = new Set(errors.map(e => e.stt));
+        setParsedData(prev => prev.map(row => {
+          if (failedStts.has(row.stt)) {
+            const rowErr = errors.find(e => e.stt === row.stt);
+            return { ...row, isValid: false, errors: [rowErr?.error || 'Lỗi không xác định'] };
+          }
+          return row;
+        }));
+        const successCount = validData.length - errors.length;
+        toast({ 
+          title: `Nhập xong: ${successCount} thành công, ${errors.length} lỗi`, 
+          description: 'Xem chi tiết lỗi ở bảng bên dưới',
+          variant: 'destructive' 
+        });
+      } else {
+        toast({ 
+          title: 'Nhập thành công', 
+          description: `Đã nhập ${validData.length} học sinh` 
+        });
+        handleClose();
+      }
     } catch (error: any) {
       const msg = error.message || 'Không thể nhập học sinh';
-      // Parse common Supabase errors to Vietnamese
       const vietnameseError = translateError(msg);
       setImportErrors([vietnameseError]);
       toast({ 
@@ -121,11 +148,14 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
     setParsedData([]);
     setFileName('');
     setImportErrors([]);
+    setRowErrors([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
     onOpenChange(false);
   };
+
+  const failedStts = new Set(rowErrors.map(e => e.stt));
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -166,7 +196,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
             </div>
           </div>
 
-          {/* Import errors */}
+          {/* Import errors - generic */}
           {importErrors.length > 0 && (
             <div className="rounded-lg border border-destructive bg-destructive/10 p-3 space-y-1">
               <div className="flex items-center gap-2 text-destructive font-medium text-sm">
@@ -176,6 +206,23 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
               {importErrors.map((err, i) => (
                 <p key={i} className="text-sm text-destructive ml-6">• {err}</p>
               ))}
+            </div>
+          )}
+
+          {/* Row-specific errors */}
+          {rowErrors.length > 0 && (
+            <div className="rounded-lg border border-destructive bg-destructive/10 p-3 space-y-1">
+              <div className="flex items-center gap-2 text-destructive font-medium text-sm">
+                <AlertCircle className="h-4 w-4" />
+                Chi tiết lỗi từng dòng ({rowErrors.length} lỗi):
+              </div>
+              <ScrollArea className="max-h-[120px]">
+                {rowErrors.map((err, i) => (
+                  <p key={i} className="text-sm text-destructive ml-6">
+                    • <strong>Dòng {err.stt}</strong> - {err.full_name}: {err.error}
+                  </p>
+                ))}
+              </ScrollArea>
             </div>
           )}
 
