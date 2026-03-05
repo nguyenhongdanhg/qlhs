@@ -583,6 +583,69 @@ export type Database = {
           },
         ]
       }
+      kitchen_transactions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          item_name: string
+          notes: string | null
+          quantity: number
+          school_id: string
+          total_amount: number | null
+          transaction_date: string
+          transaction_type: string
+          unit: string
+          unit_price: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          item_name: string
+          notes?: string | null
+          quantity?: number
+          school_id: string
+          total_amount?: number | null
+          transaction_date?: string
+          transaction_type?: string
+          unit?: string
+          unit_price?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          item_name?: string
+          notes?: string | null
+          quantity?: number
+          school_id?: string
+          total_amount?: number | null
+          transaction_date?: string
+          transaction_type?: string
+          unit?: string
+          unit_price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_transactions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_history: {
         Row: {
           id: string
@@ -766,6 +829,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "medicines_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_assignments: {
+        Row: {
+          assigned_by: string | null
+          created_at: string | null
+          dishes: string
+          id: string
+          meal_type: string
+          menu_date: string
+          school_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string | null
+          dishes?: string
+          id?: string
+          meal_type: string
+          menu_date: string
+          school_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string | null
+          dishes?: string
+          id?: string
+          meal_type?: string
+          menu_date?: string
+          school_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_assignments_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
@@ -1373,6 +1484,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "week_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_menu_templates: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          dishes: string
+          id: string
+          meal_type: string
+          school_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          dishes?: string
+          id?: string
+          meal_type: string
+          school_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          dishes?: string
+          id?: string
+          meal_type?: string
+          school_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_menu_templates_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
