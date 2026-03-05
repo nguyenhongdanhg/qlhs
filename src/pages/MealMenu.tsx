@@ -9,7 +9,7 @@ import { UtensilsCrossed, Package, BarChart3 } from "lucide-react";
 
 const MealMenu = () => {
   const { currentMembership, isSuperAdmin, currentSchool } = useAuth();
-  const { hasPermission } = useSchool();
+  const { hasPermission, isFeatureEnabled } = useSchool();
 
   const schoolId = currentSchool?.id;
 
@@ -38,7 +38,7 @@ const MealMenu = () => {
     );
   }
 
-  // Non-privileged users only see weekly menu
+  // Non-privileged users only see weekly menu (all school members can view this)
   if (!hasFullAccess) {
     return (
       <div className="space-y-4">

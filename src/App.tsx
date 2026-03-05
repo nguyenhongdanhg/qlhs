@@ -161,14 +161,7 @@ const App = () => (
                   }
                 />
                 
-                <Route
-                  path="/meal-menu"
-                  element={
-                    <FeatureGuard featureCode="meal_menu">
-                      <MealMenu />
-                    </FeatureGuard>
-                  }
-                />
+                <Route path="/meal-menu" element={<MealMenu />} />
                 
                 <Route
                   path="/statistics"
