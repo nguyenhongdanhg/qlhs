@@ -18,6 +18,7 @@ import {
   HelpCircle,
   Heart,
   DoorOpen,
+  ChefHat,
 } from 'lucide-react';
 import { bottomNavCodes } from '@/components/layout/MobileNav';
 
@@ -38,6 +39,13 @@ const menuItems: MenuItem[] = [
     description: 'Đăng ký & duyệt ra ngoài KTX',
     icon: DoorOpen,
     path: '/dormitory-exit',
+  },
+  {
+    code: 'meal_menu',
+    label: 'Thực đơn & Kho bếp',
+    description: 'Quản lý thực đơn và xuất nhập kho',
+    icon: ChefHat,
+    path: '/meal-menu',
   },
   {
     code: 'health',

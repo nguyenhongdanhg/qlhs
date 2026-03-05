@@ -18,6 +18,7 @@ import {
   HelpCircle,
   Heart,
   DoorOpen,
+  ChefHat,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   HelpCircle,
   Heart,
   DoorOpen,
+  ChefHat,
 };
 
 interface NavItem {
@@ -56,6 +58,7 @@ const navItems: NavItem[] = [
   { code: 'boarding', label: 'Điểm danh nội trú', icon: 'Home', path: '/boarding' },
   { code: 'evening_study', label: 'Điểm danh giờ học', icon: 'BookOpen', path: '/evening-study' },
   { code: 'meals', label: 'Báo cáo bữa ăn', icon: 'UtensilsCrossed', path: '/meals' },
+  { code: 'meal_menu', label: 'Thực đơn & Kho', icon: 'ChefHat', path: '/meal-menu' },
   { code: 'dormitory_exit', label: 'Ra vào KTX', icon: 'DoorOpen', path: '/dormitory-exit' },
   { code: 'health', label: 'Sức khỏe', icon: 'Heart', path: '/health' },
   { code: 'emulation', label: 'Thi đua', icon: 'Trophy', path: '/emulation' },
