@@ -53,6 +53,7 @@ import {
 import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
 import { MealHistoryTab } from '@/components/attendance/MealHistoryTab';
 import { StudentSearchInput } from '@/components/attendance/StudentSearchInput';
+import { AdminReportOptions } from '@/components/attendance/AdminReportOptions';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -146,6 +147,9 @@ export default function Meals() {
   // Check if user is class teacher and get their class
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const teacherClassId = currentMembership?.class_id;
+
+  // Admin report on behalf
+  const [selectedReporterId, setSelectedReporterId] = useState(user?.id || '');
 
   // Check if user can bypass deadline (Admin, Super Admin, or Accountant)
   const canBypassDeadline = isSuperAdmin || isSchoolAdmin() || currentMembership?.role === 'accountant';
@@ -368,6 +372,7 @@ export default function Meals() {
   // For class teachers: only save records for their class students
   const handleSave3MealsWithAbsent = async (absentStudentIds: string[]) => {
     if (!currentSchool || !user) return;
+    const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
     setIsSaving(true);
     setAbsent3MealsDialogOpen(false);
     
@@ -415,8 +420,8 @@ export default function Meals() {
           class_id: student.class_id,
           attendance_date: dateStr,
           attendance_type: meal,
-          status: (absentSet.has(student.id) ? 'absent' : 'present') as AttendanceStatus,
-          reporter_id: user.id,
+           status: (absentSet.has(student.id) ? 'absent' : 'present') as AttendanceStatus,
+           reporter_id: reporterId,
         }));
 
         await supabase.from('attendance_records').insert(records);
@@ -452,6 +457,7 @@ export default function Meals() {
   // For class teachers: only save records for their class students
   const handleSaveSingleMealWithAbsent = async (absentStudentIds: string[]) => {
     if (!currentSchool || !user) return;
+    const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
     setIsSaving(true);
     setAbsentSingleMealDialogOpen(false);
     
@@ -481,7 +487,7 @@ export default function Meals() {
         attendance_date: dateStr,
         attendance_type: selectedMeal,
         status: (absentSet.has(student.id) ? 'absent' : 'present') as AttendanceStatus,
-        reporter_id: user.id,
+        reporter_id: reporterId,
       }));
 
       const { error } = await supabase.from('attendance_records').insert(records);
@@ -505,6 +511,7 @@ export default function Meals() {
 
   const handleMarkAll3Meals = async (markPresent: boolean) => {
     if (!currentSchool || !user) return;
+    const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
     setIsSaving(true);
     
     try {
@@ -551,7 +558,7 @@ export default function Meals() {
           attendance_date: dateStr,
           attendance_type: meal,
           status: (markPresent ? 'present' : 'absent') as AttendanceStatus,
-          reporter_id: user.id,
+          reporter_id: reporterId,
         }));
 
         await supabase.from('attendance_records').insert(records);
@@ -585,6 +592,7 @@ export default function Meals() {
 
   const handleSave = async () => {
     if (!currentSchool || !user) return;
+    const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
     
     // Check deadline - but allow bypass for Admin/Accountant
     if (currentMealDeadline.isExpired && !canBypassDeadline) {
@@ -622,7 +630,7 @@ export default function Meals() {
         attendance_date: dateStr,
         attendance_type: selectedMeal,
         status: attendance[student.id] || 'present',
-        reporter_id: user.id,
+        reporter_id: reporterId,
       }));
 
       const { error } = await supabase.from('attendance_records').insert(records);
@@ -838,6 +846,17 @@ export default function Meals() {
                   </PopoverContent>
                 </Popover>
               </div>
+
+              {/* Admin: Report on behalf */}
+              {(isSuperAdmin || isSchoolAdmin()) && (
+                <AdminReportOptions
+                  schoolId={currentSchool.id}
+                  currentUserId={user?.id || ''}
+                  isAdmin={true}
+                  selectedReporterId={selectedReporterId}
+                  onReporterChange={setSelectedReporterId}
+                />
+              )}
             </div>
 
             {/* Class Filter Buttons */}
