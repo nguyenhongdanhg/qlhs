@@ -447,6 +447,50 @@ export type Database = {
           },
         ]
       }
+      food_items: {
+        Row: {
+          category: string
+          created_at: string | null
+          default_price: number
+          id: string
+          is_active: boolean
+          name: string
+          school_id: string
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          default_price?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          school_id: string
+          unit?: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          default_price?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          school_id?: string
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_items_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       global_roles: {
         Row: {
           created_at: string | null

@@ -4,17 +4,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, addDays, subDays } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+
+interface FoodItem {
+  id: string;
+  name: string;
+  unit: string;
+  default_price: number;
+}
 
 interface KitchenTransaction {
   id: string;
@@ -38,21 +44,40 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const { user } = useAuth();
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<KitchenTransaction[]>([]);
+  const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [transactionType, setTransactionType] = useState<string>('import');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [showAddFoodDialog, setShowAddFoodDialog] = useState(false);
   const [copyFromDate, setCopyFromDate] = useState<Date>(subDays(new Date(), 1));
   const [editingItem, setEditingItem] = useState<Partial<KitchenTransaction> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [newItem, setNewItem] = useState({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '' });
+  const [newFoodItem, setNewFoodItem] = useState({ name: '', unit: 'kg', default_price: 0 });
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
   useEffect(() => {
+    fetchFoodItems();
+  }, [schoolId]);
+
+  useEffect(() => {
     fetchTransactions();
   }, [schoolId, dateStr, transactionType]);
+
+  const fetchFoodItems = async () => {
+    const { data } = await supabase
+      .from('food_items')
+      .select('*')
+      .eq('school_id', schoolId)
+      .eq('category', 'ingredient')
+      .eq('is_active', true)
+      .order('name');
+    if (data) setFoodItems(data as FoodItem[]);
+  };
 
   const fetchTransactions = async () => {
     const { data } = await supabase
@@ -65,26 +90,54 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
     if (data) setTransactions(data as KitchenTransaction[]);
   };
 
+  const selectFoodItem = (item: FoodItem) => {
+    setNewItem(prev => ({
+      ...prev,
+      item_name: item.name,
+      unit: item.unit || 'kg',
+      unit_price: item.default_price || 0,
+    }));
+    setSearchQuery("");
+  };
+
+  const addFoodItem = async () => {
+    if (!newFoodItem.name.trim()) return;
+    setLoading(true);
+    const { error } = await supabase.from('food_items').insert({
+      school_id: schoolId,
+      name: newFoodItem.name.trim(),
+      category: 'ingredient',
+      unit: newFoodItem.unit,
+      default_price: newFoodItem.default_price,
+    });
+    if (error) {
+      toast({ title: "Lỗi", description: error.message.includes('duplicate') ? "Thực phẩm đã tồn tại" : error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Đã thêm thực phẩm" });
+      setNewFoodItem({ name: '', unit: 'kg', default_price: 0 });
+      setShowAddFoodDialog(false);
+      fetchFoodItems();
+    }
+    setLoading(false);
+  };
+
   const addTransaction = async () => {
     if (!newItem.item_name.trim()) {
-      toast({ title: "Vui lòng nhập tên thực phẩm", variant: "destructive" });
+      toast({ title: "Vui lòng chọn thực phẩm", variant: "destructive" });
       return;
     }
     setLoading(true);
-    const { error } = await supabase
-      .from('kitchen_transactions')
-      .insert({
-        school_id: schoolId,
-        transaction_date: dateStr,
-        item_name: newItem.item_name,
-        unit: newItem.unit,
-        quantity: newItem.quantity,
-        unit_price: newItem.unit_price,
-        transaction_type: transactionType,
-        notes: newItem.notes || null,
-        created_by: user?.id,
-      });
-
+    const { error } = await supabase.from('kitchen_transactions').insert({
+      school_id: schoolId,
+      transaction_date: dateStr,
+      item_name: newItem.item_name,
+      unit: newItem.unit,
+      quantity: newItem.quantity,
+      unit_price: newItem.unit_price,
+      transaction_type: transactionType,
+      notes: newItem.notes || null,
+      created_by: user?.id,
+    });
     if (error) {
       toast({ title: "Lỗi", description: error.message, variant: "destructive" });
     } else {
@@ -99,17 +152,13 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const updateTransaction = async () => {
     if (!editingItem?.id) return;
     setLoading(true);
-    const { error } = await supabase
-      .from('kitchen_transactions')
-      .update({
-        item_name: editingItem.item_name,
-        unit: editingItem.unit,
-        quantity: editingItem.quantity,
-        unit_price: editingItem.unit_price,
-        notes: editingItem.notes,
-      })
-      .eq('id', editingItem.id);
-
+    const { error } = await supabase.from('kitchen_transactions').update({
+      item_name: editingItem.item_name,
+      unit: editingItem.unit,
+      quantity: editingItem.quantity,
+      unit_price: editingItem.unit_price,
+      notes: editingItem.notes,
+    }).eq('id', editingItem.id);
     if (error) {
       toast({ title: "Lỗi", description: error.message, variant: "destructive" });
     } else {
@@ -122,11 +171,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
 
   const deleteTransaction = async (id: string) => {
     const { error } = await supabase.from('kitchen_transactions').delete().eq('id', id);
-    if (error) {
-      toast({ title: "Lỗi", description: error.message, variant: "destructive" });
-    } else {
-      fetchTransactions();
-    }
+    if (!error) fetchTransactions();
   };
 
   const copyFromOtherDate = async () => {
@@ -175,6 +220,10 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
 
   const formatCurrency = (n: number) => n.toLocaleString('vi-VN') + 'đ';
 
+  const filteredFoodItems = foodItems.filter(f =>
+    f.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-4">
       {/* Controls */}
@@ -211,10 +260,13 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
 
         {canEdit && (
           <div className="flex gap-1 ml-auto">
+            <Button size="sm" variant="outline" onClick={() => setShowAddFoodDialog(true)}>
+              <Plus className="h-4 w-4 mr-1" />Thực phẩm
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShowCopyDialog(true)}>
               <Copy className="h-4 w-4 mr-1" />Sao chép
             </Button>
-            <Button size="sm" onClick={() => setShowAddDialog(true)}>
+            <Button size="sm" onClick={() => { setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '' }); setShowAddDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" />Thêm
             </Button>
           </div>
@@ -279,14 +331,42 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
         </CardContent>
       </Card>
 
-      {/* Add dialog */}
+      {/* Add transaction dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Thêm {transactionType === 'import' ? 'nhập' : 'xuất'} kho</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Input placeholder="Tên thực phẩm *" value={newItem.item_name} onChange={e => setNewItem(p => ({ ...p, item_name: e.target.value }))} />
+            <div>
+              <p className="text-sm font-medium mb-1">Chọn thực phẩm:</p>
+              <Command className="border rounded-md">
+                <CommandInput
+                  placeholder="Tìm thực phẩm..."
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                />
+                <CommandList className="max-h-[150px]">
+                  <CommandEmpty>
+                    <span className="text-sm text-muted-foreground">Không tìm thấy. </span>
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {filteredFoodItems.map(item => (
+                      <CommandItem
+                        key={item.id}
+                        onSelect={() => selectFoodItem(item)}
+                        className="cursor-pointer"
+                      >
+                        {item.name} {item.unit && `(${item.unit})`}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+              {newItem.item_name && (
+                <p className="text-sm mt-1">Đã chọn: <span className="font-semibold">{newItem.item_name}</span></p>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-2">
               <Input placeholder="ĐVT" value={newItem.unit} onChange={e => setNewItem(p => ({ ...p, unit: e.target.value }))} />
               <Input type="number" placeholder="Số lượng" value={newItem.quantity || ''} onChange={e => setNewItem(p => ({ ...p, quantity: parseFloat(e.target.value) || 0 }))} />
@@ -300,6 +380,26 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>Hủy</Button>
             <Button onClick={addTransaction} disabled={loading}>Thêm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add food item dialog */}
+      <Dialog open={showAddFoodDialog} onOpenChange={setShowAddFoodDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Thêm thực phẩm mới</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input placeholder="Tên thực phẩm *" value={newFoodItem.name} onChange={e => setNewFoodItem(p => ({ ...p, name: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="ĐVT (kg, lít...)" value={newFoodItem.unit} onChange={e => setNewFoodItem(p => ({ ...p, unit: e.target.value }))} />
+              <Input type="number" placeholder="Giá mặc định" value={newFoodItem.default_price || ''} onChange={e => setNewFoodItem(p => ({ ...p, default_price: parseFloat(e.target.value) || 0 }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddFoodDialog(false)}>Hủy</Button>
+            <Button onClick={addFoodItem} disabled={loading}>Thêm</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -336,7 +436,6 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             Sao chép danh sách {transactionType === 'import' ? 'nhập' : 'xuất'} kho từ ngày khác sang ngày {format(selectedDate, 'dd/MM/yyyy')}.
-            Bạn có thể sửa số lượng sau khi sao chép.
           </p>
           <Popover>
             <PopoverTrigger asChild>
