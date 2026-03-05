@@ -22,6 +22,7 @@ import Meals from "@/pages/Meals";
 const Auth = lazy(() => import("@/pages/Auth"));
 const SelectSchool = lazy(() => import("@/pages/SelectSchool"));
 const EveningStudy = lazy(() => import("@/pages/EveningStudy"));
+const DormitoryExit = lazy(() => import("@/pages/DormitoryExit"));
 const Emulation = lazy(() => import("@/pages/Emulation"));
 const Statistics = lazy(() => import("@/pages/Statistics"));
 const DutySchedule = lazy(() => import("@/pages/DutySchedule"));
@@ -173,6 +174,15 @@ const App = () => (
                   element={
                     <FeatureGuard featureCode="health">
                       <Health />
+                    </FeatureGuard>
+                  }
+                />
+                
+                <Route
+                  path="/dormitory-exit"
+                  element={
+                    <FeatureGuard featureCode="dormitory_exit">
+                      <DormitoryExit />
                     </FeatureGuard>
                   }
                 />

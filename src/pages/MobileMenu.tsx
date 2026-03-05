@@ -17,6 +17,7 @@ import {
   Trophy,
   HelpCircle,
   Heart,
+  DoorOpen,
 } from 'lucide-react';
 import { bottomNavCodes } from '@/components/layout/MobileNav';
 
@@ -31,6 +32,13 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  {
+    code: 'dormitory_exit',
+    label: 'Ra vào KTX',
+    description: 'Đăng ký & duyệt ra ngoài KTX',
+    icon: DoorOpen,
+    path: '/dormitory-exit',
+  },
   {
     code: 'health',
     label: 'Sức khỏe',
