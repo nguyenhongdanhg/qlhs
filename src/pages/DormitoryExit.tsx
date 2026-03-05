@@ -89,7 +89,7 @@ export default function DormitoryExit() {
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
   const canDelete = isSchoolAdmin() || isSuperAdmin;
-  const canCreate = isClassTeacher || isSchoolAdmin() || isSuperAdmin;
+  const canCreate = isClassTeacher || isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'create');
 
   useEffect(() => {
     if (!currentSchool) return;
@@ -152,11 +152,11 @@ export default function DormitoryExit() {
   const teacherClassId = useMemo(() => {
     if (isSchoolAdmin() || isSuperAdmin) return null;
     if (currentMembership?.class_id) {
-      const cls = classes.find(c => c.name === currentMembership.class_id);
-      return cls?.id || null;
+      return currentMembership.class_id;
     }
     return null;
-  }, [currentMembership, classes, isSuperAdmin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMembership, isSuperAdmin]);
 
   const availableStudents = useMemo(() => {
     let filtered = students;
