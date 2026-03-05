@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSchool } from "@/contexts/SchoolContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MenuTemplateTab } from "@/components/meal-menu/MenuTemplateTab";
 import { KitchenInventoryTab } from "@/components/meal-menu/KitchenInventoryTab";
@@ -8,6 +9,7 @@ import { UtensilsCrossed, Package, BarChart3 } from "lucide-react";
 
 const MealMenu = () => {
   const { currentMembership, isSuperAdmin, currentSchool } = useAuth();
+  const { hasPermission } = useSchool();
 
   const schoolId = currentSchool?.id;
 
@@ -18,10 +20,33 @@ const MealMenu = () => {
     return role === 'admin' || role === 'kitchen' || role === 'accountant';
   }, [currentMembership, isSuperAdmin]);
 
+  // Full access: admin, accountant, super_admin, or users with meal_menu permission
+  const hasFullAccess = useMemo(() => {
+    if (isSuperAdmin) return true;
+    if (!currentMembership) return false;
+    const role = currentMembership.role;
+    if (role === 'admin' || role === 'accountant') return true;
+    // Check permission group
+    return hasPermission('meal_menu', 'view');
+  }, [currentMembership, isSuperAdmin, hasPermission]);
+
   if (!schoolId) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <p className="text-muted-foreground">Không tìm thấy trường học</p>
+      </div>
+    );
+  }
+
+  // Non-privileged users only see weekly menu
+  if (!hasFullAccess) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold">Thực đơn tuần</h1>
+          <p className="text-sm text-muted-foreground">Xem thực đơn bữa ăn trong tuần</p>
+        </div>
+        <MenuTemplateTab schoolId={schoolId} canEdit={false} />
       </div>
     );
   }
