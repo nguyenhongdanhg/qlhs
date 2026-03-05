@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useImageExport } from '@/hooks/use-image-export';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,13 +15,14 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Download, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
+import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
 import * as XLSX from 'xlsx-js-style';
 
 interface ExitRequest {
@@ -52,7 +53,7 @@ export default function DormitoryExit() {
   const { hasPermission } = useSchool();
   const { toast } = useToast();
   const { exportAndShare, isExporting } = useImageExport();
-  const reportRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState('requests');
   const [classes, setClasses] = useState<Class[]>([]);
@@ -78,11 +79,18 @@ export default function DormitoryExit() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Share dialog
+  const [showShareDialog, setShowShareDialog] = useState(false);
+
+  // Delete confirm dialog
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
+  const canDelete = isSchoolAdmin() || isSuperAdmin;
   const canCreate = isClassTeacher || isSchoolAdmin() || isSuperAdmin;
 
-  // Fetch data
   useEffect(() => {
     if (!currentSchool) return;
     fetchData();
@@ -93,17 +101,11 @@ export default function DormitoryExit() {
     fetchRequests();
   }, [currentSchool, selectedDate, filterRange]);
 
-  // Realtime subscription
   useEffect(() => {
     if (!currentSchool) return;
     const channel = supabase
       .channel('dormitory-exit-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'dormitory_exit_requests',
-        filter: `school_id=eq.${currentSchool.id}`,
-      }, () => fetchRequests())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dormitory_exit_requests', filter: `school_id=eq.${currentSchool.id}` }, () => fetchRequests())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [currentSchool, selectedDate, filterRange]);
@@ -121,7 +123,6 @@ export default function DormitoryExit() {
   const fetchRequests = async () => {
     if (!currentSchool) return;
     setIsLoading(true);
-
     let startDate: string, endDate: string;
     const d = selectedDate;
     if (filterRange === 'day') {
@@ -147,7 +148,6 @@ export default function DormitoryExit() {
     setIsLoading(false);
   };
 
-  // Filtered students for class teacher
   const availableStudents = useMemo(() => {
     let filtered = students;
     if (isClassTeacher && currentMembership?.class_id) {
@@ -175,7 +175,17 @@ export default function DormitoryExit() {
   const approvedRequests = useMemo(() => filteredRequests.filter(r => r.status === 'approved'), [filteredRequests]);
   const rejectedRequests = useMemo(() => filteredRequests.filter(r => r.status === 'rejected'), [filteredRequests]);
 
-  // Create requests
+  // Group approved by class for stats display
+  const approvedByClass = useMemo(() => {
+    const map = new Map<string, ExitRequest[]>();
+    approvedRequests.forEach(r => {
+      const cls = r.class?.name || 'Không rõ';
+      if (!map.has(cls)) map.set(cls, []);
+      map.get(cls)!.push(r);
+    });
+    return map;
+  }, [approvedRequests]);
+
   const handleCreateRequest = async () => {
     if (!currentSchool || !user || selectedStudents.length === 0 || !exitTime || !returnTime) {
       toast({ title: 'Thiếu thông tin', description: 'Vui lòng chọn học sinh, giờ ra và giờ về', variant: 'destructive' });
@@ -196,10 +206,8 @@ export default function DormitoryExit() {
           requester_id: user.id,
         };
       });
-
       const { error } = await supabase.from('dormitory_exit_requests').insert(records);
       if (error) throw error;
-
       toast({ title: 'Đã gửi đơn', description: `Đã đăng ký ${selectedStudents.length} học sinh ra ngoài` });
       setShowCreateDialog(false);
       setSelectedStudents([]);
@@ -214,7 +222,6 @@ export default function DormitoryExit() {
     }
   };
 
-  // Approve request
   const handleApprove = async (requestId: string) => {
     if (!user) return;
     try {
@@ -223,45 +230,28 @@ export default function DormitoryExit() {
         .update({ status: 'approved', approver_id: user.id, approved_at: new Date().toISOString() })
         .eq('id', requestId);
       if (error) throw error;
-
-      // Auto-mark attendance as excused (RP) for approved request
       const request = requests.find(r => r.id === requestId);
-      if (request) {
-        await autoMarkExcused(request);
-      }
-
+      if (request) await autoMarkExcused(request);
       toast({ title: 'Đã duyệt', description: 'Đơn ra ngoài đã được phê duyệt' });
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     }
   };
 
-  // Auto mark excused in attendance
   const autoMarkExcused = async (request: ExitRequest) => {
     if (!currentSchool || !user) return;
-    const attendanceTypes: Array<'boarding' | 'breakfast' | 'lunch' | 'dinner' | 'evening_study'> = [
-      'boarding', 'breakfast', 'lunch', 'dinner', 'evening_study'
-    ];
-
-    // Determine which attendance types overlap with exit time
     const exitMinutes = timeToMinutes(request.exit_time);
     const returnMinutes = timeToMinutes(request.expected_return_time);
-
     const mealTimes: Record<string, [number, number]> = {
-      breakfast: [360, 480],    // 6:00 - 8:00
-      lunch: [660, 780],       // 11:00 - 13:00
-      dinner: [1020, 1140],    // 17:00 - 19:00
-      boarding: [360, 1380],   // 6:00 - 23:00
-      evening_study: [1140, 1320], // 19:00 - 22:00
+      breakfast: [360, 480], lunch: [660, 780], dinner: [1020, 1140],
+      boarding: [360, 1380], evening_study: [1140, 1320],
     };
-
-    const overlapping = attendanceTypes.filter(type => {
+    const types: Array<'boarding' | 'breakfast' | 'lunch' | 'dinner' | 'evening_study'> = ['boarding', 'breakfast', 'lunch', 'dinner', 'evening_study'];
+    const overlapping = types.filter(type => {
       const [start, end] = mealTimes[type];
       return exitMinutes < end && returnMinutes > start;
     });
-
     if (overlapping.length === 0) return;
-
     const records = overlapping.map(type => ({
       school_id: currentSchool.id,
       student_id: request.student_id,
@@ -270,10 +260,9 @@ export default function DormitoryExit() {
       attendance_type: type,
       status: 'excused' as const,
       excused_reason: 'RP',
-      notes: `Ra ngoài KTX: ${request.exit_time} - ${request.expected_return_time}${request.reason ? ` (${request.reason})` : ''}`,
+      notes: `Ra ngoài KTX: ${request.exit_time?.slice(0,5)} - ${request.expected_return_time?.slice(0,5)}${request.reason ? ` (${request.reason})` : ''}`,
       reporter_id: user.id,
     }));
-
     await supabase.from('attendance_records').insert(records);
   };
 
@@ -282,7 +271,6 @@ export default function DormitoryExit() {
     return h * 60 + m;
   };
 
-  // Reject request
   const handleReject = async () => {
     if (!rejectingId || !user) return;
     try {
@@ -291,7 +279,7 @@ export default function DormitoryExit() {
         .update({ status: 'rejected', approver_id: user.id, rejection_reason: rejectionReason || null })
         .eq('id', rejectingId);
       if (error) throw error;
-      toast({ title: 'Đã từ chối', description: 'Đơn ra ngoài đã bị từ chối' });
+      toast({ title: 'Đã từ chối' });
       setShowRejectDialog(false);
       setRejectingId(null);
       setRejectionReason('');
@@ -300,7 +288,6 @@ export default function DormitoryExit() {
     }
   };
 
-  // Approve all pending
   const handleApproveAll = async () => {
     if (!user || pendingRequests.length === 0) return;
     try {
@@ -310,13 +297,37 @@ export default function DormitoryExit() {
         .update({ status: 'approved', approver_id: user.id, approved_at: new Date().toISOString() })
         .in('id', ids);
       if (error) throw error;
-
-      // Auto-mark for all
-      for (const req of pendingRequests) {
-        await autoMarkExcused(req);
-      }
-
+      for (const req of pendingRequests) await autoMarkExcused(req);
       toast({ title: 'Đã duyệt tất cả', description: `${ids.length} đơn đã được phê duyệt` });
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  // Revoke approved → back to pending
+  const handleRevoke = async (requestId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('dormitory_exit_requests')
+        .update({ status: 'pending', approver_id: null, approved_at: null })
+        .eq('id', requestId);
+      if (error) throw error;
+      toast({ title: 'Đã thu hồi', description: 'Đơn đã chuyển về trạng thái chờ duyệt' });
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  // Delete request
+  const handleDelete = async () => {
+    if (!deletingId) return;
+    try {
+      const { error } = await supabase.from('dormitory_exit_requests').delete().eq('id', deletingId);
+      if (error) throw error;
+      toast({ title: 'Đã xóa' });
+      setShowDeleteDialog(false);
+      setDeletingId(null);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     }
@@ -335,40 +346,19 @@ export default function DormitoryExit() {
       'GVCN': r.requester?.full_name || '',
       'Người duyệt': r.approver?.full_name || '',
     }));
-
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ra vào KTX');
-
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 },
-      { wch: 8 }, { wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 },
-    ];
-
-    const rangeLabel = filterRange === 'day'
-      ? format(selectedDate, 'dd-MM-yyyy')
-      : filterRange === 'week'
-        ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}`
-        : format(selectedDate, 'MM-yyyy');
-
+    ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
+    const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     XLSX.writeFile(wb, `Ra_vao_KTX_${rangeLabel}.xlsx`);
-    toast({ title: 'Đã xuất Excel', description: 'File đã được tải xuống' });
+    toast({ title: 'Đã xuất Excel' });
   };
 
-  // Share image
-  const handleShareImage = () => {
-    if (reportRef.current) {
-      exportAndShare(reportRef, `Ra vào KTX - ${format(selectedDate, 'dd/MM/yyyy')}`, 'Danh sách học sinh ra ngoài KTX', 'share');
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending': return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">Chờ duyệt</Badge>;
-      case 'approved': return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">Đã duyệt</Badge>;
-      case 'rejected': return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">Từ chối</Badge>;
-      default: return null;
+  const handleShareDownload = (mode: 'share' | 'download') => {
+    if (imageRef.current) {
+      const title = `Ra vào KTX - ${format(selectedDate, 'dd/MM/yyyy')}`;
+      exportAndShare(imageRef, title, 'Danh sách học sinh ra ngoài KTX', mode);
     }
   };
 
@@ -378,10 +368,18 @@ export default function DormitoryExit() {
   };
 
   const dateLabel = filterRange === 'day'
-    ? format(selectedDate, 'dd/MM/yyyy')
+    ? format(selectedDate, 'EEEE, dd/MM/yyyy', { locale: vi })
     : filterRange === 'week'
       ? `${format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd/MM')} - ${format(endOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}`
-      : format(selectedDate, 'MM/yyyy');
+      : `Tháng ${format(selectedDate, 'MM/yyyy')}`;
+
+  const imageStudents = approvedRequests.map(r => ({
+    name: r.student?.full_name || '',
+    className: r.class?.name || '',
+    exitTime: r.exit_time?.slice(0, 5) || '',
+    returnTime: r.expected_return_time?.slice(0, 5) || '',
+    reason: r.reason || undefined,
+  }));
 
   return (
     <div className="space-y-4 p-4 pb-24 lg:pb-4">
@@ -392,7 +390,7 @@ export default function DormitoryExit() {
             <DoorOpen className="h-6 w-6 text-primary" />
             Ra vào KTX
           </h1>
-          <p className="text-sm text-muted-foreground">{dateLabel}</p>
+          <p className="text-sm text-muted-foreground capitalize">{dateLabel}</p>
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreateDialog(true)} size="sm">
@@ -401,56 +399,69 @@ export default function DormitoryExit() {
         )}
       </div>
 
+      {/* Summary stats */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card className="cursor-pointer" onClick={() => setActiveTab('requests')}>
+          <CardContent className="p-3 text-center">
+            <div className="text-2xl font-bold text-amber-600">{pendingRequests.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Chờ duyệt</div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer" onClick={() => setActiveTab('approved')}>
+          <CardContent className="p-3 text-center">
+            <div className="text-2xl font-bold text-green-600">{approvedRequests.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Đã duyệt</div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer" onClick={() => setActiveTab('rejected')}>
+          <CardContent className="p-3 text-center">
+            <div className="text-2xl font-bold text-destructive">{rejectedRequests.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase">Từ chối</div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filter bar */}
-      <Card>
-        <CardContent className="p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <CalendarIcon className="h-4 w-4" />
-                  {format(selectedDate, 'dd/MM/yyyy')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={vi} />
-              </PopoverContent>
-            </Popover>
+      <div className="flex flex-wrap items-center gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1">
+              <CalendarIcon className="h-4 w-4" />
+              {format(selectedDate, 'dd/MM/yyyy')}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={vi} />
+          </PopoverContent>
+        </Popover>
 
-            <Select value={filterRange} onValueChange={(v) => setFilterRange(v as FilterRange)}>
-              <SelectTrigger className="w-[100px] h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day">Ngày</SelectItem>
-                <SelectItem value="week">Tuần</SelectItem>
-                <SelectItem value="month">Tháng</SelectItem>
-              </SelectContent>
-            </Select>
+        <Select value={filterRange} onValueChange={(v) => setFilterRange(v as FilterRange)}>
+          <SelectTrigger className="w-[100px] h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="day">Ngày</SelectItem>
+            <SelectItem value="week">Tuần</SelectItem>
+            <SelectItem value="month">Tháng</SelectItem>
+          </SelectContent>
+        </Select>
 
-            <div className="flex-1 min-w-[150px]">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Tìm học sinh..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-8 text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={approvedRequests.length === 0}>
-                <FileSpreadsheet className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleShareImage} disabled={approvedRequests.length === 0 || isExporting}>
-                <Share2 className="h-4 w-4" />
-              </Button>
-            </div>
+        <div className="flex-1 min-w-[120px]">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Tìm HS..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 h-8 text-sm" />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <div className="flex gap-1">
+          <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={approvedRequests.length === 0} title="Xuất Excel">
+            <FileSpreadsheet className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowShareDialog(true)} disabled={approvedRequests.length === 0} title="Xuất ảnh">
+            <Image className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -458,12 +469,8 @@ export default function DormitoryExit() {
           <TabsTrigger value="requests" className="text-xs sm:text-sm">
             Chờ duyệt {pendingRequests.length > 0 && <Badge className="ml-1 h-5 px-1.5 text-[10px]" variant="destructive">{pendingRequests.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="approved" className="text-xs sm:text-sm">
-            Đã duyệt ({approvedRequests.length})
-          </TabsTrigger>
-          <TabsTrigger value="rejected" className="text-xs sm:text-sm">
-            Từ chối ({rejectedRequests.length})
-          </TabsTrigger>
+          <TabsTrigger value="approved" className="text-xs sm:text-sm">Đã duyệt</TabsTrigger>
+          <TabsTrigger value="rejected" className="text-xs sm:text-sm">Từ chối</TabsTrigger>
         </TabsList>
 
         {/* Pending tab */}
@@ -478,7 +485,7 @@ export default function DormitoryExit() {
           {isLoading ? (
             <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : pendingRequests.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-muted-foreground">Không có đơn chờ duyệt</CardContent></Card>
+            <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Không có đơn chờ duyệt</CardContent></Card>
           ) : (
             <div className="space-y-2">
               {pendingRequests.map(req => (
@@ -487,27 +494,33 @@ export default function DormitoryExit() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">{req.student?.full_name}</span>
+                          <span className="font-semibold text-sm">{req.student?.full_name}</span>
                           <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
-                          {getStatusBadge(req.status)}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{format(new Date(req.request_date), 'dd/MM/yyyy')}</span>
+                          <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{format(new Date(req.request_date), 'dd/MM')}</span>
                           <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}</span>
                         </div>
-                        {req.reason && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">Lý do: {req.reason}</p>}
+                        {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
                         <p className="text-[10px] text-muted-foreground mt-1">GVCN: {req.requester?.full_name}</p>
                       </div>
-                      {canApprove && (
-                        <div className="flex gap-1 shrink-0">
-                          <Button size="sm" variant="default" className="h-8 px-2" onClick={() => handleApprove(req.id)}>
-                            <Check className="h-4 w-4" />
+                      <div className="flex gap-1 shrink-0">
+                        {canApprove && (
+                          <>
+                            <Button size="icon" variant="default" className="h-8 w-8" onClick={() => handleApprove(req.id)} title="Duyệt">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="outline" className="h-8 w-8 text-destructive" onClick={() => { setRejectingId(req.id); setShowRejectDialog(true); }} title="Từ chối">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {canDelete && (
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }} title="Xóa">
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="outline" className="h-8 px-2 text-destructive" onClick={() => { setRejectingId(req.id); setShowRejectDialog(true); }}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -517,75 +530,86 @@ export default function DormitoryExit() {
         </TabsContent>
 
         {/* Approved tab */}
-        <TabsContent value="approved" className="mt-2">
-          <div ref={reportRef} className="bg-background">
-            {approvedRequests.length === 0 ? (
-              <Card><CardContent className="py-8 text-center text-muted-foreground">Không có đơn đã duyệt</CardContent></Card>
-            ) : (
-              <Card>
-                <CardHeader className="pb-2 px-3 pt-3">
-                  <CardTitle className="text-sm">
-                    Danh sách ra ngoài KTX - {dateLabel}
-                    {currentSchool && <span className="font-normal text-muted-foreground ml-1">({currentSchool.name})</span>}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-10 text-center text-xs">STT</TableHead>
-                          <TableHead className="text-xs">Họ và tên</TableHead>
-                          <TableHead className="text-xs">Lớp</TableHead>
-                          <TableHead className="text-xs text-center">Ngày</TableHead>
-                          <TableHead className="text-xs text-center">Ra</TableHead>
-                          <TableHead className="text-xs text-center">Về</TableHead>
-                          <TableHead className="text-xs">Lý do</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {approvedRequests.map((req, idx) => (
-                          <TableRow key={req.id}>
-                            <TableCell className="text-center text-xs">{idx + 1}</TableCell>
-                            <TableCell className="text-xs font-medium">{req.student?.full_name}</TableCell>
-                            <TableCell className="text-xs">{req.class?.name}</TableCell>
-                            <TableCell className="text-xs text-center">{format(new Date(req.request_date), 'dd/MM')}</TableCell>
-                            <TableCell className="text-xs text-center">{req.exit_time?.slice(0, 5)}</TableCell>
-                            <TableCell className="text-xs text-center">{req.expected_return_time?.slice(0, 5)}</TableCell>
-                            <TableCell className="text-xs">{req.reason || '-'}</TableCell>
-                          </TableRow>
+        <TabsContent value="approved" className="mt-2 space-y-2">
+          {approvedRequests.length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Không có đơn đã duyệt</CardContent></Card>
+          ) : (
+            <>
+              {/* Group by class */}
+              {Array.from(approvedByClass.entries())
+                .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
+                .map(([className, classReqs]) => (
+                  <Card key={className}>
+                    <CardHeader className="pb-1 px-3 pt-3">
+                      <CardTitle className="text-xs flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <span className="inline-block w-2 h-2 rounded-full bg-primary" />
+                          {className}
+                        </span>
+                        <Badge variant="outline" className="text-[10px]">{classReqs.length} HS</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 pt-1">
+                      <div className="space-y-1.5">
+                        {classReqs.map(req => (
+                          <div key={req.id} className="flex items-center justify-between text-xs border-b last:border-0 pb-1.5 last:pb-0">
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium">{req.student?.full_name}</span>
+                              <span className="text-muted-foreground ml-2">
+                                {req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}
+                              </span>
+                              {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
+                            </div>
+                            {canDelete && (
+                              <div className="flex gap-1 shrink-0 ml-2">
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-amber-600" onClick={() => handleRevoke(req.id)} title="Thu hồi">
+                                  <Undo2 className="h-3 w-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }} title="Xóa">
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+            </>
+          )}
         </TabsContent>
 
         {/* Rejected tab */}
         <TabsContent value="rejected" className="mt-2 space-y-2">
           {rejectedRequests.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-muted-foreground">Không có đơn bị từ chối</CardContent></Card>
+            <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Không có đơn bị từ chối</CardContent></Card>
           ) : rejectedRequests.map(req => (
             <Card key={req.id}>
               <CardContent className="p-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-sm">{req.student?.full_name}</span>
-                  <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
-                  {getStatusBadge(req.status)}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{req.student?.full_name}</span>
+                      <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                      <span>{format(new Date(req.request_date), 'dd/MM')}</span>
+                      <span>{req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}</span>
+                    </div>
+                    {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
+                    {req.rejection_reason && (
+                      <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {req.rejection_reason}
+                      </p>
+                    )}
+                  </div>
+                  {canDelete && (
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  <span>{format(new Date(req.request_date), 'dd/MM/yyyy')}</span>
-                  <span>{req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}</span>
-                </div>
-                {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
-                {req.rejection_reason && (
-                  <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> Lý do từ chối: {req.rejection_reason}
-                  </p>
-                )}
               </CardContent>
             </Card>
           ))}
@@ -595,13 +619,11 @@ export default function DormitoryExit() {
       {/* Create request dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Đăng ký ra ngoài KTX</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Đăng ký ra ngoài KTX</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-sm">Ngày ra ngoài</Label>
+                <Label className="text-sm">Ngày</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
@@ -623,38 +645,25 @@ export default function DormitoryExit() {
                 </div>
               </div>
             </div>
-
             <div>
               <Label className="text-sm">Lý do (không bắt buộc)</Label>
-              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do ra ngoài..." className="mt-1" rows={2} />
+              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1" rows={2} />
             </div>
-
             <div>
               <Label className="text-sm">Chọn học sinh ({selectedStudents.length} đã chọn)</Label>
-              <Input
-                placeholder="Tìm kiếm học sinh..."
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                className="mt-1 mb-2"
-              />
+              <Input placeholder="Tìm kiếm..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="mt-1 mb-2" />
               <div className="border rounded-md max-h-[250px] overflow-y-auto divide-y">
                 {availableStudents.map(student => (
                   <label key={student.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer">
                     <Checkbox
                       checked={selectedStudents.includes(student.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedStudents(prev =>
-                          checked ? [...prev, student.id] : prev.filter(id => id !== student.id)
-                        );
-                      }}
+                      onCheckedChange={(checked) => setSelectedStudents(prev => checked ? [...prev, student.id] : prev.filter(id => id !== student.id))}
                     />
                     <span className="text-sm flex-1">{student.full_name}</span>
                     <span className="text-xs text-muted-foreground">{getClassName(student.class_id || null)}</span>
                   </label>
                 ))}
-                {availableStudents.length === 0 && (
-                  <p className="text-center py-4 text-sm text-muted-foreground">Không tìm thấy học sinh</p>
-                )}
+                {availableStudents.length === 0 && <p className="text-center py-4 text-sm text-muted-foreground">Không tìm thấy</p>}
               </div>
             </div>
           </div>
@@ -680,6 +689,52 @@ export default function DormitoryExit() {
             <Button variant="outline" onClick={() => setShowRejectDialog(false)}>Hủy</Button>
             <Button variant="destructive" onClick={handleReject}>Từ chối</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Xác nhận xóa</DialogTitle></DialogHeader>
+          <DialogDescription>Bạn có chắc chắn muốn xóa đơn này? Hành động này không thể hoàn tác.</DialogDescription>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Hủy</Button>
+            <Button variant="destructive" onClick={handleDelete}>Xóa</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share/Download image dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Image className="h-5 w-5" />
+              Xuất ảnh báo cáo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center overflow-x-auto py-4">
+            <div className="scale-75 origin-top">
+              <DormitoryExitImageCard
+                ref={imageRef}
+                schoolName={currentSchool?.name || ''}
+                title="RA NGOÀI KÝ TÚC XÁ"
+                date={format(selectedDate, 'yyyy-MM-dd')}
+                totalApproved={approvedRequests.length}
+                students={imageStudents}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => handleShareDownload('download')} disabled={isExporting}>
+              {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
+              Tải ảnh
+            </Button>
+            <Button className="flex-1" onClick={() => handleShareDownload('share')} disabled={isExporting}>
+              {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
+              Chia sẻ
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
