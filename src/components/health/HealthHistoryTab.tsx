@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, subDays, differenceInHours } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
   CalendarIcon,
@@ -24,6 +23,9 @@ import {
   Trash2,
   Eye,
   Filter,
+  RotateCcw,
+  Archive,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Student, Class, HealthRecord, HealthTreatmentType } from '@/types';
@@ -60,6 +62,8 @@ export function HealthHistoryTab({
   const [filterType, setFilterType] = useState<'all' | HealthTreatmentType>('all');
   const [viewRecord, setViewRecord] = useState<HealthRecord | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<HealthRecord | null>(null);
+  const [permanentDeleteRecord, setPermanentDeleteRecord] = useState<any>(null);
+  const [showTrash, setShowTrash] = useState(false);
 
   // Calculate date range
   const { startDate, endDate } = useMemo(() => {
@@ -77,7 +81,7 @@ export function HealthHistoryTab({
     return { startDate: start, endDate: end };
   }, [dateRange, selectedDate]);
 
-  // Fetch health records with pagination to get all results
+  // Fetch health records
   const { data: records = [], isLoading } = useQuery({
     queryKey: ['health-records', schoolId, format(startDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -118,9 +122,14 @@ export function HealthHistoryTab({
     enabled: !!schoolId,
   });
 
-  // Filter records
+  // Separate active and trashed records
+  const activeRecords = useMemo(() => records.filter((r) => !r.deleted_at), [records]);
+  const trashedRecords = useMemo(() => records.filter((r) => !!r.deleted_at), [records]);
+
+  // Filter records based on current view
   const filteredRecords = useMemo(() => {
-    return records.filter((r) => {
+    const source = showTrash ? trashedRecords : activeRecords;
+    return source.filter((r) => {
       if (filterType !== 'all' && r.treatment_type !== filterType) return false;
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
@@ -131,36 +140,29 @@ export function HealthHistoryTab({
       }
       return true;
     });
-  }, [records, filterType, searchTerm]);
+  }, [activeRecords, trashedRecords, showTrash, filterType, searchTerm]);
 
-  // Delete mutation - restore medicine quantities before deleting
-  const deleteMutation = useMutation({
+  // Soft delete - restore medicines then mark as deleted
+  const softDeleteMutation = useMutation({
     mutationFn: async (record: any) => {
-      // If the record has medicines, restore their quantities to inventory
-      if (record.treatment_type === 'medicine' && record.medicines && record.medicines.length > 0) {
+      // Restore medicines to inventory
+      if (record.treatment_type === 'medicine' && record.medicines?.length > 0) {
         for (const item of record.medicines) {
-          // Get medicine_id from nested medicine object or direct field
           const medicineId = item.medicine?.id || item.medicine_id;
-          
           if (medicineId && item.quantity > 0) {
-            // Get current medicine quantity
             const { data: medicine, error: fetchError } = await supabase
               .from('medicines')
               .select('quantity')
               .eq('id', medicineId)
               .single();
-            
             if (fetchError) throw fetchError;
-            
-            // Update medicine quantity (add back the dispensed amount)
+
             const { error: updateError } = await supabase
               .from('medicines')
               .update({ quantity: (medicine?.quantity || 0) + item.quantity })
               .eq('id', medicineId);
-            
             if (updateError) throw updateError;
-            
-            // Record the return transaction
+
             const { error: txError } = await supabase
               .from('medicine_transactions')
               .insert({
@@ -168,20 +170,22 @@ export function HealthHistoryTab({
                 medicine_id: medicineId,
                 transaction_type: 'import',
                 quantity: item.quantity,
-                notes: `Hoàn trả từ xóa lịch sử (HS: ${record.student?.full_name || 'N/A'})`
+                notes: `Hoàn trả từ xóa tạm (HS: ${record.student?.full_name || 'N/A'})`,
               });
-            
             if (txError) throw txError;
           }
         }
       }
-      
-      // Delete the health record (health_record_medicines will cascade delete)
-      const { error } = await supabase.from('health_records').delete().eq('id', record.id);
+
+      // Soft delete
+      const { error } = await supabase
+        .from('health_records')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', record.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: 'Đã xóa', description: 'Đã xóa bản ghi và hoàn trả thuốc về kho' });
+      toast({ title: 'Đã chuyển vào thùng rác', description: 'Bản ghi sẽ bị xóa vĩnh viễn sau 3 ngày' });
       queryClient.invalidateQueries({ queryKey: ['health-records'] });
       queryClient.invalidateQueries({ queryKey: ['medicines'] });
       queryClient.invalidateQueries({ queryKey: ['medicine-transactions'] });
@@ -192,12 +196,103 @@ export function HealthHistoryTab({
     },
   });
 
+  // Restore from trash - re-deduct medicines
+  const restoreMutation = useMutation({
+    mutationFn: async (record: any) => {
+      // Re-deduct medicines from inventory
+      if (record.treatment_type === 'medicine' && record.medicines?.length > 0) {
+        for (const item of record.medicines) {
+          const medicineId = item.medicine?.id || item.medicine_id;
+          if (medicineId && item.quantity > 0) {
+            const { data: medicine, error: fetchError } = await supabase
+              .from('medicines')
+              .select('quantity')
+              .eq('id', medicineId)
+              .single();
+            if (fetchError) throw fetchError;
+
+            const newQty = Math.max(0, (medicine?.quantity || 0) - item.quantity);
+            const { error: updateError } = await supabase
+              .from('medicines')
+              .update({ quantity: newQty })
+              .eq('id', medicineId);
+            if (updateError) throw updateError;
+
+            const { error: txError } = await supabase
+              .from('medicine_transactions')
+              .insert({
+                school_id: record.school_id,
+                medicine_id: medicineId,
+                transaction_type: 'export',
+                quantity: item.quantity,
+                notes: `Khôi phục phát thuốc (HS: ${record.student?.full_name || 'N/A'})`,
+              });
+            if (txError) throw txError;
+          }
+        }
+      }
+
+      // Clear deleted_at
+      const { error } = await supabase
+        .from('health_records')
+        .update({ deleted_at: null })
+        .eq('id', record.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Đã khôi phục', description: 'Bản ghi đã được khôi phục thành công' });
+      queryClient.invalidateQueries({ queryKey: ['health-records'] });
+      queryClient.invalidateQueries({ queryKey: ['medicines'] });
+      queryClient.invalidateQueries({ queryKey: ['medicine-transactions'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Permanent delete
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async (record: any) => {
+      const { error } = await supabase.from('health_records').delete().eq('id', record.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Đã xóa vĩnh viễn', description: 'Bản ghi đã bị xóa hoàn toàn' });
+      queryClient.invalidateQueries({ queryKey: ['health-records'] });
+      setPermanentDeleteRecord(null);
+    },
+    onError: (error: any) => {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const getRemainingHours = (deletedAt: string) => {
+    const deleteTime = new Date(deletedAt);
+    const expiryTime = new Date(deleteTime.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const hoursLeft = differenceInHours(expiryTime, new Date());
+    return Math.max(0, hoursLeft);
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">Lịch sử chăm sóc sức khỏe</CardTitle>
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant={showTrash ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowTrash(!showTrash)}
+              className={showTrash ? 'bg-orange-600 hover:bg-orange-700' : ''}
+            >
+              <Archive className="h-4 w-4 mr-1" />
+              Thùng rác
+              {trashedRecords.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                  {trashedRecords.length}
+                </Badge>
+              )}
+            </Button>
             <div className="flex gap-1">
               {(['day', 'week', 'month'] as const).map((r) => (
                 <Button
@@ -230,6 +325,14 @@ export function HealthHistoryTab({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Trash banner */}
+        {showTrash && (
+          <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>Các bản ghi trong thùng rác sẽ bị xóa vĩnh viễn sau 3 ngày. Bạn có thể khôi phục trước thời hạn.</span>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
@@ -255,106 +358,146 @@ export function HealthHistoryTab({
           </Select>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="p-3 bg-green-50 rounded-lg text-center">
-            <p className="text-2xl font-bold text-green-700">
-              {records.filter((r) => r.treatment_type === 'medicine').length}
-            </p>
-            <p className="text-xs text-green-600">Phát thuốc</p>
+        {/* Stats - only show for active view */}
+        {!showTrash && (
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-3 bg-green-50 rounded-lg text-center">
+              <p className="text-2xl font-bold text-green-700">
+                {activeRecords.filter((r) => r.treatment_type === 'medicine').length}
+              </p>
+              <p className="text-xs text-green-600">Phát thuốc</p>
+            </div>
+            <div className="p-3 bg-yellow-50 rounded-lg text-center">
+              <p className="text-2xl font-bold text-yellow-700">
+                {activeRecords.filter((r) => r.treatment_type === 'first_aid').length}
+              </p>
+              <p className="text-xs text-yellow-600">Sơ cứu</p>
+            </div>
+            <div className="p-3 bg-red-50 rounded-lg text-center">
+              <p className="text-2xl font-bold text-red-700">
+                {activeRecords.filter((r) => r.treatment_type === 'hospital').length}
+              </p>
+              <p className="text-xs text-red-600">Vào viện</p>
+            </div>
           </div>
-          <div className="p-3 bg-yellow-50 rounded-lg text-center">
-            <p className="text-2xl font-bold text-yellow-700">
-              {records.filter((r) => r.treatment_type === 'first_aid').length}
-            </p>
-            <p className="text-xs text-yellow-600">Sơ cứu</p>
-          </div>
-          <div className="p-3 bg-red-50 rounded-lg text-center">
-            <p className="text-2xl font-bold text-red-700">
-              {records.filter((r) => r.treatment_type === 'hospital').length}
-            </p>
-            <p className="text-xs text-red-600">Vào viện</p>
-          </div>
-        </div>
+        )}
 
         {/* Table */}
         <div className="border rounded-lg">
           <div className="max-h-[500px] lg:max-h-[calc(100vh-420px)] overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">STT</TableHead>
-                <TableHead>Ngày</TableHead>
-                <TableHead>Học sinh</TableHead>
-                <TableHead>Chuẩn đoán</TableHead>
-                <TableHead>Xử lý</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRecords.map((record, idx) => {
-                const treatment = TREATMENT_LABELS[record.treatment_type as HealthTreatmentType];
-                const TreatmentIcon = treatment.icon;
-                return (
-                  <TableRow key={record.id}>
-                    <TableCell className="text-center text-muted-foreground text-xs">{idx + 1}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {format(new Date(record.record_date), 'dd/MM', { locale: vi })}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-sm">{record.student?.full_name}</p>
-                        <p className="text-xs text-muted-foreground">{record.student?.class?.name}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm line-clamp-2">{record.diagnosis}</p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={cn('gap-1', treatment.color)}>
-                        <TreatmentIcon className="h-3 w-3" />
-                        {treatment.label}
-                      </Badge>
-                      {record.parent_contacted && (
-                        <Badge variant="outline" className="ml-1 gap-1">
-                          <Phone className="h-3 w-3" />
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">STT</TableHead>
+                  <TableHead>Ngày</TableHead>
+                  <TableHead>Học sinh</TableHead>
+                  <TableHead>Chuẩn đoán</TableHead>
+                  <TableHead>Xử lý</TableHead>
+                  {showTrash && <TableHead>Còn lại</TableHead>}
+                  <TableHead className="text-right">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRecords.map((record, idx) => {
+                  const treatment = TREATMENT_LABELS[record.treatment_type as HealthTreatmentType];
+                  const TreatmentIcon = treatment.icon;
+                  const hoursLeft = record.deleted_at ? getRemainingHours(record.deleted_at) : 0;
+
+                  return (
+                    <TableRow key={record.id} className={showTrash ? 'opacity-75' : ''}>
+                      <TableCell className="text-center text-muted-foreground text-xs">{idx + 1}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {format(new Date(record.record_date), 'dd/MM', { locale: vi })}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-sm">{record.student?.full_name}</p>
+                          <p className="text-xs text-muted-foreground">{record.student?.class?.name}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm line-clamp-2">{record.diagnosis}</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={cn('gap-1', treatment.color)}>
+                          <TreatmentIcon className="h-3 w-3" />
+                          {treatment.label}
                         </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => setViewRecord(record)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {(isAdmin || record.reporter_id === userId) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteRecord(record)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        {record.parent_contacted && (
+                          <Badge variant="outline" className="ml-1 gap-1">
+                            <Phone className="h-3 w-3" />
+                          </Badge>
                         )}
-                      </div>
+                      </TableCell>
+                      {showTrash && (
+                        <TableCell>
+                          <Badge variant={hoursLeft <= 24 ? 'destructive' : 'secondary'} className="text-xs">
+                            {hoursLeft > 0 ? `${hoursLeft}h` : 'Hết hạn'}
+                          </Badge>
+                        </TableCell>
+                      )}
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {showTrash ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-green-600 hover:text-green-700"
+                                onClick={() => restoreMutation.mutate(record)}
+                                disabled={restoreMutation.isPending}
+                                title="Khôi phục"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                              {(isAdmin || record.reporter_id === userId) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => setPermanentDeleteRecord(record)}
+                                  title="Xóa vĩnh viễn"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => setViewRecord(record)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {(isAdmin || record.reporter_id === userId) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteRecord(record)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {filteredRecords.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={showTrash ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                      {showTrash ? 'Thùng rác trống' : 'Không có bản ghi trong khoảng thời gian này'}
                     </TableCell>
                   </TableRow>
-                );
-              })}
-              {filteredRecords.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Không có bản ghi trong khoảng thời gian này
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </div>
       </CardContent>
@@ -444,13 +587,13 @@ export function HealthHistoryTab({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm Dialog */}
+      {/* Soft Delete Confirm Dialog */}
       <Dialog open={!!deleteRecord} onOpenChange={() => setDeleteRecord(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Xác nhận xóa</DialogTitle>
             <DialogDescription>
-              Bạn có chắc muốn xóa bản ghi sức khỏe của học sinh "{deleteRecord?.student?.full_name}"?
+              Bản ghi sức khỏe của "{deleteRecord?.student?.full_name}" sẽ được chuyển vào thùng rác và tự động xóa vĩnh viễn sau 3 ngày. Bạn có thể khôi phục trước thời hạn.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -459,10 +602,37 @@ export function HealthHistoryTab({
             </Button>
             <Button
               variant="destructive"
-              onClick={() => deleteRecord && deleteMutation.mutate(deleteRecord)}
-              disabled={deleteMutation.isPending}
+              onClick={() => deleteRecord && softDeleteMutation.mutate(deleteRecord)}
+              disabled={softDeleteMutation.isPending}
             >
-              Xóa
+              Chuyển vào thùng rác
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent Delete Confirm Dialog */}
+      <Dialog open={!!permanentDeleteRecord} onOpenChange={() => setPermanentDeleteRecord(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Xóa vĩnh viễn
+            </DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa vĩnh viễn bản ghi của "{permanentDeleteRecord?.student?.full_name}"? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPermanentDeleteRecord(null)}>
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => permanentDeleteRecord && permanentDeleteMutation.mutate(permanentDeleteRecord)}
+              disabled={permanentDeleteMutation.isPending}
+            >
+              Xóa vĩnh viễn
             </Button>
           </DialogFooter>
         </DialogContent>
