@@ -912,10 +912,21 @@ export default function DutySchedule() {
             }
           }
           
-          // Last resort: ignore weekend quota
+          // Last resort: ignore weekend quota but still respect Sunday limit
           if (!maleAssigned) {
             for (const member of sortedMales) {
-              if (canAssignMember(member, true, false)) {
+              if (canAssignMember(member, true, false, true)) {
+                assignMember(member);
+                maleAssigned = true;
+                break;
+              }
+            }
+          }
+          
+          // Absolute last resort: ignore Sunday limit too
+          if (!maleAssigned) {
+            for (const member of sortedMales) {
+              if (canAssignMember(member, true, false, false)) {
                 assignMember(member);
                 maleAssigned = true;
                 break;
