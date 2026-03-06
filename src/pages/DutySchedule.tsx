@@ -952,7 +952,6 @@ export default function DutySchedule() {
               }
             }
           }
-          }
         }
 
         // Fill remaining slots (up to MAX_PER_DAY)
@@ -991,12 +990,23 @@ export default function DutySchedule() {
           }
         }
         
-        // Last resort: ignore weekend quota
+        // Last resort: ignore weekend quota but respect Sunday limit
         if (dayAssignments.length < MAX_PER_DAY) {
           for (const member of remainingMembers) {
             if (dayAssignments.length >= MAX_PER_DAY) break;
             
-            if (canAssignMember(member, true, false)) {
+            if (canAssignMember(member, true, false, true)) {
+              assignMember(member);
+            }
+          }
+        }
+        
+        // Absolute last resort: ignore Sunday limit too
+        if (dayAssignments.length < MAX_PER_DAY) {
+          for (const member of remainingMembers) {
+            if (dayAssignments.length >= MAX_PER_DAY) break;
+            
+            if (canAssignMember(member, true, false, false)) {
               assignMember(member);
             }
           }
