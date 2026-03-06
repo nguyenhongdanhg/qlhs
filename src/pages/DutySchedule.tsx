@@ -819,12 +819,17 @@ export default function DutySchedule() {
         const dayAssignments: string[] = [];
         
         // Helper to check if member can be assigned
-        const canAssignMember = (member: DutyMember, relaxGap: boolean = false, checkWeekendQuota: boolean = true) => {
+        const canAssignMember = (member: DutyMember, relaxGap: boolean = false, checkWeekendQuota: boolean = true, checkSundayLimit: boolean = true) => {
           if (dayAssignments.includes(member.id)) return false;
           if (memberCounts[member.id] >= memberQuota[member.id]) return false;
           
           // Check weekend quota for weekend days
           if (isWeekend && checkWeekendQuota && memberWeekendCounts[member.id] >= memberWeekendQuota[member.id]) {
+            return false;
+          }
+          
+          // Sunday limit: max 1 Sunday per person per month
+          if (isSunday && checkSundayLimit && memberSunCounts[member.id] >= 1) {
             return false;
           }
           
