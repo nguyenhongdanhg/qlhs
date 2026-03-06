@@ -48,6 +48,7 @@ interface DutyStatisticsTabProps {
   previousMonthSchedules: DutyScheduleType[];
   dutyMembers: DutyMember[];
   currentMonth: Date;
+  schoolName?: string;
 }
 
 export default function DutyStatisticsTab({
@@ -55,7 +56,13 @@ export default function DutyStatisticsTab({
   previousMonthSchedules,
   dutyMembers,
   currentMonth,
+  schoolName = '',
 }: DutyStatisticsTabProps) {
+  const { toast } = useToast();
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportPeriod, setExportPeriod] = useState<'month' | 'custom'>('month');
+  const [customStartDate, setCustomStartDate] = useState(format(startOfMonth(currentMonth), 'yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState(format(endOfMonth(currentMonth), 'yyyy-MM-dd'));
   const daysInMonth = useMemo(() => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
