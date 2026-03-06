@@ -819,12 +819,17 @@ export default function DutySchedule() {
         const dayAssignments: string[] = [];
         
         // Helper to check if member can be assigned
-        const canAssignMember = (member: DutyMember, relaxGap: boolean = false, checkWeekendQuota: boolean = true) => {
+        const canAssignMember = (member: DutyMember, relaxGap: boolean = false, checkWeekendQuota: boolean = true, checkSundayLimit: boolean = true) => {
           if (dayAssignments.includes(member.id)) return false;
           if (memberCounts[member.id] >= memberQuota[member.id]) return false;
           
           // Check weekend quota for weekend days
           if (isWeekend && checkWeekendQuota && memberWeekendCounts[member.id] >= memberWeekendQuota[member.id]) {
+            return false;
+          }
+          
+          // Sunday limit: max 1 Sunday per person per month
+          if (isSunday && checkSundayLimit && memberSunCounts[member.id] >= 1) {
             return false;
           }
           
@@ -907,10 +912,21 @@ export default function DutySchedule() {
             }
           }
           
-          // Last resort: ignore weekend quota
+          // Last resort: ignore weekend quota but still respect Sunday limit
           if (!maleAssigned) {
             for (const member of sortedMales) {
-              if (canAssignMember(member, true, false)) {
+              if (canAssignMember(member, true, false, true)) {
+                assignMember(member);
+                maleAssigned = true;
+                break;
+              }
+            }
+          }
+          
+          // Absolute last resort: ignore Sunday limit too
+          if (!maleAssigned) {
+            for (const member of sortedMales) {
+              if (canAssignMember(member, true, false, false)) {
                 assignMember(member);
                 maleAssigned = true;
                 break;
@@ -922,9 +938,18 @@ export default function DutySchedule() {
         // If no male was assigned, use oldest available female
         if (!maleAssigned && sortedFemalesByAge.length > 0) {
           for (const female of sortedFemalesByAge) {
-            if (canAssignMember(female, true, false)) {
+            if (canAssignMember(female, true, false, true)) {
               assignMember(female);
               break;
+            }
+          }
+          // If still not assigned due to Sunday limit, relax it
+          if (dayAssignments.length === 0) {
+            for (const female of sortedFemalesByAge) {
+              if (canAssignMember(female, true, false, false)) {
+                assignMember(female);
+                break;
+              }
             }
           }
         }
@@ -965,12 +990,23 @@ export default function DutySchedule() {
           }
         }
         
-        // Last resort: ignore weekend quota
+        // Last resort: ignore weekend quota but respect Sunday limit
         if (dayAssignments.length < MAX_PER_DAY) {
           for (const member of remainingMembers) {
             if (dayAssignments.length >= MAX_PER_DAY) break;
             
-            if (canAssignMember(member, true, false)) {
+            if (canAssignMember(member, true, false, true)) {
+              assignMember(member);
+            }
+          }
+        }
+        
+        // Absolute last resort: ignore Sunday limit too
+        if (dayAssignments.length < MAX_PER_DAY) {
+          for (const member of remainingMembers) {
+            if (dayAssignments.length >= MAX_PER_DAY) break;
+            
+            if (canAssignMember(member, true, false, false)) {
               assignMember(member);
             }
           }
