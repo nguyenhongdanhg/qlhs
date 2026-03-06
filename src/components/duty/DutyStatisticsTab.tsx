@@ -1,7 +1,26 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -12,8 +31,11 @@ import {
 } from '@/components/ui/table';
 import { DutySchedule as DutyScheduleType, Profile } from '@/types';
 import { format, getDay, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
-import { BarChart3, Calendar, Sun, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { vi } from 'date-fns/locale';
+import { BarChart3, Calendar, Sun, Trophy, TrendingUp, TrendingDown, Minus, Download, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { exportDutyAssignment } from '@/lib/duty-excel-export';
+import { useToast } from '@/hooks/use-toast';
 
 interface DutyMember extends Profile {
   dutyCount: number;
