@@ -1,7 +1,26 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -12,8 +31,11 @@ import {
 } from '@/components/ui/table';
 import { DutySchedule as DutyScheduleType, Profile } from '@/types';
 import { format, getDay, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from 'date-fns';
-import { BarChart3, Calendar, Sun, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { vi } from 'date-fns/locale';
+import { BarChart3, Calendar, Sun, Trophy, TrendingUp, TrendingDown, Minus, Download, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { exportDutyAssignment } from '@/lib/duty-excel-export';
+import { useToast } from '@/hooks/use-toast';
 
 interface DutyMember extends Profile {
   dutyCount: number;
@@ -26,6 +48,7 @@ interface DutyStatisticsTabProps {
   previousMonthSchedules: DutyScheduleType[];
   dutyMembers: DutyMember[];
   currentMonth: Date;
+  schoolName?: string;
 }
 
 export default function DutyStatisticsTab({
@@ -33,7 +56,13 @@ export default function DutyStatisticsTab({
   previousMonthSchedules,
   dutyMembers,
   currentMonth,
+  schoolName = '',
 }: DutyStatisticsTabProps) {
+  const { toast } = useToast();
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportPeriod, setExportPeriod] = useState<'month' | 'custom'>('month');
+  const [customStartDate, setCustomStartDate] = useState(format(startOfMonth(currentMonth), 'yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState(format(endOfMonth(currentMonth), 'yyyy-MM-dd'));
   const daysInMonth = useMemo(() => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
@@ -187,8 +216,79 @@ export default function DutyStatisticsTab({
     );
   };
 
+  const handleExport = () => {
+    const start = exportPeriod === 'month' ? startOfMonth(currentMonth) : new Date(customStartDate);
+    const end = exportPeriod === 'month' ? endOfMonth(currentMonth) : new Date(customEndDate);
+    
+    const periodLabel = exportPeriod === 'month'
+      ? `Tháng ${format(currentMonth, 'MM/yyyy')}`
+      : `Từ ${format(start, 'dd/MM/yyyy')} đến ${format(end, 'dd/MM/yyyy')}`;
+
+    exportDutyAssignment({
+      schoolName,
+      schedules,
+      dutyMembers,
+      periodLabel,
+      startDate: start,
+      endDate: end,
+    });
+
+    setShowExportDialog(false);
+    toast({ title: 'Thành công', description: 'Đã xuất file Excel báo cáo lịch trực' });
+  };
+
   return (
     <div className="space-y-4">
+      {/* Export Button */}
+      <div className="flex justify-end">
+        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              Xuất Excel
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Xuất báo cáo lịch trực</DialogTitle>
+              <DialogDescription>Chọn giai đoạn xuất báo cáo</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Giai đoạn</Label>
+                <Select value={exportPeriod} onValueChange={(v: 'month' | 'custom') => setExportPeriod(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Tháng hiện tại ({format(currentMonth, 'MM/yyyy')})</SelectItem>
+                    <SelectItem value="custom">Tùy chọn giai đoạn</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {exportPeriod === 'custom' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Từ ngày</Label>
+                    <Input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Đến ngày</Label>
+                    <Input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} />
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={handleExport} className="gap-2">
+                <Download className="h-4 w-4" />
+                Xuất báo cáo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
