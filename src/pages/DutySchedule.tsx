@@ -1823,6 +1823,7 @@ export default function DutySchedule() {
               previousMonthSchedules={previousMonthSchedules}
               dutyMembers={dutyMembers}
               currentMonth={currentMonth}
+              schoolName={currentSchool?.name || ''}
             />
           </TabsContent>
         )}
