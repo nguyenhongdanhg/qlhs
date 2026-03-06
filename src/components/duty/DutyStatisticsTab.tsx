@@ -216,8 +216,79 @@ export default function DutyStatisticsTab({
     );
   };
 
+  const handleExport = () => {
+    const start = exportPeriod === 'month' ? startOfMonth(currentMonth) : new Date(customStartDate);
+    const end = exportPeriod === 'month' ? endOfMonth(currentMonth) : new Date(customEndDate);
+    
+    const periodLabel = exportPeriod === 'month'
+      ? `Tháng ${format(currentMonth, 'MM/yyyy')}`
+      : `Từ ${format(start, 'dd/MM/yyyy')} đến ${format(end, 'dd/MM/yyyy')}`;
+
+    exportDutyAssignment({
+      schoolName,
+      schedules,
+      dutyMembers,
+      periodLabel,
+      startDate: start,
+      endDate: end,
+    });
+
+    setShowExportDialog(false);
+    toast({ title: 'Thành công', description: 'Đã xuất file Excel báo cáo lịch trực' });
+  };
+
   return (
     <div className="space-y-4">
+      {/* Export Button */}
+      <div className="flex justify-end">
+        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              Xuất Excel
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Xuất báo cáo lịch trực</DialogTitle>
+              <DialogDescription>Chọn giai đoạn xuất báo cáo</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Giai đoạn</Label>
+                <Select value={exportPeriod} onValueChange={(v: 'month' | 'custom') => setExportPeriod(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Tháng hiện tại ({format(currentMonth, 'MM/yyyy')})</SelectItem>
+                    <SelectItem value="custom">Tùy chọn giai đoạn</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {exportPeriod === 'custom' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Từ ngày</Label>
+                    <Input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Đến ngày</Label>
+                    <Input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} />
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={handleExport} className="gap-2">
+                <Download className="h-4 w-4" />
+                Xuất báo cáo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
