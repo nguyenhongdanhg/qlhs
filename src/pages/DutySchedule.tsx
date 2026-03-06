@@ -938,10 +938,20 @@ export default function DutySchedule() {
         // If no male was assigned, use oldest available female
         if (!maleAssigned && sortedFemalesByAge.length > 0) {
           for (const female of sortedFemalesByAge) {
-            if (canAssignMember(female, true, false)) {
+            if (canAssignMember(female, true, false, true)) {
               assignMember(female);
               break;
             }
+          }
+          // If still not assigned due to Sunday limit, relax it
+          if (dayAssignments.length === 0) {
+            for (const female of sortedFemalesByAge) {
+              if (canAssignMember(female, true, false, false)) {
+                assignMember(female);
+                break;
+              }
+            }
+          }
           }
         }
 
