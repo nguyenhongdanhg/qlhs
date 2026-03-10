@@ -651,7 +651,7 @@ export default function Dashboard() {
                   return (
                     <div className="space-y-2">
                       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${firstRowCount}, 1fr)` }}>
-                        {firstRow.map(({ grade, total, classCount, male, female }) => (
+                          {firstRow.map(({ grade, total, classCount, male, female }) => (
                           <div key={grade} className="text-center p-2.5 rounded-lg bg-muted/50 space-y-0.5">
                             <p className="text-sm font-bold text-primary">Khối {grade}</p>
                             <p className="text-lg font-bold text-foreground leading-tight">{total}</p>
@@ -659,6 +659,20 @@ export default function Dashboard() {
                             <div className="flex justify-center gap-2 text-xs">
                               <span className="text-blue-600">♂{male}</span>
                               <span className="text-pink-500">♀{female}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {secondRow.length > 0 && (
+                        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${secondRow.length}, 1fr)` }}>
+                          {secondRow.map(({ grade, total, classCount, male, female }) => (
+                            <div key={grade} className="text-center p-2.5 rounded-lg bg-muted/50 space-y-0.5">
+                              <p className="text-sm font-bold text-primary">Khối {grade}</p>
+                              <p className="text-lg font-bold text-foreground leading-tight">{total}</p>
+                              <p className="text-xs text-muted-foreground">{classCount} lớp</p>
+                              <div className="flex justify-center gap-2 text-xs">
+                                <span className="text-blue-600">♂{male}</span>
+                                <span className="text-pink-500">♀{female}</span>
                               </div>
                             </div>
                           ))}
