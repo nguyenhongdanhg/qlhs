@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { cn, naturalSort, vietnameseNameSortCompare } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
+import { SupplementInfoDialog } from '@/components/students/SupplementInfoDialog';
 import { exportStudentsToExcel, StudentImportRow } from '@/lib/excel-utils';
 
 export default function Students() {
@@ -70,6 +71,7 @@ export default function Students() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isSupplementOpen, setIsSupplementOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -848,6 +850,10 @@ export default function Students() {
                 <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
                   <FileSpreadsheet className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Nhập Excel</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsSupplementOpen(true)}>
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Bổ sung TT</span>
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleExportExcel}>
                   <Download className="h-4 w-4 mr-1" />
@@ -1805,6 +1811,15 @@ export default function Students() {
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
         onImport={handleExcelImport}
+      />
+
+      {/* Supplement Info Dialog */}
+      <SupplementInfoDialog
+        open={isSupplementOpen}
+        onOpenChange={setIsSupplementOpen}
+        students={students}
+        classes={classes}
+        onComplete={fetchData}
       />
 
       {/* Batch Update Dialog */}
