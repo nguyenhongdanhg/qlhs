@@ -76,27 +76,26 @@ function MenuSection({ title, items, isFeatureEnabled, isAdmin }: {
   if (filtered.length === 0) return null;
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">{title}</h3>
-      {filtered.map((item) => {
-        const Icon = item.icon;
-        return (
-          <Link key={item.code} to={item.path}>
-            <Card className="group transition-all hover:border-primary hover:shadow-md">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-sm">{item.label}</h3>
-                  <p className="text-xs text-muted-foreground">{item.description}</p>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
-              </CardContent>
-            </Card>
-          </Link>
-        );
-      })}
+    <div className="space-y-1">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1.5">{title}</h3>
+      <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+        {filtered.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.code}
+              to={item.path}
+              className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted active:bg-muted/80"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Icon className="h-4 w-4" />
+              </div>
+              <span className="flex-1 text-sm font-medium text-foreground">{item.label}</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -127,52 +126,34 @@ export default function MobileMenu() {
 
   return (
     <div className="content-wrapper animate-fade-in">
-      {/* User Profile Card */}
-      <Card className="mb-6 bg-primary text-primary-foreground">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-14 w-14 border-2 border-primary-foreground/20">
-              <AvatarFallback className="bg-primary-foreground/10 text-primary-foreground text-lg font-semibold">
-                {profile ? getInitials(profile.full_name) : 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold">{profile?.full_name || 'Người dùng'}</h2>
-              {roleBadge && (
-                <Badge
-                  variant={roleBadge.variant}
-                  className="mt-1 bg-primary-foreground/20 text-primary-foreground border-0"
-                >
-                  {roleBadge.label}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="page-header">
-        <h1 className="page-title flex items-center gap-2">
-          <Menu className="h-6 w-6" />
-          Menu
-        </h1>
+      {/* User Profile */}
+      <div className="flex items-center gap-3 mb-5 px-1">
+        <Avatar className="h-11 w-11 border-2 border-primary/20">
+          <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+            {profile ? getInitials(profile.full_name) : 'U'}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold truncate">{profile?.full_name || 'Người dùng'}</h2>
+          {roleBadge && (
+            <Badge variant={roleBadge.variant} className="text-[10px] px-1.5 py-0">
+              {roleBadge.label}
+            </Badge>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {isSuperAdmin && (
-          <Link to="/superadmin">
-            <Card className="group transition-all hover:border-primary hover:shadow-md border-primary/20 bg-primary/5">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-sm">Quản trị hệ thống</h3>
-                  <p className="text-xs text-muted-foreground">Super Admin</p>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
-              </CardContent>
-            </Card>
+          <Link
+            to="/superadmin"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-primary/20 bg-primary/5 transition-colors hover:bg-primary/10"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Building2 className="h-4 w-4" />
+            </div>
+            <span className="flex-1 text-sm font-medium">Quản trị hệ thống</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
         )}
 
@@ -182,31 +163,25 @@ export default function MobileMenu() {
         <MenuSection title="Cài đặt" items={settingsItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
 
         {/* Logout */}
-        <Card
-          className="group cursor-pointer transition-all hover:border-destructive hover:shadow-md"
+        <button
           onClick={() => signOut()}
+          className="flex w-full items-center gap-3 px-3 py-2.5 rounded-xl border border-border transition-colors hover:bg-destructive/5 hover:border-destructive/30"
         >
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive transition-colors group-hover:bg-destructive group-hover:text-destructive-foreground">
-              <LogOut className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-sm text-destructive">Đăng xuất</h3>
-              <p className="text-xs text-muted-foreground">Thoát khỏi tài khoản</p>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+            <LogOut className="h-4 w-4" />
+          </div>
+          <span className="flex-1 text-sm font-medium text-destructive text-left">Đăng xuất</span>
+        </button>
       </div>
 
-      {/* Footer */}
-      <div className="mt-8 text-center">
+      <div className="mt-6 text-center">
         <a
           href="https://zalo.me/0888770699"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-muted-foreground hover:text-primary"
+          className="text-xs text-muted-foreground hover:text-primary"
         >
-          Thiết kế bởi <span className="font-semibold text-primary">Thầy giáo Nguyễn Hồng Dân</span> - Zalo: 0888 770 699
+          Thiết kế bởi <span className="font-semibold text-primary">Thầy Nguyễn Hồng Dân</span>
         </a>
       </div>
     </div>
