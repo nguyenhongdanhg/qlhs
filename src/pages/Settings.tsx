@@ -20,6 +20,7 @@ import {
 import { MealSettingsCard } from '@/components/settings/MealSettingsCard';
 import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
 import { GoogleSheetsSettingsCard } from '@/components/settings/GoogleSheetsSettingsCard';
+import { ReportSyncSettingsCard } from '@/components/settings/ReportSyncSettingsCard';
 
 export default function Settings() {
   const { profile, currentMembership, user, refreshProfile, isSuperAdmin, currentSchool } = useAuth();
@@ -292,6 +293,11 @@ export default function Settings() {
         {/* Google Sheets Integration - Only for admin/super_admin */}
         {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (
           <GoogleSheetsSettingsCard />
+        )}
+
+        {/* Report Sync to Google Sheets - Only for admin/super_admin */}
+        {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (
+          <ReportSyncSettingsCard />
         )}
 
         {/* PWA Install */}

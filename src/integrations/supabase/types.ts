@@ -1093,6 +1093,47 @@ export type Database = {
           },
         ]
       }
+      report_spreadsheets: {
+        Row: {
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          report_type: string
+          school_id: string
+          spreadsheet_id: string
+          spreadsheet_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          report_type: string
+          school_id: string
+          spreadsheet_id: string
+          spreadsheet_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          report_type?: string
+          school_id?: string
+          spreadsheet_id?: string
+          spreadsheet_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_spreadsheets_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rice_inventory: {
         Row: {
           amount: number
