@@ -44,6 +44,7 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
+  { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
   { code: 'emulation', label: 'Thi đua', icon: Trophy, path: '/emulation' },
   {
     code: 'boarding_group', label: 'Quản lý nội trú', icon: Home,
