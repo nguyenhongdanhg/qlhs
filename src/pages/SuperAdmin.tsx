@@ -423,6 +423,17 @@ export default function SuperAdmin() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Chức năng"
+                            onClick={() => {
+                              setFeaturesSchool({ id: school.id, name: school.name });
+                              setFeaturesDialogOpen(true);
+                            }}
+                          >
+                            <Settings2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             title="Tạo Admin"
                             onClick={() => {
                               setAdminSchool({ id: school.id, name: school.name });
