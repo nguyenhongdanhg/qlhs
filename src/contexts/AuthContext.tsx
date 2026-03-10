@@ -37,35 +37,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = useCallback(async (userId: string) => {
     setIsProfileLoading(true);
     try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      // Parallel fetch: profile, global role, and memberships simultaneously
+      const [profileResult, globalRoleResult, membershipResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle(),
+        supabase
+          .from('global_roles')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('school_memberships')
+          .select(`
+            *,
+            school:schools(*)
+          `)
+          .eq('user_id', userId)
+          .eq('status', 'active'),
+      ]);
 
-      if (profileError) throw profileError;
-      setProfile(profileData as Profile);
+      if (profileResult.error) throw profileResult.error;
+      setProfile(profileResult.data as Profile);
 
-      // Check if super admin
-      const { data: globalRole } = await supabase
-        .from('global_roles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      setIsSuperAdmin(globalRoleResult.data?.role === 'super_admin');
 
-      setIsSuperAdmin(globalRole?.role === 'super_admin');
-
-      // Fetch memberships with school data
-      const { data: membershipData, error: membershipError } = await supabase
-        .from('school_memberships')
-        .select(`
-          *,
-          school:schools(*)
-        `)
-        .eq('user_id', userId)
-        .eq('status', 'active');
-
-      if (membershipError) throw membershipError;
+      if (membershipResult.error) throw membershipResult.error;
+      const membershipData = membershipResult.data;
 
       const typedMemberships = (membershipData || []).map(m => ({
         ...m,
