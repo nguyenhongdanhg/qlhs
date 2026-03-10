@@ -38,6 +38,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDialog';
+import SchoolFeaturesDialog from '@/components/superadmin/SchoolFeaturesDialog';
 
 export default function SuperAdmin() {
   const { isSuperAdmin } = useAuth();
