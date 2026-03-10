@@ -36,8 +36,10 @@ import {
   Edit,
   Trash2,
   UserPlus,
+  Settings2,
 } from 'lucide-react';
 import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDialog';
+import SchoolFeaturesDialog from '@/components/superadmin/SchoolFeaturesDialog';
 
 export default function SuperAdmin() {
   const { isSuperAdmin } = useAuth();
@@ -50,6 +52,8 @@ export default function SuperAdmin() {
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [adminSchool, setAdminSchool] = useState<{ id: string; name: string } | null>(null);
+  const [featuresDialogOpen, setFeaturesDialogOpen] = useState(false);
+  const [featuresSchool, setFeaturesSchool] = useState<{ id: string; name: string } | null>(null);
 
   const [formData, setFormData] = useState({
     code: '',
@@ -419,6 +423,17 @@ export default function SuperAdmin() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            title="Chức năng"
+                            onClick={() => {
+                              setFeaturesSchool({ id: school.id, name: school.name });
+                              setFeaturesDialogOpen(true);
+                            }}
+                          >
+                            <Settings2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             title="Tạo Admin"
                             onClick={() => {
                               setAdminSchool({ id: school.id, name: school.name });
@@ -468,6 +483,11 @@ export default function SuperAdmin() {
         onOpenChange={setAdminDialogOpen}
         school={adminSchool}
         onComplete={fetchData}
+      />
+      <SchoolFeaturesDialog
+        open={featuresDialogOpen}
+        onOpenChange={setFeaturesDialogOpen}
+        school={featuresSchool}
       />
     </div>
   );
