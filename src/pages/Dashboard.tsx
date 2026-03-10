@@ -453,10 +453,13 @@ export default function Dashboard() {
         </div>
         {/* Quick stats badges */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-primary/10 text-primary rounded-full px-3 py-1.5 text-sm font-semibold">
+          <Link
+            to="/students"
+            className="flex items-center gap-1.5 bg-primary/10 text-primary rounded-full px-3 py-1.5 text-sm font-semibold hover:bg-primary/20 transition-colors"
+          >
             <Users className="h-4 w-4" />
             {stats?.totalStudents || 0}
-          </div>
+          </Link>
           <div className="flex items-center gap-1.5 bg-accent/10 text-accent rounded-full px-3 py-1.5 text-sm font-semibold">
             <Home className="h-4 w-4" />
             {stats?.boardingStudents || 0}
