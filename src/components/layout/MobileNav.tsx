@@ -4,50 +4,36 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import {
   LayoutDashboard,
-  Users,
-  Moon,
   Home,
   UtensilsCrossed,
-  BarChart3,
-  CalendarDays,
-  UserCog,
-  Settings,
+  Trophy,
   Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard,
-  Users,
-  Moon,
-  Home,
-  UtensilsCrossed,
-  BarChart3,
-  CalendarDays,
-  UserCog,
-  Settings,
-  Menu,
-};
-
 interface NavItem {
   code: string;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   path: string;
-  adminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { code: 'dashboard', label: 'Tổng quan', icon: 'LayoutDashboard', path: '/dashboard' },
-  { code: 'students', label: 'Học sinh', icon: 'Users', path: '/students' },
-  { code: 'meals', label: 'Bữa ăn', icon: 'UtensilsCrossed', path: '/meals' },
-  { code: 'boarding', label: 'Nội trú', icon: 'Home', path: '/boarding' },
-  { code: 'evening_study', label: 'Tự học', icon: 'Moon', path: '/evening-study' },
-  { code: 'menu', label: 'Thêm', icon: 'Menu', path: '/menu' },
+  { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
+  { code: 'emulation', label: 'Thi đua', icon: Trophy, path: '/emulation' },
+  { code: 'boarding_group', label: 'Nội trú', icon: Home, path: '/boarding' },
+  { code: 'meal_group', label: 'Bữa ăn', icon: UtensilsCrossed, path: '/meals' },
+  { code: 'menu', label: 'Thêm', icon: Menu, path: '/menu' },
 ];
 
-// Items already in bottom nav - to exclude from menu page
-export const bottomNavCodes = ['dashboard', 'students', 'meals', 'boarding', 'evening_study'];
+// Feature codes that map to groups for bottom nav visibility
+const groupFeatureCodes: Record<string, string[]> = {
+  boarding_group: ['boarding', 'evening_study', 'duty_schedule', 'dormitory_exit'],
+  meal_group: ['meals', 'meal_menu'],
+};
+
+// Items shown in bottom nav - used by MobileMenu to exclude
+export const bottomNavCodes = ['dashboard', 'emulation', 'boarding', 'meals'];
 
 export const MobileNav = memo(function MobileNav() {
   const location = useLocation();
@@ -55,17 +41,29 @@ export const MobileNav = memo(function MobileNav() {
   const { isFeatureEnabled } = useSchool();
 
   const filteredNavItems = useMemo(() => navItems.filter((item) => {
-    if (item.code === 'menu') return true;
-    if (!isFeatureEnabled(item.code)) return false;
-    if (item.adminOnly && !isSchoolAdmin()) return false;
-    return true;
-  }).slice(0, 6), [isFeatureEnabled, isSchoolAdmin]); // Max 6 items
+    if (item.code === 'dashboard' || item.code === 'menu') return true;
+    const featureCodes = groupFeatureCodes[item.code];
+    if (featureCodes) {
+      return featureCodes.some(code => isFeatureEnabled(code));
+    }
+    return isFeatureEnabled(item.code);
+  }), [isFeatureEnabled, isSchoolAdmin]);
+
+  const isActive = (item: NavItem) => {
+    if (item.code === 'boarding_group') {
+      return ['/boarding', '/evening-study', '/duty-schedule', '/dormitory-exit'].includes(location.pathname);
+    }
+    if (item.code === 'meal_group') {
+      return ['/meals', '/meal-menu'].includes(location.pathname);
+    }
+    return location.pathname === item.path;
+  };
 
   return (
     <nav className="mobile-nav lg:hidden">
       {filteredNavItems.map((item) => {
-        const Icon = iconMap[item.icon] || LayoutDashboard;
-        const isActive = location.pathname === item.path;
+        const Icon = item.icon;
+        const active = isActive(item);
 
         return (
           <Link
@@ -73,16 +71,16 @@ export const MobileNav = memo(function MobileNav() {
             to={item.path}
             className={cn(
               'mobile-nav-item tap-target',
-              isActive
+              active
                 ? 'text-primary font-semibold'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <div className={cn(
               'rounded-xl p-1.5 transition-all duration-200',
-              isActive ? 'bg-primary/10' : 'bg-transparent'
+              active ? 'bg-primary/10' : 'bg-transparent'
             )}>
-              <Icon className={cn('h-5 w-5', isActive && 'scale-110')} />
+              <Icon className={cn('h-5 w-5', active && 'scale-110')} />
             </div>
             <span className="font-medium">{item.label}</span>
           </Link>
