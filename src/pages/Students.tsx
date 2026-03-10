@@ -1435,43 +1435,82 @@ export default function Students() {
               return today.getFullYear() - birth.getFullYear();
             };
 
-            interface GroupStats {
+            // Unique values for filters
+            const allEthnicities = [...new Set(students.map(s => s.ethnicity).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'vi'));
+            const allGrades = [...new Set(classes.map(c => c.grade))].sort((a, b) => a - b);
+            const sortedClasses = [...classes].sort((a, b) => a.grade !== b.grade ? a.grade - b.grade : a.name.localeCompare(b.name, 'vi'));
+
+            // Apply filters
+            let filtered = [...students];
+            if (statsGenderFilter && statsGenderFilter !== 'all') {
+              filtered = filtered.filter(s => s.gender === statsGenderFilter);
+            }
+            if (statsEthnicityFilter && statsEthnicityFilter !== 'all') {
+              filtered = filtered.filter(s => (s.ethnicity || 'Chưa rõ') === statsEthnicityFilter);
+            }
+            if (statsGradeFilter && statsGradeFilter !== 'all') {
+              const grade = parseInt(statsGradeFilter);
+              filtered = filtered.filter(s => s.class?.grade === grade);
+            }
+            if (statsClassFilter && statsClassFilter !== 'all') {
+              filtered = filtered.filter(s => s.class_id === statsClassFilter);
+            }
+
+            // Build summary by group
+            interface GroupRow {
               label: string;
               total: number;
               male: number;
               female: number;
+              genderUnknown: number;
+              boarding: number;
               ethnicities: Record<string, number>;
-              ages: Record<string, number>;
-              addresses: Record<string, number>;
+              ages: Record<number, number>;
+              ageUnknown: number;
+              missingEthnicity: number;
+              missingPhone: number;
+              missingParentPhone: number;
+              missingAddress: number;
+              missingCccd: number;
             }
 
-            const buildStats = (label: string, list: typeof students): GroupStats => {
-              const s: GroupStats = { label, total: list.length, male: 0, female: 0, ethnicities: {}, ages: {}, addresses: {} };
+            const buildRow = (label: string, list: typeof students): GroupRow => {
+              const row: GroupRow = {
+                label, total: list.length, male: 0, female: 0, genderUnknown: 0,
+                boarding: 0, ethnicities: {}, ages: {}, ageUnknown: 0,
+                missingEthnicity: 0, missingPhone: 0, missingParentPhone: 0,
+                missingAddress: 0, missingCccd: 0,
+              };
               list.forEach(st => {
-                if (st.gender === 'male') s.male++;
-                if (st.gender === 'female') s.female++;
-                const eth = st.ethnicity || 'Chưa rõ';
-                s.ethnicities[eth] = (s.ethnicities[eth] || 0) + 1;
+                if (st.gender === 'male') row.male++;
+                else if (st.gender === 'female') row.female++;
+                else row.genderUnknown++;
+                if (st.is_boarding) row.boarding++;
+                const eth = st.ethnicity || '';
+                if (eth) row.ethnicities[eth] = (row.ethnicities[eth] || 0) + 1;
+                else row.missingEthnicity++;
                 const age = getAge(st.date_of_birth);
-                const ageKey = age ? `${age}` : 'Chưa rõ';
-                s.ages[ageKey] = (s.ages[ageKey] || 0) + 1;
-                const addr = st.address || 'Chưa rõ';
-                s.addresses[addr] = (s.addresses[addr] || 0) + 1;
+                if (age) row.ages[age] = (row.ages[age] || 0) + 1;
+                else row.ageUnknown++;
+                if (!st.phone) row.missingPhone++;
+                if (!st.parent_phone) row.missingParentPhone++;
+                if (!st.address) row.missingAddress++;
+                if (!st.cccd || st.cccd.startsWith('HS')) row.missingCccd++;
               });
-              return s;
+              return row;
             };
 
-            let groups: GroupStats[] = [];
+            let rows: GroupRow[] = [];
             if (statsView === 'school') {
-              groups = [buildStats('Toàn trường', students)];
+              rows = [buildRow('Toàn trường', filtered)];
             } else if (statsView === 'level') {
-              const thcs = students.filter(s => s.class && s.class.grade <= 9);
-              const thpt = students.filter(s => s.class && s.class.grade >= 10);
-              if (thcs.length > 0) groups.push(buildStats('THCS', thcs));
-              if (thpt.length > 0) groups.push(buildStats('THPT', thpt));
+              const thcs = filtered.filter(s => s.class && s.class.grade <= 9);
+              const thpt = filtered.filter(s => s.class && s.class.grade >= 10);
+              if (thcs.length > 0) rows.push(buildRow('THCS', thcs));
+              if (thpt.length > 0) rows.push(buildRow('THPT', thpt));
             } else if (statsView === 'grade') {
               const gradeMap = new Map<number, typeof students>();
-              students.forEach(s => {
+              filtered.forEach(s => {
                 const g = s.class?.grade;
                 if (g !== undefined) {
                   if (!gradeMap.has(g)) gradeMap.set(g, []);
@@ -1479,174 +1518,301 @@ export default function Students() {
                 }
               });
               Array.from(gradeMap.entries()).sort(([a], [b]) => a - b).forEach(([g, list]) => {
-                groups.push(buildStats(`Khối ${g}`, list));
+                rows.push(buildRow(`Khối ${g}`, list));
               });
             } else {
               const classMap = new Map<string, typeof students>();
-              students.forEach(s => {
+              filtered.forEach(s => {
                 const cn = s.class?.name || 'Chưa xếp';
                 if (!classMap.has(cn)) classMap.set(cn, []);
                 classMap.get(cn)!.push(s);
               });
-              const sortedClasses = [...classes].sort((a, b) => {
-                if (a.grade !== b.grade) return a.grade - b.grade;
-                return a.name.localeCompare(b.name, 'vi');
-              });
               sortedClasses.forEach(cls => {
                 const list = classMap.get(cls.name);
-                if (list && list.length > 0) groups.push(buildStats(cls.name, list));
+                if (list && list.length > 0) rows.push(buildRow(cls.name, list));
               });
               const unassigned = classMap.get('Chưa xếp');
-              if (unassigned && unassigned.length > 0) groups.push(buildStats('Chưa xếp', unassigned));
+              if (unassigned && unassigned.length > 0) rows.push(buildRow('Chưa xếp', unassigned));
             }
 
-            const sortEntries = (obj: Record<string, number>) =>
-              Object.entries(obj).sort(([, a], [, b]) => b - a);
+            // Total row
+            const totalRow = rows.length > 1 ? buildRow('Tổng cộng', filtered) : null;
+
+            // All unique ethnicities across rows for columns
+            const ethColumns = [...new Set(filtered.map(s => s.ethnicity).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'vi')) as string[];
 
             const filterLabels = {
-              gender: 'Giới tính',
+              summary: 'Tổng hợp',
               ethnicity: 'Dân tộc',
-              age: 'Độ tuổi',
-              address: 'Địa chỉ',
+              missing: 'TT thiếu',
             };
 
-            const ProgressBar = ({ value, max, color }: { value: number; max: number; color: string }) => (
-              <div className="flex items-center gap-2 flex-1">
-                <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${color}`}
-                    style={{ width: `${max > 0 ? (value / max) * 100 : 0}%` }}
-                  />
-                </div>
-                <span className="text-xs font-medium tabular-nums w-16 text-right">
-                  {value} ({max > 0 ? ((value / max) * 100).toFixed(0) : 0}%)
-                </span>
-              </div>
-            );
-
-            const renderStatsContent = (group: GroupStats) => {
-              if (statsFilter === 'gender') {
-                const unknown = group.total - group.male - group.female;
-                return (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs w-10 text-muted-foreground">Nam</span>
-                      <ProgressBar value={group.male} max={group.total} color="bg-blue-500" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs w-10 text-muted-foreground">Nữ</span>
-                      <ProgressBar value={group.female} max={group.total} color="bg-pink-500" />
-                    </div>
-                    {unknown > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs w-10 text-muted-foreground">N/A</span>
-                        <ProgressBar value={unknown} max={group.total} color="bg-muted-foreground/30" />
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              if (statsFilter === 'ethnicity') {
-                const entries = sortEntries(group.ethnicities);
-                return (
-                  <div className="space-y-1.5">
-                    {entries.map(([eth, count]) => (
-                      <div key={eth} className="flex items-center gap-2">
-                        <span className="text-xs w-20 truncate text-muted-foreground" title={eth}>{eth}</span>
-                        <ProgressBar value={count} max={group.total} color="bg-primary" />
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-
-              if (statsFilter === 'age') {
-                const entries = sortEntries(group.ages).sort(([a], [b]) => {
-                  if (a === 'Chưa rõ') return 1;
-                  if (b === 'Chưa rõ') return -1;
-                  return parseInt(a) - parseInt(b);
-                });
-                return (
-                  <div className="space-y-1.5">
-                    {entries.map(([age, count]) => (
-                      <div key={age} className="flex items-center gap-2">
-                        <span className="text-xs w-20 text-muted-foreground">{age === 'Chưa rõ' ? age : `${age} tuổi`}</span>
-                        <ProgressBar value={count} max={group.total} color="bg-accent-foreground/60" />
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-
-              // address
-              const entries = sortEntries(group.addresses);
-              return (
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {entries.slice(0, 30).map(([addr, count]) => (
-                    <div key={addr} className="flex items-center gap-2">
-                      <span className="text-xs w-32 truncate text-muted-foreground" title={addr}>{addr}</span>
-                      <ProgressBar value={count} max={group.total} color="bg-secondary-foreground/40" />
-                    </div>
-                  ))}
-                  {entries.length > 30 && (
-                    <p className="text-xs text-muted-foreground pl-1">...và {entries.length - 30} địa chỉ khác</p>
-                  )}
-                </div>
-              );
-            };
+            const filteredClassOptions = statsGradeFilter && statsGradeFilter !== 'all'
+              ? sortedClasses.filter(c => c.grade === parseInt(statsGradeFilter))
+              : sortedClasses;
 
             return (
               <>
-                {/* View mode */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {(['school', 'level', 'grade', 'class'] as const).map(v => (
-                    <Button
-                      key={v}
-                      variant={statsView === v ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setStatsView(v)}
-                      className="whitespace-nowrap text-xs h-8"
-                    >
-                      {v === 'school' ? 'Toàn trường' : v === 'level' ? 'Bậc học' : v === 'grade' ? 'Khối' : 'Lớp'}
+                {/* Filters */}
+                <Card className="mb-3">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">Bộ lọc</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <Select value={statsGradeFilter} onValueChange={(v) => { setStatsGradeFilter(v); setStatsClassFilter('all'); }}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Khối" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả khối</SelectItem>
+                          {allGrades.map(g => (
+                            <SelectItem key={g} value={String(g)}>Khối {g}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={statsClassFilter} onValueChange={setStatsClassFilter}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Lớp" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả lớp</SelectItem>
+                          {filteredClassOptions.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={statsGenderFilter} onValueChange={setStatsGenderFilter}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Giới tính" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả</SelectItem>
+                          <SelectItem value="male">Nam</SelectItem>
+                          <SelectItem value="female">Nữ</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={statsEthnicityFilter} onValueChange={setStatsEthnicityFilter}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Dân tộc" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả</SelectItem>
+                          <SelectItem value="Chưa rõ">Chưa rõ</SelectItem>
+                          {allEthnicities.map(e => (
+                            <SelectItem key={e} value={e!}>{e}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* View mode + data type */}
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['school', 'level', 'grade', 'class'] as const).map(v => (
+                      <Button
+                        key={v}
+                        variant={statsView === v ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setStatsView(v)}
+                        className="whitespace-nowrap text-xs h-7"
+                      >
+                        {v === 'school' ? 'Toàn trường' : v === 'level' ? 'Bậc học' : v === 'grade' ? 'Khối' : 'Lớp'}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="flex gap-1">
+                    {(Object.entries(filterLabels) as [typeof statsFilter, string][]).map(([key, label]) => (
+                      <Badge
+                        key={key}
+                        variant={statsFilter === key ? 'default' : 'outline'}
+                        className={cn(
+                          "cursor-pointer text-xs px-2.5 py-0.5 transition-colors",
+                          statsFilter === key && "bg-primary text-primary-foreground"
+                        )}
+                        onClick={() => setStatsFilter(key)}
+                      >
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Filter info */}
+                {(statsGenderFilter !== 'all' || statsEthnicityFilter !== 'all' || statsGradeFilter !== 'all' || statsClassFilter !== 'all') && (
+                  <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                    <span>Đang lọc: {filtered.length}/{students.length} HS</span>
+                    <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => {
+                      setStatsGradeFilter('all'); setStatsClassFilter('all');
+                      setStatsGenderFilter('all'); setStatsEthnicityFilter('all');
+                    }}>
+                      Xoá lọc
                     </Button>
-                  ))}
-                </div>
+                  </div>
+                )}
 
-                {/* Filter type */}
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {(Object.entries(filterLabels) as [typeof statsFilter, string][]).map(([key, label]) => (
-                    <Badge
-                      key={key}
-                      variant={statsFilter === key ? 'default' : 'outline'}
-                      className={cn(
-                        "cursor-pointer text-xs px-3 py-1 transition-colors",
-                        statsFilter === key && "bg-primary text-primary-foreground"
-                      )}
-                      onClick={() => setStatsFilter(key)}
-                    >
-                      {label}
-                    </Badge>
-                  ))}
-                </div>
+                {/* Summary Table */}
+                {statsFilter === 'summary' && (
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs font-semibold sticky left-0 bg-background z-10 min-w-[80px]">Nhóm</TableHead>
+                            <TableHead className="text-xs text-center w-14">Sĩ số</TableHead>
+                            <TableHead className="text-xs text-center w-12">Nam</TableHead>
+                            <TableHead className="text-xs text-center w-12">Nữ</TableHead>
+                            <TableHead className="text-xs text-center w-14">Nội trú</TableHead>
+                            <TableHead className="text-xs text-center w-14">Ngoại trú</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map(row => (
+                            <TableRow key={row.label}>
+                              <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{row.label}</TableCell>
+                              <TableCell className="text-xs text-center font-semibold">{row.total}</TableCell>
+                              <TableCell className="text-xs text-center text-blue-600">{row.male}</TableCell>
+                              <TableCell className="text-xs text-center text-pink-600">{row.female}</TableCell>
+                              <TableCell className="text-xs text-center">{row.boarding}</TableCell>
+                              <TableCell className="text-xs text-center">{row.total - row.boarding}</TableCell>
+                            </TableRow>
+                          ))}
+                          {totalRow && (
+                            <TableRow className="bg-muted/50 font-semibold">
+                              <TableCell className="text-xs font-bold sticky left-0 bg-muted/50 z-10">{totalRow.label}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.total}</TableCell>
+                              <TableCell className="text-xs text-center text-blue-600 font-bold">{totalRow.male}</TableCell>
+                              <TableCell className="text-xs text-center text-pink-600 font-bold">{totalRow.female}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.boarding}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.total - totalRow.boarding}</TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                )}
 
-                {/* Stats cards */}
-                <div className={cn(
-                  "gap-3",
-                  groups.length === 1 ? "space-y-3" : "grid grid-cols-1 md:grid-cols-2"
-                )}>
-                  {groups.map(group => (
-                    <Card key={group.label} className="overflow-hidden">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="font-semibold text-sm">{group.label}</h3>
-                          <Badge variant="secondary" className="text-xs">{group.total} HS</Badge>
-                        </div>
-                        {renderStatsContent(group)}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                {/* Ethnicity Table */}
+                {statsFilter === 'ethnicity' && (
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs font-semibold sticky left-0 bg-background z-10 min-w-[80px]">Nhóm</TableHead>
+                            <TableHead className="text-xs text-center w-12">Tổng</TableHead>
+                            {ethColumns.map(eth => (
+                              <TableHead key={eth} className="text-xs text-center min-w-[50px]">{eth}</TableHead>
+                            ))}
+                            <TableHead className="text-xs text-center min-w-[60px]">Chưa rõ</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map(row => (
+                            <TableRow key={row.label}>
+                              <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{row.label}</TableCell>
+                              <TableCell className="text-xs text-center font-semibold">{row.total}</TableCell>
+                              {ethColumns.map(eth => (
+                                <TableCell key={eth} className="text-xs text-center">
+                                  {row.ethnicities[eth] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600">
+                                {row.missingEthnicity || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {totalRow && (
+                            <TableRow className="bg-muted/50 font-semibold">
+                              <TableCell className="text-xs font-bold sticky left-0 bg-muted/50 z-10">{totalRow.label}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.total}</TableCell>
+                              {ethColumns.map(eth => (
+                                <TableCell key={eth} className="text-xs text-center font-bold">
+                                  {totalRow.ethnicities[eth] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600 font-bold">
+                                {totalRow.missingEthnicity || '-'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Missing Info Table */}
+                {statsFilter === 'missing' && (
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs font-semibold sticky left-0 bg-background z-10 min-w-[80px]">Nhóm</TableHead>
+                            <TableHead className="text-xs text-center w-12">Sĩ số</TableHead>
+                            <TableHead className="text-xs text-center min-w-[55px]">Dân tộc</TableHead>
+                            <TableHead className="text-xs text-center min-w-[50px]">CCCD</TableHead>
+                            <TableHead className="text-xs text-center min-w-[50px]">SĐT HS</TableHead>
+                            <TableHead className="text-xs text-center min-w-[55px]">SĐT PH</TableHead>
+                            <TableHead className="text-xs text-center min-w-[55px]">Địa chỉ</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map(row => (
+                            <TableRow key={row.label}>
+                              <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{row.label}</TableCell>
+                              <TableCell className="text-xs text-center">{row.total}</TableCell>
+                              <TableCell className={cn("text-xs text-center", row.missingEthnicity > 0 && "text-destructive font-medium")}>
+                                {row.missingEthnicity || '✓'}
+                              </TableCell>
+                              <TableCell className={cn("text-xs text-center", row.missingCccd > 0 && "text-destructive font-medium")}>
+                                {row.missingCccd || '✓'}
+                              </TableCell>
+                              <TableCell className={cn("text-xs text-center", row.missingPhone > 0 && "text-orange-600 font-medium")}>
+                                {row.missingPhone || '✓'}
+                              </TableCell>
+                              <TableCell className={cn("text-xs text-center", row.missingParentPhone > 0 && "text-orange-600 font-medium")}>
+                                {row.missingParentPhone || '✓'}
+                              </TableCell>
+                              <TableCell className={cn("text-xs text-center", row.missingAddress > 0 && "text-orange-600 font-medium")}>
+                                {row.missingAddress || '✓'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {totalRow && (
+                            <TableRow className="bg-muted/50 font-semibold">
+                              <TableCell className="text-xs font-bold sticky left-0 bg-muted/50 z-10">{totalRow.label}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.total}</TableCell>
+                              <TableCell className={cn("text-xs text-center font-bold", totalRow.missingEthnicity > 0 && "text-destructive")}>
+                                {totalRow.missingEthnicity || '✓'}
+                              </TableCell>
+                              <TableCell className={cn("text-xs text-center font-bold", totalRow.missingCccd > 0 && "text-destructive")}>
+                                {totalRow.missingCccd || '✓'}
+                              </TableCell>
+                              <TableCell className={cn("text-xs text-center font-bold", totalRow.missingPhone > 0 && "text-orange-600")}>
+                                {totalRow.missingPhone || '✓'}
+                              </TableCell>
+                              <TableCell className={cn("text-xs text-center font-bold", totalRow.missingParentPhone > 0 && "text-orange-600")}>
+                                {totalRow.missingParentPhone || '✓'}
+                              </TableCell>
+                              <TableCell className={cn("text-xs text-center font-bold", totalRow.missingAddress > 0 && "text-orange-600")}>
+                                {totalRow.missingAddress || '✓'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                )}
               </>
             );
           })()}
