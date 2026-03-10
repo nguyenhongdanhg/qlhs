@@ -271,24 +271,6 @@ Deno.serve(async (req) => {
 
     const credentials: ServiceAccountCredentials = JSON.parse(serviceAccountKey);
 
-    // Verify user
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const body: SyncRequest = await req.json();
-    const { school_id, data_type, week_number, date, sheet_name } = body;
-
-    if (!school_id || !data_type) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: school_id and data_type' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Get access token for Google API
     const accessToken = await getAccessToken(credentials);
