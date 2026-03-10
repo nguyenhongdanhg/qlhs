@@ -441,24 +441,24 @@ export default function Dashboard() {
   const rankMedals = ['🥇', '🥈', '🥉'];
 
   return (
-    <div className="content-wrapper animate-fade-in space-y-3">
+    <div className="content-wrapper animate-fade-in space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg sm:text-xl font-bold text-foreground">{currentSchool.name}</h1>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Calendar className="h-3 w-3" />
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">{currentSchool.name}</h1>
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5" />
             <span className="capitalize">{dayName}, {formattedDate}</span>
           </div>
         </div>
         {/* Quick stats badges */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 bg-primary/10 text-primary rounded-full px-2.5 py-1 text-xs font-semibold">
-            <Users className="h-3 w-3" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-primary/10 text-primary rounded-full px-3 py-1.5 text-sm font-semibold">
+            <Users className="h-4 w-4" />
             {stats?.totalStudents || 0}
           </div>
-          <div className="flex items-center gap-1 bg-accent/10 text-accent rounded-full px-2.5 py-1 text-xs font-semibold">
-            <Home className="h-3 w-3" />
+          <div className="flex items-center gap-1.5 bg-accent/10 text-accent rounded-full px-3 py-1.5 text-sm font-semibold">
+            <Home className="h-4 w-4" />
             {stats?.boardingStudents || 0}
           </div>
         </div>
@@ -466,10 +466,10 @@ export default function Dashboard() {
 
       {/* Class Teacher Info */}
       {isClassTeacher && stats?.className && (
-        <div className="flex items-center gap-2 bg-primary/5 border border-primary/10 rounded-lg px-3 py-2">
-          <GraduationCap className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold">Lớp {stats.className}</span>
-          <span className="ml-auto text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 bg-primary/5 border border-primary/10 rounded-lg px-4 py-2.5">
+          <GraduationCap className="h-5 w-5 text-primary" />
+          <span className="text-base font-semibold">Lớp {stats.className}</span>
+          <span className="ml-auto text-sm text-muted-foreground">
             {stats.classStudentCount} HS · {stats.classBoardingCount} NT
           </span>
         </div>
@@ -481,47 +481,47 @@ export default function Dashboard() {
         <>
           {/* Attendance Overview Panel */}
           <Card className="border-0 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-primary/5 to-accent/5 px-3 py-2 border-b border-border/50">
+            <div className="bg-gradient-to-r from-primary/5 to-accent/5 px-4 py-2.5 border-b border-border/50">
               <div className="flex items-center justify-between">
-                <span className="text-sm sm:text-base font-semibold text-foreground">Số liệu điểm danh gần nhất</span>
-                <span className="text-[11px] sm:text-xs text-muted-foreground">
+                <span className="text-base sm:text-lg font-semibold text-foreground">Số liệu điểm danh gần nhất</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">
                   {[stats?.hasBreakfast, stats?.hasLunch, stats?.hasDinner, stats?.hasBoarding, stats?.hasEveningStudy].filter(Boolean).length}/5 đã báo cáo
                 </span>
               </div>
             </div>
-            <CardContent className="p-2">
-              <div className="grid grid-cols-5 gap-1.5">
+            <CardContent className="p-3">
+              <div className="grid grid-cols-5 gap-2">
                 {attendanceItems.map(({ label, icon: Icon, stats: itemStats, color, bgColor, iconBg }) => (
                   <div key={label} className={cn(
-                    "rounded-lg p-2 text-center transition-all",
+                    "rounded-lg p-2.5 text-center transition-all",
                     itemStats?.hasReport ? bgColor : "bg-muted/30"
                   )}>
                     <div className={cn(
-                      "w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1",
+                      "w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-1.5",
                       itemStats?.hasReport ? iconBg : "bg-muted"
                     )}>
                       <Icon className={cn(
-                        "h-3.5 w-3.5",
+                        "h-4 w-4",
                         itemStats?.hasReport ? color : "text-muted-foreground"
                       )} />
                     </div>
-                    <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">{label}</p>
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground">{label}</p>
                     {itemStats?.hasReport ? (
                       <>
-                        <p className={cn("text-xl sm:text-2xl font-bold leading-tight", color)}>
+                        <p className={cn("text-2xl sm:text-3xl font-bold leading-tight", color)}>
                           {itemStats.present}
                         </p>
-                        <p className="text-[11px] sm:text-xs text-muted-foreground">
+                        <p className="text-xs sm:text-sm text-muted-foreground">
                           /{itemStats.total}
                         </p>
                         {itemStats.absent > 0 && (
-                          <p className="text-[11px] sm:text-xs text-destructive font-semibold">
+                          <p className="text-xs sm:text-sm text-destructive font-semibold">
                             -{itemStats.absent}
                           </p>
                         )}
                         <div className="flex items-center justify-center gap-0.5 mt-1">
-                          <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-                          <span className="text-[11px] sm:text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
                             {formatTimeShort(itemStats.lastReportTime)}
                             {' '}
                             {itemStats.lastReportDate === dateStr ? 'hôm nay' : itemStats.lastReportDate ? format(new Date(itemStats.lastReportDate), 'dd/MM') : ''}
@@ -529,7 +529,7 @@ export default function Dashboard() {
                         </div>
                       </>
                     ) : (
-                      <p className="text-sm text-muted-foreground mt-2">--</p>
+                      <p className="text-base text-muted-foreground mt-2">--</p>
                     )}
                   </div>
                 ))}
@@ -544,20 +544,20 @@ export default function Dashboard() {
           {todayMenu && (
             <Link to="/meal-menu">
               <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-2.5 sm:p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <UtensilsCrossed className="h-4 w-4 text-emerald-600" />
-                    <span className="text-xs sm:text-sm font-semibold">Thực đơn hôm nay</span>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <UtensilsCrossed className="h-5 w-5 text-emerald-600" />
+                    <span className="text-sm sm:text-base font-semibold">Thực đơn hôm nay</span>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {(['breakfast', 'lunch', 'dinner'] as const).map(meal => {
                       const dishes = todayMenu[meal];
                       if (!dishes) return null;
                       const mealLabel = meal === 'breakfast' ? 'Sáng' : meal === 'lunch' ? 'Trưa' : 'Tối';
                       const mealIcon = meal === 'breakfast' ? '🌅' : meal === 'lunch' ? '☀️' : '🌙';
                       return (
-                        <div key={meal} className="flex items-start gap-2 text-xs bg-muted/50 rounded-lg px-2 py-1.5">
-                          <span className="shrink-0 text-sm">{mealIcon}</span>
+                        <div key={meal} className="flex items-start gap-2.5 text-sm bg-muted/50 rounded-lg px-3 py-2">
+                          <span className="shrink-0 text-base">{mealIcon}</span>
                           <div>
                             <span className="font-semibold text-foreground">{mealLabel}:</span>{' '}
                             <span className="text-muted-foreground">{dishes.join(', ')}</span>
@@ -572,34 +572,34 @@ export default function Dashboard() {
           )}
 
           {/* Emulation & Duty */}
-          <div className="grid gap-2 grid-cols-2">
+          <div className="grid gap-3 grid-cols-2">
             {/* Emulation Rankings */}
             <Link to="/emulation">
               <Card className="border-0 shadow-sm hover:shadow-md transition-shadow h-full">
-                <CardContent className="p-2.5 sm:p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Trophy className="h-4 w-4 text-warning" />
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <Trophy className="h-5 w-5 text-warning" />
                     <div>
-                      <span className="text-xs sm:text-sm font-semibold">Xếp loại thi đua</span>
+                      <span className="text-sm sm:text-base font-semibold">Xếp loại thi đua</span>
                       {emulationData?.weekNumber && (
-                        <span className="text-[10px] sm:text-xs text-muted-foreground ml-1">tuần {emulationData.weekNumber}</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground ml-1.5">tuần {emulationData.weekNumber}</span>
                       )}
                     </div>
                   </div>
                   {emulationData?.topClasses && emulationData.topClasses.length > 0 ? (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {emulationData.topClasses.map((c, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs bg-muted/50 rounded px-1.5 py-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm">{i < 3 ? rankMedals[i] : `#${c.rank}`}</span>
+                        <div key={i} className="flex items-center justify-between text-sm bg-muted/50 rounded px-2 py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base">{i < 3 ? rankMedals[i] : `#${c.rank}`}</span>
                             <span className="font-medium truncate">{c.className}</span>
                           </div>
-                          <span className="font-bold text-primary text-xs">{c.avgScore}</span>
+                          <span className="font-bold text-primary text-sm">{c.avgScore}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] text-muted-foreground text-center py-3">Chưa có dữ liệu</p>
+                    <p className="text-xs text-muted-foreground text-center py-3">Chưa có dữ liệu</p>
                   )}
                 </CardContent>
               </Card>
@@ -608,25 +608,25 @@ export default function Dashboard() {
             {/* Duty Today */}
             <Link to="/duty-schedule">
               <Card className="border-0 shadow-sm hover:shadow-md transition-shadow h-full">
-                <CardContent className="p-2.5 sm:p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <CalendarCheck className="h-4 w-4 text-primary" />
-                    <span className="text-xs sm:text-sm font-semibold">Ca trực hiện tại</span>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <CalendarCheck className="h-5 w-5 text-primary" />
+                    <span className="text-sm sm:text-base font-semibold">Ca trực hiện tại</span>
                   </div>
                   {dutyToday && dutyToday.length > 0 ? (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {dutyToday.slice(0, 4).map((person, i) => (
-                        <div key={i} className="flex items-center gap-1.5 text-xs bg-muted/50 rounded px-1.5 py-1">
-                          <UserCheck className="h-3 w-3 text-primary shrink-0" />
+                        <div key={i} className="flex items-center gap-2 text-sm bg-muted/50 rounded px-2 py-1.5">
+                          <UserCheck className="h-4 w-4 text-primary shrink-0" />
                           <span className="font-medium truncate">{person.fullName}</span>
                         </div>
                       ))}
                       {dutyToday.length > 4 && (
-                        <p className="text-[11px] text-muted-foreground text-center">+{dutyToday.length - 4} người khác</p>
+                        <p className="text-xs text-muted-foreground text-center">+{dutyToday.length - 4} người khác</p>
                       )}
                     </div>
                   ) : (
-                    <p className="text-[11px] text-muted-foreground text-center py-3">Chưa phân công</p>
+                    <p className="text-xs text-muted-foreground text-center py-3">Chưa phân công</p>
                   )}
                 </CardContent>
               </Card>
@@ -636,44 +636,29 @@ export default function Dashboard() {
           {/* Grade Stats */}
           {!isClassTeacher && stats?.gradeStats && stats.gradeStats.length > 0 && (
             <Card className="border-0 shadow-sm">
-              <CardContent className="p-2.5 sm:p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  <span className="text-sm sm:text-base font-semibold">Thông tin lớp học</span>
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Users className="h-5 w-5 text-primary" />
+                  <span className="text-base sm:text-lg font-semibold">Thông tin lớp học</span>
                 </div>
                 {(() => {
                   const items = stats.gradeStats;
                   const total = items.length;
-                  // Split into 2 rows as evenly as possible
                   const firstRowCount = Math.ceil(total / 2);
                   const firstRow = items.slice(0, firstRowCount);
                   const secondRow = items.slice(firstRowCount);
                   
                   return (
-                    <div className="space-y-1.5">
-                      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${firstRowCount}, 1fr)` }}>
+                    <div className="space-y-2">
+                      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${firstRowCount}, 1fr)` }}>
                         {firstRow.map(({ grade, total, classCount, male, female }) => (
-                          <div key={grade} className="text-center p-2 rounded-lg bg-muted/50 space-y-0.5">
-                            <p className="text-xs font-bold text-primary">Khối {grade}</p>
-                            <p className="text-base font-bold text-foreground leading-tight">{total}</p>
-                            <p className="text-[10px] text-muted-foreground">{classCount} lớp</p>
-                            <div className="flex justify-center gap-1.5 text-[10px]">
+                          <div key={grade} className="text-center p-2.5 rounded-lg bg-muted/50 space-y-0.5">
+                            <p className="text-sm font-bold text-primary">Khối {grade}</p>
+                            <p className="text-lg font-bold text-foreground leading-tight">{total}</p>
+                            <p className="text-xs text-muted-foreground">{classCount} lớp</p>
+                            <div className="flex justify-center gap-2 text-xs">
                               <span className="text-blue-600">♂{male}</span>
                               <span className="text-pink-500">♀{female}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {secondRow.length > 0 && (
-                        <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${secondRow.length}, 1fr)` }}>
-                          {secondRow.map(({ grade, total, classCount, male, female }) => (
-                            <div key={grade} className="text-center p-2 rounded-lg bg-muted/50 space-y-0.5">
-                              <p className="text-xs font-bold text-primary">Khối {grade}</p>
-                              <p className="text-base font-bold text-foreground leading-tight">{total}</p>
-                              <p className="text-[10px] text-muted-foreground">{classCount} lớp</p>
-                              <div className="flex justify-center gap-1.5 text-[10px]">
-                                <span className="text-blue-600">♂{male}</span>
-                                <span className="text-pink-500">♀{female}</span>
                               </div>
                             </div>
                           ))}
