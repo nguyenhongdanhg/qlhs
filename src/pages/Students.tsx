@@ -1714,12 +1714,13 @@ export default function Students() {
                 </div>
 
                 {/* Filter info */}
-                {(statsGenderFilter !== 'all' || statsEthnicityFilter !== 'all' || statsGradeFilter !== 'all' || statsClassFilter !== 'all') && (
+                {(statsGenderFilter !== 'all' || statsEthnicityFilter !== 'all' || statsGradeFilter !== 'all' || statsClassFilter !== 'all' || statsCommuneFilter !== 'all' || statsVillageFilter !== 'all') && (
                   <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
                     <span>Đang lọc: {filtered.length}/{students.length} HS</span>
                     <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => {
                       setStatsGradeFilter('all'); setStatsClassFilter('all');
                       setStatsGenderFilter('all'); setStatsEthnicityFilter('all');
+                      setStatsCommuneFilter('all'); setStatsVillageFilter('all');
                     }}>
                       Xoá lọc
                     </Button>
