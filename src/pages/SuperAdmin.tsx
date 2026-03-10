@@ -36,6 +36,7 @@ import {
   Edit,
   Trash2,
   UserPlus,
+  Settings2,
 } from 'lucide-react';
 import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDialog';
 import SchoolFeaturesDialog from '@/components/superadmin/SchoolFeaturesDialog';
