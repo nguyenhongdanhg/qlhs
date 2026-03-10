@@ -20,6 +20,7 @@ import {
 import { MealSettingsCard } from '@/components/settings/MealSettingsCard';
 import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
 import { GoogleSheetsSettingsCard } from '@/components/settings/GoogleSheetsSettingsCard';
+import { ReportSyncSettingsCard } from '@/components/settings/ReportSyncSettingsCard';
 
 export default function Settings() {
   const { profile, currentMembership, user, refreshProfile, isSuperAdmin, currentSchool } = useAuth();
