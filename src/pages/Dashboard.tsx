@@ -540,6 +540,37 @@ export default function Dashboard() {
           {/* Teacher Attendance Stats - only for class teachers (admin already sees data above) */}
           {isClassTeacher && <TeacherAttendanceStats />}
 
+          {/* Today's Menu */}
+          {todayMenu && (
+            <Link to="/meal-menu">
+              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-2.5 sm:p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <UtensilsCrossed className="h-4 w-4 text-emerald-600" />
+                    <span className="text-xs sm:text-sm font-semibold">Thực đơn hôm nay</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {(['breakfast', 'lunch', 'dinner'] as const).map(meal => {
+                      const dishes = todayMenu[meal];
+                      if (!dishes) return null;
+                      const mealLabel = meal === 'breakfast' ? 'Sáng' : meal === 'lunch' ? 'Trưa' : 'Tối';
+                      const mealIcon = meal === 'breakfast' ? '🌅' : meal === 'lunch' ? '☀️' : '🌙';
+                      return (
+                        <div key={meal} className="flex items-start gap-2 text-xs bg-muted/50 rounded-lg px-2 py-1.5">
+                          <span className="shrink-0 text-sm">{mealIcon}</span>
+                          <div>
+                            <span className="font-semibold text-foreground">{mealLabel}:</span>{' '}
+                            <span className="text-muted-foreground">{dishes.join(', ')}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+
           {/* Emulation & Duty */}
           <div className="grid gap-2 grid-cols-2">
             {/* Emulation Rankings */}
