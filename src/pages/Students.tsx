@@ -54,6 +54,7 @@ import {
   Image,
   Link,
   BarChart3,
+  Filter,
 } from 'lucide-react';
 import { cn, naturalSort, vietnameseNameSortCompare } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
