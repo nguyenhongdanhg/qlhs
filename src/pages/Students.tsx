@@ -1132,6 +1132,9 @@ export default function Students() {
                       <Button variant="outline" size="sm" onClick={() => openBatchUpdate('meal')}>
                         <Utensils className="h-4 w-4 mr-1" /> Đổi mâm
                       </Button>
+                      <Button variant="outline" size="sm" onClick={() => openBatchUpdate('ethnicity')}>
+                        <Users className="h-4 w-4 mr-1" /> Đổi dân tộc
+                      </Button>
                       <Button variant="destructive" size="sm" onClick={handleDeleteSelected}>
                         <Trash2 className="h-4 w-4 mr-1" /> Xóa
                       </Button>
