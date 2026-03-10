@@ -1815,6 +1815,7 @@ export default function Students() {
               {batchUpdateType === 'class' && 'Đổi lớp cho học sinh đã chọn'}
               {batchUpdateType === 'room' && 'Đổi phòng cho học sinh đã chọn'}
               {batchUpdateType === 'meal' && 'Đổi mâm ăn cho học sinh đã chọn'}
+              {batchUpdateType === 'ethnicity' && 'Đổi dân tộc cho học sinh đã chọn'}
             </DialogTitle>
             <DialogDescription>
               Áp dụng cho {selectedIds.size} học sinh đã chọn
