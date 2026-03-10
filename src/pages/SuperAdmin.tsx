@@ -484,6 +484,11 @@ export default function SuperAdmin() {
         school={adminSchool}
         onComplete={fetchData}
       />
+      <SchoolFeaturesDialog
+        open={featuresDialogOpen}
+        onOpenChange={setFeaturesDialogOpen}
+        school={featuresSchool}
+      />
     </div>
   );
 }
