@@ -101,7 +101,11 @@ export default function Students() {
   const [bulkAvatarText, setBulkAvatarText] = useState('');
   const [zoomAvatarUrl, setZoomAvatarUrl] = useState<string | null>(null);
   const [statsView, setStatsView] = useState<'school' | 'level' | 'grade' | 'class'>('school');
-  const [statsFilter, setStatsFilter] = useState<'gender' | 'ethnicity' | 'age' | 'address'>('gender');
+  const [statsFilter, setStatsFilter] = useState<'summary' | 'ethnicity' | 'missing'>('summary');
+  const [statsGradeFilter, setStatsGradeFilter] = useState('all');
+  const [statsClassFilter, setStatsClassFilter] = useState('all');
+  const [statsGenderFilter, setStatsGenderFilter] = useState('all');
+  const [statsEthnicityFilter, setStatsEthnicityFilter] = useState('all');
   
   // Duplicate import state
   const [duplicateData, setDuplicateData] = useState<{
