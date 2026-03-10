@@ -106,6 +106,8 @@ export default function Students() {
   const [statsClassFilter, setStatsClassFilter] = useState('all');
   const [statsGenderFilter, setStatsGenderFilter] = useState('all');
   const [statsEthnicityFilter, setStatsEthnicityFilter] = useState('all');
+  const [statsCommuneFilter, setStatsCommuneFilter] = useState('all');
+  const [statsVillageFilter, setStatsVillageFilter] = useState('all');
   
   // Duplicate import state
   const [duplicateData, setDuplicateData] = useState<{
