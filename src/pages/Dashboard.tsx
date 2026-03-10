@@ -202,13 +202,7 @@ export default function Dashboard() {
         ? getSnapshot(studyAllRecords, totalStudentsCount, latestStudyDate)
         : { present: 0, absent: 0, total: totalStudentsCount, hasReport: false } as AttendanceSnapshot;
 
-      // Grade stats with gender and class count
-      const { data: studentsWithGrades } = await supabase
-        .from('students')
-        .select('is_boarding, gender, class_id, class:classes!inner(grade)')
-        .eq('school_id', currentSchool.id)
-        .eq('is_active', true)
-        .eq('classes.is_active', true);
+      const studentsWithGrades = studentsWithGradesResult.data;
 
       const gradeMap = new Map<number, { total: number; boarding: number; male: number; female: number; classIds: Set<string> }>();
       (studentsWithGrades || []).forEach((student: any) => {
