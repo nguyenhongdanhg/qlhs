@@ -49,6 +49,7 @@ const mealItems: MenuItem[] = [
 
 // Standalone items
 const standaloneItems: MenuItem[] = [
+  { code: 'emulation', label: 'Thi đua', description: 'Quản lý thi đua các lớp', icon: Trophy, path: '/emulation' },
   { code: 'health', label: 'Sức khỏe', description: 'Quản lý sức khỏe học sinh', icon: Heart, path: '/health' },
   { code: 'statistics', label: 'Thống kê', description: 'Xem báo cáo thống kê', icon: BarChart3, path: '/statistics' },
 ];

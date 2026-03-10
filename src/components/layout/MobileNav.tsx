@@ -1,22 +1,17 @@
 import { memo, useMemo, useState, useRef, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import {
   LayoutDashboard,
   Home,
   UtensilsCrossed,
-  Trophy,
-  Settings,
+  Users,
+  Menu,
   CalendarDays,
   BookOpen,
   DoorOpen,
   ChefHat,
-  UserCog,
-  HelpCircle,
-  Heart,
-  BarChart3,
-  Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +33,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
+  { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
   {
     code: 'boarding_group', label: 'Nội trú', icon: Home,
     children: [
@@ -54,43 +50,41 @@ const navItems: NavItem[] = [
       { code: 'meal_menu', label: 'Thực đơn & Kho', icon: ChefHat, path: '/meal-menu' },
     ],
   },
-  { code: 'emulation', label: 'Thi đua', icon: Trophy, path: '/emulation' },
   { code: 'menu', label: 'Thêm', icon: Menu, path: '/menu' },
 ];
 
-// Feature codes that map to groups for bottom nav visibility
 const groupFeatureCodes: Record<string, string[]> = {
   boarding_group: ['boarding', 'evening_study', 'duty_schedule', 'dormitory_exit'],
   meal_group: ['meals', 'meal_menu'],
 };
 
-export const bottomNavCodes = ['dashboard', 'emulation', 'boarding', 'meals'];
+export const bottomNavCodes = ['dashboard', 'students', 'boarding', 'meals'];
 
 export const MobileNav = memo(function MobileNav() {
   const location = useLocation();
-  const navigate = useNavigate();
   const { isSchoolAdmin } = useAuth();
   const { isFeatureEnabled } = useSchool();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
 
-  // Close popup on route change or outside click
+  // Close popup on route change
   useEffect(() => {
     setOpenGroup(null);
   }, [location.pathname]);
 
+  // Close popup on outside click
   useEffect(() => {
     if (!openGroup) return;
-    const handler = (e: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
         setOpenGroup(null);
       }
     };
     document.addEventListener('mousedown', handler);
-    document.addEventListener('touchstart', handler as any);
+    document.addEventListener('touchstart', handler as EventListener);
     return () => {
       document.removeEventListener('mousedown', handler);
-      document.removeEventListener('touchstart', handler as any);
+      document.removeEventListener('touchstart', handler as EventListener);
     };
   }, [openGroup]);
 
@@ -107,6 +101,9 @@ export const MobileNav = memo(function MobileNav() {
     if (item.children) {
       return item.children.some(c => location.pathname === c.path);
     }
+    if (item.code === 'menu') {
+      return location.pathname === '/menu';
+    }
     return location.pathname === item.path;
   };
 
@@ -115,17 +112,8 @@ export const MobileNav = memo(function MobileNav() {
     return isFeatureEnabled(child.code);
   };
 
-  const handleItemClick = (item: NavItem, e: React.MouseEvent) => {
-    if (item.children) {
-      e.preventDefault();
-      setOpenGroup(prev => prev === item.code ? null : item.code);
-    } else {
-      setOpenGroup(null);
-    }
-  };
-
   return (
-    <nav className="mobile-nav lg:hidden">
+    <nav ref={navRef} className="mobile-nav lg:hidden">
       {/* Popup for group sub-items */}
       {openGroup && (() => {
         const group = navItems.find(n => n.code === openGroup);
@@ -134,10 +122,7 @@ export const MobileNav = memo(function MobileNav() {
         if (visible.length === 0) return null;
 
         return (
-          <div
-            ref={popupRef}
-            className="absolute bottom-full left-0 right-0 mb-1 mx-3 rounded-xl border border-border bg-popover p-2 shadow-xl animate-in slide-in-from-bottom-2 duration-200 z-50"
-          >
+          <div className="absolute bottom-full left-0 right-0 mb-1 mx-3 rounded-xl border border-border bg-popover p-2 shadow-xl animate-in slide-in-from-bottom-2 duration-200 z-50">
             <p className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.label}</p>
             <div className="grid grid-cols-2 gap-1">
               {visible.map((child) => {
@@ -169,26 +154,34 @@ export const MobileNav = memo(function MobileNav() {
         const active = isActive(item);
         const isOpen = openGroup === item.code;
 
-        return item.children ? (
-          <button
-            key={item.code}
-            onClick={(e) => handleItemClick(item, e)}
-            className={cn(
-              'mobile-nav-item tap-target',
-              active || isOpen
-                ? 'text-primary font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <div className={cn(
-              'rounded-xl p-1.5 transition-all duration-200',
-              active || isOpen ? 'bg-primary/10' : 'bg-transparent'
-            )}>
-              <Icon className={cn('h-5 w-5', (active || isOpen) && 'scale-110')} />
-            </div>
-            <span className="font-medium">{item.label}</span>
-          </button>
-        ) : (
+        if (item.children) {
+          return (
+            <button
+              key={item.code}
+              onMouseEnter={() => setOpenGroup(item.code)}
+              onClick={(e) => {
+                e.preventDefault();
+                setOpenGroup(prev => prev === item.code ? null : item.code);
+              }}
+              className={cn(
+                'mobile-nav-item tap-target',
+                active || isOpen
+                  ? 'text-primary font-semibold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <div className={cn(
+                'rounded-xl p-1.5 transition-all duration-200',
+                active || isOpen ? 'bg-primary/10' : 'bg-transparent'
+              )}>
+                <Icon className={cn('h-5 w-5', (active || isOpen) && 'scale-110')} />
+              </div>
+              <span className="font-medium">{item.label}</span>
+            </button>
+          );
+        }
+
+        return (
           <Link
             key={item.code}
             to={item.path!}
