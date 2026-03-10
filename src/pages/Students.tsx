@@ -683,6 +683,8 @@ export default function Students() {
         updateData.room_number = batchUpdateValue || null;
       } else if (batchUpdateType === 'meal') {
         updateData.meal_group = batchUpdateValue || null;
+      } else if (batchUpdateType === 'ethnicity') {
+        updateData.ethnicity = batchUpdateValue || null;
       }
 
       const { error } = await supabase
