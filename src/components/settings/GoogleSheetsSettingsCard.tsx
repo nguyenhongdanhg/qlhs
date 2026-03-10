@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Select,
@@ -18,13 +19,17 @@ import {
 import { 
   FileSpreadsheet, 
   Loader2, 
-  RefreshCw, 
   CheckCircle, 
   XCircle,
   ExternalLink,
   Info,
   Calendar,
-  Plus
+  Plus,
+  Key,
+  FolderOpen,
+  Eye,
+  EyeOff,
+  Shield,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -45,6 +50,8 @@ interface SheetsConfig {
   emulation_sheet_name: string | null;
   last_sync_at: string | null;
   last_sync_status: string | null;
+  google_service_account_key: string | null;
+  google_drive_folder_id: string | null;
 }
 
 export function GoogleSheetsSettingsCard() {
@@ -56,6 +63,7 @@ export function GoogleSheetsSettingsCard() {
   const [isSyncingMonthly, setIsSyncingMonthly] = useState(false);
   const [config, setConfig] = useState<SheetsConfig | null>(null);
   const [lastCreatedUrl, setLastCreatedUrl] = useState<string | null>(null);
+  const [showServiceKey, setShowServiceKey] = useState(false);
   
   // Month selector state
   const currentDate = new Date();
@@ -65,6 +73,8 @@ export function GoogleSheetsSettingsCard() {
   // Form state
   const [serviceAccountEmail, setServiceAccountEmail] = useState('');
   const [isEnabled, setIsEnabled] = useState(true);
+  const [serviceAccountKey, setServiceAccountKey] = useState('');
+  const [driveFolderId, setDriveFolderId] = useState('');
 
   useEffect(() => {
     if (currentSchool?.id) {
@@ -86,14 +96,30 @@ export function GoogleSheetsSettingsCard() {
       if (error) throw error;
 
       if (data) {
-        setConfig(data);
-        setServiceAccountEmail(data.service_account_email || '');
-        setIsEnabled(data.is_enabled);
+        const configData = data as any;
+        setConfig(configData);
+        setServiceAccountEmail(configData.service_account_email || '');
+        setIsEnabled(configData.is_enabled);
+        setServiceAccountKey(configData.google_service_account_key || '');
+        setDriveFolderId(configData.google_drive_folder_id || '');
       }
     } catch (error: any) {
       console.error('Error fetching sheets config:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Auto-extract email from service account key JSON
+  const handleServiceKeyChange = (value: string) => {
+    setServiceAccountKey(value);
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed.client_email) {
+        setServiceAccountEmail(parsed.client_email);
+      }
+    } catch {
+      // Not valid JSON yet, ignore
     }
   };
 
@@ -104,13 +130,15 @@ export function GoogleSheetsSettingsCard() {
     try {
       const configData = {
         school_id: currentSchool.id,
-        sheet_id: 'monthly', // Placeholder - we create new sheets per month
+        sheet_id: 'monthly',
         service_account_email: serviceAccountEmail.trim() || null,
         is_enabled: isEnabled,
         sync_meal_attendance: true,
         sync_evening_study: true,
         sync_boarding: true,
         sync_emulation: true,
+        google_service_account_key: serviceAccountKey.trim() || null,
+        google_drive_folder_id: driveFolderId.trim() || null,
       };
 
       if (config?.id) {
@@ -127,7 +155,7 @@ export function GoogleSheetsSettingsCard() {
       }
 
       await fetchConfig();
-      toast({ title: 'Thành công', description: 'Đã lưu cấu hình Google Sheets' });
+      toast({ title: 'Thành công', description: 'Đã lưu cấu hình Google Drive' });
     } catch (error: any) {
       console.error('Error saving config:', error);
       toast({
@@ -195,6 +223,8 @@ export function GoogleSheetsSettingsCard() {
     }
   };
 
+  const isConfigured = serviceAccountKey.trim() && driveFolderId.trim();
+
   const monthOptions = [
     { value: 1, label: 'Tháng 1' },
     { value: 2, label: 'Tháng 2' },
@@ -236,25 +266,29 @@ export function GoogleSheetsSettingsCard() {
           Tích hợp Google Sheets
         </CardTitle>
         <CardDescription>
-          Tạo báo cáo Google Sheets theo tháng với đầy đủ thống kê bữa ăn và điểm danh
+          Cấu hình tài khoản Google Drive và tạo báo cáo Google Sheets tự động
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Status Banner */}
         {config && (
           <div className={`p-3 rounded-lg flex items-center gap-3 ${
-            config.is_enabled 
+            config.is_enabled && isConfigured
               ? 'bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800' 
               : 'bg-muted'
           }`}>
-            {config.is_enabled ? (
+            {config.is_enabled && isConfigured ? (
               <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
             ) : (
               <XCircle className="h-5 w-5 text-muted-foreground" />
             )}
             <div className="flex-1">
               <p className="text-sm font-medium">
-                {config.is_enabled ? 'Tích hợp đang hoạt động' : 'Tích hợp đã tắt'}
+                {config.is_enabled && isConfigured 
+                  ? 'Tích hợp đang hoạt động' 
+                  : !isConfigured 
+                    ? 'Chưa cấu hình tài khoản Google Drive'
+                    : 'Tích hợp đã tắt'}
               </p>
               {config.last_sync_at && (
                 <p className="text-xs text-muted-foreground">
@@ -265,6 +299,131 @@ export function GoogleSheetsSettingsCard() {
             </div>
           </div>
         )}
+
+        {/* Google Drive Account Configuration */}
+        <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+          <h4 className="text-sm font-semibold flex items-center gap-2">
+            <Key className="h-4 w-4 text-primary" />
+            Cấu hình tài khoản Google Drive
+          </h4>
+
+          <div className="grid gap-4">
+            {/* Service Account Key */}
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="serviceAccountKey" className="flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                  Service Account Key (JSON)
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setShowServiceKey(!showServiceKey)}
+                >
+                  {showServiceKey ? (
+                    <><EyeOff className="h-3.5 w-3.5 mr-1" /> Ẩn</>
+                  ) : (
+                    <><Eye className="h-3.5 w-3.5 mr-1" /> Hiện</>
+                  )}
+                </Button>
+              </div>
+              {showServiceKey ? (
+                <Textarea
+                  id="serviceAccountKey"
+                  value={serviceAccountKey}
+                  onChange={(e) => handleServiceKeyChange(e.target.value)}
+                  placeholder='Dán nội dung file JSON Service Account vào đây...'
+                  className="font-mono text-xs min-h-[120px]"
+                />
+              ) : (
+                <div 
+                  className="flex items-center gap-2 p-3 rounded-md border bg-background cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => setShowServiceKey(true)}
+                >
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    {serviceAccountKey ? '••••••• (đã cấu hình - nhấn Hiện để xem)' : 'Nhấn để nhập Service Account Key'}
+                  </span>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Tải file JSON từ Google Cloud Console → IAM → Service Accounts → Keys
+              </p>
+            </div>
+
+            {/* Service Account Email (auto-filled) */}
+            <div className="grid gap-2">
+              <Label htmlFor="serviceAccountEmail">Service Account Email</Label>
+              <Input
+                id="serviceAccountEmail"
+                value={serviceAccountEmail}
+                onChange={(e) => setServiceAccountEmail(e.target.value)}
+                placeholder="your-service-account@project.iam.gserviceaccount.com"
+                className="text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tự động điền khi dán JSON key. Cần chia sẻ thư mục Google Drive với email này.
+              </p>
+            </div>
+
+            {/* Google Drive Folder ID */}
+            <div className="grid gap-2">
+              <Label htmlFor="driveFolderId" className="flex items-center gap-1.5">
+                <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                Google Drive Folder ID
+              </Label>
+              <Input
+                id="driveFolderId"
+                value={driveFolderId}
+                onChange={(e) => setDriveFolderId(e.target.value)}
+                placeholder="1ABCdef..."
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                ID thư mục gốc trên Google Drive. Lấy từ URL: drive.google.com/drive/folders/<strong>ID_ở_đây</strong>
+              </p>
+            </div>
+
+            {/* Enable toggle */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="space-y-0.5">
+                <Label>Bật tích hợp</Label>
+                <p className="text-xs text-muted-foreground">
+                  Cho phép sử dụng tính năng tạo báo cáo Google Sheets
+                </p>
+              </div>
+              <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
+            </div>
+          </div>
+        </div>
+
+        {/* Hướng dẫn cấu hình */}
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+          <div className="flex gap-2">
+            <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-800 dark:text-amber-200">
+              <p className="font-medium mb-1">Hướng dẫn cấu hình:</p>
+              <ol className="list-decimal list-inside space-y-1 text-xs">
+                <li>Vào <strong>Google Cloud Console</strong> → Tạo Service Account</li>
+                <li>Tạo Key (JSON) cho Service Account → Tải về</li>
+                <li>Bật <strong>Google Sheets API</strong> và <strong>Google Drive API</strong> trong project</li>
+                <li>Dán nội dung file JSON vào ô "Service Account Key" ở trên</li>
+                <li>Tạo thư mục trên Google Drive → Copy Folder ID từ URL</li>
+                <li>Chia sẻ thư mục đó với email Service Account (quyền <strong>Editor</strong>)</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        {/* Save button */}
+        <Button onClick={handleSave} disabled={isSaving} className="w-full">
+          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Lưu cấu hình
+        </Button>
+
+        <Separator />
 
         {/* Create Monthly Report Section */}
         <div className="p-4 rounded-lg border-2 border-primary/20 bg-primary/5">
@@ -318,7 +477,7 @@ export function GoogleSheetsSettingsCard() {
 
             <Button 
               onClick={handleCreateMonthlyReport} 
-              disabled={isSyncingMonthly}
+              disabled={isSyncingMonthly || !isConfigured}
               size="lg"
             >
               {isSyncingMonthly ? (
@@ -330,20 +489,26 @@ export function GoogleSheetsSettingsCard() {
             </Button>
           </div>
 
-        {lastCreatedUrl && (
-          <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
-            <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-2">
-              ✓ Đã tạo các sheet báo cáo thành công!
+          {!isConfigured && (
+            <p className="text-xs text-destructive mt-2">
+              Vui lòng cấu hình Service Account Key và Folder ID trước khi tạo báo cáo.
             </p>
-            <Button variant="outline" size="sm" asChild>
-              <a 
-                href={lastCreatedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Mở Google Sheet
-              </a>
+          )}
+
+          {lastCreatedUrl && (
+            <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
+              <p className="text-sm font-medium text-green-700 dark:text-green-300 mb-2">
+                ✓ Đã tạo các sheet báo cáo thành công!
+              </p>
+              <Button variant="outline" size="sm" asChild>
+                <a 
+                  href={lastCreatedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Mở Google Sheet
+                </a>
               </Button>
             </div>
           )}
@@ -362,44 +527,6 @@ export function GoogleSheetsSettingsCard() {
               </ul>
             </div>
           </div>
-        </div>
-
-        <Separator />
-
-        {/* Configuration */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Bật tích hợp</Label>
-              <p className="text-xs text-muted-foreground">
-                Cho phép sử dụng tính năng tạo báo cáo Google Sheets
-              </p>
-            </div>
-            <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="serviceAccountEmail">Service Account Email</Label>
-            <Input
-              id="serviceAccountEmail"
-              value={serviceAccountEmail}
-              onChange={(e) => setServiceAccountEmail(e.target.value)}
-              placeholder="your-service-account@project.iam.gserviceaccount.com"
-            />
-            <p className="text-xs text-muted-foreground">
-              Email Service Account dùng để xác thực với Google Sheets API
-            </p>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Lưu cấu hình
-          </Button>
         </div>
       </CardContent>
     </Card>

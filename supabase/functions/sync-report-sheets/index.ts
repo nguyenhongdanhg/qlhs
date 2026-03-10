@@ -694,17 +694,8 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
-    const parentFolderId = Deno.env.get('GOOGLE_DRIVE_FOLDER_ID');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    if (!serviceAccountKey) {
-      return new Response(JSON.stringify({ error: 'Google Service Account Key not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    if (!parentFolderId) {
-      return new Response(JSON.stringify({ error: 'Google Drive Folder ID not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    const credentials: ServiceAccountCredentials = JSON.parse(serviceAccountKey);
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
@@ -721,6 +712,27 @@ Deno.serve(async (req) => {
     if (!school_id || !report_type || !year || !month) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+
+    // Read Google Drive config from school's sheets_sync_config (using service role to bypass RLS)
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: syncConfig } = await adminClient
+      .from('sheets_sync_config')
+      .select('google_service_account_key, google_drive_folder_id')
+      .eq('school_id', school_id)
+      .maybeSingle();
+
+    // Fallback to env vars if not in DB
+    const serviceAccountKey = syncConfig?.google_service_account_key || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+    const parentFolderId = syncConfig?.google_drive_folder_id || Deno.env.get('GOOGLE_DRIVE_FOLDER_ID');
+
+    if (!serviceAccountKey) {
+      return new Response(JSON.stringify({ error: 'Chưa cấu hình Google Service Account Key. Vào Cài đặt → Google Sheets để thiết lập.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!parentFolderId) {
+      return new Response(JSON.stringify({ error: 'Chưa cấu hình Google Drive Folder ID. Vào Cài đặt → Google Sheets để thiết lập.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const credentials: ServiceAccountCredentials = JSON.parse(serviceAccountKey);
 
     const { data: school } = await supabase.from('schools').select('name').eq('id', school_id).single();
     if (!school) throw new Error('School not found');

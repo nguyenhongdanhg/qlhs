@@ -225,17 +225,7 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
-    const spreadsheetId = Deno.env.get('GOOGLE_SHEET_ID');
-
-    if (!serviceAccountKey || !spreadsheetId) {
-      return new Response(
-        JSON.stringify({ error: 'Google Sheets credentials not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const credentials: ServiceAccountCredentials = JSON.parse(serviceAccountKey);
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const token = authHeader.replace('Bearer ', '');
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -260,6 +250,27 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Read Google config from school's sheets_sync_config
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: syncConfig } = await adminClient
+      .from('sheets_sync_config')
+      .select('google_service_account_key')
+      .eq('school_id', school_id)
+      .maybeSingle();
+
+    const serviceAccountKey = syncConfig?.google_service_account_key || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+    const spreadsheetId = Deno.env.get('GOOGLE_SHEET_ID');
+
+    if (!serviceAccountKey || !spreadsheetId) {
+      return new Response(
+        JSON.stringify({ error: 'Chưa cấu hình Google Service Account Key. Vào Cài đặt → Google Sheets để thiết lập.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const credentials: ServiceAccountCredentials = JSON.parse(serviceAccountKey);
+
 
     // Get access token for Google API
     const accessToken = await getAccessToken(credentials);
