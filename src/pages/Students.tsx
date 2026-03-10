@@ -1605,7 +1605,7 @@ export default function Students() {
                       <Filter className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground">Bộ lọc</span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       <Select value={statsGradeFilter} onValueChange={(v) => { setStatsGradeFilter(v); setStatsClassFilter('all'); }}>
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue placeholder="Khối" />
@@ -1650,6 +1650,30 @@ export default function Students() {
                           <SelectItem value="Chưa rõ">Chưa rõ</SelectItem>
                           {allEthnicities.map(e => (
                             <SelectItem key={e} value={e!}>{e}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={statsCommuneFilter} onValueChange={(v) => { setStatsCommuneFilter(v); setStatsVillageFilter('all'); }}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Xã" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả xã</SelectItem>
+                          {allCommunes.map(c => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={statsVillageFilter} onValueChange={setStatsVillageFilter}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Thôn/Bản" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả thôn</SelectItem>
+                          {filteredVillages.map(v => (
+                            <SelectItem key={v} value={v}>{v}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
