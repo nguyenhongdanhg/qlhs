@@ -303,24 +303,6 @@ Deno.serve(async (req) => {
 
     const credentials: ServiceAccountCredentials = JSON.parse(serviceAccountKey);
 
-    // Verify user
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const body: SyncRequest = await req.json();
-    const { school_id, year, month } = body;
-
-    if (!school_id || !year || !month) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: school_id, year, month' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Get school info
     const { data: school, error: schoolError } = await supabase
