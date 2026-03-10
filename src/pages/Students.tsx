@@ -106,6 +106,8 @@ export default function Students() {
   const [statsClassFilter, setStatsClassFilter] = useState('all');
   const [statsGenderFilter, setStatsGenderFilter] = useState('all');
   const [statsEthnicityFilter, setStatsEthnicityFilter] = useState('all');
+  const [statsCommuneFilter, setStatsCommuneFilter] = useState('all');
+  const [statsVillageFilter, setStatsVillageFilter] = useState('all');
   
   // Duplicate import state
   const [duplicateData, setDuplicateData] = useState<{
@@ -1446,6 +1448,37 @@ export default function Students() {
             const allGrades = [...new Set(classes.map(c => c.grade))].sort((a, b) => a - b);
             const sortedClasses = [...classes].sort((a, b) => a.grade !== b.grade ? a.grade - b.grade : a.name.localeCompare(b.name, 'vi'));
 
+            // Parse commune (xã) and village (thôn) from address
+            const parseAddress = (address?: string) => {
+              if (!address) return { commune: '', village: '' };
+              let commune = '';
+              let village = '';
+              // Try patterns: "Xã ABC" or ", ABC," after thôn
+              const parts = address.split(/[,;]+/).map(p => p.trim());
+              for (const part of parts) {
+                const lower = part.toLowerCase();
+                if (lower.startsWith('xã ') || lower.startsWith('xa ')) {
+                  commune = part;
+                } else if (lower.startsWith('thôn ') || lower.startsWith('thon ') || lower.startsWith('bản ') || lower.startsWith('ban ') || lower.startsWith('tổ ') || lower.startsWith('to ')) {
+                  village = part;
+                }
+              }
+              return { commune, village };
+            };
+
+            const addressData = students.map(s => parseAddress(s.address));
+            const allCommunes = [...new Set(addressData.map(a => a.commune).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+            const allVillages = [...new Set(addressData.map(a => a.village).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+
+            // Filter villages based on selected commune
+            const filteredVillages = statsCommuneFilter !== 'all'
+              ? [...new Set(students
+                  .filter(s => parseAddress(s.address).commune === statsCommuneFilter)
+                  .map(s => parseAddress(s.address).village)
+                  .filter(Boolean)
+                )].sort((a, b) => a.localeCompare(b, 'vi'))
+              : allVillages;
+
             // Apply filters
             let filtered = [...students];
             if (statsGenderFilter && statsGenderFilter !== 'all') {
@@ -1460,6 +1493,12 @@ export default function Students() {
             }
             if (statsClassFilter && statsClassFilter !== 'all') {
               filtered = filtered.filter(s => s.class_id === statsClassFilter);
+            }
+            if (statsCommuneFilter && statsCommuneFilter !== 'all') {
+              filtered = filtered.filter(s => parseAddress(s.address).commune === statsCommuneFilter);
+            }
+            if (statsVillageFilter && statsVillageFilter !== 'all') {
+              filtered = filtered.filter(s => parseAddress(s.address).village === statsVillageFilter);
             }
 
             // Build summary by group
@@ -1566,7 +1605,7 @@ export default function Students() {
                       <Filter className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground">Bộ lọc</span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       <Select value={statsGradeFilter} onValueChange={(v) => { setStatsGradeFilter(v); setStatsClassFilter('all'); }}>
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue placeholder="Khối" />
@@ -1614,6 +1653,30 @@ export default function Students() {
                           ))}
                         </SelectContent>
                       </Select>
+
+                      <Select value={statsCommuneFilter} onValueChange={(v) => { setStatsCommuneFilter(v); setStatsVillageFilter('all'); }}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Xã" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả xã</SelectItem>
+                          {allCommunes.map(c => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={statsVillageFilter} onValueChange={setStatsVillageFilter}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Thôn/Bản" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả thôn</SelectItem>
+                          {filteredVillages.map(v => (
+                            <SelectItem key={v} value={v}>{v}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </CardContent>
                 </Card>
@@ -1651,12 +1714,13 @@ export default function Students() {
                 </div>
 
                 {/* Filter info */}
-                {(statsGenderFilter !== 'all' || statsEthnicityFilter !== 'all' || statsGradeFilter !== 'all' || statsClassFilter !== 'all') && (
+                {(statsGenderFilter !== 'all' || statsEthnicityFilter !== 'all' || statsGradeFilter !== 'all' || statsClassFilter !== 'all' || statsCommuneFilter !== 'all' || statsVillageFilter !== 'all') && (
                   <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
                     <span>Đang lọc: {filtered.length}/{students.length} HS</span>
                     <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => {
                       setStatsGradeFilter('all'); setStatsClassFilter('all');
                       setStatsGenderFilter('all'); setStatsEthnicityFilter('all');
+                      setStatsCommuneFilter('all'); setStatsVillageFilter('all');
                     }}>
                       Xoá lọc
                     </Button>
