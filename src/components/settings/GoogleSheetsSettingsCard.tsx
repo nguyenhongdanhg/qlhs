@@ -128,7 +128,7 @@ export function GoogleSheetsSettingsCard() {
 
     setIsSaving(true);
     try {
-      const configData: Record<string, any> = {
+      const configData = {
         school_id: currentSchool.id,
         sheet_id: 'monthly',
         service_account_email: serviceAccountEmail.trim() || null,
