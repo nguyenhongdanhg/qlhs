@@ -270,7 +270,7 @@ export function parseDateString(dateStr: string): string {
   return dateStr;
 }
 
-function parseGender(genderStr: string): 'male' | 'female' | null {
+export function parseGender(genderStr: string): 'male' | 'female' | null {
   const lower = genderStr.toLowerCase().trim();
   if (lower === 'nam' || lower === 'male' || lower === 'm') return 'male';
   if (lower === 'nữ' || lower === 'nu' || lower === 'female' || lower === 'f') return 'female';

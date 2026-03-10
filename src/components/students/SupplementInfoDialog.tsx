@@ -139,7 +139,7 @@ export function SupplementInfoDialog({ open, onOpenChange, students, classes, on
     setFileName(file.name);
 
     try {
-      const data = await parseStudentImportFile(file);
+      const data = await parseSupplementFile(file);
       setParsedData(data);
       setStep('preview');
       toast({
