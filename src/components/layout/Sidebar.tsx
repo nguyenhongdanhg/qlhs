@@ -11,7 +11,7 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  ChevronDown,
+  ChevronRight,
   Building2,
   Trophy,
   HelpCircle,
@@ -19,13 +19,11 @@ import {
   DoorOpen,
   ChefHat,
   BookOpen,
-  Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { memo, useState, useMemo, useCallback } from 'react';
 
 interface NavSubItem {
@@ -42,26 +40,13 @@ interface NavGroup {
   icon: React.ComponentType<{ className?: string }>;
   path?: string;
   children?: NavSubItem[];
-  adminOnly?: boolean;
 }
 
 const navGroups: NavGroup[] = [
+  { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
+  { code: 'emulation', label: 'Thi đua', icon: Trophy, path: '/emulation' },
   {
-    code: 'dashboard',
-    label: 'Tổng quan',
-    icon: LayoutDashboard,
-    path: '/dashboard',
-  },
-  {
-    code: 'emulation',
-    label: 'Thi đua',
-    icon: Trophy,
-    path: '/emulation',
-  },
-  {
-    code: 'boarding_group',
-    label: 'Quản lý nội trú',
-    icon: Home,
+    code: 'boarding_group', label: 'Quản lý nội trú', icon: Home,
     children: [
       { code: 'duty_schedule', label: 'Lịch trực', icon: CalendarDays, path: '/duty-schedule' },
       { code: 'boarding', label: 'Điểm danh nội trú', icon: Home, path: '/boarding' },
@@ -70,30 +55,16 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    code: 'meal_group',
-    label: 'Bữa ăn',
-    icon: UtensilsCrossed,
+    code: 'meal_group', label: 'Bữa ăn', icon: UtensilsCrossed,
     children: [
       { code: 'meals', label: 'Báo ăn', icon: UtensilsCrossed, path: '/meals' },
       { code: 'meal_menu', label: 'Thực đơn & Kho bếp', icon: ChefHat, path: '/meal-menu' },
     ],
   },
+  { code: 'health', label: 'Sức khỏe', icon: Heart, path: '/health' },
+  { code: 'statistics', label: 'Thống kê', icon: BarChart3, path: '/statistics' },
   {
-    code: 'health',
-    label: 'Sức khỏe',
-    icon: Heart,
-    path: '/health',
-  },
-  {
-    code: 'statistics',
-    label: 'Thống kê',
-    icon: BarChart3,
-    path: '/statistics',
-  },
-  {
-    code: 'settings_group',
-    label: 'Cài đặt',
-    icon: Settings,
+    code: 'settings_group', label: 'Cài đặt', icon: Settings,
     children: [
       { code: 'user_management', label: 'Quản lý người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
       { code: 'settings', label: 'Thiết lập', icon: Settings, path: '/settings' },
@@ -101,6 +72,68 @@ const navGroups: NavGroup[] = [
     ],
   },
 ];
+
+function HoverSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
+  group: NavGroup;
+  isCollapsed: boolean;
+  isChildVisible: (child: NavSubItem) => boolean;
+  locationPath: string;
+}) {
+  const Icon = group.icon;
+  const visibleChildren = group.children!.filter(isChildVisible);
+  const active = visibleChildren.some(c => locationPath === c.path);
+
+  if (visibleChildren.length === 0) return null;
+
+  return (
+    <li className="relative group/menu">
+      <div
+        className={cn(
+          'nav-item w-full cursor-default',
+          active ? 'nav-item-active' : 'nav-item-inactive',
+          isCollapsed && 'justify-center px-2'
+        )}
+      >
+        <Icon className="h-5 w-5 flex-shrink-0" />
+        {!isCollapsed && (
+          <>
+            <span className="flex-1">{group.label}</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </>
+        )}
+      </div>
+
+      {/* Hover flyout */}
+      <div className={cn(
+        'absolute top-0 z-50 hidden group-hover/menu:block',
+        isCollapsed ? 'left-full ml-1' : 'left-full ml-1'
+      )}>
+        <div className="min-w-[200px] rounded-lg border border-border bg-popover p-1.5 shadow-lg">
+          <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.label}</p>
+          {visibleChildren.map((child) => {
+            const ChildIcon = child.icon;
+            const childActive = locationPath === child.path;
+            return (
+              <Link
+                key={child.code}
+                to={child.path}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+                  childActive
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-popover-foreground hover:bg-accent/10 hover:text-accent-foreground'
+                )}
+              >
+                <ChildIcon className="h-4 w-4 flex-shrink-0" />
+                <span>{child.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </li>
+  );
+}
 
 export const Sidebar = memo(function Sidebar() {
   const location = useLocation();
@@ -136,11 +169,6 @@ export const Sidebar = memo(function Sidebar() {
     return isFeatureEnabled(child.code);
   }, [isFeatureEnabled, isSchoolAdmin]);
 
-  const isGroupActive = useCallback((group: NavGroup) => {
-    if (group.path) return location.pathname === group.path;
-    return group.children?.some(c => location.pathname === c.path) ?? false;
-  }, [location.pathname]);
-
   return (
     <aside
       className={cn(
@@ -156,9 +184,7 @@ export const Sidebar = memo(function Sidebar() {
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <h1 className="font-heading text-base font-bold text-sidebar-foreground truncate">
-                Quản lý Nội trú
-              </h1>
+              <h1 className="font-heading text-base font-bold text-sidebar-foreground truncate">Quản lý Nội trú</h1>
               {currentSchool && (
                 <p className="text-xs text-muted-foreground truncate">{currentSchool.code || currentSchool.name}</p>
               )}
@@ -189,12 +215,8 @@ export const Sidebar = memo(function Sidebar() {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">
-                {profile?.full_name || 'Người dùng'}
-              </p>
-              <Badge variant="secondary" className="mt-0.5 bg-primary/10 text-primary text-[10px] px-1.5 py-0 font-medium">
-                {roleBadge}
-              </Badge>
+              <p className="text-sm font-medium text-sidebar-foreground truncate">{profile?.full_name || 'Người dùng'}</p>
+              <Badge variant="secondary" className="mt-0.5 bg-primary/10 text-primary text-[10px] px-1.5 py-0 font-medium">{roleBadge}</Badge>
             </div>
           </div>
         ) : (
@@ -232,10 +254,10 @@ export const Sidebar = memo(function Sidebar() {
         <ul className="space-y-1">
           {navGroups.filter(isGroupFeatureEnabled).map((group) => {
             const Icon = group.icon;
-            const active = isGroupActive(group);
 
             // Simple link (no children)
             if (!group.children) {
+              const active = location.pathname === group.path;
               return (
                 <li key={group.code}>
                   <Link
@@ -254,54 +276,15 @@ export const Sidebar = memo(function Sidebar() {
               );
             }
 
-            // Collapsible group
-            const visibleChildren = group.children.filter(isChildVisible);
-            if (visibleChildren.length === 0) return null;
-
+            // Hover submenu group
             return (
-              <li key={group.code}>
-                <Collapsible defaultOpen={active}>
-                  <CollapsibleTrigger className={cn(
-                    'nav-item w-full group',
-                    active ? 'nav-item-active' : 'nav-item-inactive',
-                    isCollapsed && 'justify-center px-2'
-                  )}
-                    title={isCollapsed ? group.label : undefined}
-                  >
-                    <Icon className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <>
-                        <span className="flex-1 text-left">{group.label}</span>
-                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                      </>
-                    )}
-                  </CollapsibleTrigger>
-                  {!isCollapsed && (
-                    <CollapsibleContent>
-                      <ul className="ml-4 mt-1 space-y-0.5 border-l-2 border-sidebar-border pl-3">
-                        {visibleChildren.map((child) => {
-                          const ChildIcon = child.icon;
-                          const childActive = location.pathname === child.path;
-                          return (
-                            <li key={child.code}>
-                              <Link
-                                to={child.path}
-                                className={cn(
-                                  'nav-item w-full text-sm',
-                                  childActive ? 'nav-item-active' : 'nav-item-inactive'
-                                )}
-                              >
-                                <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                                <span>{child.label}</span>
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </CollapsibleContent>
-                  )}
-                </Collapsible>
-              </li>
+              <HoverSubmenu
+                key={group.code}
+                group={group}
+                isCollapsed={isCollapsed}
+                isChildVisible={isChildVisible}
+                locationPath={location.pathname}
+              />
             );
           })}
         </ul>
@@ -327,12 +310,7 @@ export const Sidebar = memo(function Sidebar() {
         <div className="border-t border-sidebar-border px-4 py-3 bg-gradient-to-r from-primary/5 to-accent/5">
           <p className="text-[11px] text-muted-foreground">Thiết kế bởi</p>
           <p className="text-xs font-medium text-sidebar-foreground">Thầy Nguyễn Hồng Dân</p>
-          <a
-            href="https://zalo.me/0888770699"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-primary hover:underline font-medium"
-          >
+          <a href="https://zalo.me/0888770699" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline font-medium">
             Zalo: 0888 770 699
           </a>
         </div>
