@@ -52,6 +52,8 @@ export default function SuperAdmin() {
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [adminSchool, setAdminSchool] = useState<{ id: string; name: string } | null>(null);
+  const [featuresDialogOpen, setFeaturesDialogOpen] = useState(false);
+  const [featuresSchool, setFeaturesSchool] = useState<{ id: string; name: string } | null>(null);
 
   const [formData, setFormData] = useState({
     code: '',
