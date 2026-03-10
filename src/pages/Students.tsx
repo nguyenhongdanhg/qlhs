@@ -694,7 +694,7 @@ export default function Students() {
 
       if (error) throw error;
 
-      const labels = { class: 'lớp', room: 'phòng', meal: 'mâm ăn' };
+      const labels: Record<string, string> = { class: 'lớp', room: 'phòng', meal: 'mâm ăn', ethnicity: 'dân tộc' };
       toast({ 
         title: 'Thành công', 
         description: `Đã cập nhật ${labels[batchUpdateType]} cho ${selectedIds.size} học sinh` 
