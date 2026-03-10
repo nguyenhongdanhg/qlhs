@@ -86,7 +86,7 @@ export default function Students() {
   
   // Batch update dialog
   const [isBatchUpdateOpen, setIsBatchUpdateOpen] = useState(false);
-  const [batchUpdateType, setBatchUpdateType] = useState<'class' | 'room' | 'meal'>('class');
+  const [batchUpdateType, setBatchUpdateType] = useState<'class' | 'room' | 'meal' | 'ethnicity'>('class');
   const [batchUpdateValue, setBatchUpdateValue] = useState('');
   
   // Filter state for room and meal (used when clicking from tabs)
@@ -683,6 +683,8 @@ export default function Students() {
         updateData.room_number = batchUpdateValue || null;
       } else if (batchUpdateType === 'meal') {
         updateData.meal_group = batchUpdateValue || null;
+      } else if (batchUpdateType === 'ethnicity') {
+        updateData.ethnicity = batchUpdateValue || null;
       }
 
       const { error } = await supabase
@@ -692,7 +694,7 @@ export default function Students() {
 
       if (error) throw error;
 
-      const labels = { class: 'lớp', room: 'phòng', meal: 'mâm ăn' };
+      const labels: Record<string, string> = { class: 'lớp', room: 'phòng', meal: 'mâm ăn', ethnicity: 'dân tộc' };
       toast({ 
         title: 'Thành công', 
         description: `Đã cập nhật ${labels[batchUpdateType]} cho ${selectedIds.size} học sinh` 
@@ -706,7 +708,7 @@ export default function Students() {
     }
   };
 
-  const openBatchUpdate = (type: 'class' | 'room' | 'meal') => {
+  const openBatchUpdate = (type: 'class' | 'room' | 'meal' | 'ethnicity') => {
     setBatchUpdateType(type);
     setBatchUpdateValue('');
     setIsBatchUpdateOpen(true);
@@ -1129,6 +1131,9 @@ export default function Students() {
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => openBatchUpdate('meal')}>
                         <Utensils className="h-4 w-4 mr-1" /> Đổi mâm
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openBatchUpdate('ethnicity')}>
+                        <Users className="h-4 w-4 mr-1" /> Đổi dân tộc
                       </Button>
                       <Button variant="destructive" size="sm" onClick={handleDeleteSelected}>
                         <Trash2 className="h-4 w-4 mr-1" /> Xóa
@@ -1810,6 +1815,7 @@ export default function Students() {
               {batchUpdateType === 'class' && 'Đổi lớp cho học sinh đã chọn'}
               {batchUpdateType === 'room' && 'Đổi phòng cho học sinh đã chọn'}
               {batchUpdateType === 'meal' && 'Đổi mâm ăn cho học sinh đã chọn'}
+              {batchUpdateType === 'ethnicity' && 'Đổi dân tộc cho học sinh đã chọn'}
             </DialogTitle>
             <DialogDescription>
               Áp dụng cho {selectedIds.size} học sinh đã chọn
@@ -1845,11 +1851,22 @@ export default function Students() {
                 list="batch-meal-suggestions"
               />
             )}
+            {batchUpdateType === 'ethnicity' && (
+              <Input
+                value={batchUpdateValue}
+                onChange={(e) => setBatchUpdateValue(e.target.value)}
+                placeholder="Nhập dân tộc (VD: Kinh, Tày, Mường...)"
+                list="batch-ethnicity-suggestions"
+              />
+            )}
             <datalist id="batch-room-suggestions">
               {roomNumbers.map(r => <option key={r} value={r} />)}
             </datalist>
             <datalist id="batch-meal-suggestions">
               {mealGroups.map(m => <option key={m} value={m} />)}
+            </datalist>
+            <datalist id="batch-ethnicity-suggestions">
+              {[...new Set(students.map(s => s.ethnicity).filter(Boolean))].sort().map(e => <option key={e} value={e!} />)}
             </datalist>
           </div>
           <DialogFooter>
