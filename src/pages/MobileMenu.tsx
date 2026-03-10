@@ -76,27 +76,26 @@ function MenuSection({ title, items, isFeatureEnabled, isAdmin }: {
   if (filtered.length === 0) return null;
 
   return (
-    <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">{title}</h3>
-      {filtered.map((item) => {
-        const Icon = item.icon;
-        return (
-          <Link key={item.code} to={item.path}>
-            <Card className="group transition-all hover:border-primary hover:shadow-md">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-sm">{item.label}</h3>
-                  <p className="text-xs text-muted-foreground">{item.description}</p>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
-              </CardContent>
-            </Card>
-          </Link>
-        );
-      })}
+    <div className="space-y-1">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1.5">{title}</h3>
+      <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+        {filtered.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.code}
+              to={item.path}
+              className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted active:bg-muted/80"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Icon className="h-4 w-4" />
+              </div>
+              <span className="flex-1 text-sm font-medium text-foreground">{item.label}</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
