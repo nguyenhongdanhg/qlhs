@@ -295,6 +295,11 @@ export default function Settings() {
           <GoogleSheetsSettingsCard />
         )}
 
+        {/* Report Sync to Google Sheets - Only for admin/super_admin */}
+        {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (
+          <ReportSyncSettingsCard />
+        )}
+
         {/* PWA Install */}
         <Card>
           <CardHeader>
