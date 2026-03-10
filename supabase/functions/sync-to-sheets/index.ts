@@ -225,22 +225,51 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
-    const spreadsheetId = Deno.env.get('GOOGLE_SHEET_ID');
-
-    if (!serviceAccountKey || !spreadsheetId) {
-      return new Response(
-        JSON.stringify({ error: 'Google Sheets credentials not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const credentials: ServiceAccountCredentials = JSON.parse(serviceAccountKey);
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const token = authHeader.replace('Bearer ', '');
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
+
+    // Verify user
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const body: SyncRequest = await req.json();
+    const { school_id, data_type, week_number, date, sheet_name } = body;
+
+    if (!school_id || !data_type) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: school_id and data_type' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Read Google config from school's sheets_sync_config
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: syncConfig } = await adminClient
+      .from('sheets_sync_config')
+      .select('google_service_account_key')
+      .eq('school_id', school_id)
+      .maybeSingle();
+
+    const serviceAccountKey = syncConfig?.google_service_account_key || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+    const spreadsheetId = Deno.env.get('GOOGLE_SHEET_ID');
+
+    if (!serviceAccountKey || !spreadsheetId) {
+      return new Response(
+        JSON.stringify({ error: 'Chưa cấu hình Google Service Account Key. Vào Cài đặt → Google Sheets để thiết lập.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const credentials: ServiceAccountCredentials = JSON.parse(serviceAccountKey);
 
     // Verify user
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
