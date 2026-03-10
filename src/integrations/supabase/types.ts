@@ -1301,6 +1301,8 @@ export type Database = {
           created_at: string
           emulation_sheet_name: string | null
           evening_study_sheet_name: string | null
+          google_drive_folder_id: string | null
+          google_service_account_key: string | null
           id: string
           is_enabled: boolean
           last_sync_at: string | null
@@ -1320,6 +1322,8 @@ export type Database = {
           created_at?: string
           emulation_sheet_name?: string | null
           evening_study_sheet_name?: string | null
+          google_drive_folder_id?: string | null
+          google_service_account_key?: string | null
           id?: string
           is_enabled?: boolean
           last_sync_at?: string | null
@@ -1339,6 +1343,8 @@ export type Database = {
           created_at?: string
           emulation_sheet_name?: string | null
           evening_study_sheet_name?: string | null
+          google_drive_folder_id?: string | null
+          google_service_account_key?: string | null
           id?: string
           is_enabled?: boolean
           last_sync_at?: string | null
