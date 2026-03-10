@@ -851,6 +851,10 @@ export default function Students() {
                   <FileSpreadsheet className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Nhập Excel</span>
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsSupplementOpen(true)}>
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Bổ sung TT</span>
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleExportExcel}>
                   <Download className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Xuất Excel</span>
