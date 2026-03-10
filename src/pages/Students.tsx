@@ -708,7 +708,7 @@ export default function Students() {
     }
   };
 
-  const openBatchUpdate = (type: 'class' | 'room' | 'meal') => {
+  const openBatchUpdate = (type: 'class' | 'room' | 'meal' | 'ethnicity') => {
     setBatchUpdateType(type);
     setBatchUpdateValue('');
     setIsBatchUpdateOpen(true);
