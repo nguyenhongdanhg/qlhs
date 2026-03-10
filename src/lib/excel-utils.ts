@@ -249,7 +249,7 @@ export function exportMealStatsToExcel(
 }
 
 // Helper functions
-function parseDateString(dateStr: string): string {
+export function parseDateString(dateStr: string): string {
   if (!dateStr) return '';
   
   // Handle dd/mm/yyyy format
