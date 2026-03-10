@@ -1448,6 +1448,37 @@ export default function Students() {
             const allGrades = [...new Set(classes.map(c => c.grade))].sort((a, b) => a - b);
             const sortedClasses = [...classes].sort((a, b) => a.grade !== b.grade ? a.grade - b.grade : a.name.localeCompare(b.name, 'vi'));
 
+            // Parse commune (xã) and village (thôn) from address
+            const parseAddress = (address?: string) => {
+              if (!address) return { commune: '', village: '' };
+              let commune = '';
+              let village = '';
+              // Try patterns: "Xã ABC" or ", ABC," after thôn
+              const parts = address.split(/[,;]+/).map(p => p.trim());
+              for (const part of parts) {
+                const lower = part.toLowerCase();
+                if (lower.startsWith('xã ') || lower.startsWith('xa ')) {
+                  commune = part;
+                } else if (lower.startsWith('thôn ') || lower.startsWith('thon ') || lower.startsWith('bản ') || lower.startsWith('ban ') || lower.startsWith('tổ ') || lower.startsWith('to ')) {
+                  village = part;
+                }
+              }
+              return { commune, village };
+            };
+
+            const addressData = students.map(s => parseAddress(s.address));
+            const allCommunes = [...new Set(addressData.map(a => a.commune).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+            const allVillages = [...new Set(addressData.map(a => a.village).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+
+            // Filter villages based on selected commune
+            const filteredVillages = statsCommuneFilter !== 'all'
+              ? [...new Set(students
+                  .filter(s => parseAddress(s.address).commune === statsCommuneFilter)
+                  .map(s => parseAddress(s.address).village)
+                  .filter(Boolean)
+                )].sort((a, b) => a.localeCompare(b, 'vi'))
+              : allVillages;
+
             // Apply filters
             let filtered = [...students];
             if (statsGenderFilter && statsGenderFilter !== 'all') {
@@ -1462,6 +1493,12 @@ export default function Students() {
             }
             if (statsClassFilter && statsClassFilter !== 'all') {
               filtered = filtered.filter(s => s.class_id === statsClassFilter);
+            }
+            if (statsCommuneFilter && statsCommuneFilter !== 'all') {
+              filtered = filtered.filter(s => parseAddress(s.address).commune === statsCommuneFilter);
+            }
+            if (statsVillageFilter && statsVillageFilter !== 'all') {
+              filtered = filtered.filter(s => parseAddress(s.address).village === statsVillageFilter);
             }
 
             // Build summary by group
