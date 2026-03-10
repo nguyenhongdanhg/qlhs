@@ -1813,6 +1813,15 @@ export default function Students() {
         onImport={handleExcelImport}
       />
 
+      {/* Supplement Info Dialog */}
+      <SupplementInfoDialog
+        open={isSupplementOpen}
+        onOpenChange={setIsSupplementOpen}
+        students={students}
+        classes={classes}
+        onComplete={fetchData}
+      />
+
       {/* Batch Update Dialog */}
       <Dialog open={isBatchUpdateOpen} onOpenChange={setIsBatchUpdateOpen}>
         <DialogContent className="max-w-sm">
