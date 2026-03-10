@@ -342,6 +342,28 @@ export default function Dashboard() {
     staleTime: 1000 * 60 * 5,
   });
 
+  // Fetch today's menu
+  const { data: todayMenu } = useQuery({
+    queryKey: ['dashboard-menu', currentSchool?.id, dateStr],
+    queryFn: async () => {
+      if (!currentSchool) return null;
+      const { data } = await supabase
+        .from('menu_assignments')
+        .select('meal_type, dishes')
+        .eq('school_id', currentSchool.id)
+        .eq('menu_date', dateStr);
+      if (!data || data.length === 0) return null;
+      const menu: Record<string, string[]> = {};
+      data.forEach((item: any) => {
+        const dishes = (item.dishes || '').split(',').map((d: string) => d.trim()).filter(Boolean);
+        if (dishes.length > 0) menu[item.meal_type] = dishes;
+      });
+      return Object.keys(menu).length > 0 ? menu : null;
+    },
+    enabled: !!currentSchool,
+    staleTime: 1000 * 60 * 10,
+  });
+
   const formatTimeAgo = (time?: string) => {
     if (!time) return '';
     try {
