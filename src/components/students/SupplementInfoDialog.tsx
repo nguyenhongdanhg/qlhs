@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { parseStudentImportFile, StudentImportRow } from '@/lib/excel-utils';
+import { StudentImportRow } from '@/lib/excel-utils';
+import { parseSupplementFile } from '@/lib/supplement-parser';
 import { Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import {
   Table,
