@@ -1851,11 +1851,22 @@ export default function Students() {
                 list="batch-meal-suggestions"
               />
             )}
+            {batchUpdateType === 'ethnicity' && (
+              <Input
+                value={batchUpdateValue}
+                onChange={(e) => setBatchUpdateValue(e.target.value)}
+                placeholder="Nhập dân tộc (VD: Kinh, Tày, Mường...)"
+                list="batch-ethnicity-suggestions"
+              />
+            )}
             <datalist id="batch-room-suggestions">
               {roomNumbers.map(r => <option key={r} value={r} />)}
             </datalist>
             <datalist id="batch-meal-suggestions">
               {mealGroups.map(m => <option key={m} value={m} />)}
+            </datalist>
+            <datalist id="batch-ethnicity-suggestions">
+              {[...new Set(students.map(s => s.ethnicity).filter(Boolean))].sort().map(e => <option key={e} value={e!} />)}
             </datalist>
           </div>
           <DialogFooter>
