@@ -86,7 +86,7 @@ export default function Students() {
   
   // Batch update dialog
   const [isBatchUpdateOpen, setIsBatchUpdateOpen] = useState(false);
-  const [batchUpdateType, setBatchUpdateType] = useState<'class' | 'room' | 'meal'>('class');
+  const [batchUpdateType, setBatchUpdateType] = useState<'class' | 'room' | 'meal' | 'ethnicity'>('class');
   const [batchUpdateValue, setBatchUpdateValue] = useState('');
   
   // Filter state for room and meal (used when clicking from tabs)
