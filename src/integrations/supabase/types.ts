@@ -1726,7 +1726,11 @@ export type Database = {
         | "lunch"
         | "dinner"
       gender: "male" | "female"
-      health_treatment_type: "medicine" | "first_aid" | "hospital"
+      health_treatment_type:
+        | "medicine"
+        | "first_aid"
+        | "hospital"
+        | "family_pickup"
       membership_status: "active" | "suspended"
     }
     CompositeTypes: {
@@ -1874,7 +1878,12 @@ export const Constants = {
         "dinner",
       ],
       gender: ["male", "female"],
-      health_treatment_type: ["medicine", "first_aid", "hospital"],
+      health_treatment_type: [
+        "medicine",
+        "first_aid",
+        "hospital",
+        "family_pickup",
+      ],
       membership_status: ["active", "suspended"],
     },
   },

@@ -1,0 +1,1 @@
+ALTER TYPE public.health_treatment_type ADD VALUE IF NOT EXISTS 'family_pickup';

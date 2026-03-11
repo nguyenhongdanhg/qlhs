@@ -294,7 +294,8 @@ export function HealthExportDialog({
                                 'text-[9px] sm:text-[10px] px-1 py-0',
                                 r.treatment_type === 'medicine' && 'bg-green-100 text-green-700',
                                 r.treatment_type === 'first_aid' && 'bg-yellow-100 text-yellow-700',
-                                r.treatment_type === 'hospital' && 'bg-red-100 text-red-700'
+                                r.treatment_type === 'hospital' && 'bg-red-100 text-red-700',
+                                r.treatment_type === 'family_pickup' && 'bg-blue-100 text-blue-700'
                               )}
                             >
                               {TREATMENT_LABELS[r.treatment_type as HealthTreatmentType]}

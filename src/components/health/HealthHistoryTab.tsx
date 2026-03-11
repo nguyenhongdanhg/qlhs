@@ -355,6 +355,7 @@ export function HealthHistoryTab({
               <SelectItem value="medicine">Phát thuốc</SelectItem>
               <SelectItem value="first_aid">Sơ cứu</SelectItem>
               <SelectItem value="hospital">Vào viện</SelectItem>
+              <SelectItem value="family_pickup">Gia đình đón về</SelectItem>
             </SelectContent>
           </Select>
         </div>
