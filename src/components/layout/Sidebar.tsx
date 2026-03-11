@@ -100,7 +100,7 @@ function HoverSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
         {!isCollapsed && (
           <>
             <span className="flex-1">{group.label}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover/menu:translate-x-0.5" />
           </>
         )}
       </div>
@@ -110,27 +110,37 @@ function HoverSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
         'absolute top-0 z-50 hidden group-hover/menu:block',
         isCollapsed ? 'left-full ml-1' : 'left-full ml-1'
       )}>
-        <div className="min-w-[200px] rounded-lg border border-border bg-popover p-1.5 shadow-lg">
-          <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.label}</p>
-          {visibleChildren.map((child) => {
-            const ChildIcon = child.icon;
-            const childActive = locationPath === child.path;
-            return (
-              <Link
-                key={child.code}
-                to={child.path}
-                className={cn(
-                  'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
-                  childActive
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-popover-foreground hover:bg-accent/10 hover:text-accent-foreground'
-                )}
-              >
-                <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                <span>{child.label}</span>
-              </Link>
-            );
-          })}
+        <div className="min-w-[220px] rounded-xl border border-border bg-popover p-2 shadow-xl">
+          <div className="flex items-center gap-2 px-3 py-2 mb-1">
+            <Icon className="h-4 w-4 text-primary" />
+            <p className="text-xs font-bold text-primary uppercase tracking-wider">{group.label}</p>
+          </div>
+          <div className="space-y-0.5">
+            {visibleChildren.map((child) => {
+              const ChildIcon = child.icon;
+              const childActive = locationPath === child.path;
+              return (
+                <Link
+                  key={child.code}
+                  to={child.path}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150',
+                    childActive
+                      ? 'bg-primary/10 text-primary font-semibold shadow-sm'
+                      : 'text-popover-foreground hover:bg-accent/50 hover:translate-x-0.5'
+                  )}
+                >
+                  <div className={cn(
+                    'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
+                    childActive ? 'bg-primary/20' : 'bg-muted'
+                  )}>
+                    <ChildIcon className="h-4 w-4 flex-shrink-0" />
+                  </div>
+                  <span>{child.label}</span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
     </li>
