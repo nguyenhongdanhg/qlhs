@@ -395,7 +395,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <Button size="sm" variant="outline" onClick={() => setShowCopyDialog(true)}>
               <Copy className="h-4 w-4 mr-1" />Sao chép
             </Button>
-            <Button size="sm" onClick={() => { setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' }); setShowAddDialog(true); }}>
+            <Button size="sm" onClick={() => { setNewItem(prev => ({ item_name: '', unit: 'kg', quantity: 0, notes: '', unit_price: pinnedPrice ? prev.unit_price : 0, supplier: pinnedSupplier ? prev.supplier : '' })); setShowAddDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" />Thêm
             </Button>
           </div>
