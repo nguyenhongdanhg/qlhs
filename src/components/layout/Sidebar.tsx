@@ -280,9 +280,8 @@ export const Sidebar = memo(function Sidebar() {
               );
             }
 
-            // Hover submenu group
             return (
-              <HoverSubmenu
+              <ExpandableSubmenu
                 key={group.code}
                 group={group}
                 isCollapsed={isCollapsed}
