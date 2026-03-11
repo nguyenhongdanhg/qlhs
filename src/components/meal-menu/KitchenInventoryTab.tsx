@@ -11,6 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format, addDays, subDays } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight, Store, Phone, MapPin, Package, Search } from "lucide-react";
