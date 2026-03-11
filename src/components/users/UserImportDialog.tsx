@@ -94,6 +94,7 @@ export default function UserImportDialog({
   const [importData, setImportData] = useState<UserImportRow[]>([]);
   const [importStep, setImportStep] = useState<'upload' | 'preview'>('upload');
   const [importResults, setImportResults] = useState<string[]>([]);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleDownloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
