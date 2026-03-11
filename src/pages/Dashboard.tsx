@@ -568,31 +568,66 @@ export default function Dashboard() {
           {/* Teacher Attendance Stats - only for class teachers (admin already sees data above) */}
           {isClassTeacher && <TeacherAttendanceStats />}
 
-          {/* Today's Menu */}
-          {todayMenu && (
+          {/* Menu: Today & Tomorrow */}
+          {(todayMenu || tomorrowMenu) && (
             <Link to="/meal-menu">
               <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-2 mb-2.5">
                     <UtensilsCrossed className="h-5 w-5 text-emerald-600" />
-                    <span className="text-sm sm:text-base font-semibold">Thực đơn hôm nay</span>
+                    <span className="text-sm sm:text-base font-semibold">Thực đơn</span>
                   </div>
-                  <div className="space-y-2">
-                    {(['breakfast', 'lunch', 'dinner'] as const).map(meal => {
-                      const dishes = todayMenu[meal];
-                      if (!dishes) return null;
-                      const mealLabel = meal === 'breakfast' ? 'Sáng' : meal === 'lunch' ? 'Trưa' : 'Tối';
-                      const mealIcon = meal === 'breakfast' ? '🌅' : meal === 'lunch' ? '☀️' : '🌙';
-                      return (
-                        <div key={meal} className="flex items-start gap-2.5 text-sm bg-muted/50 rounded-lg px-3 py-2">
-                          <span className="shrink-0 text-base">{mealIcon}</span>
-                          <div>
-                            <span className="font-semibold text-foreground">{mealLabel}:</span>{' '}
-                            <span className="text-muted-foreground">{dishes.join(', ')}</span>
-                          </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Today */}
+                    <div>
+                      <div className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Hôm nay</div>
+                      {todayMenu ? (
+                        <div className="space-y-1.5">
+                          {(['breakfast', 'lunch', 'dinner'] as const).map(meal => {
+                            const dishes = todayMenu[meal];
+                            if (!dishes) return null;
+                            const mealLabel = meal === 'breakfast' ? 'Sáng' : meal === 'lunch' ? 'Trưa' : 'Tối';
+                            const mealIcon = meal === 'breakfast' ? '🌅' : meal === 'lunch' ? '☀️' : '🌙';
+                            return (
+                              <div key={meal} className="flex items-start gap-2 text-sm bg-muted/50 rounded-lg px-2.5 py-1.5">
+                                <span className="shrink-0 text-sm">{mealIcon}</span>
+                                <div>
+                                  <span className="font-semibold text-foreground text-xs">{mealLabel}:</span>{' '}
+                                  <span className="text-muted-foreground text-xs">{dishes.join(', ')}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">Chưa có thực đơn</p>
+                      )}
+                    </div>
+                    {/* Tomorrow */}
+                    <div>
+                      <div className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Ngày mai</div>
+                      {tomorrowMenu ? (
+                        <div className="space-y-1.5">
+                          {(['breakfast', 'lunch', 'dinner'] as const).map(meal => {
+                            const dishes = tomorrowMenu[meal];
+                            if (!dishes) return null;
+                            const mealLabel = meal === 'breakfast' ? 'Sáng' : meal === 'lunch' ? 'Trưa' : 'Tối';
+                            const mealIcon = meal === 'breakfast' ? '🌅' : meal === 'lunch' ? '☀️' : '🌙';
+                            return (
+                              <div key={meal} className="flex items-start gap-2 text-sm bg-muted/50 rounded-lg px-2.5 py-1.5">
+                                <span className="shrink-0 text-sm">{mealIcon}</span>
+                                <div>
+                                  <span className="font-semibold text-foreground text-xs">{mealLabel}:</span>{' '}
+                                  <span className="text-muted-foreground text-xs">{dishes.join(', ')}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">Chưa có thực đơn</p>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
