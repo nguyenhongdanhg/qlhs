@@ -330,7 +330,7 @@ export default function Students() {
     try {
       const { error } = await supabase
         .from('students')
-        .update({ is_active: false })
+        .delete()
         .eq('id', student.id);
       if (error) throw error;
 
@@ -355,106 +355,50 @@ export default function Students() {
       classMap[cls.name.toLowerCase()] = cls.id;
     });
 
-    // Also fetch soft-deleted students to check for reactivation
-    const { data: allStudentsData } = await supabase
-      .from('students')
-      .select('*, class:classes(*)')
-      .eq('school_id', currentSchool.id)
-      .eq('is_active', false);
-    
-    const inactiveStudents = (allStudentsData || []).map(s => ({
-      ...s,
-      class: s.class as unknown as Class
-    })) as Student[];
-
-    // Combine active + inactive for duplicate checking
-    const allStudents = [...students, ...inactiveStudents];
-
-    // Check for duplicates by cccd or full_name (including soft-deleted)
+    // Check for duplicates by cccd or full_name
     const duplicates: { existing: Student; imported: StudentImportRow; updates: Record<string, { old: any; new: any }> }[] = [];
-    const reactivateRows: { student: Student; row: StudentImportRow }[] = [];
     const newRows: StudentImportRow[] = [];
 
     for (const row of importData) {
-      const existing = allStudents.find(s => 
+      const existing = students.find(s => 
         (row.cccd && s.cccd === row.cccd) || 
         (row.full_name && s.full_name.toLowerCase() === row.full_name.toLowerCase() && row.class_name && s.class?.name?.toLowerCase() === row.class_name.toLowerCase())
       );
 
       if (existing) {
-        // If soft-deleted, reactivate with updated data
-        if (!existing.is_active) {
-          reactivateRows.push({ student: existing, row });
-        } else {
-          // Active duplicate - show merge dialog
-          const updates: Record<string, { old: any; new: any }> = {};
-          const fieldMap: { key: keyof Student; importKey: keyof StudentImportRow; label: string; transform?: (v: string) => any }[] = [
-            { key: 'phone', importKey: 'phone', label: 'SĐT' },
-            { key: 'address', importKey: 'address', label: 'Địa chỉ' },
-            { key: 'ethnicity', importKey: 'ethnicity', label: 'Dân tộc' },
-            { key: 'room_number', importKey: 'room_number', label: 'Phòng KTX' },
-            { key: 'meal_group', importKey: 'meal_group', label: 'Mâm ăn' },
-            { key: 'avatar_url', importKey: 'avatar_url', label: 'Link ảnh' },
-            { key: 'cccd', importKey: 'cccd', label: 'CCCD' },
-            { key: 'date_of_birth', importKey: 'date_of_birth', label: 'Ngày sinh' },
-          ];
+        const updates: Record<string, { old: any; new: any }> = {};
+        const fieldMap: { key: keyof Student; importKey: keyof StudentImportRow; label: string; transform?: (v: string) => any }[] = [
+          { key: 'phone', importKey: 'phone', label: 'SĐT' },
+          { key: 'address', importKey: 'address', label: 'Địa chỉ' },
+          { key: 'ethnicity', importKey: 'ethnicity', label: 'Dân tộc' },
+          { key: 'room_number', importKey: 'room_number', label: 'Phòng KTX' },
+          { key: 'meal_group', importKey: 'meal_group', label: 'Mâm ăn' },
+          { key: 'avatar_url', importKey: 'avatar_url', label: 'Link ảnh' },
+          { key: 'cccd', importKey: 'cccd', label: 'CCCD' },
+          { key: 'date_of_birth', importKey: 'date_of_birth', label: 'Ngày sinh' },
+        ];
 
-          for (const field of fieldMap) {
-            const importVal = row[field.importKey];
-            const existingVal = existing[field.key];
-            if (importVal && importVal !== existingVal) {
-              updates[field.key] = { old: existingVal || '(trống)', new: importVal };
-            }
+        for (const field of fieldMap) {
+          const importVal = row[field.importKey];
+          const existingVal = existing[field.key];
+          if (importVal && importVal !== existingVal) {
+            updates[field.key] = { old: existingVal || '(trống)', new: importVal };
           }
-          if (row.gender && row.gender !== existing.gender) {
-            updates['gender'] = { old: existing.gender === 'male' ? 'Nam' : existing.gender === 'female' ? 'Nữ' : '(trống)', new: row.gender === 'male' ? 'Nam' : 'Nữ' };
-          }
-          const newClassId = classMap[row.class_name?.toLowerCase()] || null;
-          if (newClassId && newClassId !== existing.class_id) {
-            updates['class_id'] = { old: existing.class?.name || '(trống)', new: row.class_name };
-          }
+        }
+        if (row.gender && row.gender !== existing.gender) {
+          updates['gender'] = { old: existing.gender === 'male' ? 'Nam' : existing.gender === 'female' ? 'Nữ' : '(trống)', new: row.gender === 'male' ? 'Nam' : 'Nữ' };
+        }
+        const newClassId = classMap[row.class_name?.toLowerCase()] || null;
+        if (newClassId && newClassId !== existing.class_id) {
+          updates['class_id'] = { old: existing.class?.name || '(trống)', new: row.class_name };
+        }
 
-          if (Object.keys(updates).length > 0) {
-            duplicates.push({ existing, imported: row, updates });
-          }
+        if (Object.keys(updates).length > 0) {
+          duplicates.push({ existing, imported: row, updates });
         }
       } else {
         newRows.push(row);
       }
-    }
-
-    // Reactivate soft-deleted students
-    let reactivatedCount = 0;
-    for (const { student, row } of reactivateRows) {
-      try {
-        const updateData: Record<string, any> = {
-          is_active: true,
-          full_name: row.full_name,
-          date_of_birth: row.date_of_birth || student.date_of_birth,
-          gender: row.gender || student.gender,
-          class_id: classMap[row.class_name?.toLowerCase()] || student.class_id,
-          cccd: row.cccd || student.cccd,
-          phone: row.phone || student.phone,
-          address: row.address || student.address,
-          ethnicity: row.ethnicity || student.ethnicity,
-          room_number: row.room_number || student.room_number,
-          meal_group: row.meal_group || student.meal_group,
-          avatar_url: row.avatar_url || student.avatar_url,
-        };
-
-        const { error } = await supabase
-          .from('students')
-          .update(updateData)
-          .eq('id', student.id);
-
-        if (!error) reactivatedCount++;
-      } catch (err) {
-        console.error('Error reactivating student:', student.full_name, err);
-      }
-    }
-
-    if (reactivatedCount > 0) {
-      toast({ title: 'Kích hoạt lại', description: `Đã kích hoạt lại ${reactivatedCount} học sinh đã xóa trước đó` });
     }
 
     // Insert new students ONE BY ONE to catch per-row errors
@@ -504,7 +448,7 @@ export default function Students() {
       if (successCount > 0) {
         toast({ title: `Đã nhập ${successCount} học sinh mới`, description: `Phát hiện ${duplicates.length} học sinh trùng cần xác nhận cập nhật` });
       }
-    } else if (rowErrors.length === 0 && reactivatedCount === 0) {
+    } else if (rowErrors.length === 0) {
       toast({ title: 'Thành công', description: `Đã nhập ${newRows.length} học sinh mới` });
     }
 
@@ -564,8 +508,9 @@ export default function Students() {
     try {
       const { error } = await supabase
         .from('students')
-        .update({ is_active: false })
-        .eq('school_id', currentSchool.id);
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true);
       
       if (error) throw error;
 
@@ -609,7 +554,7 @@ export default function Students() {
     try {
       const { error } = await supabase
         .from('students')
-        .update({ is_active: false })
+        .delete()
         .in('id', Array.from(selectedIds));
 
       if (error) throw error;
