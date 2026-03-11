@@ -397,17 +397,22 @@ export default function UserImportDialog({
 
               <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex gap-4">
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-success" />
-                    {validCount} hợp lệ
-                  </Badge>
-                  {invalidCount > 0 && (
-                    <Badge variant="destructive" className="flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {invalidCount} lỗi
-                    </Badge>
-                  )}
-                </div>
+                   <Badge variant="secondary" className="flex items-center gap-1">
+                     <CheckCircle2 className="h-3 w-3 text-success" />
+                     {validCount} hợp lệ
+                   </Badge>
+                   {invalidCount > 0 && (
+                     <Badge 
+                       variant="destructive" 
+                       className="flex items-center gap-1 cursor-pointer hover:bg-destructive/90 transition-colors"
+                       onClick={() => setShowErrorDetails(!showErrorDetails)}
+                     >
+                       <AlertCircle className="h-3 w-3" />
+                       {invalidCount} lỗi
+                       {showErrorDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                     </Badge>
+                   )}
+                 </div>
                 <Button
                   variant="outline"
                   size="sm"
