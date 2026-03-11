@@ -43,6 +43,7 @@ const TREATMENT_LABELS: Record<HealthTreatmentType, string> = {
   medicine: 'Phát thuốc',
   first_aid: 'Sơ cứu',
   hospital: 'Vào viện',
+  family_pickup: 'Gia đình đón về',
 };
 
 export function HealthExportDialog({
