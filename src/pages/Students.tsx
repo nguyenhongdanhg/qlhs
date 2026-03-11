@@ -1552,6 +1552,12 @@ export default function Students() {
                 if (!st.parent_phone) row.missingParentPhone++;
                 if (!st.address) row.missingAddress++;
                 if (!st.cccd || st.cccd.startsWith('HS')) row.missingCccd++;
+                const room = st.room_number || '';
+                if (room) row.rooms[room] = (row.rooms[room] || 0) + 1;
+                else row.missingRoom++;
+                const meal = st.meal_group || '';
+                if (meal) row.mealGroups[meal] = (row.mealGroups[meal] || 0) + 1;
+                else row.missingMealGroup++;
               });
               return row;
             };
