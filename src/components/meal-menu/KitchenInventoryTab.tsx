@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format, addDays, subDays } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight, Store, Phone, MapPin } from "lucide-react";
+import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight, Store, Phone, MapPin, Package, Search } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface FoodItem {
@@ -70,6 +70,8 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
 
   const [newItem, setNewItem] = useState({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' });
   const [newFoodItem, setNewFoodItem] = useState({ name: '', unit: 'kg', default_price: 0 });
+  const [editingFoodItem, setEditingFoodItem] = useState<FoodItem | null>(null);
+  const [foodSearchQuery, setFoodSearchQuery] = useState("");
   const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', address: '', notes: '' });
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
@@ -147,7 +149,32 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
     setLoading(false);
   };
 
-  // ========== SUPPLIER MANAGEMENT ==========
+  const updateFoodItem = async () => {
+    if (!editingFoodItem) return;
+    setLoading(true);
+    const { error } = await supabase.from('food_items').update({
+      name: editingFoodItem.name,
+      unit: editingFoodItem.unit,
+      default_price: editingFoodItem.default_price,
+    }).eq('id', editingFoodItem.id);
+    if (error) {
+      toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Đã cập nhật thực phẩm" });
+      setEditingFoodItem(null);
+      fetchFoodItems();
+    }
+    setLoading(false);
+  };
+
+  const deleteFoodItem = async (id: string) => {
+    const { error } = await supabase.from('food_items').update({ is_active: false }).eq('id', id);
+    if (!error) {
+      toast({ title: "Đã xóa thực phẩm" });
+      fetchFoodItems();
+    }
+  };
+
   const addSupplier = async () => {
     if (!newSupplier.name.trim()) return;
     setLoading(true);
@@ -355,8 +382,8 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <Button size="sm" variant="outline" onClick={() => setShowSupplierDialog(true)}>
               <Store className="h-4 w-4 mr-1" />NCC
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setShowAddFoodDialog(true)}>
-              <Plus className="h-4 w-4 mr-1" />Thực phẩm
+            <Button size="sm" variant="outline" onClick={() => { setFoodSearchQuery(''); setShowAddFoodDialog(true); }}>
+              <Package className="h-4 w-4 mr-1" />Thực phẩm
             </Button>
             <Button size="sm" variant="outline" onClick={() => setShowCopyDialog(true)}>
               <Copy className="h-4 w-4 mr-1" />Sao chép
@@ -485,23 +512,116 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
         </DialogContent>
       </Dialog>
 
-      {/* Add food item dialog */}
+      {/* Food items management dialog */}
       <Dialog open={showAddFoodDialog} onOpenChange={setShowAddFoodDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Thêm thực phẩm mới</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Quản lý danh sách thực phẩm
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <Input placeholder="Tên thực phẩm *" value={newFoodItem.name} onChange={e => setNewFoodItem(p => ({ ...p, name: e.target.value }))} />
-            <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="ĐVT (kg, lít...)" value={newFoodItem.unit} onChange={e => setNewFoodItem(p => ({ ...p, unit: e.target.value }))} />
-              <Input type="number" placeholder="Giá mặc định" value={newFoodItem.default_price || ''} onChange={e => setNewFoodItem(p => ({ ...p, default_price: parseFloat(e.target.value) || 0 }))} />
+          <div className="space-y-4">
+            {/* Add new food item form */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Thêm thực phẩm mới</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Input
+                  placeholder="Tên thực phẩm *"
+                  value={newFoodItem.name}
+                  onChange={e => setNewFoodItem(p => ({ ...p, name: e.target.value }))}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="ĐVT (kg, lít...)"
+                    value={newFoodItem.unit}
+                    onChange={e => setNewFoodItem(p => ({ ...p, unit: e.target.value }))}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Giá mặc định"
+                    value={newFoodItem.default_price || ''}
+                    onChange={e => setNewFoodItem(p => ({ ...p, default_price: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <Button size="sm" onClick={addFoodItem} disabled={loading || !newFoodItem.name.trim()} className="w-full">
+                  <Plus className="h-4 w-4 mr-1" />Thêm
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Tìm thực phẩm..."
+                value={foodSearchQuery}
+                onChange={e => setFoodSearchQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
+
+            {/* Food items list */}
+            {foodItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Chưa có thực phẩm nào</p>
+            ) : (
+              <div className="space-y-2">
+                {foodItems
+                  .filter(f => f.name.toLowerCase().includes(foodSearchQuery.toLowerCase()))
+                  .map(f => (
+                  <Card key={f.id} className="p-3">
+                    {editingFoodItem?.id === f.id ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={editingFoodItem.name}
+                          onChange={e => setEditingFoodItem(p => p ? { ...p, name: e.target.value } : null)}
+                          placeholder="Tên thực phẩm"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            value={editingFoodItem.unit}
+                            onChange={e => setEditingFoodItem(p => p ? { ...p, unit: e.target.value } : null)}
+                            placeholder="ĐVT"
+                          />
+                          <Input
+                            type="number"
+                            value={editingFoodItem.default_price || ''}
+                            onChange={e => setEditingFoodItem(p => p ? { ...p, default_price: parseFloat(e.target.value) || 0 } : null)}
+                            placeholder="Giá mặc định"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={updateFoodItem} disabled={loading}>Lưu</Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingFoodItem(null)}>Hủy</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{f.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {f.unit} {f.default_price > 0 && `• ${f.default_price.toLocaleString('vi-VN')}đ`}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingFoodItem(f)}>
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteFoodItem(f.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground text-center">Tổng: {foodItems.length} thực phẩm</p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddFoodDialog(false)}>Hủy</Button>
-            <Button onClick={addFoodItem} disabled={loading}>Thêm</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
