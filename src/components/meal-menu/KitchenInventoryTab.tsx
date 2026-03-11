@@ -382,8 +382,8 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <Button size="sm" variant="outline" onClick={() => setShowSupplierDialog(true)}>
               <Store className="h-4 w-4 mr-1" />NCC
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setShowAddFoodDialog(true)}>
-              <Plus className="h-4 w-4 mr-1" />Thực phẩm
+            <Button size="sm" variant="outline" onClick={() => { setFoodSearchQuery(''); setShowAddFoodDialog(true); }}>
+              <Package className="h-4 w-4 mr-1" />Thực phẩm
             </Button>
             <Button size="sm" variant="outline" onClick={() => setShowCopyDialog(true)}>
               <Copy className="h-4 w-4 mr-1" />Sao chép
