@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, addDays, subDays } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight, Store, Phone, MapPin, Package, Search } from "lucide-react";
+import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight, Store, Phone, MapPin, Package, Search, Pin } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface FoodItem {
