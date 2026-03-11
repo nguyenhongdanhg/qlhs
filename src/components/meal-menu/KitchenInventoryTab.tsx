@@ -11,9 +11,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format, addDays, subDays } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight, Store, Phone, MapPin, Package, Search } from "lucide-react";
+import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight, Store, Phone, MapPin, Package, Search, Pin } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface FoodItem {
@@ -74,6 +75,8 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const [foodSearchQuery, setFoodSearchQuery] = useState("");
   const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', address: '', notes: '' });
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [pinnedSupplier, setPinnedSupplier] = useState(false);
+  const [pinnedPrice, setPinnedPrice] = useState(false);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
@@ -244,7 +247,11 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       toast({ title: "Lỗi", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Đã thêm" });
-      setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' });
+      setNewItem(prev => ({
+        item_name: '', unit: 'kg', quantity: 0, notes: '',
+        unit_price: pinnedPrice ? prev.unit_price : 0,
+        supplier: pinnedSupplier ? prev.supplier : '',
+      }));
       setShowAddDialog(false);
       fetchTransactions();
     }
@@ -388,7 +395,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <Button size="sm" variant="outline" onClick={() => setShowCopyDialog(true)}>
               <Copy className="h-4 w-4 mr-1" />Sao chép
             </Button>
-            <Button size="sm" onClick={() => { setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' }); setShowAddDialog(true); }}>
+            <Button size="sm" onClick={() => { setNewItem(prev => ({ item_name: '', unit: 'kg', quantity: 0, notes: '', unit_price: pinnedPrice ? prev.unit_price : 0, supplier: pinnedSupplier ? prev.supplier : '' })); setShowAddDialog(true); }}>
               <Plus className="h-4 w-4 mr-1" />Thêm
             </Button>
           </div>
@@ -494,13 +501,26 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <div className="grid grid-cols-3 gap-2">
               <Input placeholder="ĐVT" value={newItem.unit} onChange={e => setNewItem(p => ({ ...p, unit: e.target.value }))} />
               <Input type="number" placeholder="Số lượng" value={newItem.quantity || ''} onChange={e => setNewItem(p => ({ ...p, quantity: parseFloat(e.target.value) || 0 }))} />
-              <Input type="number" placeholder="Đơn giá" value={newItem.unit_price || ''} onChange={e => setNewItem(p => ({ ...p, unit_price: parseFloat(e.target.value) || 0 }))} />
+              <div className="relative">
+                <Input type="number" placeholder="Đơn giá" value={newItem.unit_price || ''} onChange={e => setNewItem(p => ({ ...p, unit_price: parseFloat(e.target.value) || 0 }))} />
+                <label className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 cursor-pointer" title="Cố định đơn giá">
+                  <Checkbox checked={pinnedPrice} onCheckedChange={(v) => setPinnedPrice(!!v)} className="h-4 w-4" />
+                  <Pin className={`h-3 w-3 ${pinnedPrice ? 'text-primary' : 'text-muted-foreground'}`} />
+                </label>
+              </div>
             </div>
             <div className="text-right text-sm text-muted-foreground">
               Thành tiền: <span className="font-semibold text-foreground">{formatCurrency(newItem.quantity * newItem.unit_price)}</span>
             </div>
             <div>
-              <p className="text-sm font-medium mb-1">Nhà cung cấp:</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm font-medium">Nhà cung cấp:</p>
+                <label className="flex items-center gap-1 cursor-pointer" title="Cố định NCC">
+                  <Checkbox checked={pinnedSupplier} onCheckedChange={(v) => setPinnedSupplier(!!v)} className="h-4 w-4" />
+                  <Pin className={`h-3 w-3 ${pinnedSupplier ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className="text-xs text-muted-foreground">Cố định</span>
+                </label>
+              </div>
               <SupplierSelect value={newItem.supplier} onChange={(v) => setNewItem(p => ({ ...p, supplier: v }))} />
             </div>
             <Input placeholder="Ghi chú" value={newItem.notes} onChange={e => setNewItem(p => ({ ...p, notes: e.target.value }))} />
