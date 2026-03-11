@@ -1603,9 +1603,14 @@ export default function Students() {
             // All unique ethnicities across rows for columns
             const ethColumns = [...new Set(filtered.map(s => s.ethnicity).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'vi')) as string[];
 
+            const roomColumns = [...new Set(filtered.map(s => s.room_number).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'vi', { numeric: true })) as string[];
+            const mealGroupColumns = [...new Set(filtered.map(s => s.meal_group).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'vi', { numeric: true })) as string[];
+
             const filterLabels = {
               summary: 'Tổng hợp',
               ethnicity: 'Dân tộc',
+              rooms: 'Phòng ở',
+              meals: 'Mâm ăn',
               missing: 'TT thiếu',
             };
 
