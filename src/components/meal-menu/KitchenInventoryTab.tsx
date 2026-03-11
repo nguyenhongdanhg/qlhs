@@ -70,6 +70,8 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
 
   const [newItem, setNewItem] = useState({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' });
   const [newFoodItem, setNewFoodItem] = useState({ name: '', unit: 'kg', default_price: 0 });
+  const [editingFoodItem, setEditingFoodItem] = useState<FoodItem | null>(null);
+  const [foodSearchQuery, setFoodSearchQuery] = useState("");
   const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', address: '', notes: '' });
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
