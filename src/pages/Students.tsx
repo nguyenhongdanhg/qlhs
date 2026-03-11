@@ -101,7 +101,7 @@ export default function Students() {
   const [bulkAvatarText, setBulkAvatarText] = useState('');
   const [zoomAvatarUrl, setZoomAvatarUrl] = useState<string | null>(null);
   const [statsView, setStatsView] = useState<'school' | 'level' | 'grade' | 'class'>('school');
-  const [statsFilter, setStatsFilter] = useState<'summary' | 'ethnicity' | 'missing'>('summary');
+  const [statsFilter, setStatsFilter] = useState<'summary' | 'ethnicity' | 'rooms' | 'meals' | 'missing'>('summary');
   const [statsGradeFilter, setStatsGradeFilter] = useState('all');
   const [statsClassFilter, setStatsClassFilter] = useState('all');
   const [statsGenderFilter, setStatsGenderFilter] = useState('all');
@@ -1517,6 +1517,10 @@ export default function Students() {
               missingParentPhone: number;
               missingAddress: number;
               missingCccd: number;
+              rooms: Record<string, number>;
+              mealGroups: Record<string, number>;
+              missingRoom: number;
+              missingMealGroup: number;
             }
 
             const buildRow = (label: string, list: typeof students): GroupRow => {
@@ -1525,6 +1529,7 @@ export default function Students() {
                 boarding: 0, ethnicities: {}, ages: {}, ageUnknown: 0,
                 missingEthnicity: 0, missingPhone: 0, missingParentPhone: 0,
                 missingAddress: 0, missingCccd: 0,
+                rooms: {}, mealGroups: {}, missingRoom: 0, missingMealGroup: 0,
               };
               list.forEach(st => {
                 if (st.gender === 'male') row.male++;
@@ -1541,6 +1546,12 @@ export default function Students() {
                 if (!st.parent_phone) row.missingParentPhone++;
                 if (!st.address) row.missingAddress++;
                 if (!st.cccd || st.cccd.startsWith('HS')) row.missingCccd++;
+                const room = st.room_number || '';
+                if (room) row.rooms[room] = (row.rooms[room] || 0) + 1;
+                else row.missingRoom++;
+                const meal = st.meal_group || '';
+                if (meal) row.mealGroups[meal] = (row.mealGroups[meal] || 0) + 1;
+                else row.missingMealGroup++;
               });
               return row;
             };
@@ -1586,9 +1597,14 @@ export default function Students() {
             // All unique ethnicities across rows for columns
             const ethColumns = [...new Set(filtered.map(s => s.ethnicity).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'vi')) as string[];
 
+            const roomColumns = [...new Set(filtered.map(s => s.room_number).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'vi', { numeric: true })) as string[];
+            const mealGroupColumns = [...new Set(filtered.map(s => s.meal_group).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'vi', { numeric: true })) as string[];
+
             const filterLabels = {
               summary: 'Tổng hợp',
               ethnicity: 'Dân tộc',
+              rooms: 'Phòng ở',
+              meals: 'Mâm ăn',
               missing: 'TT thiếu',
             };
 
@@ -1875,6 +1891,106 @@ export default function Students() {
                               </TableCell>
                               <TableCell className={cn("text-xs text-center font-bold", totalRow.missingAddress > 0 && "text-orange-600")}>
                                 {totalRow.missingAddress || '✓'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Rooms Table */}
+                {statsFilter === 'rooms' && (
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs font-semibold sticky left-0 bg-background z-10 min-w-[80px]">Nhóm</TableHead>
+                            <TableHead className="text-xs text-center w-12">Tổng</TableHead>
+                            {roomColumns.map(room => (
+                              <TableHead key={room} className="text-xs text-center min-w-[50px]">{room}</TableHead>
+                            ))}
+                            <TableHead className="text-xs text-center min-w-[60px]">Chưa xếp</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map(row => (
+                            <TableRow key={row.label}>
+                              <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{row.label}</TableCell>
+                              <TableCell className="text-xs text-center font-semibold">{row.total}</TableCell>
+                              {roomColumns.map(room => (
+                                <TableCell key={room} className="text-xs text-center">
+                                  {row.rooms[room] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600">
+                                {row.missingRoom || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {totalRow && (
+                            <TableRow className="bg-muted/50 font-semibold">
+                              <TableCell className="text-xs font-bold sticky left-0 bg-muted/50 z-10">{totalRow.label}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.total}</TableCell>
+                              {roomColumns.map(room => (
+                                <TableCell key={room} className="text-xs text-center font-bold">
+                                  {totalRow.rooms[room] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600 font-bold">
+                                {totalRow.missingRoom || '-'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Meal Groups Table */}
+                {statsFilter === 'meals' && (
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs font-semibold sticky left-0 bg-background z-10 min-w-[80px]">Nhóm</TableHead>
+                            <TableHead className="text-xs text-center w-12">Tổng</TableHead>
+                            {mealGroupColumns.map(mg => (
+                              <TableHead key={mg} className="text-xs text-center min-w-[50px]">{mg}</TableHead>
+                            ))}
+                            <TableHead className="text-xs text-center min-w-[60px]">Chưa xếp</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map(row => (
+                            <TableRow key={row.label}>
+                              <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{row.label}</TableCell>
+                              <TableCell className="text-xs text-center font-semibold">{row.total}</TableCell>
+                              {mealGroupColumns.map(mg => (
+                                <TableCell key={mg} className="text-xs text-center">
+                                  {row.mealGroups[mg] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600">
+                                {row.missingMealGroup || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {totalRow && (
+                            <TableRow className="bg-muted/50 font-semibold">
+                              <TableCell className="text-xs font-bold sticky left-0 bg-muted/50 z-10">{totalRow.label}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.total}</TableCell>
+                              {mealGroupColumns.map(mg => (
+                                <TableCell key={mg} className="text-xs text-center font-bold">
+                                  {totalRow.mealGroups[mg] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600 font-bold">
+                                {totalRow.missingMealGroup || '-'}
                               </TableCell>
                             </TableRow>
                           )}
