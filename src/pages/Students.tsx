@@ -1517,6 +1517,16 @@ export default function Students() {
               missingParentPhone: number;
               missingAddress: number;
               missingCccd: number;
+              rooms: Record<string, number>;
+              mealGroups: Record<string, number>;
+              missingRoom: number;
+              missingMealGroup: number;
+            }
+              missingEthnicity: number;
+              missingPhone: number;
+              missingParentPhone: number;
+              missingAddress: number;
+              missingCccd: number;
             }
 
             const buildRow = (label: string, list: typeof students): GroupRow => {
