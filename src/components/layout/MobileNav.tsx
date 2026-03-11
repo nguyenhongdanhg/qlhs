@@ -166,9 +166,7 @@ export const MobileNav = memo(function MobileNav() {
           return (
             <button
               key={item.code}
-              onMouseEnter={() => setOpenGroup(item.code)}
-              onClick={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 setOpenGroup(prev => prev === item.code ? null : item.code);
               }}
               className={cn(
