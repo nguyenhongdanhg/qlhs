@@ -366,79 +366,39 @@ export default function Students() {
       );
 
       if (existing) {
-        // If soft-deleted, reactivate with updated data
-        if (!existing.is_active) {
-          reactivateRows.push({ student: existing, row });
-        } else {
-          // Active duplicate - show merge dialog
-          const updates: Record<string, { old: any; new: any }> = {};
-          const fieldMap: { key: keyof Student; importKey: keyof StudentImportRow; label: string; transform?: (v: string) => any }[] = [
-            { key: 'phone', importKey: 'phone', label: 'SĐT' },
-            { key: 'address', importKey: 'address', label: 'Địa chỉ' },
-            { key: 'ethnicity', importKey: 'ethnicity', label: 'Dân tộc' },
-            { key: 'room_number', importKey: 'room_number', label: 'Phòng KTX' },
-            { key: 'meal_group', importKey: 'meal_group', label: 'Mâm ăn' },
-            { key: 'avatar_url', importKey: 'avatar_url', label: 'Link ảnh' },
-            { key: 'cccd', importKey: 'cccd', label: 'CCCD' },
-            { key: 'date_of_birth', importKey: 'date_of_birth', label: 'Ngày sinh' },
-          ];
+        const updates: Record<string, { old: any; new: any }> = {};
+        const fieldMap: { key: keyof Student; importKey: keyof StudentImportRow; label: string; transform?: (v: string) => any }[] = [
+          { key: 'phone', importKey: 'phone', label: 'SĐT' },
+          { key: 'address', importKey: 'address', label: 'Địa chỉ' },
+          { key: 'ethnicity', importKey: 'ethnicity', label: 'Dân tộc' },
+          { key: 'room_number', importKey: 'room_number', label: 'Phòng KTX' },
+          { key: 'meal_group', importKey: 'meal_group', label: 'Mâm ăn' },
+          { key: 'avatar_url', importKey: 'avatar_url', label: 'Link ảnh' },
+          { key: 'cccd', importKey: 'cccd', label: 'CCCD' },
+          { key: 'date_of_birth', importKey: 'date_of_birth', label: 'Ngày sinh' },
+        ];
 
-          for (const field of fieldMap) {
-            const importVal = row[field.importKey];
-            const existingVal = existing[field.key];
-            if (importVal && importVal !== existingVal) {
-              updates[field.key] = { old: existingVal || '(trống)', new: importVal };
-            }
+        for (const field of fieldMap) {
+          const importVal = row[field.importKey];
+          const existingVal = existing[field.key];
+          if (importVal && importVal !== existingVal) {
+            updates[field.key] = { old: existingVal || '(trống)', new: importVal };
           }
-          if (row.gender && row.gender !== existing.gender) {
-            updates['gender'] = { old: existing.gender === 'male' ? 'Nam' : existing.gender === 'female' ? 'Nữ' : '(trống)', new: row.gender === 'male' ? 'Nam' : 'Nữ' };
-          }
-          const newClassId = classMap[row.class_name?.toLowerCase()] || null;
-          if (newClassId && newClassId !== existing.class_id) {
-            updates['class_id'] = { old: existing.class?.name || '(trống)', new: row.class_name };
-          }
+        }
+        if (row.gender && row.gender !== existing.gender) {
+          updates['gender'] = { old: existing.gender === 'male' ? 'Nam' : existing.gender === 'female' ? 'Nữ' : '(trống)', new: row.gender === 'male' ? 'Nam' : 'Nữ' };
+        }
+        const newClassId = classMap[row.class_name?.toLowerCase()] || null;
+        if (newClassId && newClassId !== existing.class_id) {
+          updates['class_id'] = { old: existing.class?.name || '(trống)', new: row.class_name };
+        }
 
-          if (Object.keys(updates).length > 0) {
-            duplicates.push({ existing, imported: row, updates });
-          }
+        if (Object.keys(updates).length > 0) {
+          duplicates.push({ existing, imported: row, updates });
         }
       } else {
         newRows.push(row);
       }
-    }
-
-    // Reactivate soft-deleted students
-    let reactivatedCount = 0;
-    for (const { student, row } of reactivateRows) {
-      try {
-        const updateData: Record<string, any> = {
-          is_active: true,
-          full_name: row.full_name,
-          date_of_birth: row.date_of_birth || student.date_of_birth,
-          gender: row.gender || student.gender,
-          class_id: classMap[row.class_name?.toLowerCase()] || student.class_id,
-          cccd: row.cccd || student.cccd,
-          phone: row.phone || student.phone,
-          address: row.address || student.address,
-          ethnicity: row.ethnicity || student.ethnicity,
-          room_number: row.room_number || student.room_number,
-          meal_group: row.meal_group || student.meal_group,
-          avatar_url: row.avatar_url || student.avatar_url,
-        };
-
-        const { error } = await supabase
-          .from('students')
-          .update(updateData)
-          .eq('id', student.id);
-
-        if (!error) reactivatedCount++;
-      } catch (err) {
-        console.error('Error reactivating student:', student.full_name, err);
-      }
-    }
-
-    if (reactivatedCount > 0) {
-      toast({ title: 'Kích hoạt lại', description: `Đã kích hoạt lại ${reactivatedCount} học sinh đã xóa trước đó` });
     }
 
     // Insert new students ONE BY ONE to catch per-row errors
