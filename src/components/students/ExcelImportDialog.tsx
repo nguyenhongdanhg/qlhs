@@ -53,6 +53,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
 
   const validCount = parsedData.filter(r => r.isValid).length;
   const invalidCount = parsedData.length - validCount;
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleDownloadTemplate = () => {
     const blob = generateStudentTemplate();
