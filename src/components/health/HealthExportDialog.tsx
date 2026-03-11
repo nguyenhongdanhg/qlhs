@@ -123,6 +123,7 @@ export function HealthExportDialog({
     medicine: records.filter((r) => r.treatment_type === 'medicine').length,
     firstAid: records.filter((r) => r.treatment_type === 'first_aid').length,
     hospital: records.filter((r) => r.treatment_type === 'hospital').length,
+    familyPickup: records.filter((r) => r.treatment_type === 'family_pickup').length,
     contacted: records.filter((r) => r.parent_contacted).length,
   }), [records]);
 
