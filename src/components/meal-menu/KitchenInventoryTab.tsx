@@ -247,7 +247,11 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       toast({ title: "Lỗi", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Đã thêm" });
-      setNewItem({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' });
+      setNewItem(prev => ({
+        item_name: '', unit: 'kg', quantity: 0, notes: '',
+        unit_price: pinnedPrice ? prev.unit_price : 0,
+        supplier: pinnedSupplier ? prev.supplier : '',
+      }));
       setShowAddDialog(false);
       fetchTransactions();
     }
