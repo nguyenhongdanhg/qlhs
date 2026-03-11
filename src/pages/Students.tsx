@@ -610,7 +610,7 @@ export default function Students() {
     try {
       const { error } = await supabase
         .from('students')
-        .update({ is_active: false })
+        .delete()
         .in('id', Array.from(selectedIds));
 
       if (error) throw error;
