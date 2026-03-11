@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
   Building2,
   Trophy,
@@ -75,7 +76,7 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-function HoverSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
+function ExpandableSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
   group: NavGroup;
   isCollapsed: boolean;
   isChildVisible: (child: NavSubItem) => boolean;
@@ -84,14 +85,16 @@ function HoverSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
   const Icon = group.icon;
   const visibleChildren = group.children!.filter(isChildVisible);
   const active = visibleChildren.some(c => locationPath === c.path);
+  const [open, setOpen] = useState(active);
 
   if (visibleChildren.length === 0) return null;
 
   return (
-    <li className="relative group/menu">
-      <div
+    <li>
+      <button
+        onClick={() => setOpen(o => !o)}
         className={cn(
-          'nav-item w-full cursor-default',
+          'nav-item w-full',
           active ? 'nav-item-active' : 'nav-item-inactive',
           isCollapsed && 'justify-center px-2'
         )}
@@ -99,45 +102,39 @@ function HoverSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
         <Icon className="h-5 w-5 flex-shrink-0" />
         {!isCollapsed && (
           <>
-            <span className="flex-1">{group.label}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover/menu:rotate-90" />
+            <span className="flex-1 text-left">{group.label}</span>
+            <ChevronDown className={cn(
+              'h-4 w-4 text-muted-foreground transition-transform duration-200',
+              open && 'rotate-180'
+            )} />
           </>
         )}
-      </div>
+      </button>
 
-      {/* Hover flyout - drops DOWN below the parent item */}
-      <div className="absolute left-0 right-0 z-50 hidden group-hover/menu:block pt-0.5"
-        style={{ top: '100%' }}
-      >
-        <div className="rounded-xl border border-border bg-popover p-1.5 shadow-xl">
-          <div className="space-y-0.5">
-            {visibleChildren.map((child) => {
-              const ChildIcon = child.icon;
-              const childActive = locationPath === child.path;
-              return (
-                <Link
-                  key={child.code}
-                  to={child.path}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150',
-                    childActive
-                      ? 'bg-primary/10 text-primary font-semibold'
-                      : 'text-popover-foreground hover:bg-accent/50'
-                  )}
-                >
-                  <div className={cn(
-                    'flex h-7 w-7 items-center justify-center rounded-lg transition-colors',
-                    childActive ? 'bg-primary/20' : 'bg-muted'
-                  )}>
-                    <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                  </div>
-                  <span>{child.label}</span>
-                </Link>
-              );
-            })}
-          </div>
+      {/* Inline expanded children - pushes items down */}
+      {open && !isCollapsed && (
+        <div className="ml-3 mt-0.5 mb-1 space-y-0.5 border-l-2 border-border pl-2">
+          {visibleChildren.map((child) => {
+            const ChildIcon = child.icon;
+            const childActive = locationPath === child.path;
+            return (
+              <Link
+                key={child.code}
+                to={child.path}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-all duration-150',
+                  childActive
+                    ? 'bg-primary/10 text-primary font-semibold border-l-2 border-primary -ml-[2px] pl-[12px]'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+                )}
+              >
+                <ChildIcon className="h-4 w-4 flex-shrink-0" />
+                <span>{child.label}</span>
+              </Link>
+            );
+          })}
         </div>
-      </div>
+      )}
     </li>
   );
 }
@@ -283,9 +280,8 @@ export const Sidebar = memo(function Sidebar() {
               );
             }
 
-            // Hover submenu group
             return (
-              <HoverSubmenu
+              <ExpandableSubmenu
                 key={group.code}
                 group={group}
                 isCollapsed={isCollapsed}
