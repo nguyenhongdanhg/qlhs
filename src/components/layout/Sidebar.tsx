@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
   Building2,
   Trophy,
