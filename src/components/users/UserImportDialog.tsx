@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import XLSX from 'xlsx-js-style';
 
 interface UserImportDialogProps {
@@ -94,6 +94,7 @@ export default function UserImportDialog({
   const [importData, setImportData] = useState<UserImportRow[]>([]);
   const [importStep, setImportStep] = useState<'upload' | 'preview'>('upload');
   const [importResults, setImportResults] = useState<string[]>([]);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleDownloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
@@ -396,17 +397,22 @@ export default function UserImportDialog({
 
               <div className="flex items-center justify-between flex-shrink-0">
                 <div className="flex gap-4">
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-success" />
-                    {validCount} hợp lệ
-                  </Badge>
-                  {invalidCount > 0 && (
-                    <Badge variant="destructive" className="flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {invalidCount} lỗi
-                    </Badge>
-                  )}
-                </div>
+                   <Badge variant="secondary" className="flex items-center gap-1">
+                     <CheckCircle2 className="h-3 w-3 text-success" />
+                     {validCount} hợp lệ
+                   </Badge>
+                   {invalidCount > 0 && (
+                     <Badge 
+                       variant="destructive" 
+                       className="flex items-center gap-1 cursor-pointer hover:bg-destructive/90 transition-colors"
+                       onClick={() => setShowErrorDetails(!showErrorDetails)}
+                     >
+                       <AlertCircle className="h-3 w-3" />
+                       {invalidCount} lỗi
+                       {showErrorDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                     </Badge>
+                   )}
+                 </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -419,6 +425,23 @@ export default function UserImportDialog({
                   Chọn file khác
                 </Button>
               </div>
+
+              {/* Collapsible error details */}
+              {invalidCount > 0 && showErrorDetails && (
+                <div className="border border-destructive/30 bg-destructive/5 rounded-md p-3">
+                  <p className="text-sm font-medium text-destructive mb-2">Chi tiết {invalidCount} dòng lỗi:</p>
+                  <ScrollArea className="max-h-[120px]">
+                    <ul className="space-y-1">
+                      {importData.filter(u => !u.isValid).map((user, i) => (
+                        <li key={i} className="text-xs text-destructive flex gap-1">
+                          <span className="font-semibold whitespace-nowrap">Dòng {user.stt} - {user.full_name || '(trống)'}:</span>
+                          <span>{user.error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                </div>
+              )}
 
               <ScrollArea className="flex-1 min-h-0 max-h-[50vh] rounded-md border">
                 <Table>
