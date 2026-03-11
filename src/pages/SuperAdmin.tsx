@@ -37,7 +37,18 @@ import {
   Trash2,
   UserPlus,
   Settings2,
+  LogOut,
+  User,
+  ChevronDown,
 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDialog';
 import SchoolFeaturesDialog from '@/components/superadmin/SchoolFeaturesDialog';
 
