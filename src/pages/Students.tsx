@@ -1905,6 +1905,106 @@ export default function Students() {
                     </div>
                   </Card>
                 )}
+
+                {/* Rooms Table */}
+                {statsFilter === 'rooms' && (
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs font-semibold sticky left-0 bg-background z-10 min-w-[80px]">Nhóm</TableHead>
+                            <TableHead className="text-xs text-center w-12">Tổng</TableHead>
+                            {roomColumns.map(room => (
+                              <TableHead key={room} className="text-xs text-center min-w-[50px]">{room}</TableHead>
+                            ))}
+                            <TableHead className="text-xs text-center min-w-[60px]">Chưa xếp</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map(row => (
+                            <TableRow key={row.label}>
+                              <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{row.label}</TableCell>
+                              <TableCell className="text-xs text-center font-semibold">{row.total}</TableCell>
+                              {roomColumns.map(room => (
+                                <TableCell key={room} className="text-xs text-center">
+                                  {row.rooms[room] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600">
+                                {row.missingRoom || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {totalRow && (
+                            <TableRow className="bg-muted/50 font-semibold">
+                              <TableCell className="text-xs font-bold sticky left-0 bg-muted/50 z-10">{totalRow.label}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.total}</TableCell>
+                              {roomColumns.map(room => (
+                                <TableCell key={room} className="text-xs text-center font-bold">
+                                  {totalRow.rooms[room] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600 font-bold">
+                                {totalRow.missingRoom || '-'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Meal Groups Table */}
+                {statsFilter === 'meals' && (
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs font-semibold sticky left-0 bg-background z-10 min-w-[80px]">Nhóm</TableHead>
+                            <TableHead className="text-xs text-center w-12">Tổng</TableHead>
+                            {mealGroupColumns.map(mg => (
+                              <TableHead key={mg} className="text-xs text-center min-w-[50px]">{mg}</TableHead>
+                            ))}
+                            <TableHead className="text-xs text-center min-w-[60px]">Chưa xếp</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map(row => (
+                            <TableRow key={row.label}>
+                              <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{row.label}</TableCell>
+                              <TableCell className="text-xs text-center font-semibold">{row.total}</TableCell>
+                              {mealGroupColumns.map(mg => (
+                                <TableCell key={mg} className="text-xs text-center">
+                                  {row.mealGroups[mg] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600">
+                                {row.missingMealGroup || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {totalRow && (
+                            <TableRow className="bg-muted/50 font-semibold">
+                              <TableCell className="text-xs font-bold sticky left-0 bg-muted/50 z-10">{totalRow.label}</TableCell>
+                              <TableCell className="text-xs text-center font-bold">{totalRow.total}</TableCell>
+                              {mealGroupColumns.map(mg => (
+                                <TableCell key={mg} className="text-xs text-center font-bold">
+                                  {totalRow.mealGroups[mg] || '-'}
+                                </TableCell>
+                              ))}
+                              <TableCell className="text-xs text-center text-orange-600 font-bold">
+                                {totalRow.missingMealGroup || '-'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                )}
               </>
             );
           })()}
