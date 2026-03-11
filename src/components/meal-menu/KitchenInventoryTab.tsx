@@ -4,15 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { format, addDays, subDays } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarIcon, Plus, Copy, Trash2, Edit2, ChevronLeft, ChevronRight, Store, Phone, MapPin } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface FoodItem {
@@ -20,6 +21,15 @@ interface FoodItem {
   name: string;
   unit: string;
   default_price: number;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
+  is_active: boolean;
 }
 
 interface KitchenTransaction {
@@ -46,11 +56,13 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<KitchenTransaction[]>([]);
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [transactionType, setTransactionType] = useState<string>('import');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [showAddFoodDialog, setShowAddFoodDialog] = useState(false);
+  const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const [copyFromDate, setCopyFromDate] = useState<Date>(subDays(new Date(), 1));
   const [editingItem, setEditingItem] = useState<Partial<KitchenTransaction> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,11 +70,14 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
 
   const [newItem, setNewItem] = useState({ item_name: '', unit: 'kg', quantity: 0, unit_price: 0, notes: '', supplier: '' });
   const [newFoodItem, setNewFoodItem] = useState({ name: '', unit: 'kg', default_price: 0 });
+  const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', address: '', notes: '' });
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
   useEffect(() => {
     fetchFoodItems();
+    fetchSuppliers();
   }, [schoolId]);
 
   useEffect(() => {
@@ -78,6 +93,16 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       .eq('is_active', true)
       .order('name');
     if (data) setFoodItems(data as FoodItem[]);
+  };
+
+  const fetchSuppliers = async () => {
+    const { data } = await supabase
+      .from('kitchen_suppliers')
+      .select('*')
+      .eq('school_id', schoolId)
+      .eq('is_active', true)
+      .order('name');
+    if (data) setSuppliers(data as Supplier[]);
   };
 
   const fetchTransactions = async () => {
@@ -120,6 +145,54 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       fetchFoodItems();
     }
     setLoading(false);
+  };
+
+  // ========== SUPPLIER MANAGEMENT ==========
+  const addSupplier = async () => {
+    if (!newSupplier.name.trim()) return;
+    setLoading(true);
+    const { error } = await supabase.from('kitchen_suppliers').insert({
+      school_id: schoolId,
+      name: newSupplier.name.trim(),
+      phone: newSupplier.phone || null,
+      address: newSupplier.address || null,
+      notes: newSupplier.notes || null,
+    });
+    if (error) {
+      toast({ title: "Lỗi", description: error.message.includes('duplicate') ? "Nhà cung cấp đã tồn tại" : error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Đã thêm nhà cung cấp" });
+      setNewSupplier({ name: '', phone: '', address: '', notes: '' });
+      fetchSuppliers();
+    }
+    setLoading(false);
+  };
+
+  const updateSupplier = async () => {
+    if (!editingSupplier) return;
+    setLoading(true);
+    const { error } = await supabase.from('kitchen_suppliers').update({
+      name: editingSupplier.name,
+      phone: editingSupplier.phone,
+      address: editingSupplier.address,
+      notes: editingSupplier.notes,
+    }).eq('id', editingSupplier.id);
+    if (error) {
+      toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Đã cập nhật" });
+      setEditingSupplier(null);
+      fetchSuppliers();
+    }
+    setLoading(false);
+  };
+
+  const deleteSupplier = async (id: string) => {
+    const { error } = await supabase.from('kitchen_suppliers').update({ is_active: false }).eq('id', id);
+    if (!error) {
+      toast({ title: "Đã xóa nhà cung cấp" });
+      fetchSuppliers();
+    }
   };
 
   const addTransaction = async () => {
@@ -228,6 +301,21 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
     f.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Supplier selector component
+  const SupplierSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <Select value={value || '_none'} onValueChange={(v) => onChange(v === '_none' ? '' : v)}>
+      <SelectTrigger>
+        <SelectValue placeholder="Chọn NCC" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="_none">-- Không chọn --</SelectItem>
+        {suppliers.map(s => (
+          <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <div className="space-y-4">
       {/* Controls */}
@@ -264,6 +352,9 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
 
         {canEdit && (
           <div className="flex gap-1 ml-auto">
+            <Button size="sm" variant="outline" onClick={() => setShowSupplierDialog(true)}>
+              <Store className="h-4 w-4 mr-1" />NCC
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShowAddFoodDialog(true)}>
               <Plus className="h-4 w-4 mr-1" />Thực phẩm
             </Button>
@@ -381,7 +472,10 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <div className="text-right text-sm text-muted-foreground">
               Thành tiền: <span className="font-semibold text-foreground">{formatCurrency(newItem.quantity * newItem.unit_price)}</span>
             </div>
-            <Input placeholder="Nhà cung cấp" value={newItem.supplier} onChange={e => setNewItem(p => ({ ...p, supplier: e.target.value }))} />
+            <div>
+              <p className="text-sm font-medium mb-1">Nhà cung cấp:</p>
+              <SupplierSelect value={newItem.supplier} onChange={(v) => setNewItem(p => ({ ...p, supplier: v }))} />
+            </div>
             <Input placeholder="Ghi chú" value={newItem.notes} onChange={e => setNewItem(p => ({ ...p, notes: e.target.value }))} />
           </div>
           <DialogFooter>
@@ -411,6 +505,122 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
         </DialogContent>
       </Dialog>
 
+      {/* Supplier management dialog */}
+      <Dialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Store className="h-5 w-5" />
+              Quản lý nhà cung cấp
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Add new supplier form */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Thêm nhà cung cấp</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Input
+                  placeholder="Tên nhà cung cấp *"
+                  value={newSupplier.name}
+                  onChange={e => setNewSupplier(p => ({ ...p, name: e.target.value }))}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Số điện thoại"
+                    value={newSupplier.phone}
+                    onChange={e => setNewSupplier(p => ({ ...p, phone: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Địa chỉ"
+                    value={newSupplier.address}
+                    onChange={e => setNewSupplier(p => ({ ...p, address: e.target.value }))}
+                  />
+                </div>
+                <Input
+                  placeholder="Ghi chú"
+                  value={newSupplier.notes}
+                  onChange={e => setNewSupplier(p => ({ ...p, notes: e.target.value }))}
+                />
+                <Button size="sm" onClick={addSupplier} disabled={loading || !newSupplier.name.trim()} className="w-full">
+                  <Plus className="h-4 w-4 mr-1" />Thêm
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Supplier list */}
+            {suppliers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Chưa có nhà cung cấp nào</p>
+            ) : (
+              <div className="space-y-2">
+                {suppliers.map(s => (
+                  <Card key={s.id} className="p-3">
+                    {editingSupplier?.id === s.id ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={editingSupplier.name}
+                          onChange={e => setEditingSupplier(p => p ? { ...p, name: e.target.value } : null)}
+                          placeholder="Tên"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            value={editingSupplier.phone || ''}
+                            onChange={e => setEditingSupplier(p => p ? { ...p, phone: e.target.value } : null)}
+                            placeholder="SĐT"
+                          />
+                          <Input
+                            value={editingSupplier.address || ''}
+                            onChange={e => setEditingSupplier(p => p ? { ...p, address: e.target.value } : null)}
+                            placeholder="Địa chỉ"
+                          />
+                        </div>
+                        <Input
+                          value={editingSupplier.notes || ''}
+                          onChange={e => setEditingSupplier(p => p ? { ...p, notes: e.target.value } : null)}
+                          placeholder="Ghi chú"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={updateSupplier} disabled={loading}>Lưu</Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingSupplier(null)}>Hủy</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{s.name}</p>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                            {s.phone && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Phone className="h-3 w-3" />{s.phone}
+                              </span>
+                            )}
+                            {s.address && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />{s.address}
+                              </span>
+                            )}
+                          </div>
+                          {s.notes && <p className="text-xs text-muted-foreground mt-0.5">{s.notes}</p>}
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingSupplier(s)}>
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSupplier(s.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit dialog */}
       <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
         <DialogContent>
@@ -420,7 +630,10 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
           {editingItem && (
             <div className="space-y-3">
               <Input placeholder="Tên thực phẩm" value={editingItem.item_name || ''} onChange={e => setEditingItem(p => p ? { ...p, item_name: e.target.value } : null)} />
-              <Input placeholder="Nhà cung cấp" value={editingItem.supplier || ''} onChange={e => setEditingItem(p => p ? { ...p, supplier: e.target.value } : null)} />
+              <div>
+                <p className="text-sm font-medium mb-1">Nhà cung cấp:</p>
+                <SupplierSelect value={editingItem.supplier || ''} onChange={(v) => setEditingItem(p => p ? { ...p, supplier: v } : null)} />
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 <Input placeholder="ĐVT" value={editingItem.unit || ''} onChange={e => setEditingItem(p => p ? { ...p, unit: e.target.value } : null)} />
                 <Input type="number" placeholder="Số lượng" value={editingItem.quantity || ''} onChange={e => setEditingItem(p => p ? { ...p, quantity: parseFloat(e.target.value) || 0 } : null)} />
