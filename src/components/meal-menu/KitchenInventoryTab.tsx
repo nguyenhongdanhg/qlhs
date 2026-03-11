@@ -149,7 +149,32 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
     setLoading(false);
   };
 
-  // ========== SUPPLIER MANAGEMENT ==========
+  const updateFoodItem = async () => {
+    if (!editingFoodItem) return;
+    setLoading(true);
+    const { error } = await supabase.from('food_items').update({
+      name: editingFoodItem.name,
+      unit: editingFoodItem.unit,
+      default_price: editingFoodItem.default_price,
+    }).eq('id', editingFoodItem.id);
+    if (error) {
+      toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Đã cập nhật thực phẩm" });
+      setEditingFoodItem(null);
+      fetchFoodItems();
+    }
+    setLoading(false);
+  };
+
+  const deleteFoodItem = async (id: string) => {
+    const { error } = await supabase.from('food_items').update({ is_active: false }).eq('id', id);
+    if (!error) {
+      toast({ title: "Đã xóa thực phẩm" });
+      fetchFoodItems();
+    }
+  };
+
   const addSupplier = async () => {
     if (!newSupplier.name.trim()) return;
     setLoading(true);
