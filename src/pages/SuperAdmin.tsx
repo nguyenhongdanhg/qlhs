@@ -37,12 +37,26 @@ import {
   Trash2,
   UserPlus,
   Settings2,
+  LogOut,
+  User,
+  ChevronDown,
 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDialog';
 import SchoolFeaturesDialog from '@/components/superadmin/SchoolFeaturesDialog';
 
 export default function SuperAdmin() {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, profile, signOut } = useAuth();
+
+  const getInitials = (name: string) =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const { toast } = useToast();
 
   const [schools, setSchools] = useState<School[]>([]);
@@ -239,14 +253,50 @@ export default function SuperAdmin() {
 
   return (
     <div className="content-wrapper animate-fade-in">
-      <div className="page-header">
-        <h1 className="page-title flex items-center gap-2">
-          <Building2 className="h-7 w-7 text-primary" />
-          Quản trị hệ thống
-        </h1>
-        <p className="page-description">
-          Quản lý trường học và người dùng toàn hệ thống
-        </p>
+      {/* Account Header */}
+      <div className="mb-6 flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-md">
+            <Building2 className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold">Quản trị hệ thống</h1>
+            <p className="text-sm text-muted-foreground">Quản lý trường học và người dùng toàn hệ thống</p>
+          </div>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-2 px-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={profile?.avatar_url || undefined} />
+                <AvatarFallback className="bg-primary text-xs text-primary-foreground">
+                  {profile?.full_name ? getInitials(profile.full_name) : 'SA'}
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden text-sm font-medium sm:inline">{profile?.full_name}</span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-1.5">
+              <p className="text-sm font-medium">{profile?.full_name}</p>
+              <p className="text-xs text-muted-foreground">Super Admin</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href="/settings">
+                <User className="mr-2 h-4 w-4" />
+                Tài khoản
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              Đăng xuất
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Stats */}
