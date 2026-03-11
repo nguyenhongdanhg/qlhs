@@ -75,6 +75,8 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const [foodSearchQuery, setFoodSearchQuery] = useState("");
   const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', address: '', notes: '' });
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [pinnedSupplier, setPinnedSupplier] = useState(false);
+  const [pinnedPrice, setPinnedPrice] = useState(false);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
