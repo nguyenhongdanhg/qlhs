@@ -100,21 +100,16 @@ function HoverSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
         {!isCollapsed && (
           <>
             <span className="flex-1">{group.label}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover/menu:translate-x-0.5" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover/menu:rotate-90" />
           </>
         )}
       </div>
 
-      {/* Hover flyout */}
-      <div className={cn(
-        'absolute top-0 z-50 hidden group-hover/menu:block',
-        isCollapsed ? 'left-full ml-1' : 'left-full ml-1'
-      )}>
-        <div className="min-w-[220px] rounded-xl border border-border bg-popover p-2 shadow-xl">
-          <div className="flex items-center gap-2 px-3 py-2 mb-1">
-            <Icon className="h-4 w-4 text-primary" />
-            <p className="text-xs font-bold text-primary uppercase tracking-wider">{group.label}</p>
-          </div>
+      {/* Hover flyout - drops DOWN below the parent item */}
+      <div className="absolute left-0 right-0 z-50 hidden group-hover/menu:block pt-0.5"
+        style={{ top: '100%' }}
+      >
+        <div className="rounded-xl border border-border bg-popover p-1.5 shadow-xl">
           <div className="space-y-0.5">
             {visibleChildren.map((child) => {
               const ChildIcon = child.icon;
@@ -124,10 +119,10 @@ function HoverSubmenu({ group, isCollapsed, isChildVisible, locationPath }: {
                   key={child.code}
                   to={child.path}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150',
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150',
                     childActive
-                      ? 'bg-primary/10 text-primary font-semibold shadow-sm'
-                      : 'text-popover-foreground hover:bg-accent/50 hover:translate-x-0.5'
+                      ? 'bg-primary/10 text-primary font-semibold'
+                      : 'text-popover-foreground hover:bg-accent/50'
                   )}
                 >
                   <div className={cn(
