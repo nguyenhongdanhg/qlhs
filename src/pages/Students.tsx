@@ -448,7 +448,7 @@ export default function Students() {
       if (successCount > 0) {
         toast({ title: `Đã nhập ${successCount} học sinh mới`, description: `Phát hiện ${duplicates.length} học sinh trùng cần xác nhận cập nhật` });
       }
-    } else if (rowErrors.length === 0 && reactivatedCount === 0) {
+    } else if (rowErrors.length === 0) {
       toast({ title: 'Thành công', description: `Đã nhập ${newRows.length} học sinh mới` });
     }
 
