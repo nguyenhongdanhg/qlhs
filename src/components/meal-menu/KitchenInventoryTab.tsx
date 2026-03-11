@@ -501,13 +501,26 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
             <div className="grid grid-cols-3 gap-2">
               <Input placeholder="ĐVT" value={newItem.unit} onChange={e => setNewItem(p => ({ ...p, unit: e.target.value }))} />
               <Input type="number" placeholder="Số lượng" value={newItem.quantity || ''} onChange={e => setNewItem(p => ({ ...p, quantity: parseFloat(e.target.value) || 0 }))} />
-              <Input type="number" placeholder="Đơn giá" value={newItem.unit_price || ''} onChange={e => setNewItem(p => ({ ...p, unit_price: parseFloat(e.target.value) || 0 }))} />
+              <div className="relative">
+                <Input type="number" placeholder="Đơn giá" value={newItem.unit_price || ''} onChange={e => setNewItem(p => ({ ...p, unit_price: parseFloat(e.target.value) || 0 }))} />
+                <label className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 cursor-pointer" title="Cố định đơn giá">
+                  <Checkbox checked={pinnedPrice} onCheckedChange={(v) => setPinnedPrice(!!v)} className="h-4 w-4" />
+                  <Pin className={`h-3 w-3 ${pinnedPrice ? 'text-primary' : 'text-muted-foreground'}`} />
+                </label>
+              </div>
             </div>
             <div className="text-right text-sm text-muted-foreground">
               Thành tiền: <span className="font-semibold text-foreground">{formatCurrency(newItem.quantity * newItem.unit_price)}</span>
             </div>
             <div>
-              <p className="text-sm font-medium mb-1">Nhà cung cấp:</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm font-medium">Nhà cung cấp:</p>
+                <label className="flex items-center gap-1 cursor-pointer" title="Cố định NCC">
+                  <Checkbox checked={pinnedSupplier} onCheckedChange={(v) => setPinnedSupplier(!!v)} className="h-4 w-4" />
+                  <Pin className={`h-3 w-3 ${pinnedSupplier ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <span className="text-xs text-muted-foreground">Cố định</span>
+                </label>
+              </div>
               <SupplierSelect value={newItem.supplier} onChange={(v) => setNewItem(p => ({ ...p, supplier: v }))} />
             </div>
             <Input placeholder="Ghi chú" value={newItem.notes} onChange={e => setNewItem(p => ({ ...p, notes: e.target.value }))} />
