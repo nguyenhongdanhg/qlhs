@@ -197,7 +197,7 @@ export interface DashboardStats {
 // HEALTH - Type Definitions
 // =====================================================
 
-export type HealthTreatmentType = 'medicine' | 'first_aid' | 'hospital';
+export type HealthTreatmentType = 'medicine' | 'first_aid' | 'hospital' | 'family_pickup';
 
 export interface Medicine {
   id: string;
