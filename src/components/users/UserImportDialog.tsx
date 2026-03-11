@@ -426,6 +426,23 @@ export default function UserImportDialog({
                 </Button>
               </div>
 
+              {/* Collapsible error details */}
+              {invalidCount > 0 && showErrorDetails && (
+                <div className="border border-destructive/30 bg-destructive/5 rounded-md p-3">
+                  <p className="text-sm font-medium text-destructive mb-2">Chi tiết {invalidCount} dòng lỗi:</p>
+                  <ScrollArea className="max-h-[120px]">
+                    <ul className="space-y-1">
+                      {importData.filter(u => !u.isValid).map((user, i) => (
+                        <li key={i} className="text-xs text-destructive flex gap-1">
+                          <span className="font-semibold whitespace-nowrap">Dòng {user.stt} - {user.full_name || '(trống)'}:</span>
+                          <span>{user.error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                </div>
+              )}
+
               <ScrollArea className="flex-1 min-h-0 max-h-[50vh] rounded-md border">
                 <Table>
                   <TableHeader>

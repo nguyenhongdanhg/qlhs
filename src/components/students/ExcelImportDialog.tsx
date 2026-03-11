@@ -236,21 +236,42 @@ export function ExcelImportDialog({ open, onOpenChange, onImport }: ExcelImportD
                   Xem trước ({parsedData.length} học sinh)
                 </span>
                 <div className="flex gap-2">
-                  {validCount > 0 && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-700">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      {validCount} hợp lệ
-                    </Badge>
-                  )}
-                  {invalidCount > 0 && (
-                    <Badge variant="destructive">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      {invalidCount} lỗi
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <ScrollArea className="h-[300px]">
+                   {validCount > 0 && (
+                     <Badge variant="secondary" className="bg-green-100 text-green-700">
+                       <CheckCircle2 className="h-3 w-3 mr-1" />
+                       {validCount} hợp lệ
+                     </Badge>
+                   )}
+                   {invalidCount > 0 && (
+                     <Badge 
+                       variant="destructive" 
+                       className="cursor-pointer hover:bg-destructive/90 transition-colors"
+                       onClick={() => setShowErrorDetails(!showErrorDetails)}
+                     >
+                       <AlertCircle className="h-3 w-3 mr-1" />
+                       {invalidCount} lỗi
+                       {showErrorDetails ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+                     </Badge>
+                   )}
+                 </div>
+               </div>
+               {/* Collapsible error details */}
+               {invalidCount > 0 && showErrorDetails && (
+                 <div className="border border-destructive/30 bg-destructive/5 rounded-md p-3 mx-1 mb-1">
+                   <p className="text-sm font-medium text-destructive mb-2">Chi tiết {invalidCount} dòng lỗi:</p>
+                   <ScrollArea className="max-h-[120px]">
+                     <ul className="space-y-1">
+                       {parsedData.filter(r => !r.isValid).map((row, i) => (
+                         <li key={i} className="text-xs text-destructive flex gap-1">
+                           <span className="font-semibold whitespace-nowrap">Dòng {row.stt} - {row.full_name || '(trống)'}:</span>
+                           <span>{row.errors.join(', ')}</span>
+                         </li>
+                       ))}
+                     </ul>
+                   </ScrollArea>
+                 </div>
+               )}
+               <ScrollArea className="h-[300px]">
                 <Table>
                   <TableHeader>
                     <TableRow>
