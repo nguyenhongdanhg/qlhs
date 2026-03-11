@@ -1535,6 +1535,7 @@ export default function Students() {
                 boarding: 0, ethnicities: {}, ages: {}, ageUnknown: 0,
                 missingEthnicity: 0, missingPhone: 0, missingParentPhone: 0,
                 missingAddress: 0, missingCccd: 0,
+                rooms: {}, mealGroups: {}, missingRoom: 0, missingMealGroup: 0,
               };
               list.forEach(st => {
                 if (st.gender === 'male') row.male++;
