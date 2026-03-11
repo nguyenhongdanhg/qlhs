@@ -564,8 +564,9 @@ export default function Students() {
     try {
       const { error } = await supabase
         .from('students')
-        .update({ is_active: false })
-        .eq('school_id', currentSchool.id);
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true);
       
       if (error) throw error;
 
