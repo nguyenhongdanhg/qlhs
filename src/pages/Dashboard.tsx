@@ -342,7 +342,23 @@ export default function Dashboard() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch today's menu
+  // Fetch today's & tomorrow's menu
+  const tomorrowStr = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
+    return format(d, 'yyyy-MM-dd');
+  }, [today]);
+
+  const parseMenu = (data: any[] | null) => {
+    if (!data || data.length === 0) return null;
+    const menu: Record<string, string[]> = {};
+    data.forEach((item: any) => {
+      const dishes = (item.dishes || '').split(',').map((d: string) => d.trim()).filter(Boolean);
+      if (dishes.length > 0) menu[item.meal_type] = dishes;
+    });
+    return Object.keys(menu).length > 0 ? menu : null;
+  };
+
   const { data: todayMenu } = useQuery({
     queryKey: ['dashboard-menu', currentSchool?.id, dateStr],
     queryFn: async () => {
@@ -352,13 +368,22 @@ export default function Dashboard() {
         .select('meal_type, dishes')
         .eq('school_id', currentSchool.id)
         .eq('menu_date', dateStr);
-      if (!data || data.length === 0) return null;
-      const menu: Record<string, string[]> = {};
-      data.forEach((item: any) => {
-        const dishes = (item.dishes || '').split(',').map((d: string) => d.trim()).filter(Boolean);
-        if (dishes.length > 0) menu[item.meal_type] = dishes;
-      });
-      return Object.keys(menu).length > 0 ? menu : null;
+      return parseMenu(data);
+    },
+    enabled: !!currentSchool,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const { data: tomorrowMenu } = useQuery({
+    queryKey: ['dashboard-menu-tomorrow', currentSchool?.id, tomorrowStr],
+    queryFn: async () => {
+      if (!currentSchool) return null;
+      const { data } = await supabase
+        .from('menu_assignments')
+        .select('meal_type, dishes')
+        .eq('school_id', currentSchool.id)
+        .eq('menu_date', tomorrowStr);
+      return parseMenu(data);
     },
     enabled: !!currentSchool,
     staleTime: 1000 * 60 * 10,
