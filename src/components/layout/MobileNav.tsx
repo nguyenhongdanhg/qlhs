@@ -122,12 +122,12 @@ export const MobileNav = memo(function MobileNav() {
         if (visible.length === 0) return null;
 
         return (
-          <div className="absolute bottom-full left-0 right-0 mb-1 mx-3 rounded-xl border border-border bg-popover/98 p-3 shadow-2xl animate-in slide-in-from-bottom-2 duration-200 z-50 backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-2 px-1">
+          <div className="absolute bottom-full left-0 right-0 mb-1 mx-3 rounded-xl border-2 border-border bg-background p-2 shadow-2xl animate-in slide-in-from-bottom-2 duration-200 z-50">
+            <div className="flex items-center gap-2 mb-1.5 px-2 py-1">
               {(() => { const GIcon = group.icon; return <GIcon className="h-4 w-4 text-primary" />; })()}
               <p className="text-xs font-bold text-primary uppercase tracking-wider">{group.label}</p>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="space-y-1">
               {visible.map((child) => {
                 const ChildIcon = child.icon;
                 const childActive = location.pathname === child.path;
@@ -136,19 +136,19 @@ export const MobileNav = memo(function MobileNav() {
                     key={child.code}
                     to={child.path}
                     className={cn(
-                      'flex items-center gap-2.5 rounded-xl px-3 py-3 text-sm transition-all duration-150',
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 border',
                       childActive
-                        ? 'bg-primary/10 text-primary font-semibold shadow-sm border border-primary/20'
-                        : 'text-popover-foreground hover:bg-muted border border-transparent active:scale-[0.97]'
+                        ? 'bg-primary/10 text-primary font-semibold border-primary/30 shadow-sm'
+                        : 'bg-card text-foreground border-border hover:bg-muted active:scale-[0.98]'
                     )}
                   >
                     <div className={cn(
-                      'flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-colors',
-                      childActive ? 'bg-primary/20' : 'bg-muted'
+                      'flex h-8 w-8 items-center justify-center rounded-lg shrink-0',
+                      childActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
                     )}>
-                      <ChildIcon className="h-4 w-4 flex-shrink-0" />
+                      <ChildIcon className="h-4 w-4" />
                     </div>
-                    <span className="text-[13px] leading-tight">{child.label}</span>
+                    <span className="font-medium">{child.label}</span>
                   </Link>
                 );
               })}
