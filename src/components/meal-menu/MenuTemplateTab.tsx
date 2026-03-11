@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, endOfWeek, addDays, isSameDay, subWeeks, addWeeks } from "date-fns";
 import { vi } from "date-fns/locale";
-import { CalendarIcon, Plus, Trash2, Check, Copy, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Check, Copy, ChevronLeft, ChevronRight, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
@@ -26,12 +26,6 @@ const DISH_CATEGORIES = [
   { code: 'meat', label: 'Thịt' },
   { code: 'vegetable', label: 'Rau củ' },
 ] as const;
-
-const CATEGORY_LABELS: Record<string, string> = {
-  breakfast_food: 'Đồ ăn sáng',
-  meat: 'Thịt',
-  vegetable: 'Rau củ',
-};
 
 interface FoodItem {
   id: string;
@@ -70,11 +64,23 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
   const [newDishCategory, setNewDishCategory] = useState("breakfast_food");
   const [loading, setLoading] = useState(false);
 
-  // Cell selection dialog
+  // Cell selection dialog (for template)
   const [showCellDialog, setShowCellDialog] = useState(false);
   const [cellDay, setCellDay] = useState(1);
   const [cellMeal, setCellMeal] = useState("breakfast");
   const [cellSelectedDishes, setCellSelectedDishes] = useState<string[]>([]);
+
+  // Weekly cell editing dialog
+  const [showWeeklyCellDialog, setShowWeeklyCellDialog] = useState(false);
+  const [weeklyCellDate, setWeeklyCellDate] = useState<Date>(new Date());
+  const [weeklyCellMeal, setWeeklyCellMeal] = useState("breakfast");
+  const [weeklyCellSelectedDishes, setWeeklyCellSelectedDishes] = useState<string[]>([]);
+
+  // Quick assign dialog (for template)
+  const [showQuickAssignDialog, setShowQuickAssignDialog] = useState(false);
+  const [quickAssignDish, setQuickAssignDish] = useState("");
+  const [quickAssignMeals, setQuickAssignMeals] = useState<string[]>(['breakfast', 'lunch', 'dinner']);
+  const [quickAssignDays, setQuickAssignDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
 
   // Weekly view
   const [selectedWeekDate, setSelectedWeekDate] = useState(new Date());
@@ -150,7 +156,7 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     if (!error) fetchDishes();
   };
 
-  // Open cell dialog for template editing
+  // ========== TEMPLATE CELL DIALOG ==========
   const openCellDialog = (dayOfWeek: number, mealType: string) => {
     if (!canEdit) return;
     setCellDay(dayOfWeek);
@@ -202,6 +208,118 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     setLoading(false);
   };
 
+  // ========== WEEKLY CELL DIRECT EDITING ==========
+  const openWeeklyCellDialog = (date: Date, mealType: string) => {
+    if (!canEdit) return;
+    setWeeklyCellDate(date);
+    setWeeklyCellMeal(mealType);
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const existing = assignments.find(a => a.menu_date === dateStr && a.meal_type === mealType);
+    const currentDishes = existing?.dishes ? existing.dishes.split(', ').filter(Boolean) : [];
+    setWeeklyCellSelectedDishes(currentDishes);
+    setShowWeeklyCellDialog(true);
+  };
+
+  const toggleWeeklyDish = (dishName: string) => {
+    setWeeklyCellSelectedDishes(prev =>
+      prev.includes(dishName) ? prev.filter(d => d !== dishName) : [...prev, dishName]
+    );
+  };
+
+  const saveWeeklyCellDishes = async () => {
+    setLoading(true);
+    const dateStr = format(weeklyCellDate, 'yyyy-MM-dd');
+    const existing = assignments.find(a => a.menu_date === dateStr && a.meal_type === weeklyCellMeal);
+    const dishesStr = weeklyCellSelectedDishes.join(', ');
+
+    await supabase.from('menu_assignments').upsert({
+      id: existing?.id || undefined,
+      school_id: schoolId,
+      menu_date: dateStr,
+      meal_type: weeklyCellMeal,
+      dishes: dishesStr,
+      assigned_by: user?.id,
+    }, { onConflict: 'school_id,menu_date,meal_type' });
+
+    toast({ title: "Đã lưu thực đơn tuần" });
+    fetchAssignments();
+    setShowWeeklyCellDialog(false);
+    setLoading(false);
+  };
+
+  const removeWeeklyDish = async (date: Date, mealType: string, dishName: string) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const existing = assignments.find(a => a.menu_date === dateStr && a.meal_type === mealType);
+    if (!existing) return;
+    const currentDishes = existing.dishes.split(', ').filter(Boolean);
+    const updatedDishes = currentDishes.filter(d => d !== dishName);
+    await supabase.from('menu_assignments').upsert({
+      id: existing.id,
+      school_id: schoolId,
+      menu_date: dateStr,
+      meal_type: mealType,
+      dishes: updatedDishes.join(', '),
+      assigned_by: user?.id,
+    }, { onConflict: 'school_id,menu_date,meal_type' });
+    fetchAssignments();
+    toast({ title: `Đã xóa "${dishName}"` });
+  };
+
+  // ========== QUICK ASSIGN ==========
+  const openQuickAssign = () => {
+    setQuickAssignDish("");
+    setQuickAssignMeals(['breakfast', 'lunch', 'dinner']);
+    setQuickAssignDays([1, 2, 3, 4, 5, 6, 7]);
+    setShowQuickAssignDialog(true);
+  };
+
+  const toggleQuickMeal = (meal: string) => {
+    setQuickAssignMeals(prev =>
+      prev.includes(meal) ? prev.filter(m => m !== meal) : [...prev, meal]
+    );
+  };
+
+  const toggleQuickDay = (day: number) => {
+    setQuickAssignDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
+  };
+
+  const executeQuickAssign = async () => {
+    if (!quickAssignDish) {
+      toast({ title: "Chọn một món ăn", variant: "destructive" });
+      return;
+    }
+    if (quickAssignMeals.length === 0 || quickAssignDays.length === 0) {
+      toast({ title: "Chọn ít nhất 1 bữa và 1 ngày", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+
+    for (const day of quickAssignDays) {
+      for (const meal of quickAssignMeals) {
+        const existing = templates.find(t => t.day_of_week === day && t.meal_type === meal);
+        const currentDishes = existing?.dishes ? existing.dishes.split(', ').filter(Boolean) : [];
+        if (!currentDishes.includes(quickAssignDish)) {
+          currentDishes.push(quickAssignDish);
+        }
+        await supabase.from('weekly_menu_templates').upsert({
+          id: existing?.id || undefined,
+          school_id: schoolId,
+          day_of_week: day,
+          meal_type: meal,
+          dishes: currentDishes.join(', '),
+        }, { onConflict: 'school_id,day_of_week,meal_type' });
+      }
+    }
+
+    toast({ title: `Đã gán "${quickAssignDish}" vào ${quickAssignDays.length} ngày × ${quickAssignMeals.length} bữa` });
+    fetchTemplates();
+    setShowQuickAssignDialog(false);
+    setLoading(false);
+  };
+
+  // ========== ASSIGN TEMPLATE TO WEEK ==========
   const assignTemplateToWeek = async () => {
     setLoading(true);
     const upserts = templates.filter(t => t.dishes.trim()).map(t => ({
@@ -308,6 +426,55 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     }
   }
 
+  // Dish selection dialog content (reusable for both template & weekly)
+  const renderDishSelector = (
+    selectedDishes: string[],
+    toggleFn: (name: string) => void
+  ) => (
+    <div className="space-y-4">
+      {/* Show selected dishes */}
+      {selectedDishes.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold mb-2">Món đã chọn ({selectedDishes.length})</p>
+          <div className="flex flex-wrap gap-1.5">
+            {selectedDishes.map((d, i) => (
+              <Badge key={i} variant="default" className="text-xs gap-1.5 py-1">
+                {d}
+                <button onClick={() => toggleFn(d)} className="hover:opacity-70">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Dish list - only show unchecked dishes for selection */}
+      {groupedDishes.map(group => {
+        const uncheckedItems = group.items.filter(d => !selectedDishes.includes(d.name));
+        if (uncheckedItems.length === 0) return null;
+        return (
+          <div key={group.code}>
+            <p className="text-sm font-semibold mb-2 text-primary">{group.label}</p>
+            <div className="grid grid-cols-2 gap-2">
+              {uncheckedItems.map(dish => (
+                <label key={dish.id} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-md hover:bg-accent/50">
+                  <Checkbox
+                    checked={false}
+                    onCheckedChange={() => toggleFn(dish.name)}
+                  />
+                  {dish.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {dishes.length === 0 && (
+        <p className="text-sm text-muted-foreground">Chưa có món ăn. Hãy thêm ở tab "Danh sách món ăn".</p>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
@@ -378,6 +545,12 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
         {/* Tab 2: Template grid - only for editors */}
         {canEdit && (
           <TabsContent value="template" className="space-y-4">
+            <div className="flex justify-end">
+              <Button size="sm" variant="outline" onClick={openQuickAssign}>
+                <Zap className="h-4 w-4 mr-1" />
+                Gán nhanh món
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-sm">
                 <thead>
@@ -438,7 +611,7 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
               </table>
             </div>
             <p className="text-xs text-muted-foreground">
-              💡 Nhấn vào ô trong bảng để chọn món ăn cho bữa đó
+              💡 Nhấn vào ô trong bảng để chọn món ăn cho bữa đó. Dùng "Gán nhanh" để thêm 1 món vào nhiều ô cùng lúc.
             </p>
           </TabsContent>
         )}
@@ -501,15 +674,38 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
                     {weekDays.map((day, dayIdx) => {
                       const dishesStr = getAssignmentDishes(day, mealType);
                       return (
-                        <td key={dayIdx} className={cn("p-2 text-center", isSameDay(day, new Date()) && "bg-primary/5")}>
+                        <td
+                          key={dayIdx}
+                          className={cn(
+                            "p-2 text-center border",
+                            isSameDay(day, new Date()) && "bg-primary/5",
+                            canEdit && "cursor-pointer hover:bg-accent/50 transition-colors hover:ring-1 hover:ring-primary/30"
+                          )}
+                          onClick={() => canEdit && openWeeklyCellDialog(day, mealType)}
+                        >
                           {dishesStr ? (
                             <div className="flex flex-wrap gap-1 justify-center">
                               {dishesStr.split(', ').map((d, i) => (
-                                <Badge key={i} variant="secondary" className="text-[10px]">{d}</Badge>
+                                <Badge key={i} variant="secondary" className="text-[10px] gap-1">
+                                  {d}
+                                  {canEdit && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeWeeklyDish(day, mealType, d);
+                                      }}
+                                      className="text-destructive hover:text-destructive/80"
+                                    >
+                                      <Trash2 className="h-2.5 w-2.5" />
+                                    </button>
+                                  )}
+                                </Badge>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
+                            <span className="text-xs text-muted-foreground">
+                              {canEdit ? '+ Thêm món' : '-'}
+                            </span>
                           )}
                         </td>
                       );
@@ -519,45 +715,105 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
               </tbody>
             </table>
           </div>
+          {canEdit && (
+            <p className="text-xs text-muted-foreground">
+              💡 Nhấn vào ô để sửa trực tiếp thực đơn tuần
+            </p>
+          )}
         </TabsContent>
       </Tabs>
 
-      {/* Cell dish selection dialog */}
+      {/* Template cell dish selection dialog */}
       <Dialog open={showCellDialog} onOpenChange={setShowCellDialog}>
         <DialogContent className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {DAY_LABELS[cellDay - 1]} - Bữa {MEAL_LABELS[cellMeal]}
+              {DAY_LABELS[cellDay - 1]} - Bữa {MEAL_LABELS[cellMeal]} (Mẫu)
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {groupedDishes.map(group => {
-              if (group.items.length === 0) return null;
-              return (
-                <div key={group.code}>
-                  <p className="text-sm font-semibold mb-2 text-primary">{group.label}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {group.items.map(dish => (
-                      <label key={dish.id} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-md hover:bg-accent/50">
-                        <Checkbox
-                          checked={cellSelectedDishes.includes(dish.name)}
-                          onCheckedChange={() => toggleDishInCell(dish.name)}
-                        />
-                        {dish.name}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            {dishes.length === 0 && (
-              <p className="text-sm text-muted-foreground">Chưa có món ăn. Hãy thêm ở tab "Danh sách món ăn".</p>
-            )}
-          </div>
+          {renderDishSelector(cellSelectedDishes, toggleDishInCell)}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCellDialog(false)}>Hủy</Button>
             <Button onClick={saveCellDishes} disabled={loading}>
               <Check className="h-4 w-4 mr-1" />Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Weekly cell dish selection dialog */}
+      <Dialog open={showWeeklyCellDialog} onOpenChange={setShowWeeklyCellDialog}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {format(weeklyCellDate, 'EEEE dd/MM', { locale: vi })} - Bữa {MEAL_LABELS[weeklyCellMeal]}
+            </DialogTitle>
+          </DialogHeader>
+          {renderDishSelector(weeklyCellSelectedDishes, toggleWeeklyDish)}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWeeklyCellDialog(false)}>Hủy</Button>
+            <Button onClick={saveWeeklyCellDishes} disabled={loading}>
+              <Check className="h-4 w-4 mr-1" />Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick assign dialog */}
+      <Dialog open={showQuickAssignDialog} onOpenChange={setShowQuickAssignDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gán nhanh món ăn</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">Chọn món ăn:</p>
+              <Select value={quickAssignDish} onValueChange={setQuickAssignDish}>
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Chọn món --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groupedDishes.map(group => 
+                    group.items.map(dish => (
+                      <SelectItem key={dish.id} value={dish.name}>{dish.name} ({group.label})</SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Chọn bữa:</p>
+              <div className="flex gap-3">
+                {MEAL_TYPES.map(meal => (
+                  <label key={meal} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={quickAssignMeals.includes(meal)}
+                      onCheckedChange={() => toggleQuickMeal(meal)}
+                    />
+                    {MEAL_LABELS[meal]}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-2">Chọn ngày:</p>
+              <div className="flex flex-wrap gap-3">
+                {DAY_LABELS.map((day, i) => (
+                  <label key={i} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={quickAssignDays.includes(i + 1)}
+                      onCheckedChange={() => toggleQuickDay(i + 1)}
+                    />
+                    {day}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuickAssignDialog(false)}>Hủy</Button>
+            <Button onClick={executeQuickAssign} disabled={loading || !quickAssignDish}>
+              <Zap className="h-4 w-4 mr-1" />Gán
             </Button>
           </DialogFooter>
         </DialogContent>
