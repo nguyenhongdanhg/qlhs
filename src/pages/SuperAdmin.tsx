@@ -53,7 +53,10 @@ import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDi
 import SchoolFeaturesDialog from '@/components/superadmin/SchoolFeaturesDialog';
 
 export default function SuperAdmin() {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, profile, signOut } = useAuth();
+
+  const getInitials = (name: string) =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const { toast } = useToast();
 
   const [schools, setSchools] = useState<School[]>([]);
