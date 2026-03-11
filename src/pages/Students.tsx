@@ -355,28 +355,12 @@ export default function Students() {
       classMap[cls.name.toLowerCase()] = cls.id;
     });
 
-    // Also fetch soft-deleted students to check for reactivation
-    const { data: allStudentsData } = await supabase
-      .from('students')
-      .select('*, class:classes(*)')
-      .eq('school_id', currentSchool.id)
-      .eq('is_active', false);
-    
-    const inactiveStudents = (allStudentsData || []).map(s => ({
-      ...s,
-      class: s.class as unknown as Class
-    })) as Student[];
-
-    // Combine active + inactive for duplicate checking
-    const allStudents = [...students, ...inactiveStudents];
-
-    // Check for duplicates by cccd or full_name (including soft-deleted)
+    // Check for duplicates by cccd or full_name
     const duplicates: { existing: Student; imported: StudentImportRow; updates: Record<string, { old: any; new: any }> }[] = [];
-    const reactivateRows: { student: Student; row: StudentImportRow }[] = [];
     const newRows: StudentImportRow[] = [];
 
     for (const row of importData) {
-      const existing = allStudents.find(s => 
+      const existing = students.find(s => 
         (row.cccd && s.cccd === row.cccd) || 
         (row.full_name && s.full_name.toLowerCase() === row.full_name.toLowerCase() && row.class_name && s.class?.name?.toLowerCase() === row.class_name.toLowerCase())
       );
