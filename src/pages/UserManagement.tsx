@@ -108,6 +108,8 @@ export default function UserManagement() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [singleResetUserId, setSingleResetUserId] = useState<string | null>(null);
+  const [loginHistoryUserId, setLoginHistoryUserId] = useState<string | null>(null);
+  const [loginHistoryUserName, setLoginHistoryUserName] = useState<string>('');
 
   const [formData, setFormData] = useState({
     role: 'teacher' as AppRole,
