@@ -35,6 +35,7 @@ const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
 const MobileMenu = lazy(() => import("@/pages/MobileMenu"));
 const Install = lazy(() => import("@/pages/Install"));
 const Guide = lazy(() => import("@/pages/Guide"));
+const Documentation = lazy(() => import("@/pages/Documentation"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 // Optimized QueryClient with better caching
@@ -84,6 +85,7 @@ const App = () => (
             <Routes>
               {/* Public routes */}
               <Route path="/auth" element={<Auth />} />
+              <Route path="/docs" element={<Documentation />} />
               
               {/* Root redirect */}
               <Route path="/" element={<RootRedirect />} />
