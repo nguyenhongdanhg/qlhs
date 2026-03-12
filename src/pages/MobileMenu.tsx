@@ -58,7 +58,7 @@ const standaloneItems: MenuItem[] = [
 const settingsItems: MenuItem[] = [
   { code: 'user_management', label: 'Quản lý người dùng', description: 'Thêm, sửa, xóa người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
   { code: 'settings', label: 'Thiết lập', description: 'Tài khoản & thiết lập', icon: Settings, path: '/settings' },
-  { code: 'guide', label: 'Hướng dẫn sử dụng', description: 'Tài liệu hướng dẫn', icon: HelpCircle, path: '/guide' },
+  { code: 'guide', label: 'Hướng dẫn sử dụng', description: 'Tài liệu hướng dẫn', icon: HelpCircle, path: '/docs' },
 ];
 
 function MenuSection({ title, items, isFeatureEnabled, isAdmin }: {
