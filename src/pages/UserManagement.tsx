@@ -57,6 +57,7 @@ import {
   Trash2,
   Mail,
   Phone,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
