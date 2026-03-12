@@ -134,7 +134,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchProfile]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    // Record login history (fire and forget)
+    if (data?.user) {
+      supabase.from('login_history').insert({
+        user_id: data.user.id,
+        success: !error,
+        user_agent: navigator.userAgent,
+      }).then(); // non-blocking
+    }
+    
     return { error: error as Error | null };
   };
 

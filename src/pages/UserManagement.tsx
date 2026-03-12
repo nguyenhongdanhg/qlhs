@@ -57,6 +57,7 @@ import {
   Trash2,
   Mail,
   Phone,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
@@ -64,6 +65,7 @@ import PermissionGroupsManager from '@/components/users/PermissionGroupsManager'
 import UserImportDialog from '@/components/users/UserImportDialog';
 import AssignPermissionGroupDialog from '@/components/users/AssignPermissionGroupDialog';
 import CreateUserDialog from '@/components/users/CreateUserDialog';
+import LoginHistoryDialog from '@/components/users/LoginHistoryDialog';
 
 const roleLabels: Record<AppRole, string> = {
   super_admin: 'Super Admin',
@@ -106,6 +108,8 @@ export default function UserManagement() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [singleResetUserId, setSingleResetUserId] = useState<string | null>(null);
+  const [loginHistoryUserId, setLoginHistoryUserId] = useState<string | null>(null);
+  const [loginHistoryUserName, setLoginHistoryUserName] = useState<string>('');
 
   const [formData, setFormData] = useState({
     role: 'teacher' as AppRole,
@@ -571,6 +575,17 @@ export default function UserManagement() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => {
+                                  setLoginHistoryUserId(membership.user_id);
+                                  setLoginHistoryUserName((membership as any).profile?.full_name || '');
+                                }}
+                                title="Lịch sử đăng nhập"
+                              >
+                                <History className="h-4 w-4 text-info" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => handleToggleStatus(membership)}
                                 title={membership.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'}
                               >
@@ -794,6 +809,18 @@ export default function UserManagement() {
           setSelectedUserIds([]);
           setSingleResetUserId(null);
         }}
+      />
+
+      <LoginHistoryDialog
+        open={!!loginHistoryUserId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setLoginHistoryUserId(null);
+            setLoginHistoryUserName('');
+          }
+        }}
+        userId={loginHistoryUserId || undefined}
+        userName={loginHistoryUserName}
       />
     </div>
   );
