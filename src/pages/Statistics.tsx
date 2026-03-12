@@ -870,97 +870,25 @@ export default function Statistics() {
     setIsLoadingRice(true);
 
     try {
-      const days = eachDayOfInterval({ start: riceDateRange.start, end: riceDateRange.end });
       const startDate = format(riceDateRange.start, 'yyyy-MM-dd');
       const endDate = format(riceDateRange.end, 'yyyy-MM-dd');
 
-      // Fetch ALL lunch and dinner records for the entire range with pagination
-      // This matches the overview tab's export logic for data consistency
-      const PAGE_SIZE = 1000;
-      const MAX_PAGES = 500;
-      const allLunchRecords: any[] = [];
-      const allDinnerRecords: any[] = [];
+      // Use server-side function to calculate rice stats
+      // This replaces the old pagination loop that fetched all records to client
+      const { data, error } = await supabase.rpc('calculate_rice_stats', {
+        p_school_id: currentSchool.id,
+        p_start_date: startDate,
+        p_end_date: endDate,
+      });
 
-      // Fetch lunch records with pagination
-      let pageNum = 0;
-      while (pageNum < MAX_PAGES) {
-        const from = pageNum * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-        const { data, error } = await supabase
-          .from('attendance_records')
-          .select('student_id, class_id, attendance_date, status, created_at')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_type', 'lunch')
-          .gte('attendance_date', startDate)
-          .lte('attendance_date', endDate)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-        if (error) throw error;
-        const page = data || [];
-        allLunchRecords.push(...page);
-        if (page.length < PAGE_SIZE) break;
-        pageNum++;
-      }
+      if (error) throw error;
 
-      // Fetch dinner records with pagination
-      pageNum = 0;
-      while (pageNum < MAX_PAGES) {
-        const from = pageNum * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-        const { data, error } = await supabase
-          .from('attendance_records')
-          .select('student_id, class_id, attendance_date, status, created_at')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_type', 'dinner')
-          .gte('attendance_date', startDate)
-          .lte('attendance_date', endDate)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-        if (error) throw error;
-        const page = data || [];
-        allDinnerRecords.push(...page);
-        if (page.length < PAGE_SIZE) break;
-        pageNum++;
-      }
+      const dailyRice = (data || []).map((row: any) => ({
+        date: row.stat_date,
+        rice: Number(row.rice),
+      }));
 
-      // Build latest-per-student maps for lunch and dinner
-      const getLatestPerStudentByDate = (records: any[]) => {
-        const latestByKey = new Map<string, any>();
-        records.forEach(r => {
-          const key = `${r.class_id || 'unknown'}-${r.student_id}-${r.attendance_date}`;
-          const existing = latestByKey.get(key);
-          if (!existing || new Date(r.created_at || 0).getTime() > new Date(existing.created_at || 0).getTime()) {
-            latestByKey.set(key, r);
-          }
-        });
-        return latestByKey;
-      };
-
-      const lunchLatestMap = getLatestPerStudentByDate(allLunchRecords);
-      const dinnerLatestMap = getLatestPerStudentByDate(allDinnerRecords);
-
-      // Calculate rice per day
-      const dailyRice: { date: string; rice: number }[] = [];
-      let totalRice = 0;
-
-      for (const day of days) {
-        const dateStr = format(day, 'yyyy-MM-dd');
-
-        let lunchPresent = 0;
-        let dinnerPresent = 0;
-
-        lunchLatestMap.forEach((r) => {
-          if (r.attendance_date === dateStr && r.status === 'present') lunchPresent++;
-        });
-
-        dinnerLatestMap.forEach((r) => {
-          if (r.attendance_date === dateStr && r.status === 'present') dinnerPresent++;
-        });
-
-        const dayRice = (lunchPresent + dinnerPresent) * 0.2;
-        totalRice += dayRice;
-        dailyRice.push({ date: dateStr, rice: dayRice });
-      }
+      const totalRice = dailyRice.reduce((sum: number, d: { rice: number }) => sum + d.rice, 0);
 
       setRiceStats(dailyRice);
       setTotalRiceInRange(totalRice);

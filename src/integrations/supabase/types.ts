@@ -1675,6 +1675,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_rice_stats: {
+        Args: { p_end_date: string; p_school_id: string; p_start_date: string }
+        Returns: {
+          rice: number
+          stat_date: string
+        }[]
+      }
       get_teacher_class: { Args: { sid: string; uid: string }; Returns: string }
       has_dormitory_exit_permission: {
         Args: { sid: string; uid: string }
