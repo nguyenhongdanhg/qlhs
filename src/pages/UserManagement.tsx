@@ -810,6 +810,18 @@ export default function UserManagement() {
           setSingleResetUserId(null);
         }}
       />
+
+      <LoginHistoryDialog
+        open={!!loginHistoryUserId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setLoginHistoryUserId(null);
+            setLoginHistoryUserName('');
+          }
+        }}
+        userId={loginHistoryUserId || undefined}
+        userName={loginHistoryUserName}
+      />
     </div>
   );
 }
