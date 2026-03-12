@@ -71,7 +71,7 @@ const navGroups: NavGroup[] = [
     children: [
       { code: 'user_management', label: 'Quản lý người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
       { code: 'settings', label: 'Thiết lập', icon: Settings, path: '/settings' },
-      { code: 'guide', label: 'Hướng dẫn sử dụng', icon: HelpCircle, path: '/guide' },
+      { code: 'guide', label: 'Hướng dẫn sử dụng', icon: HelpCircle, path: '/docs' },
     ],
   },
 ];
