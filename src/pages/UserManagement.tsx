@@ -575,6 +575,17 @@ export default function UserManagement() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => {
+                                  setLoginHistoryUserId(membership.user_id);
+                                  setLoginHistoryUserName((membership as any).profile?.full_name || '');
+                                }}
+                                title="Lịch sử đăng nhập"
+                              >
+                                <History className="h-4 w-4 text-info" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => handleToggleStatus(membership)}
                                 title={membership.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'}
                               >
