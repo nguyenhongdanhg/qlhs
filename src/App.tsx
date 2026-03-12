@@ -85,6 +85,7 @@ const App = () => (
             <Routes>
               {/* Public routes */}
               <Route path="/auth" element={<Auth />} />
+              <Route path="/docs" element={<Documentation />} />
               
               {/* Root redirect */}
               <Route path="/" element={<RootRedirect />} />
