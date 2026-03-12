@@ -65,6 +65,7 @@ import PermissionGroupsManager from '@/components/users/PermissionGroupsManager'
 import UserImportDialog from '@/components/users/UserImportDialog';
 import AssignPermissionGroupDialog from '@/components/users/AssignPermissionGroupDialog';
 import CreateUserDialog from '@/components/users/CreateUserDialog';
+import LoginHistoryDialog from '@/components/users/LoginHistoryDialog';
 
 const roleLabels: Record<AppRole, string> = {
   super_admin: 'Super Admin',
