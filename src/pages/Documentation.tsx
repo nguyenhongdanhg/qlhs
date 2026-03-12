@@ -355,8 +355,8 @@ export default function Documentation() {
         <Separator className="mb-6" />
         <div className="text-center text-xs text-muted-foreground pb-10 print:pb-4">
           <p className="font-medium text-foreground mb-1">QUẢN LÝ NỘI TRÚ / BÁN TRÚ</p>
-          <p>Thiết kế & phát triển bởi Trần Hữu Cường</p>
-          <p>SĐT: 0386 805 841 | Email: huucuong.se@gmail.com</p>
+          <p>Thiết kế & phát triển bởi Thầy giáo Nguyễn Hồng Dân</p>
+          <p>SĐT: 0888 770 699</p>
         </div>
       </div>
     </div>
