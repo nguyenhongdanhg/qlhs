@@ -96,6 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let initialProfileFetched = false;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -103,18 +105,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Set profile loading BEFORE setTimeout to prevent race condition
-          setIsProfileLoading(true);
-          // Defer profile fetch with setTimeout to avoid deadlock
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
+          // Only fetch profile on actual sign-in or initial load, NOT on token refresh
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            if (!initialProfileFetched) {
+              initialProfileFetched = true;
+              setIsProfileLoading(true);
+              setTimeout(() => {
+                fetchProfile(session.user.id);
+              }, 0);
+            }
+          }
+          // For TOKEN_REFRESHED - just update session, don't re-fetch profile
         } else {
           setProfile(null);
           setMemberships([]);
           setCurrentSchool(null);
           setCurrentMembership(null);
           setIsSuperAdmin(false);
+          initialProfileFetched = false;
         }
         setIsLoading(false);
       }
@@ -124,7 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
+      if (session?.user && !initialProfileFetched) {
+        initialProfileFetched = true;
         fetchProfile(session.user.id);
       }
       setIsLoading(false);
