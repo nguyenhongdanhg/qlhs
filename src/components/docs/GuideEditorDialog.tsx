@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { RichTextToolbar } from './RichTextToolbar';
 import { IconPickerDialog } from './IconPickerDialog';
+import { WysiwygToolbar } from './WysiwygToolbar';
 
 interface GuideSection {
   id?: string;
