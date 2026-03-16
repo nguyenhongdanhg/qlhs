@@ -408,10 +408,17 @@ export default function Documentation() {
           <div className="text-center py-20 text-muted-foreground">
             <p>Chưa có nội dung hướng dẫn nào.</p>
             {isAdmin && (
-              <Button onClick={handleAdd} variant="outline" className="mt-4 gap-2">
-                <Plus className="h-4 w-4" />
-                Thêm mục đầu tiên
-              </Button>
+              <div className="mt-4 flex flex-col items-center gap-3">
+                <Button onClick={handleSeedDefaults} variant="default" className="gap-2" disabled={isSeeding}>
+                  {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  Nhập nội dung mẫu có sẵn
+                </Button>
+                <span className="text-xs text-muted-foreground">hoặc</span>
+                <Button onClick={handleAdd} variant="outline" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Thêm mục mới
+                </Button>
+              </div>
             )}
           </div>
         )}
