@@ -36,7 +36,6 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wysiwygRef = useRef<HTMLDivElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
