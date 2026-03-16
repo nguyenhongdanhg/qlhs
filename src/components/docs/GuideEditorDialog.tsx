@@ -423,6 +423,32 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                 )}
                 <div className="mt-3 flex gap-2">
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                  <input ref={inlineImageInputRef} type="file" accept="image/*" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setIsUploading(true);
+                    const url = await uploadAndGetUrl(file);
+                    setIsUploading(false);
+                    if (url) {
+                      const imgTag = `<img src="${url}" alt="Ảnh minh họa" style="max-width:100%; border-radius:8px; margin:8px 0;" />`;
+                      const textarea = textareaRef.current;
+                      if (textarea) {
+                        const start = textarea.selectionStart;
+                        const end = textarea.selectionEnd;
+                        const newValue = content.substring(0, start) + imgTag + content.substring(end);
+                        setContent(newValue);
+                        requestAnimationFrame(() => {
+                          textarea.focus();
+                          const pos = start + imgTag.length;
+                          textarea.setSelectionRange(pos, pos);
+                        });
+                      } else {
+                        setContent(prev => prev + imgTag);
+                      }
+                      toast({ title: 'Đã chèn ảnh vào nội dung' });
+                    }
+                    if (inlineImageInputRef.current) inlineImageInputRef.current.value = '';
+                  }} className="hidden" />
                   <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                     <Upload className="h-4 w-4 mr-2" />
                     Chọn file ảnh
