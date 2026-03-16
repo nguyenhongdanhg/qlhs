@@ -332,17 +332,26 @@ export default function Auth() {
       </div>
 
       {/* Footer */}
-      <div className="p-6 text-center relative z-10">
-        <a 
-          href="https://zalo.me/0888770699" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+      <div className="p-6 text-center relative z-10 space-y-3">
+        <Link
+          to="/docs"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors bg-primary/10 px-4 py-2 rounded-full"
         >
-          <span>Thiết kế bởi</span>
-          <span className="font-bold text-primary">Thầy Nguyễn Hồng Dân</span>
-          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Zalo: 0888 770 699</span>
-        </a>
+          <BookOpen className="h-4 w-4" />
+          Hướng dẫn sử dụng
+        </Link>
+        <div>
+          <a 
+            href="https://zalo.me/0888770699" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
+            <span>Thiết kế bởi</span>
+            <span className="font-bold text-primary">Thầy Nguyễn Hồng Dân</span>
+            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Zalo: 0888 770 699</span>
+          </a>
+        </div>
       </div>
     </div>
   );
