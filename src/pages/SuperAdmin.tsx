@@ -40,6 +40,7 @@ import {
   LogOut,
   User,
   ChevronDown,
+  BookOpen,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -51,9 +52,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDialog';
 import SchoolFeaturesDialog from '@/components/superadmin/SchoolFeaturesDialog';
+import { useNavigate } from 'react-router-dom';
 
 export default function SuperAdmin() {
   const { isSuperAdmin, profile, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -297,6 +300,14 @@ export default function SuperAdmin() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="mb-8 flex flex-wrap gap-3">
+        <Button variant="outline" onClick={() => navigate('/docs')}>
+          <BookOpen className="mr-2 h-4 w-4" />
+          Hướng dẫn sử dụng
+        </Button>
       </div>
 
       {/* Stats */}
