@@ -278,6 +278,7 @@ export default function Documentation() {
   const [editingSection, setEditingSection] = useState<GuideSection | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   const fetchSections = async () => {
     const { data, error } = await supabase
