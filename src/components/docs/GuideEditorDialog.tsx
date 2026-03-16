@@ -31,6 +31,7 @@ interface Props {
 export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Props) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
