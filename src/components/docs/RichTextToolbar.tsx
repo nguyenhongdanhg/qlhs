@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
   Bold, Italic, Heading4, List, ListOrdered, Link, Quote,
-  Minus, Table, Code, AlignLeft, Type, Strikethrough
+  Minus, Table, Code, Type, Strikethrough, ImagePlus
 } from 'lucide-react';
 import {
   Tooltip,
@@ -17,6 +17,7 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   onOpenIconPicker: () => void;
+  onInsertImage: () => void;
 }
 
 interface ToolbarAction {
@@ -27,7 +28,7 @@ interface ToolbarAction {
   block?: boolean;
 }
 
-export function RichTextToolbar({ textareaRef, value, onChange, onOpenIconPicker }: Props) {
+export function RichTextToolbar({ textareaRef, value, onChange, onOpenIconPicker, onInsertImage }: Props) {
   const insertTag = useCallback((before: string, after: string, block?: boolean) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -42,7 +43,6 @@ export function RichTextToolbar({ textareaRef, value, onChange, onOpenIconPicker
     const newValue = value.substring(0, start) + replacement + value.substring(end);
     onChange(newValue);
 
-    // Restore cursor position
     requestAnimationFrame(() => {
       textarea.focus();
       const cursorPos = start + prefix.length + before.length;
@@ -51,7 +51,7 @@ export function RichTextToolbar({ textareaRef, value, onChange, onOpenIconPicker
     });
   }, [textareaRef, value, onChange]);
 
-  const actions: (ToolbarAction | 'separator' | 'icon-picker')[] = [
+  const actions: (ToolbarAction | 'separator' | 'icon-picker' | 'insert-image')[] = [
     { icon: <Bold className="h-4 w-4" />, label: 'Đậm', before: '<strong>', after: '</strong>' },
     { icon: <Italic className="h-4 w-4" />, label: 'Nghiêng', before: '<em>', after: '</em>' },
     { icon: <Strikethrough className="h-4 w-4" />, label: 'Gạch ngang', before: '<del>', after: '</del>' },
@@ -68,6 +68,7 @@ export function RichTextToolbar({ textareaRef, value, onChange, onOpenIconPicker
     { icon: <Minus className="h-4 w-4" />, label: 'Đường kẻ', before: '<hr/>', after: '', block: true },
     { icon: <Table className="h-4 w-4" />, label: 'Bảng', before: '<table class="guide-table">\n  <tr><th>Cột 1</th><th>Cột 2</th></tr>\n  <tr><td>', after: '</td><td>...</td></tr>\n</table>', block: true },
     'separator',
+    'insert-image',
     'icon-picker',
   ];
 
@@ -77,6 +78,24 @@ export function RichTextToolbar({ textareaRef, value, onChange, onOpenIconPicker
         {actions.map((action, i) => {
           if (action === 'separator') {
             return <Separator key={i} orientation="vertical" className="h-6 mx-1" />;
+          }
+          if (action === 'insert-image') {
+            return (
+              <Tooltip key={i}>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={onInsertImage}
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom"><p>Chèn ảnh vào nội dung</p></TooltipContent>
+              </Tooltip>
+            );
           }
           if (action === 'icon-picker') {
             return (
