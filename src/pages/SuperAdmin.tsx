@@ -357,9 +357,6 @@ export default function SuperAdmin() {
           </CardContent>
         </Card>
       </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Schools Table */}
       <Card>
