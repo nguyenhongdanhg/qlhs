@@ -302,6 +302,14 @@ export default function SuperAdmin() {
         </DropdownMenu>
       </div>
 
+      {/* Quick Actions */}
+      <div className="mb-8 flex flex-wrap gap-3">
+        <Button variant="outline" onClick={() => navigate('/docs')}>
+          <BookOpen className="mr-2 h-4 w-4" />
+          Hướng dẫn sử dụng
+        </Button>
+      </div>
+
       {/* Stats */}
       <div className="mb-8 grid gap-4 md:grid-cols-4">
         <Card>
@@ -346,6 +354,9 @@ export default function SuperAdmin() {
               <p className="text-2xl font-bold">{stats.totalStudents}</p>
               <p className="text-sm text-muted-foreground">Học sinh</p>
             </div>
+          </CardContent>
+        </Card>
+      </div>
           </CardContent>
         </Card>
       </div>
