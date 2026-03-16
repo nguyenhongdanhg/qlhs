@@ -169,16 +169,60 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     return result.replace(/\n{3,}/g, '\n\n').trim();
   }, []);
 
+  // Upload image and return public URL
+  const uploadAndGetUrl = useCallback(async (file: File): Promise<string | null> => {
+    if (!file.type.startsWith('image/')) return null;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Lỗi', description: 'Ảnh không được vượt quá 5MB', variant: 'destructive' });
+      return null;
+    }
+    const ext = file.name?.split('.').pop() || 'png';
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data, error } = await supabase.storage.from('guide-images').upload(fileName, file);
+    if (error) {
+      toast({ title: 'Lỗi upload', description: error.message, variant: 'destructive' });
+      return null;
+    }
+    const { data: urlData } = supabase.storage.from('guide-images').getPublicUrl(data.path);
+    return urlData.publicUrl;
+  }, [toast]);
+
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
-    // Check for images first
+    const isInContentTextarea = textareaRef.current && document.activeElement === textareaRef.current;
+
+    // Check for images
     for (const item of Array.from(items)) {
       if (item.type.startsWith('image/')) {
         e.preventDefault();
         const file = item.getAsFile();
-        if (file) await uploadFile(file);
+        if (!file) return;
+
+        // If pasting in content textarea, insert inline image tag
+        if (isInContentTextarea) {
+          setIsUploading(true);
+          const url = await uploadAndGetUrl(file);
+          setIsUploading(false);
+          if (url) {
+            const imgTag = `<img src="${url}" alt="Ảnh minh họa" style="max-width:100%; border-radius:8px; margin:8px 0;" />`;
+            const textarea = textareaRef.current!;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const newValue = content.substring(0, start) + imgTag + content.substring(end);
+            setContent(newValue);
+            toast({ title: 'Đã chèn ảnh vào nội dung' });
+            requestAnimationFrame(() => {
+              textarea.focus();
+              const pos = start + imgTag.length;
+              textarea.setSelectionRange(pos, pos);
+            });
+          }
+        } else {
+          // Otherwise upload as cover image
+          await uploadFile(file);
+        }
         return;
       }
     }
