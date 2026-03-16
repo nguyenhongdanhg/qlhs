@@ -47,7 +47,8 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
   const [displayOrder, setDisplayOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
 
-  const handleOpenChange = (open: boolean) => {
+  // Populate form when dialog opens or section changes
+  useEffect(() => {
     if (open && section) {
       setTitle(section.title);
       setContent(section.content);
@@ -63,8 +64,11 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       setDisplayOrder(0);
       setIsActive(true);
     }
-    setShowPreview(false);
-    onOpenChange(open);
+    if (open) setShowPreview(false);
+  }, [open, section]);
+
+  const handleOpenChange = (newOpen: boolean) => {
+    onOpenChange(newOpen);
   };
 
   const uploadFile = useCallback(async (file: File) => {

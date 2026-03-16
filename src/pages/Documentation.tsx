@@ -295,15 +295,6 @@ export default function Documentation() {
     if (!user) return;
     const { data } = await supabase.from('global_roles').select('role').eq('user_id', user.id).maybeSingle();
     if (data?.role === 'super_admin') setIsAdmin(true);
-    if (!data) {
-      const { data: membership } = await supabase
-        .from('school_memberships')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-      if (membership) setIsAdmin(true);
-    }
   };
 
   const handleSeedDefaults = async () => {
