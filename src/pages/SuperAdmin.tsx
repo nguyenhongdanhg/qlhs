@@ -56,6 +56,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function SuperAdmin() {
   const { isSuperAdmin, profile, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
