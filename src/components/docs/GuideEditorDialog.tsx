@@ -352,7 +352,13 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                   variant="ghost"
                   size="sm"
                   className="gap-1 h-7 text-xs"
-                  onClick={() => setShowPreview(!showPreview)}
+                  onClick={() => {
+                    // Sync content from WYSIWYG before switching to HTML mode
+                    if (!showPreview && wysiwygRef.current) {
+                      setContent(wysiwygRef.current.innerHTML);
+                    }
+                    setShowPreview(!showPreview);
+                  }}
                 >
                   {showPreview ? <Eye className="h-3 w-3" /> : <Code className="h-3 w-3" />}
                   {showPreview ? 'Xem trước' : 'Sửa HTML'}
