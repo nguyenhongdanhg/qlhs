@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Upload, X, Image, Video } from 'lucide-react';
+import { Loader2, Upload, X, Image, Video, Clipboard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -29,8 +29,10 @@ interface Props {
 export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Props) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -39,7 +41,6 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
   const [displayOrder, setDisplayOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
 
-  // Reset form when dialog opens
   const handleOpenChange = (open: boolean) => {
     if (open && section) {
       setTitle(section.title);
@@ -59,17 +60,21 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     onOpenChange(open);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Upload a file (shared logic for file input, paste, and drag)
+  const uploadFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast({ title: 'Lỗi', description: 'Vui lòng chọn file ảnh', variant: 'destructive' });
       return;
     }
 
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Lỗi', description: 'Ảnh không được vượt quá 5MB', variant: 'destructive' });
+      return;
+    }
+
     setIsUploading(true);
-    const fileName = `${Date.now()}-${file.name}`;
+    const ext = file.name?.split('.').pop() || 'png';
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     const { data, error } = await supabase.storage
       .from('guide-images')
       .upload(fileName, file);
@@ -82,8 +87,48 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       toast({ title: 'Đã tải ảnh lên' });
     }
     setIsUploading(false);
+  }, [toast]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) await uploadFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  // Handle paste from clipboard (Ctrl+V)
+  const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) await uploadFile(file);
+        return;
+      }
+    }
+  }, [uploadFile]);
+
+  // Drag & drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      await uploadFile(file);
+    }
+  }, [uploadFile]);
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -119,7 +164,6 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     }
   };
 
-  // Convert YouTube URL to embed URL
   const getYoutubeEmbedUrl = (url: string) => {
     const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/);
     return match ? `https://www.youtube.com/embed/${match[1]}` : null;
@@ -127,7 +171,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onPaste={handlePaste}>
         <DialogHeader>
           <DialogTitle>{section?.id ? 'Sửa mục hướng dẫn' : 'Thêm mục hướng dẫn'}</DialogTitle>
         </DialogHeader>
@@ -158,13 +202,21 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
             </p>
           </div>
 
-          {/* Image upload */}
+          {/* Image upload with paste & drag support */}
           <div>
             <Label className="flex items-center gap-2"><Image className="h-4 w-4" /> Ảnh minh họa</Label>
-            <div className="mt-2 space-y-2">
-              {imageUrl && (
+            <div
+              ref={dropZoneRef}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`mt-2 rounded-lg border-2 border-dashed p-4 transition-colors ${
+                isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+              }`}
+            >
+              {imageUrl ? (
                 <div className="relative inline-block">
-                  <img src={imageUrl} alt="Preview" className="max-h-40 rounded-lg border" />
+                  <img src={imageUrl} alt="Preview" className="max-h-48 rounded-lg border" />
                   <button
                     onClick={() => setImageUrl(null)}
                     className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1"
@@ -172,8 +224,26 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                     <X className="h-3 w-3" />
                   </button>
                 </div>
+              ) : (
+                <div className="text-center py-4">
+                  {isUploading ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Đang tải ảnh...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <Clipboard className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Ctrl+V để dán ảnh</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">hoặc kéo thả ảnh vào đây</p>
+                    </div>
+                  )}
+                </div>
               )}
-              <div>
+
+              <div className="mt-3 flex gap-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -188,8 +258,8 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
                 >
-                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                  {isUploading ? 'Đang tải...' : 'Tải ảnh lên'}
+                  <Upload className="h-4 w-4 mr-2" />
+                  Chọn file ảnh
                 </Button>
               </div>
             </div>
