@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import CreateSchoolAdminDialog from '@/components/superadmin/CreateSchoolAdminDialog';
 import SchoolFeaturesDialog from '@/components/superadmin/SchoolFeaturesDialog';
+import { useNavigate } from 'react-router-dom';
 
 export default function SuperAdmin() {
   const { isSuperAdmin, profile, signOut } = useAuth();
