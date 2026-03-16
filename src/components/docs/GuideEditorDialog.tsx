@@ -462,19 +462,25 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                     setIsUploading(false);
                     if (url) {
                       const imgTag = `<img src="${url}" alt="Ảnh minh họa" style="max-width:100%; border-radius:8px; margin:8px 0;" />`;
-                      const textarea = textareaRef.current;
-                      if (textarea) {
-                        const start = textarea.selectionStart;
-                        const end = textarea.selectionEnd;
-                        const newValue = content.substring(0, start) + imgTag + content.substring(end);
-                        setContent(newValue);
-                        requestAnimationFrame(() => {
-                          textarea.focus();
-                          const pos = start + imgTag.length;
-                          textarea.setSelectionRange(pos, pos);
-                        });
+                      // WYSIWYG mode: insert via execCommand
+                      if (!showPreview && wysiwygRef.current) {
+                        wysiwygRef.current.focus();
+                        document.execCommand('insertHTML', false, imgTag);
                       } else {
-                        setContent(prev => prev + imgTag);
+                        const textarea = textareaRef.current;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const end = textarea.selectionEnd;
+                          const newValue = content.substring(0, start) + imgTag + content.substring(end);
+                          setContent(newValue);
+                          requestAnimationFrame(() => {
+                            textarea.focus();
+                            const pos = start + imgTag.length;
+                            textarea.setSelectionRange(pos, pos);
+                          });
+                        } else {
+                          setContent(prev => prev + imgTag);
+                        }
                       }
                       toast({ title: 'Đã chèn ảnh vào nội dung' });
                     }
