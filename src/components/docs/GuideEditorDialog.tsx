@@ -367,6 +367,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                     value={content}
                     onChange={setContent}
                     onOpenIconPicker={() => setIconPickerOpen(true)}
+                    onInsertImage={() => inlineImageInputRef.current?.click()}
                   />
                   <Textarea
                     ref={textareaRef}
