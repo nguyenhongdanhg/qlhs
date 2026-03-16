@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User, Sparkles } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, Phone, Lock, User, Sparkles, BookOpen } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 
