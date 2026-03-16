@@ -95,9 +95,85 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Clean pasted HTML to keep only supported tags
+  const cleanHtml = useCallback((html: string): string => {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    // Remove style, script, meta tags
+    div.querySelectorAll('style, script, meta, link, head, title, comment').forEach(el => el.remove());
+
+    const cleanNode = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent || '';
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+
+      // Map of allowed tags and their conversions
+      const allowedTags: Record<string, string> = {
+        'h1': 'h4', 'h2': 'h4', 'h3': 'h4', 'h4': 'h4', 'h5': 'h4', 'h6': 'h4',
+        'p': 'p', 'div': 'p',
+        'ul': 'ul', 'ol': 'ol', 'li': 'li',
+        'strong': 'strong', 'b': 'strong',
+        'em': 'em', 'i': 'em',
+        'a': 'a',
+        'br': 'br',
+        'del': 'del', 's': 'del', 'strike': 'del',
+        'blockquote': 'blockquote',
+        'code': 'code', 'pre': 'code',
+        'hr': 'hr',
+        'table': 'table', 'tr': 'tr', 'td': 'td', 'th': 'th', 'thead': 'thead', 'tbody': 'tbody',
+        'span': 'span',
+      };
+
+      const children = Array.from(el.childNodes).map(cleanNode).join('');
+
+      if (tag === 'br' || tag === 'hr') return `<${allowedTags[tag]}/>`;
+
+      if (allowedTags[tag]) {
+        const mappedTag = allowedTags[tag];
+        // Keep href for links
+        if (mappedTag === 'a') {
+          const href = el.getAttribute('href') || '#';
+          return `<a href="${href}">${children}</a>`;
+        }
+        // For span, check if it has bold/italic styles
+        if (tag === 'span') {
+          const style = el.getAttribute('style') || '';
+          let result = children;
+          if (style.includes('font-weight') && (style.includes('bold') || style.includes('700') || style.includes('800') || style.includes('900'))) {
+            result = `<strong>${result}</strong>`;
+          }
+          if (style.includes('font-style') && style.includes('italic')) {
+            result = `<em>${result}</em>`;
+          }
+          if (style.includes('text-decoration') && style.includes('line-through')) {
+            result = `<del>${result}</del>`;
+          }
+          return result;
+        }
+        // Skip empty divs/paragraphs
+        if ((mappedTag === 'p') && !children.trim()) return '';
+        return `<${mappedTag}>${children}</${mappedTag}>`;
+      }
+
+      // Unknown tags: just return children
+      return children;
+    };
+
+    const result = Array.from(div.childNodes).map(cleanNode).join('\n');
+    // Clean up excessive newlines
+    return result.replace(/\n{3,}/g, '\n\n').trim();
+  }, []);
+
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
+
+    // Check for images first
     for (const item of Array.from(items)) {
       if (item.type.startsWith('image/')) {
         e.preventDefault();
@@ -106,7 +182,24 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
         return;
       }
     }
-  }, [uploadFile]);
+
+    // Check for rich text HTML - only when pasting into the content textarea
+    const html = e.clipboardData?.getData('text/html');
+    if (html && textareaRef.current && document.activeElement === textareaRef.current) {
+      e.preventDefault();
+      const cleaned = cleanHtml(html);
+      const textarea = textareaRef.current;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newValue = content.substring(0, start) + cleaned + content.substring(end);
+      setContent(newValue);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        const pos = start + cleaned.length;
+        textarea.setSelectionRange(pos, pos);
+      });
+    }
+  }, [uploadFile, cleanHtml, content]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); }, []);
   const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); }, []);
