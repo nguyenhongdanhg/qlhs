@@ -380,23 +380,35 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                 </>
               ) : (
                 /* WYSIWYG Editor (default) */
-                <div
-                  contentEditable
-                  suppressContentEditableWarning
-                  className="min-h-[250px] p-4 border rounded-md bg-background prose prose-sm max-w-none text-foreground
-                    [&_h4]:text-foreground [&_h4]:font-semibold [&_h4]:mt-4 [&_h4]:mb-2
-                    [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
-                    [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1
-                    [&_strong]:text-foreground [&_a]:text-primary [&_a]:underline
-                    [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic
-                    [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs
-                    [&_hr]:my-4 [&_hr]:border-border
-                    [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:p-2
-                    [&_del]:line-through
-                    focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-text"
-                  dangerouslySetInnerHTML={{ __html: content }}
-                  onBlur={(e) => setContent(e.currentTarget.innerHTML)}
-                />
+                <>
+                  <WysiwygToolbar
+                    editorRef={wysiwygRef as React.RefObject<HTMLDivElement>}
+                    onOpenIconPicker={() => setIconPickerOpen(true)}
+                    onInsertImage={() => inlineImageInputRef.current?.click()}
+                  />
+                  <div
+                    ref={wysiwygRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="min-h-[250px] p-4 border rounded-b-md bg-background prose prose-sm max-w-none text-foreground border-t-0
+                      [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
+                      [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2
+                      [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-2
+                      [&_h4]:text-base [&_h4]:font-semibold [&_h4]:mt-3 [&_h4]:mb-2
+                      [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                      [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1
+                      [&_strong]:text-foreground [&_a]:text-primary [&_a]:underline
+                      [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic
+                      [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs
+                      [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:text-xs [&_pre]:overflow-x-auto
+                      [&_hr]:my-4 [&_hr]:border-border
+                      [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:p-2
+                      [&_del]:line-through [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2
+                      focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-text"
+                    dangerouslySetInnerHTML={{ __html: content }}
+                    onBlur={(e) => setContent(e.currentTarget.innerHTML)}
+                  />
+                </>
               )}
             </div>
 
