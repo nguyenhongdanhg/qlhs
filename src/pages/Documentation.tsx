@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Printer, GraduationCap, Plus, Pencil, Trash2, GripVertical, Loader2 } from 'lucide-react';
+import { ArrowLeft, Printer, GraduationCap, Plus, Pencil, Trash2, GripVertical, Loader2, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -26,6 +26,249 @@ const getYoutubeEmbedUrl = (url: string) => {
   return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 };
 
+// Default guide content to seed into database
+const defaultGuideSections = [
+  {
+    title: 'Quản lý học sinh',
+    display_order: 1,
+    content: `<h4>📋 Làm sao để thêm học sinh mới?</h4>
+<p>Bạn có thể thêm học sinh bằng 2 cách: thêm thủ công hoặc nhập từ file Excel.</p>
+<ol>
+<li>Vào menu "Thông tin học sinh"</li>
+<li>Nhấn nút "Thêm học sinh" hoặc "Nhập Excel"</li>
+<li>Điền đầy đủ thông tin học sinh</li>
+<li>Chọn lớp và nhóm mâm ăn phù hợp</li>
+<li>Nhấn "Lưu" để hoàn tất</li>
+</ol>
+
+<h4>✏️ Cách chỉnh sửa thông tin học sinh?</h4>
+<p>Nhấn vào học sinh cần sửa trong danh sách, cập nhật thông tin và lưu lại.</p>
+<ol>
+<li>Vào menu "Thông tin học sinh"</li>
+<li>Tìm và chọn học sinh cần sửa</li>
+<li>Nhấn nút "Sửa" hoặc nhấp đúp vào hàng</li>
+<li>Cập nhật thông tin cần thiết</li>
+<li>Nhấn "Lưu" để hoàn tất</li>
+</ol>
+
+<h4>🍽️ Cách phân nhóm mâm ăn cho học sinh?</h4>
+<p>Trong thông tin học sinh, chọn trường "Nhóm mâm" để phân chia học sinh theo nhóm ăn.</p>
+<ol>
+<li>Vào phần chỉnh sửa thông tin học sinh</li>
+<li>Tìm mục "Nhóm mâm"</li>
+<li>Chọn nhóm mâm phù hợp (Mâm 1, Mâm 2,...)</li>
+<li>Lưu thay đổi</li>
+</ol>`,
+  },
+  {
+    title: 'Báo cáo bữa ăn',
+    display_order: 2,
+    content: `<h4>🍚 Quy trình báo cơm hàng ngày?</h4>
+<p>Báo cơm được thực hiện trước mỗi bữa ăn, thống kê số học sinh ăn/vắng.</p>
+<ol>
+<li>Vào menu "Báo cáo bữa ăn"</li>
+<li>Chọn lớp và bữa ăn (sáng/trưa/tối)</li>
+<li>Đánh dấu học sinh vắng ăn</li>
+<li>Ghi chú lý do nếu có</li>
+<li>Nhấn "Lưu báo cáo"</li>
+</ol>
+
+<h4>📊 Cách xem thống kê bữa ăn toàn trường?</h4>
+<p>Vào menu "Thống kê" để xem tổng hợp số lượng ăn của toàn trường.</p>
+<ol>
+<li>Vào menu "Thống kê"</li>
+<li>Chọn tab "Bữa ăn"</li>
+<li>Xem tổng số học sinh ăn, vắng theo từng bữa</li>
+<li>Có thể xuất báo cáo dạng ảnh hoặc Excel</li>
+</ol>
+
+<h4>📤 Cách xuất báo cáo bữa ăn?</h4>
+<p>Trong phần thống kê, nhấn nút "Xuất báo cáo" để tải về dạng ảnh hoặc Excel.</p>
+<ol>
+<li>Vào "Thống kê" > "Bữa ăn"</li>
+<li>Nhấn nút "Xuất báo cáo"</li>
+<li>Chọn định dạng: Ảnh thống kê, DS vắng theo mâm, hoặc Excel</li>
+<li>Chia sẻ hoặc tải về</li>
+</ol>`,
+  },
+  {
+    title: 'Điểm danh nội trú',
+    display_order: 3,
+    content: `<h4>🏠 Quy trình điểm danh nội trú?</h4>
+<p>Điểm danh nội trú thực hiện vào buổi tối để kiểm tra học sinh có mặt tại ký túc xá.</p>
+<ol>
+<li>Vào menu "Điểm danh nội trú"</li>
+<li>Chọn ngày và lớp cần điểm danh</li>
+<li>Đánh dấu học sinh vắng</li>
+<li>Ghi chú lý do vắng (có phép/không phép)</li>
+<li>Nhấn "Lưu" để hoàn tất</li>
+</ol>
+
+<h4>✅ Cách ghi nhận học sinh vắng có phép?</h4>
+<p>Khi đánh dấu vắng, chọn "Có phép" và nhập lý do cụ thể.</p>
+<ol>
+<li>Chọn học sinh vắng</li>
+<li>Nhấn nút "Có phép"</li>
+<li>Nhập lý do (về nhà, đi khám bệnh,...)</li>
+<li>Lưu thay đổi</li>
+</ol>`,
+  },
+  {
+    title: 'Điểm danh tự học',
+    display_order: 4,
+    content: `<h4>🌙 Quy trình điểm danh giờ tự học?</h4>
+<p>Điểm danh tự học thực hiện vào các ca học tối để kiểm tra học sinh.</p>
+<ol>
+<li>Vào menu "Điểm danh giờ học"</li>
+<li>Chọn ngày, lớp và ca học</li>
+<li>Đánh dấu học sinh vắng</li>
+<li>Ghi chú nếu cần</li>
+<li>Nhấn "Lưu"</li>
+</ol>
+
+<h4>❓ Có thể điểm danh nhiều ca cùng lúc không?</h4>
+<p>Mỗi lần điểm danh cho 1 ca. Sau khi xong ca 1, chuyển sang ca 2.</p>
+<ol>
+<li>Hoàn thành điểm danh ca 1</li>
+<li>Chọn ca 2 từ danh sách</li>
+<li>Tiếp tục điểm danh</li>
+</ol>`,
+  },
+  {
+    title: 'Thống kê báo cáo',
+    display_order: 5,
+    content: `<h4>📈 Các loại báo cáo thống kê?</h4>
+<p>Hệ thống cung cấp thống kê bữa ăn, nội trú, tự học và thi đua.</p>
+<ul>
+<li>Thống kê bữa ăn: Số lượng ăn, vắng theo ngày/tuần</li>
+<li>Thống kê nội trú: Tình trạng điểm danh</li>
+<li>Thống kê tự học: Số học sinh vắng các ca</li>
+<li>Thống kê thi đua: Điểm thi đua các lớp</li>
+</ul>
+
+<h4>📋 Cách xuất báo cáo cho kế toán?</h4>
+<p>Sử dụng chức năng xuất Excel trong phần thống kê.</p>
+<ol>
+<li>Vào "Thống kê"</li>
+<li>Chọn loại báo cáo cần xuất</li>
+<li>Nhấn "Xuất Excel"</li>
+<li>Tải file về và xử lý</li>
+</ol>`,
+  },
+  {
+    title: 'Thi đua',
+    display_order: 6,
+    content: `<h4>🏆 Cách nhập điểm thi đua?</h4>
+<p>Điểm thi đua được nhập theo tuần, bao gồm điểm học tập, kỷ luật và nội trú.</p>
+<ol>
+<li>Vào menu "Thi đua"</li>
+<li>Chọn tuần cần nhập điểm</li>
+<li>Chọn lớp</li>
+<li>Nhập điểm các tiêu chí</li>
+<li>Nhấn "Lưu"</li>
+</ol>
+
+<h4>🥇 Cách xem bảng xếp hạng thi đua?</h4>
+<p>Bảng xếp hạng hiển thị tự động dựa trên tổng điểm các lớp.</p>
+<ol>
+<li>Vào menu "Thi đua"</li>
+<li>Xem bảng xếp hạng bên phải màn hình</li>
+<li>Có thể xuất bảng xếp hạng dạng ảnh</li>
+</ol>`,
+  },
+  {
+    title: 'Lịch trực',
+    display_order: 7,
+    content: `<h4>📅 Cách xem lịch trực?</h4>
+<p>Lịch trực hiển thị theo tuần, cho biết ai trực ngày nào.</p>
+<ol>
+<li>Vào menu "Lịch trực"</li>
+<li>Xem lịch theo tuần hoặc tháng</li>
+<li>Xem chi tiết người trực từng ngày</li>
+</ol>
+
+<h4>➕ Cách thêm/sửa lịch trực?</h4>
+<p>Chỉ Admin mới có quyền thêm/sửa lịch trực.</p>
+<ol>
+<li>Vào "Lịch trực"</li>
+<li>Nhấn nút "Thêm lịch trực"</li>
+<li>Chọn ngày và người trực</li>
+<li>Lưu thay đổi</li>
+</ol>`,
+  },
+  {
+    title: 'Quản lý tài khoản',
+    display_order: 8,
+    content: `<h4>👤 Cách thêm tài khoản giáo viên?</h4>
+<p>Admin có thể tạo tài khoản mới cho giáo viên và phân quyền.</p>
+<ol>
+<li>Vào menu "Quản lý tài khoản"</li>
+<li>Nhấn "Thêm người dùng"</li>
+<li>Nhập thông tin: họ tên, email, vai trò</li>
+<li>Phân quyền truy cập</li>
+<li>Nhấn "Tạo" để hoàn tất</li>
+</ol>
+
+<h4>🔑 Cách reset mật khẩu cho người dùng?</h4>
+<p>Admin có thể đặt lại mật khẩu cho người dùng quên mật khẩu.</p>
+<ol>
+<li>Vào "Quản lý tài khoản"</li>
+<li>Tìm người dùng cần reset</li>
+<li>Nhấn nút "Reset mật khẩu"</li>
+<li>Nhập mật khẩu mới và xác nhận</li>
+</ol>
+
+<h4>👥 Các vai trò trong hệ thống?</h4>
+<p>Hệ thống có nhiều vai trò với quyền hạn khác nhau:</p>
+<ul>
+<li><strong>Admin:</strong> Toàn quyền quản lý</li>
+<li><strong>Giáo viên:</strong> Điểm danh, báo cơm</li>
+<li><strong>GVCN:</strong> Quản lý lớp chủ nhiệm</li>
+<li><strong>Kế toán:</strong> Xem thống kê, báo cáo</li>
+<li><strong>Nhà bếp:</strong> Xem số lượng ăn</li>
+<li><strong>BGH:</strong> Xem tổng quan</li>
+</ul>`,
+  },
+  {
+    title: 'Cài đặt',
+    display_order: 9,
+    content: `<h4>🔒 Cách đổi mật khẩu?</h4>
+<p>Vào Cài đặt > Tài khoản để đổi mật khẩu cá nhân.</p>
+<ol>
+<li>Vào menu "Cài đặt"</li>
+<li>Chọn "Đổi mật khẩu"</li>
+<li>Nhập mật khẩu cũ và mật khẩu mới</li>
+<li>Xác nhận để hoàn tất</li>
+</ol>
+
+<h4>⏰ Cách cài đặt thời hạn báo cơm?</h4>
+<p>Admin có thể thiết lập giờ hết hạn báo cơm cho từng bữa.</p>
+<ol>
+<li>Vào "Cài đặt" > "Bữa ăn"</li>
+<li>Thiết lập giờ deadline cho sáng/trưa/tối</li>
+<li>Lưu thay đổi</li>
+</ol>`,
+  },
+  {
+    title: 'Câu hỏi thường gặp',
+    display_order: 10,
+    content: `<h4>❓ Tôi quên mật khẩu, làm sao để lấy lại?</h4>
+<p>Liên hệ Admin của trường để được reset mật khẩu, hoặc sử dụng chức năng "Quên mật khẩu" trên trang đăng nhập.</p>
+
+<h4>❓ Báo cơm sau giờ deadline có được không?</h4>
+<p>Không. Hệ thống sẽ khóa báo cơm sau giờ deadline. Liên hệ Admin nếu cần mở khóa đặc biệt.</p>
+
+<h4>❓ Làm sao để xem lịch sử điểm danh?</h4>
+<p>Vào phần Thống kê, chọn loại điểm danh và khoảng thời gian cần xem.</p>
+
+<h4>❓ Ứng dụng có hoạt động offline không?</h4>
+<p>Hiện tại ứng dụng cần kết nối internet để hoạt động. Các dữ liệu đã tải có thể xem offline tạm thời.</p>
+
+<h4>❓ Làm sao để cài đặt app trên điện thoại?</h4>
+<p>Vào Menu > Cài đặt ứng dụng để xem hướng dẫn cài PWA trên iOS và Android.</p>`,
+  },
+];
+
 export default function Documentation() {
   const { toast } = useToast();
   const [sections, setSections] = useState<GuideSection[]>([]);
@@ -34,6 +277,7 @@ export default function Documentation() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<GuideSection | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   const fetchSections = async () => {
     const { data, error } = await supabase
@@ -50,7 +294,6 @@ export default function Documentation() {
     if (!user) return;
     const { data } = await supabase.from('global_roles').select('role').eq('user_id', user.id).maybeSingle();
     if (data?.role === 'super_admin') setIsAdmin(true);
-    // Also check school admin
     if (!data) {
       const { data: membership } = await supabase
         .from('school_memberships')
@@ -60,6 +303,24 @@ export default function Documentation() {
         .maybeSingle();
       if (membership) setIsAdmin(true);
     }
+  };
+
+  const handleSeedDefaults = async () => {
+    setIsSeeding(true);
+    const records = defaultGuideSections.map(s => ({
+      title: s.title,
+      content: s.content,
+      display_order: s.display_order,
+      is_active: true,
+    }));
+    const { error } = await supabase.from('guide_sections').insert(records);
+    if (error) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Đã nhập nội dung mẫu thành công' });
+      fetchSections();
+    }
+    setIsSeeding(false);
   };
 
   useEffect(() => {
@@ -147,10 +408,17 @@ export default function Documentation() {
           <div className="text-center py-20 text-muted-foreground">
             <p>Chưa có nội dung hướng dẫn nào.</p>
             {isAdmin && (
-              <Button onClick={handleAdd} variant="outline" className="mt-4 gap-2">
-                <Plus className="h-4 w-4" />
-                Thêm mục đầu tiên
-              </Button>
+              <div className="mt-4 flex flex-col items-center gap-3">
+                <Button onClick={handleSeedDefaults} variant="default" className="gap-2" disabled={isSeeding}>
+                  {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  Nhập nội dung mẫu có sẵn
+                </Button>
+                <span className="text-xs text-muted-foreground">hoặc</span>
+                <Button onClick={handleAdd} variant="outline" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Thêm mục mới
+                </Button>
+              </div>
             )}
           </div>
         )}
