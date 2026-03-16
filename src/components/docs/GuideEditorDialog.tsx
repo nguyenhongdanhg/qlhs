@@ -290,10 +290,12 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       toast({ title: 'Lỗi', description: 'Vui lòng nhập tiêu đề', variant: 'destructive' });
       return;
     }
+    // Sync from WYSIWYG if in visual mode
+    const finalContent = (!showPreview && wysiwygRef.current) ? wysiwygRef.current.innerHTML : content;
     setIsLoading(true);
     const payload = {
       title: title.trim(),
-      content: content.trim(),
+      content: finalContent.trim(),
       image_url: imageUrl || null,
       video_url: videoUrl.trim() || null,
       display_order: displayOrder,
