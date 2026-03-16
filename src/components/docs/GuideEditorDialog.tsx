@@ -64,7 +64,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       setDisplayOrder(0);
       setIsActive(true);
     }
-    if (open) setShowPreview(false);
+    if (open) setShowPreview(false); // false = WYSIWYG mode (default), true = HTML source
   }, [open, section]);
 
   const handleOpenChange = (newOpen: boolean) => {
