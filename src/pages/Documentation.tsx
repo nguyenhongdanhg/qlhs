@@ -372,10 +372,23 @@ export default function Documentation() {
           </a>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <Button onClick={handleAdd} size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                Thêm mục
-              </Button>
+              <>
+                <Button
+                  onClick={() => setEditMode(!editMode)}
+                  size="sm"
+                  variant={editMode ? 'default' : 'outline'}
+                  className="gap-2"
+                >
+                  <Pencil className="h-4 w-4" />
+                  {editMode ? 'Đang chỉnh sửa' : 'Chỉnh sửa'}
+                </Button>
+                {editMode && (
+                  <Button onClick={handleAdd} size="sm" variant="outline" className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Thêm mục
+                  </Button>
+                )}
+              </>
             )}
             <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
               <Printer className="h-4 w-4" />
