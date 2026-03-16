@@ -440,26 +440,14 @@ export default function Documentation() {
         <div className="space-y-10">
           {sections.map((section, idx) => (
             <section key={section.id} className="print:break-inside-avoid relative group">
-              {/* Admin controls */}
-              {isAdmin && (
-                <div className="print:hidden absolute -left-12 top-0 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(section)}>
-                    <Pencil className="h-4 w-4" />
+              {/* Edit controls - visible in edit mode */}
+              {isAdmin && editMode && (
+                <div className="print:hidden flex gap-2 mb-3">
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => handleEdit(section)}>
+                    <Pencil className="h-3.5 w-3.5" /> Sửa nội dung
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(section.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-
-              {/* Mobile admin controls */}
-              {isAdmin && (
-                <div className="print:hidden flex gap-2 mb-2 lg:hidden">
-                  <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => handleEdit(section)}>
-                    <Pencil className="h-3 w-3" /> Sửa
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-1 h-7 text-xs text-destructive" onClick={() => setDeleteId(section.id)}>
-                    <Trash2 className="h-3 w-3" /> Xóa
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs text-destructive hover:text-destructive" onClick={() => setDeleteId(section.id)}>
+                    <Trash2 className="h-3.5 w-3.5" /> Xóa
                   </Button>
                 </div>
               )}
