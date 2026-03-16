@@ -262,6 +262,13 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
   }, [uploadFile]);
 
   const handleIconSelect = useCallback((emoji: string) => {
+    // If WYSIWYG mode (showPreview === false), insert into contentEditable
+    if (!showPreview && wysiwygRef.current) {
+      wysiwygRef.current.focus();
+      document.execCommand('insertText', false, emoji);
+      return;
+    }
+    // HTML source mode
     const textarea = textareaRef.current;
     if (!textarea) {
       setContent(prev => prev + emoji);
@@ -276,7 +283,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       const pos = start + emoji.length;
       textarea.setSelectionRange(pos, pos);
     });
-  }, [content]);
+  }, [content, showPreview]);
 
   const handleSave = async () => {
     if (!title.trim()) {
