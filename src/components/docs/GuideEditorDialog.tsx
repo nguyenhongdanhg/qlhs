@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { RichTextToolbar } from './RichTextToolbar';
 import { IconPickerDialog } from './IconPickerDialog';
+import { WysiwygToolbar } from './WysiwygToolbar';
 
 interface GuideSection {
   id?: string;
@@ -33,6 +34,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wysiwygRef = useRef<HTMLDivElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -260,6 +262,13 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
   }, [uploadFile]);
 
   const handleIconSelect = useCallback((emoji: string) => {
+    // If WYSIWYG mode (showPreview === false), insert into contentEditable
+    if (!showPreview && wysiwygRef.current) {
+      wysiwygRef.current.focus();
+      document.execCommand('insertText', false, emoji);
+      return;
+    }
+    // HTML source mode
     const textarea = textareaRef.current;
     if (!textarea) {
       setContent(prev => prev + emoji);
@@ -274,17 +283,19 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       const pos = start + emoji.length;
       textarea.setSelectionRange(pos, pos);
     });
-  }, [content]);
+  }, [content, showPreview]);
 
   const handleSave = async () => {
     if (!title.trim()) {
       toast({ title: 'Lỗi', description: 'Vui lòng nhập tiêu đề', variant: 'destructive' });
       return;
     }
+    // Sync from WYSIWYG if in visual mode
+    const finalContent = (!showPreview && wysiwygRef.current) ? wysiwygRef.current.innerHTML : content;
     setIsLoading(true);
     const payload = {
       title: title.trim(),
-      content: content.trim(),
+      content: finalContent.trim(),
       image_url: imageUrl || null,
       video_url: videoUrl.trim() || null,
       display_order: displayOrder,
@@ -343,7 +354,13 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                   variant="ghost"
                   size="sm"
                   className="gap-1 h-7 text-xs"
-                  onClick={() => setShowPreview(!showPreview)}
+                  onClick={() => {
+                    // Sync content from WYSIWYG before switching to HTML mode
+                    if (!showPreview && wysiwygRef.current) {
+                      setContent(wysiwygRef.current.innerHTML);
+                    }
+                    setShowPreview(!showPreview);
+                  }}
                 >
                   {showPreview ? <Eye className="h-3 w-3" /> : <Code className="h-3 w-3" />}
                   {showPreview ? 'Xem trước' : 'Sửa HTML'}
@@ -371,23 +388,35 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                 </>
               ) : (
                 /* WYSIWYG Editor (default) */
-                <div
-                  contentEditable
-                  suppressContentEditableWarning
-                  className="min-h-[250px] p-4 border rounded-md bg-background prose prose-sm max-w-none text-foreground
-                    [&_h4]:text-foreground [&_h4]:font-semibold [&_h4]:mt-4 [&_h4]:mb-2
-                    [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
-                    [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1
-                    [&_strong]:text-foreground [&_a]:text-primary [&_a]:underline
-                    [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic
-                    [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs
-                    [&_hr]:my-4 [&_hr]:border-border
-                    [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:p-2
-                    [&_del]:line-through
-                    focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-text"
-                  dangerouslySetInnerHTML={{ __html: content }}
-                  onBlur={(e) => setContent(e.currentTarget.innerHTML)}
-                />
+                <>
+                  <WysiwygToolbar
+                    editorRef={wysiwygRef as React.RefObject<HTMLDivElement>}
+                    onOpenIconPicker={() => setIconPickerOpen(true)}
+                    onInsertImage={() => inlineImageInputRef.current?.click()}
+                  />
+                  <div
+                    ref={wysiwygRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="min-h-[250px] p-4 border rounded-b-md bg-background prose prose-sm max-w-none text-foreground border-t-0
+                      [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
+                      [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2
+                      [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-2
+                      [&_h4]:text-base [&_h4]:font-semibold [&_h4]:mt-3 [&_h4]:mb-2
+                      [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
+                      [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1
+                      [&_strong]:text-foreground [&_a]:text-primary [&_a]:underline
+                      [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic
+                      [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs
+                      [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:text-xs [&_pre]:overflow-x-auto
+                      [&_hr]:my-4 [&_hr]:border-border
+                      [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:p-2
+                      [&_del]:line-through [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2
+                      focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-text"
+                    dangerouslySetInnerHTML={{ __html: content }}
+                    onBlur={(e) => setContent(e.currentTarget.innerHTML)}
+                  />
+                </>
               )}
             </div>
 
@@ -441,19 +470,25 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                     setIsUploading(false);
                     if (url) {
                       const imgTag = `<img src="${url}" alt="Ảnh minh họa" style="max-width:100%; border-radius:8px; margin:8px 0;" />`;
-                      const textarea = textareaRef.current;
-                      if (textarea) {
-                        const start = textarea.selectionStart;
-                        const end = textarea.selectionEnd;
-                        const newValue = content.substring(0, start) + imgTag + content.substring(end);
-                        setContent(newValue);
-                        requestAnimationFrame(() => {
-                          textarea.focus();
-                          const pos = start + imgTag.length;
-                          textarea.setSelectionRange(pos, pos);
-                        });
+                      // WYSIWYG mode: insert via execCommand
+                      if (!showPreview && wysiwygRef.current) {
+                        wysiwygRef.current.focus();
+                        document.execCommand('insertHTML', false, imgTag);
                       } else {
-                        setContent(prev => prev + imgTag);
+                        const textarea = textareaRef.current;
+                        if (textarea) {
+                          const start = textarea.selectionStart;
+                          const end = textarea.selectionEnd;
+                          const newValue = content.substring(0, start) + imgTag + content.substring(end);
+                          setContent(newValue);
+                          requestAnimationFrame(() => {
+                            textarea.focus();
+                            const pos = start + imgTag.length;
+                            textarea.setSelectionRange(pos, pos);
+                          });
+                        } else {
+                          setContent(prev => prev + imgTag);
+                        }
                       }
                       toast({ title: 'Đã chèn ảnh vào nội dung' });
                     }
