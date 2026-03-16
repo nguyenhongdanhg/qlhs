@@ -509,6 +509,42 @@ export type Database = {
         }
         Relationships: []
       }
+      guide_sections: {
+        Row: {
+          content: string
+          created_at: string
+          display_order: number
+          id: string
+          image_url: string | null
+          is_active: boolean
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       health_record_medicines: {
         Row: {
           created_at: string | null
