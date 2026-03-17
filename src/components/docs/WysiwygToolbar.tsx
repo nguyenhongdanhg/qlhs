@@ -1,11 +1,11 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
   Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, Link, Quote, Minus, Table, Code, Type, ImagePlus, Undo2, Redo2,
   Columns2, Columns3, Palette, Highlighter, Subscript, Superscript, RemoveFormatting,
-  ChevronDown
+  ChevronDown, Trash2, Plus, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Maximize
 } from 'lucide-react';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -17,6 +17,7 @@ import {
   Popover, PopoverContent, PopoverTrigger
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface Props {
   editorRef: React.RefObject<HTMLDivElement>;
@@ -56,13 +57,55 @@ const BG_COLORS = [
   '#fecaca', '#e9d5ff', '#c7d2fe', '#ccfbf1', '#f5f5f4',
 ];
 
+// Save and restore selection across toolbar interactions
+let savedSelection: Range | null = null;
+
+function saveSelection(editor: HTMLDivElement) {
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0);
+    if (editor.contains(range.commonAncestorContainer)) {
+      savedSelection = range.cloneRange();
+    }
+  }
+}
+
+function restoreSelection(editor: HTMLDivElement) {
+  if (savedSelection) {
+    editor.focus();
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(savedSelection);
+    }
+  } else {
+    editor.focus();
+  }
+}
+
 export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: Props) {
   const [linkUrl, setLinkUrl] = useState('https://');
   const [linkOpen, setLinkOpen] = useState(false);
+  const [tableSizeOpen, setTableSizeOpen] = useState(false);
+  const [customTableRows, setCustomTableRows] = useState(3);
+  const [customTableCols, setCustomTableCols] = useState(3);
+  const [imgResizeOpen, setImgResizeOpen] = useState(false);
+  const [imgWidth, setImgWidth] = useState('');
+  const [imgHeight, setImgHeight] = useState('');
 
   const exec = useCallback((command: string, value?: string) => {
-    editorRef.current?.focus();
+    const editor = editorRef.current;
+    if (!editor) return;
+    restoreSelection(editor);
     document.execCommand(command, false, value);
+    // Save new selection after command
+    saveSelection(editor);
+  }, [editorRef]);
+
+  // Save selection when user interacts with toolbar
+  const onToolbarMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (editorRef.current) saveSelection(editorRef.current);
   }, [editorRef]);
 
   const insertLink = useCallback(() => {
@@ -76,10 +119,9 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
   const insertTable = useCallback((rows: number, cols: number) => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
-    let html = '<table class="guide-table" style="width:100%;border-collapse:collapse;margin:8px 0;">';
-    html += '<tr>';
-    for (let c = 0; c < cols; c++) html += `<th style="border:1px solid #d1d5db;padding:8px;background:#f3f4f6;">Cột ${c + 1}</th>`;
+    restoreSelection(editor);
+    let html = '<table style="width:100%;border-collapse:collapse;margin:8px 0;"><tr>';
+    for (let c = 0; c < cols; c++) html += `<th style="border:1px solid #d1d5db;padding:8px;background:#f3f4f6;text-align:center;">Cột ${c + 1}</th>`;
     html += '</tr>';
     for (let r = 0; r < rows; r++) {
       html += '<tr>';
@@ -93,7 +135,7 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
   const insertColumns = useCallback((numCols: number) => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.focus();
+    restoreSelection(editor);
     const width = Math.floor(100 / numCols);
     let html = '<div style="display:flex;gap:16px;margin:8px 0;">';
     for (let i = 0; i < numCols; i++) {
@@ -103,15 +145,181 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
     document.execCommand('insertHTML', false, html);
   }, [editorRef]);
 
-  const ToolBtn = ({ icon, label, onClick, active }: { icon: React.ReactNode; label: string; onClick: () => void; active?: boolean }) => (
+  // --- Table row/col operations ---
+  const getSelectedCell = useCallback((): HTMLTableCellElement | null => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    let node: Node | null = sel.anchorNode;
+    while (node && node !== editorRef.current) {
+      if (node instanceof HTMLTableCellElement) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }, [editorRef]);
+
+  const getSelectedTable = useCallback((): HTMLTableElement | null => {
+    const cell = getSelectedCell();
+    return cell?.closest('table') || null;
+  }, [getSelectedCell]);
+
+  const addRowAbove = useCallback(() => {
+    const cell = getSelectedCell();
+    if (!cell) return;
+    const row = cell.closest('tr');
+    if (!row) return;
+    const newRow = row.cloneNode(true) as HTMLTableRowElement;
+    newRow.querySelectorAll('td, th').forEach(c => { (c as HTMLElement).innerHTML = '&nbsp;'; });
+    row.parentNode?.insertBefore(newRow, row);
+  }, [getSelectedCell]);
+
+  const addRowBelow = useCallback(() => {
+    const cell = getSelectedCell();
+    if (!cell) return;
+    const row = cell.closest('tr');
+    if (!row) return;
+    const newRow = row.cloneNode(true) as HTMLTableRowElement;
+    newRow.querySelectorAll('td, th').forEach(c => { (c as HTMLElement).innerHTML = '&nbsp;'; });
+    row.parentNode?.insertBefore(newRow, row.nextSibling);
+  }, [getSelectedCell]);
+
+  const addColLeft = useCallback(() => {
+    const cell = getSelectedCell();
+    if (!cell) return;
+    const table = cell.closest('table');
+    if (!table) return;
+    const colIdx = cell.cellIndex;
+    table.querySelectorAll('tr').forEach(row => {
+      const ref = row.cells[colIdx];
+      if (ref) {
+        const newCell = ref.cloneNode(false) as HTMLTableCellElement;
+        newCell.innerHTML = '&nbsp;';
+        newCell.style.cssText = ref.style.cssText;
+        row.insertBefore(newCell, ref);
+      }
+    });
+  }, [getSelectedCell]);
+
+  const addColRight = useCallback(() => {
+    const cell = getSelectedCell();
+    if (!cell) return;
+    const table = cell.closest('table');
+    if (!table) return;
+    const colIdx = cell.cellIndex;
+    table.querySelectorAll('tr').forEach(row => {
+      const ref = row.cells[colIdx];
+      if (ref) {
+        const newCell = ref.cloneNode(false) as HTMLTableCellElement;
+        newCell.innerHTML = '&nbsp;';
+        newCell.style.cssText = ref.style.cssText;
+        row.insertBefore(newCell, ref.nextSibling);
+      }
+    });
+  }, [getSelectedCell]);
+
+  const deleteRow = useCallback(() => {
+    const cell = getSelectedCell();
+    if (!cell) return;
+    const row = cell.closest('tr');
+    const table = cell.closest('table');
+    if (!row || !table) return;
+    if (table.rows.length <= 1) {
+      table.remove();
+    } else {
+      row.remove();
+    }
+  }, [getSelectedCell]);
+
+  const deleteCol = useCallback(() => {
+    const cell = getSelectedCell();
+    if (!cell) return;
+    const table = cell.closest('table');
+    if (!table) return;
+    const colIdx = cell.cellIndex;
+    if (table.rows[0]?.cells.length <= 1) {
+      table.remove();
+    } else {
+      table.querySelectorAll('tr').forEach(row => {
+        if (row.cells[colIdx]) row.deleteCell(colIdx);
+      });
+    }
+  }, [getSelectedCell]);
+
+  const deleteTable = useCallback(() => {
+    const table = getSelectedTable();
+    if (table) table.remove();
+  }, [getSelectedTable]);
+
+  // Table cell alignment
+  const setCellAlign = useCallback((align: string) => {
+    const cell = getSelectedCell();
+    if (cell) {
+      cell.style.textAlign = align;
+    }
+  }, [getSelectedCell]);
+
+  const setCellVerticalAlign = useCallback((valign: string) => {
+    const cell = getSelectedCell();
+    if (cell) {
+      cell.style.verticalAlign = valign;
+    }
+  }, [getSelectedCell]);
+
+  // Image resize
+  const getSelectedImage = useCallback((): HTMLImageElement | null => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    // Check if selection contains an image
+    const range = sel.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    if (container instanceof HTMLImageElement) return container;
+    // Check if the selected node is an image
+    if (container.nodeType === Node.ELEMENT_NODE) {
+      const el = container as HTMLElement;
+      const img = el.querySelector('img');
+      if (img) return img;
+    }
+    // Check parent
+    let node: Node | null = container;
+    while (node && node !== editorRef.current) {
+      if (node instanceof HTMLImageElement) return node;
+      const parent = node.parentElement;
+      if (parent) {
+        const img = parent.querySelector('img');
+        if (img && parent.contains(img)) return img;
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }, [editorRef]);
+
+  const applyImageSize = useCallback(() => {
+    const img = getSelectedImage();
+    if (!img) return;
+    if (imgWidth) img.style.width = imgWidth.includes('%') || imgWidth.includes('px') ? imgWidth : imgWidth + 'px';
+    if (imgHeight) img.style.height = imgHeight.includes('%') || imgHeight.includes('px') ? imgHeight : imgHeight + 'px';
+    setImgResizeOpen(false);
+  }, [getSelectedImage, imgWidth, imgHeight]);
+
+  // Insert special elements
+  const insertCallout = useCallback((type: 'info' | 'warning' | 'success') => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    restoreSelection(editor);
+    const colors = { info: '#dbeafe', warning: '#fef3c7', success: '#d1fae5' };
+    const icons = { info: 'ℹ️', warning: '⚠️', success: '✅' };
+    const html = `<div style="background:${colors[type]};padding:12px 16px;border-radius:8px;margin:8px 0;">${icons[type]} Nội dung ghi chú</div><p><br></p>`;
+    document.execCommand('insertHTML', false, html);
+  }, [editorRef]);
+
+  const ToolBtn = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className={`h-7 w-7 ${active ? 'bg-accent text-accent-foreground' : ''}`}
-          onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+          className="h-7 w-7"
+          onMouseDown={(e) => { onToolbarMouseDown(e); onClick(); }}
         >
           {icon}
         </Button>
@@ -145,18 +353,11 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
 
         {/* Heading selector */}
         <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onMouseDown={(e) => e.preventDefault()}>
-                  <Type className="h-3.5 w-3.5" />
-                  Kiểu
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Kiểu đoạn</p></TooltipContent>
-          </Tooltip>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onMouseDown={onToolbarMouseDown}>
+              <Type className="h-3.5 w-3.5" /> Kiểu <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             {HEADINGS.map((h) => (
               <DropdownMenuItem key={h.tag} onMouseDown={(e) => e.preventDefault()} onClick={() => exec('formatBlock', `<${h.tag}>`)}>
@@ -168,19 +369,13 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Font size selector */}
+        {/* Font size */}
         <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onMouseDown={(e) => e.preventDefault()}>
-                  Cỡ
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Cỡ chữ</p></TooltipContent>
-          </Tooltip>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onMouseDown={onToolbarMouseDown}>
+              Cỡ <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             {FONT_SIZES.map((s) => (
               <DropdownMenuItem key={s.value} onMouseDown={(e) => e.preventDefault()} onClick={() => exec('fontSize', s.value)}>
@@ -193,9 +388,9 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
         <Separator orientation="vertical" className="h-5 mx-0.5" />
 
         {/* Text formatting */}
-        <ToolBtn icon={<Bold className="h-3.5 w-3.5" />} label="Đậm (Ctrl+B)" onClick={() => exec('bold')} />
-        <ToolBtn icon={<Italic className="h-3.5 w-3.5" />} label="Nghiêng (Ctrl+I)" onClick={() => exec('italic')} />
-        <ToolBtn icon={<Underline className="h-3.5 w-3.5" />} label="Gạch chân (Ctrl+U)" onClick={() => exec('underline')} />
+        <ToolBtn icon={<Bold className="h-3.5 w-3.5" />} label="Đậm" onClick={() => exec('bold')} />
+        <ToolBtn icon={<Italic className="h-3.5 w-3.5" />} label="Nghiêng" onClick={() => exec('italic')} />
+        <ToolBtn icon={<Underline className="h-3.5 w-3.5" />} label="Gạch chân" onClick={() => exec('underline')} />
         <ToolBtn icon={<Strikethrough className="h-3.5 w-3.5" />} label="Gạch ngang" onClick={() => exec('strikeThrough')} />
         <ToolBtn icon={<Subscript className="h-3.5 w-3.5" />} label="Chỉ số dưới" onClick={() => exec('subscript')} />
         <ToolBtn icon={<Superscript className="h-3.5 w-3.5" />} label="Chỉ số trên" onClick={() => exec('superscript')} />
@@ -204,34 +399,24 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
 
         {/* Text color */}
         <Popover>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={(e) => e.preventDefault()}>
-                  <Palette className="h-3.5 w-3.5" />
-                </Button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Màu chữ</p></TooltipContent>
-          </Tooltip>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={onToolbarMouseDown}>
+              <Palette className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
           <PopoverContent className="w-auto p-2" align="start">
             <p className="text-xs font-medium mb-1 text-muted-foreground">Màu chữ</p>
             <ColorGrid colors={TEXT_COLORS} onSelect={(c) => exec('foreColor', c)} />
           </PopoverContent>
         </Popover>
 
-        {/* Background color */}
+        {/* BG color */}
         <Popover>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={(e) => e.preventDefault()}>
-                  <Highlighter className="h-3.5 w-3.5" />
-                </Button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Tô nền chữ</p></TooltipContent>
-          </Tooltip>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={onToolbarMouseDown}>
+              <Highlighter className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
           <PopoverContent className="w-auto p-2" align="start">
             <p className="text-xs font-medium mb-1 text-muted-foreground">Màu nền</p>
             <ColorGrid colors={BG_COLORS} onSelect={(c) => exec('hiliteColor', c)} />
@@ -257,27 +442,17 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
         <Separator orientation="vertical" className="h-5 mx-0.5" />
 
         {/* Link */}
-        <Popover open={linkOpen} onOpenChange={setLinkOpen}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={(e) => e.preventDefault()}>
-                  <Link className="h-3.5 w-3.5" />
-                </Button>
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Chèn liên kết</p></TooltipContent>
-          </Tooltip>
+        <Popover open={linkOpen} onOpenChange={(o) => { if (o && editorRef.current) saveSelection(editorRef.current); setLinkOpen(o); }}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={onToolbarMouseDown}>
+              <Link className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
           <PopoverContent className="w-72 p-2" align="start">
             <p className="text-xs font-medium mb-1 text-muted-foreground">URL liên kết</p>
             <div className="flex gap-1">
-              <Input
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                placeholder="https://..."
-                className="h-7 text-xs"
-                onKeyDown={(e) => { if (e.key === 'Enter') insertLink(); }}
-              />
+              <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://..." className="h-7 text-xs"
+                onKeyDown={(e) => { if (e.key === 'Enter') insertLink(); }} />
               <Button size="sm" className="h-7 text-xs px-2" onClick={insertLink}>OK</Button>
             </div>
           </PopoverContent>
@@ -285,18 +460,13 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
 
         <ToolBtn icon={<Minus className="h-3.5 w-3.5" />} label="Đường kẻ ngang" onClick={() => exec('insertHorizontalRule')} />
 
-        {/* Table */}
+        {/* Table insert */}
         <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={(e) => e.preventDefault()}>
-                  <Table className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Chèn bảng</p></TooltipContent>
-          </Tooltip>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={onToolbarMouseDown}>
+              <Table className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuLabel className="text-xs">Chèn bảng</DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -304,22 +474,78 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
             <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => insertTable(3, 3)}>3 × 3</DropdownMenuItem>
             <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => insertTable(4, 4)}>4 × 4</DropdownMenuItem>
             <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => insertTable(3, 5)}>3 × 5</DropdownMenuItem>
-            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => insertTable(5, 3)}>5 × 3</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => setTableSizeOpen(true)}>
+              Tùy chỉnh...
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Table edit operations */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-1.5 text-xs gap-0.5" onMouseDown={onToolbarMouseDown}>
+              <Trash2 className="h-3.5 w-3.5" />
+              <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuLabel className="text-xs">Thêm dòng/cột</DropdownMenuLabel>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={addRowAbove}>
+              <ArrowUp className="h-4 w-4 mr-2" /> Thêm dòng phía trên
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={addRowBelow}>
+              <ArrowDown className="h-4 w-4 mr-2" /> Thêm dòng phía dưới
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={addColLeft}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Thêm cột bên trái
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={addColRight}>
+              <ArrowRight className="h-4 w-4 mr-2" /> Thêm cột bên phải
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs">Xóa</DropdownMenuLabel>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={deleteRow} className="text-destructive">
+              <Minus className="h-4 w-4 mr-2" /> Xóa dòng
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={deleteCol} className="text-destructive">
+              <Minus className="h-4 w-4 mr-2" /> Xóa cột
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={deleteTable} className="text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" /> Xóa bảng
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs">Căn ô</DropdownMenuLabel>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => setCellAlign('left')}>
+              <AlignLeft className="h-4 w-4 mr-2" /> Căn trái
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => setCellAlign('center')}>
+              <AlignCenter className="h-4 w-4 mr-2" /> Căn giữa
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => setCellAlign('right')}>
+              <AlignRight className="h-4 w-4 mr-2" /> Căn phải
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs">Căn dọc ô</DropdownMenuLabel>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => setCellVerticalAlign('top')}>
+              ↑ Trên
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => setCellVerticalAlign('middle')}>
+              ↕ Giữa
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => setCellVerticalAlign('bottom')}>
+              ↓ Dưới
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {/* Columns */}
         <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={(e) => e.preventDefault()}>
-                  <Columns2 className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom"><p>Chèn cột</p></TooltipContent>
-          </Tooltip>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={onToolbarMouseDown}>
+              <Columns2 className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuLabel className="text-xs">Bố cục cột</DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -337,21 +563,87 @@ export function WysiwygToolbar({ editorRef, onOpenIconPicker, onInsertImage }: P
         {/* Image */}
         <ToolBtn icon={<ImagePlus className="h-3.5 w-3.5" />} label="Chèn ảnh" onClick={onInsertImage} />
 
+        {/* Image resize */}
+        <Popover open={imgResizeOpen} onOpenChange={(o) => { if (o && editorRef.current) saveSelection(editorRef.current); setImgResizeOpen(o); }}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={onToolbarMouseDown}>
+              <Maximize className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-2" align="start">
+            <p className="text-xs font-medium mb-2 text-muted-foreground">Kích thước ảnh (chọn ảnh trước)</p>
+            <div className="flex gap-2 mb-2">
+              <div>
+                <Label className="text-xs">Rộng</Label>
+                <Input value={imgWidth} onChange={e => setImgWidth(e.target.value)} placeholder="200px / 50%" className="h-7 text-xs" />
+              </div>
+              <div>
+                <Label className="text-xs">Cao</Label>
+                <Input value={imgHeight} onChange={e => setImgHeight(e.target.value)} placeholder="auto" className="h-7 text-xs" />
+              </div>
+            </div>
+            <Button size="sm" className="w-full h-7 text-xs" onClick={applyImageSize}>Áp dụng</Button>
+          </PopoverContent>
+        </Popover>
+
         {/* Icon picker */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={(e) => { e.preventDefault(); onOpenIconPicker(); }}>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onMouseDown={(e) => { onToolbarMouseDown(e); onOpenIconPicker(); }}>
               <span className="text-sm">😀</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom"><p>Chèn biểu tượng</p></TooltipContent>
         </Tooltip>
 
+        {/* Insert special blocks */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onMouseDown={onToolbarMouseDown}>
+              <Plus className="h-3.5 w-3.5" /> Chèn <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => insertCallout('info')}>
+              ℹ️ Khung thông tin
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => insertCallout('warning')}>
+              ⚠️ Khung cảnh báo
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => insertCallout('success')}>
+              ✅ Khung thành công
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => {
+              if (editorRef.current) { restoreSelection(editorRef.current); document.execCommand('insertHTML', false, '<br/>'); }
+            }}>
+              ↵ Xuống dòng
+            </DropdownMenuItem>
+            <DropdownMenuItem onMouseDown={(e) => e.preventDefault()} onClick={() => {
+              if (editorRef.current) { restoreSelection(editorRef.current); document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;'); }
+            }}>
+              ⇥ Thụt đầu dòng
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Separator orientation="vertical" className="h-5 mx-0.5" />
 
         {/* Remove formatting */}
         <ToolBtn icon={<RemoveFormatting className="h-3.5 w-3.5" />} label="Xóa định dạng" onClick={() => exec('removeFormat')} />
       </div>
+
+      {/* Custom table size dialog */}
+      {tableSizeOpen && (
+        <div className="flex items-center gap-2 p-2 border border-t-0 rounded-b-none bg-muted/20">
+          <Label className="text-xs">Dòng:</Label>
+          <Input type="number" min={1} max={20} value={customTableRows} onChange={e => setCustomTableRows(Number(e.target.value))} className="h-7 w-16 text-xs" />
+          <Label className="text-xs">Cột:</Label>
+          <Input type="number" min={1} max={10} value={customTableCols} onChange={e => setCustomTableCols(Number(e.target.value))} className="h-7 w-16 text-xs" />
+          <Button size="sm" className="h-7 text-xs" onClick={() => { insertTable(customTableRows, customTableCols); setTableSizeOpen(false); }}>Chèn</Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setTableSizeOpen(false)}>Hủy</Button>
+        </div>
+      )}
     </TooltipProvider>
   );
 }
