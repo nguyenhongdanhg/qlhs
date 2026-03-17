@@ -261,7 +261,52 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     if (file && file.type.startsWith('image/')) await uploadFile(file);
   }, [uploadFile]);
 
-  const handleIconSelect = useCallback((emoji: string) => {
+  const handleTableResize = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const td = target.closest('td, th') as HTMLTableCellElement | null;
+    if (!td) return;
+
+    const rect = td.getBoundingClientRect();
+    const isNearRight = e.clientX > rect.right - 6;
+    const isNearBottom = e.clientY > rect.bottom - 6;
+
+    if (!isNearRight && !isNearBottom) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = td.offsetWidth;
+    const startHeight = td.offsetHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (isNearRight) {
+        const newWidth = Math.max(30, startWidth + ev.clientX - startX);
+        td.style.width = newWidth + 'px';
+      }
+      if (isNearBottom) {
+        const newHeight = Math.max(20, startHeight + ev.clientY - startY);
+        td.style.height = newHeight + 'px';
+      }
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      // Sync content
+      if (wysiwygRef.current) {
+        setContent(wysiwygRef.current.innerHTML);
+      }
+    };
+
+    document.body.style.cursor = isNearRight ? 'col-resize' : 'row-resize';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
+
     // If WYSIWYG mode (showPreview === false), insert into contentEditable
     if (!showPreview && wysiwygRef.current) {
       wysiwygRef.current.focus();
