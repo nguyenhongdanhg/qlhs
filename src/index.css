@@ -541,3 +541,29 @@
     size: A4;
   }
 }
+
+/* WYSIWYG table resize */
+.wysiwyg-table-resize td,
+.wysiwyg-table-resize th {
+  position: relative;
+}
+.wysiwyg-table-resize td::after,
+.wysiwyg-table-resize th::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+}
+.wysiwyg-table-resize td::before,
+.wysiwyg-table-resize th::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: row-resize;
+}
