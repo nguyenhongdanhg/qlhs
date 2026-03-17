@@ -306,7 +306,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-
+  const handleIconSelect = useCallback((emoji: string) => {
     // If WYSIWYG mode (showPreview === false), insert into contentEditable
     if (!showPreview && wysiwygRef.current) {
       wysiwygRef.current.focus();
