@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Upload, X, Image, Video, Clipboard, Eye, Code, EyeOff } from 'lucide-react';
+import { Loader2, Upload, X, Image, Video, Clipboard, Eye, Code } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { RichTextToolbar } from './RichTextToolbar';
@@ -39,7 +39,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showHtmlSource, setShowHtmlSource] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -49,7 +49,9 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
   const [displayOrder, setDisplayOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
 
-  // Populate form when dialog opens or section changes
+  // Track if WYSIWYG content has been initialized
+  const wysiwygInitialized = useRef(false);
+
   useEffect(() => {
     if (open && section) {
       setTitle(section.title);
@@ -66,8 +68,19 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       setDisplayOrder(0);
       setIsActive(true);
     }
-    if (open) setShowPreview(false); // false = WYSIWYG mode (default), true = HTML source
+    if (open) {
+      setShowHtmlSource(false);
+      wysiwygInitialized.current = false;
+    }
   }, [open, section]);
+
+  // Initialize WYSIWYG content only once when the editor mounts
+  useEffect(() => {
+    if (!showHtmlSource && wysiwygRef.current && !wysiwygInitialized.current) {
+      wysiwygRef.current.innerHTML = content;
+      wysiwygInitialized.current = true;
+    }
+  }, [showHtmlSource, content]);
 
   const handleOpenChange = (newOpen: boolean) => {
     onOpenChange(newOpen);
@@ -102,81 +115,6 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Clean pasted HTML to keep only supported tags
-  const cleanHtml = useCallback((html: string): string => {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-
-    // Remove style, script, meta tags
-    div.querySelectorAll('style, script, meta, link, head, title, comment').forEach(el => el.remove());
-
-    const cleanNode = (node: Node): string => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || '';
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return '';
-
-      const el = node as HTMLElement;
-      const tag = el.tagName.toLowerCase();
-
-      // Map of allowed tags and their conversions
-      const allowedTags: Record<string, string> = {
-        'h1': 'h4', 'h2': 'h4', 'h3': 'h4', 'h4': 'h4', 'h5': 'h4', 'h6': 'h4',
-        'p': 'p', 'div': 'p',
-        'ul': 'ul', 'ol': 'ol', 'li': 'li',
-        'strong': 'strong', 'b': 'strong',
-        'em': 'em', 'i': 'em',
-        'a': 'a',
-        'br': 'br',
-        'del': 'del', 's': 'del', 'strike': 'del',
-        'blockquote': 'blockquote',
-        'code': 'code', 'pre': 'code',
-        'hr': 'hr',
-        'table': 'table', 'tr': 'tr', 'td': 'td', 'th': 'th', 'thead': 'thead', 'tbody': 'tbody',
-        'span': 'span',
-      };
-
-      const children = Array.from(el.childNodes).map(cleanNode).join('');
-
-      if (tag === 'br' || tag === 'hr') return `<${allowedTags[tag]}/>`;
-
-      if (allowedTags[tag]) {
-        const mappedTag = allowedTags[tag];
-        // Keep href for links
-        if (mappedTag === 'a') {
-          const href = el.getAttribute('href') || '#';
-          return `<a href="${href}">${children}</a>`;
-        }
-        // For span, check if it has bold/italic styles
-        if (tag === 'span') {
-          const style = el.getAttribute('style') || '';
-          let result = children;
-          if (style.includes('font-weight') && (style.includes('bold') || style.includes('700') || style.includes('800') || style.includes('900'))) {
-            result = `<strong>${result}</strong>`;
-          }
-          if (style.includes('font-style') && style.includes('italic')) {
-            result = `<em>${result}</em>`;
-          }
-          if (style.includes('text-decoration') && style.includes('line-through')) {
-            result = `<del>${result}</del>`;
-          }
-          return result;
-        }
-        // Skip empty divs/paragraphs
-        if ((mappedTag === 'p') && !children.trim()) return '';
-        return `<${mappedTag}>${children}</${mappedTag}>`;
-      }
-
-      // Unknown tags: just return children
-      return children;
-    };
-
-    const result = Array.from(div.childNodes).map(cleanNode).join('\n');
-    // Clean up excessive newlines
-    return result.replace(/\n{3,}/g, '\n\n').trim();
-  }, []);
-
-  // Upload image and return public URL
   const uploadAndGetUrl = useCallback(async (file: File): Promise<string | null> => {
     if (!file.type.startsWith('image/')) return null;
     if (file.size > 5 * 1024 * 1024) {
@@ -198,59 +136,40 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     const items = e.clipboardData?.items;
     if (!items) return;
 
-    const isInContentTextarea = textareaRef.current && document.activeElement === textareaRef.current;
+    const isInTextarea = textareaRef.current && document.activeElement === textareaRef.current;
+    const isInWysiwyg = wysiwygRef.current && wysiwygRef.current.contains(document.activeElement as Node);
 
-    // Check for images
     for (const item of Array.from(items)) {
       if (item.type.startsWith('image/')) {
         e.preventDefault();
         const file = item.getAsFile();
         if (!file) return;
 
-        // If pasting in content textarea, insert inline image tag
-        if (isInContentTextarea) {
+        if (isInWysiwyg || isInTextarea) {
           setIsUploading(true);
           const url = await uploadAndGetUrl(file);
           setIsUploading(false);
           if (url) {
             const imgTag = `<img src="${url}" alt="Ảnh minh họa" style="max-width:100%; border-radius:8px; margin:8px 0;" />`;
-            const textarea = textareaRef.current!;
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const newValue = content.substring(0, start) + imgTag + content.substring(end);
-            setContent(newValue);
+            if (isInWysiwyg) {
+              wysiwygRef.current!.focus();
+              document.execCommand('insertHTML', false, imgTag);
+            } else if (isInTextarea) {
+              const textarea = textareaRef.current!;
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const newValue = content.substring(0, start) + imgTag + content.substring(end);
+              setContent(newValue);
+            }
             toast({ title: 'Đã chèn ảnh vào nội dung' });
-            requestAnimationFrame(() => {
-              textarea.focus();
-              const pos = start + imgTag.length;
-              textarea.setSelectionRange(pos, pos);
-            });
           }
         } else {
-          // Otherwise upload as cover image
           await uploadFile(file);
         }
         return;
       }
     }
-
-    // Check for rich text HTML - only when pasting into the content textarea
-    const html = e.clipboardData?.getData('text/html');
-    if (html && textareaRef.current && document.activeElement === textareaRef.current) {
-      e.preventDefault();
-      const cleaned = cleanHtml(html);
-      const textarea = textareaRef.current;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const newValue = content.substring(0, start) + cleaned + content.substring(end);
-      setContent(newValue);
-      requestAnimationFrame(() => {
-        textarea.focus();
-        const pos = start + cleaned.length;
-        textarea.setSelectionRange(pos, pos);
-      });
-    }
-  }, [uploadFile, cleanHtml, content]);
+  }, [uploadFile, content, uploadAndGetUrl, toast]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); }, []);
   const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); }, []);
@@ -261,6 +180,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     if (file && file.type.startsWith('image/')) await uploadFile(file);
   }, [uploadFile]);
 
+  // Table resize via drag on cell edges
   const handleTableResize = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     const td = target.closest('td, th') as HTMLTableCellElement | null;
@@ -295,10 +215,6 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       document.body.style.cursor = '';
-      // Sync content
-      if (wysiwygRef.current) {
-        setContent(wysiwygRef.current.innerHTML);
-      }
     };
 
     document.body.style.cursor = isNearRight ? 'col-resize' : 'row-resize';
@@ -306,14 +222,62 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
+  // Image drag resize
+  const handleImageResize = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName !== 'IMG') return;
+    const img = target as HTMLImageElement;
+    const rect = img.getBoundingClientRect();
+    const isNearCorner = e.clientX > rect.right - 12 && e.clientY > rect.bottom - 12;
+    const isNearRight = e.clientX > rect.right - 8;
+    const isNearBottom = e.clientY > rect.bottom - 8;
+
+    if (!isNearCorner && !isNearRight && !isNearBottom) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = img.offsetWidth;
+    const startHeight = img.offsetHeight;
+    const ratio = startWidth / startHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (isNearCorner) {
+        const dx = ev.clientX - startX;
+        const newWidth = Math.max(50, startWidth + dx);
+        img.style.width = newWidth + 'px';
+        img.style.height = Math.round(newWidth / ratio) + 'px';
+      } else if (isNearRight) {
+        img.style.width = Math.max(50, startWidth + ev.clientX - startX) + 'px';
+      } else if (isNearBottom) {
+        img.style.height = Math.max(30, startHeight + ev.clientY - startY) + 'px';
+      }
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+    };
+
+    document.body.style.cursor = isNearCorner ? 'nwse-resize' : isNearRight ? 'ew-resize' : 'ns-resize';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
+  const handleEditorMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    handleTableResize(e);
+    handleImageResize(e);
+  }, [handleTableResize, handleImageResize]);
+
   const handleIconSelect = useCallback((emoji: string) => {
-    // If WYSIWYG mode (showPreview === false), insert into contentEditable
-    if (!showPreview && wysiwygRef.current) {
+    if (!showHtmlSource && wysiwygRef.current) {
       wysiwygRef.current.focus();
-      document.execCommand('insertText', false, emoji);
+      document.execCommand('insertHTML', false, emoji);
       return;
     }
-    // HTML source mode
     const textarea = textareaRef.current;
     if (!textarea) {
       setContent(prev => prev + emoji);
@@ -328,15 +292,18 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
       const pos = start + emoji.length;
       textarea.setSelectionRange(pos, pos);
     });
-  }, [content, showPreview]);
+  }, [content, showHtmlSource]);
+
+  const getWysiwygContent = useCallback(() => {
+    return wysiwygRef.current?.innerHTML || content;
+  }, [content]);
 
   const handleSave = async () => {
     if (!title.trim()) {
       toast({ title: 'Lỗi', description: 'Vui lòng nhập tiêu đề', variant: 'destructive' });
       return;
     }
-    // Sync from WYSIWYG if in visual mode
-    const finalContent = (!showPreview && wysiwygRef.current) ? wysiwygRef.current.innerHTML : content;
+    const finalContent = (!showHtmlSource && wysiwygRef.current) ? wysiwygRef.current.innerHTML : content;
     setIsLoading(true);
     const payload = {
       title: title.trim(),
@@ -393,27 +360,27 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
             {/* Content with Toolbar */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <Label>{showPreview ? 'Nội dung (HTML)' : 'Nội dung'}</Label>
+                <Label>{showHtmlSource ? 'Nội dung (HTML)' : 'Nội dung'}</Label>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="gap-1 h-7 text-xs"
                   onClick={() => {
-                    // Sync content from WYSIWYG before switching to HTML mode
-                    if (!showPreview && wysiwygRef.current) {
+                    if (!showHtmlSource && wysiwygRef.current) {
+                      // Sync WYSIWYG → content state before switching to HTML
                       setContent(wysiwygRef.current.innerHTML);
                     }
-                    setShowPreview(!showPreview);
+                    wysiwygInitialized.current = false;
+                    setShowHtmlSource(!showHtmlSource);
                   }}
                 >
-                  {showPreview ? <Eye className="h-3 w-3" /> : <Code className="h-3 w-3" />}
-                  {showPreview ? 'Xem trước' : 'Sửa HTML'}
+                  {showHtmlSource ? <Eye className="h-3 w-3" /> : <Code className="h-3 w-3" />}
+                  {showHtmlSource ? 'Xem trước' : 'Sửa HTML'}
                 </Button>
               </div>
 
-              {showPreview ? (
-                /* HTML Source Editor */
+              {showHtmlSource ? (
                 <>
                   <RichTextToolbar
                     textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
@@ -432,7 +399,6 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                   />
                 </>
               ) : (
-                /* WYSIWYG Editor (default) */
                 <>
                   <WysiwygToolbar
                     editorRef={wysiwygRef as React.RefObject<HTMLDivElement>}
@@ -457,11 +423,10 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                       [&_hr]:my-4 [&_hr]:border-border
                       [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:p-2
                       [&_del]:line-through [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2
+                      [&_img]:cursor-se-resize
                       focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-text
                       wysiwyg-table-resize"
-                    dangerouslySetInnerHTML={{ __html: content }}
-                    onBlur={(e) => setContent(e.currentTarget.innerHTML)}
-                    onMouseDown={(e) => handleTableResize(e)}
+                    onMouseDown={handleEditorMouseDown}
                   />
                 </>
               )}
@@ -517,8 +482,7 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                     setIsUploading(false);
                     if (url) {
                       const imgTag = `<img src="${url}" alt="Ảnh minh họa" style="max-width:100%; border-radius:8px; margin:8px 0;" />`;
-                      // WYSIWYG mode: insert via execCommand
-                      if (!showPreview && wysiwygRef.current) {
+                      if (!showHtmlSource && wysiwygRef.current) {
                         wysiwygRef.current.focus();
                         document.execCommand('insertHTML', false, imgTag);
                       } else {
@@ -528,11 +492,6 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                           const end = textarea.selectionEnd;
                           const newValue = content.substring(0, start) + imgTag + content.substring(end);
                           setContent(newValue);
-                          requestAnimationFrame(() => {
-                            textarea.focus();
-                            const pos = start + imgTag.length;
-                            textarea.setSelectionRange(pos, pos);
-                          });
                         } else {
                           setContent(prev => prev + imgTag);
                         }
