@@ -412,9 +412,11 @@ export function GuideEditorDialog({ open, onOpenChange, section, onSaved }: Prop
                       [&_hr]:my-4 [&_hr]:border-border
                       [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:p-2
                       [&_del]:line-through [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2
-                      focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-text"
+                      focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-text
+                      wysiwyg-table-resize"
                     dangerouslySetInnerHTML={{ __html: content }}
                     onBlur={(e) => setContent(e.currentTarget.innerHTML)}
+                    onMouseDown={(e) => handleTableResize(e)}
                   />
                 </>
               )}
