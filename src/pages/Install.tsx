@@ -46,7 +46,7 @@ export default function Install() {
                   <div>
                     <h3 className="font-medium">Mở Safari</h3>
                     <p className="text-sm text-muted-foreground">
-                      Truy cập trang web này bằng trình duyệt Safari (không phải Chrome hay Firefox)
+                      Truy cập trang <a href="https://noitrubantru.com" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline">noitrubantru.com</a> bằng trình duyệt Safari (không phải Chrome hay Firefox)
                     </p>
                   </div>
                 </div>
