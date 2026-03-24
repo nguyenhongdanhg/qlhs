@@ -1976,6 +1976,16 @@ export default function DutySchedule() {
                       "p-2",
                       viewMode === 'month' ? "min-h-[60px]" : "min-h-[100px]"
                     )}>
+                      {/* Leader for this day */}
+                      {(() => {
+                        const leader = dutyLeaders.find(l => l.duty_date === format(day, 'yyyy-MM-dd'));
+                        return leader ? (
+                          <div className="flex items-center gap-1 mb-1 text-[10px] text-amber-700 dark:text-amber-300">
+                            <Shield className="h-3 w-3" />
+                            <span className="truncate font-medium">{leader.profile?.full_name?.split(' ').pop()}</span>
+                          </div>
+                        ) : null;
+                      })()}
                       {daySchedules.length === 0 ? (
                         <p className="text-xs text-muted-foreground text-center py-2">
                           Chưa phân công
