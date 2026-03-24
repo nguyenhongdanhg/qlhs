@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSchool } from '@/contexts/SchoolContext';
@@ -71,6 +71,8 @@ import {
   BarChart3,
   ArrowLeftRight,
   Search,
+  Settings,
+  Shield,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -84,9 +86,8 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import DutyStatisticsTab from '@/components/duty/DutyStatisticsTab';
+import { Label } from '@/components/ui/label';
 
-const MAX_PER_DAY = 3;
-const MAX_PER_PERSON = 5;
 const SHIFT_START_HOUR = 6;
 
 interface DutyMember extends Profile {
@@ -94,6 +95,16 @@ interface DutyMember extends Profile {
   isFixed: boolean;
   fixedDays: number[];
   gender?: 'male' | 'female' | 'other';
+}
+
+interface DutyLeader {
+  id: string;
+  school_id: string;
+  user_id: string;
+  duty_date: string;
+  notes?: string;
+  created_at: string;
+  profile?: Profile;
 }
 
 export default function DutySchedule() {
