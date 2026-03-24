@@ -130,6 +130,17 @@ export default function DutySchedule() {
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [selectedNewMembers, setSelectedNewMembers] = useState<string[]>([]);
   
+  // Settings state
+  const [maxPerDay, setMaxPerDay] = useState(3);
+  const [maxPerPerson, setMaxPerPerson] = useState(5);
+  const [settingsMaxPerDay, setSettingsMaxPerDay] = useState(3);
+  const [settingsMaxPerPerson, setSettingsMaxPerPerson] = useState(5);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  
+  // Leadership duty state
+  const [dutyLeaders, setDutyLeaders] = useState<DutyLeader[]>([]);
+  const [leaderMembers, setLeaderMembers] = useState<Profile[]>([]);
+  
   // Filter by person name in calendar tab
   const [calendarFilterName, setCalendarFilterName] = useState('');
   
@@ -138,12 +149,9 @@ export default function DutySchedule() {
   const [swapSource, setSwapSource] = useState<{ userId: string; date: string } | null>(null);
   const [swapTarget, setSwapTarget] = useState<{ userId: string; date: string } | null>(null);
 
-  // Get days in current month
-  const daysInMonth = useMemo(() => {
-    const start = startOfMonth(currentMonth);
-    const end = endOfMonth(currentMonth);
-    return eachDayOfInterval({ start, end });
-  }, [currentMonth]);
+  // Shorthand for limits
+  const MAX_PER_DAY = maxPerDay;
+  const MAX_PER_PERSON = maxPerPerson;
 
   // Calculate current duty date (6am to 6am next day)
   const getCurrentDutyDate = () => {
