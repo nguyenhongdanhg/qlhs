@@ -293,6 +293,48 @@ export type Database = {
           },
         ]
       }
+      duty_leaders: {
+        Row: {
+          created_at: string
+          duty_date: string
+          id: string
+          notes: string | null
+          school_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duty_date: string
+          id?: string
+          notes?: string | null
+          school_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duty_date?: string
+          id?: string
+          notes?: string | null
+          school_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duty_leaders_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duty_leaders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       duty_members: {
         Row: {
           created_at: string
@@ -376,6 +418,41 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      duty_settings: {
+        Row: {
+          created_at: string
+          id: string
+          max_per_day: number
+          max_per_person: number
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_per_day?: number
+          max_per_person?: number
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_per_day?: number
+          max_per_person?: number
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duty_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "schools"
             referencedColumns: ["id"]
           },
         ]

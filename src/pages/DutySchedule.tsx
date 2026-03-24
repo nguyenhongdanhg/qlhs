@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useSchool } from '@/contexts/SchoolContext';
@@ -71,6 +71,8 @@ import {
   BarChart3,
   ArrowLeftRight,
   Search,
+  Settings,
+  Shield,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -84,9 +86,8 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import DutyStatisticsTab from '@/components/duty/DutyStatisticsTab';
+import { Label } from '@/components/ui/label';
 
-const MAX_PER_DAY = 3;
-const MAX_PER_PERSON = 5;
 const SHIFT_START_HOUR = 6;
 
 interface DutyMember extends Profile {
@@ -94,6 +95,16 @@ interface DutyMember extends Profile {
   isFixed: boolean;
   fixedDays: number[];
   gender?: 'male' | 'female' | 'other';
+}
+
+interface DutyLeader {
+  id: string;
+  school_id: string;
+  user_id: string;
+  duty_date: string;
+  notes?: string;
+  created_at: string;
+  profile?: Profile;
 }
 
 export default function DutySchedule() {
@@ -119,6 +130,17 @@ export default function DutySchedule() {
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [selectedNewMembers, setSelectedNewMembers] = useState<string[]>([]);
   
+  // Settings state
+  const [maxPerDay, setMaxPerDay] = useState(3);
+  const [maxPerPerson, setMaxPerPerson] = useState(5);
+  const [settingsMaxPerDay, setSettingsMaxPerDay] = useState(3);
+  const [settingsMaxPerPerson, setSettingsMaxPerPerson] = useState(5);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  
+  // Leadership duty state
+  const [dutyLeaders, setDutyLeaders] = useState<DutyLeader[]>([]);
+  const [leaderMembers, setLeaderMembers] = useState<Profile[]>([]);
+  
   // Filter by person name in calendar tab
   const [calendarFilterName, setCalendarFilterName] = useState('');
   
@@ -127,6 +149,10 @@ export default function DutySchedule() {
   const [swapSource, setSwapSource] = useState<{ userId: string; date: string } | null>(null);
   const [swapTarget, setSwapTarget] = useState<{ userId: string; date: string } | null>(null);
 
+  // Shorthand for limits
+  const MAX_PER_DAY = maxPerDay;
+  const MAX_PER_PERSON = maxPerPerson;
+
   // Get days in current month
   const daysInMonth = useMemo(() => {
     const start = startOfMonth(currentMonth);
@@ -134,7 +160,7 @@ export default function DutySchedule() {
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  // Calculate current duty date (6am to 6am next day)
+
   const getCurrentDutyDate = () => {
     const now = new Date();
     const currentHour = now.getHours();
@@ -213,10 +239,150 @@ export default function DutySchedule() {
     return counts;
   }, [schedules, currentMonth]);
 
+  // Fetch duty settings
+  const fetchDutySettings = async () => {
+    if (!currentSchool) return;
+    try {
+      const { data } = await supabase
+        .from('duty_settings')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .maybeSingle();
+      
+      if (data) {
+        setMaxPerDay(data.max_per_day);
+        setMaxPerPerson(data.max_per_person);
+        setSettingsMaxPerDay(data.max_per_day);
+        setSettingsMaxPerPerson(data.max_per_person);
+      }
+    } catch (error) {
+      console.error('Error fetching duty settings:', error);
+    }
+  };
+
+  // Save duty settings
+  const saveDutySettings = async () => {
+    if (!currentSchool) return;
+    setIsSavingSettings(true);
+    try {
+      const { data: existing } = await supabase
+        .from('duty_settings')
+        .select('id')
+        .eq('school_id', currentSchool.id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('duty_settings')
+          .update({ max_per_day: settingsMaxPerDay, max_per_person: settingsMaxPerPerson })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('duty_settings')
+          .insert({ school_id: currentSchool.id, max_per_day: settingsMaxPerDay, max_per_person: settingsMaxPerPerson });
+      }
+
+      setMaxPerDay(settingsMaxPerDay);
+      setMaxPerPerson(settingsMaxPerPerson);
+      toast({ title: 'Thành công', description: 'Đã lưu cài đặt lịch trực' });
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Fetch duty leaders
+  const fetchDutyLeaders = async () => {
+    if (!currentSchool) return;
+    try {
+      const monthStart = format(addDays(startOfMonth(currentMonth), -7), 'yyyy-MM-dd');
+      const monthEnd = format(addDays(endOfMonth(currentMonth), 7), 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .from('duty_leaders')
+        .select('*, profile:profiles(*)')
+        .eq('school_id', currentSchool.id)
+        .gte('duty_date', monthStart)
+        .lte('duty_date', monthEnd)
+        .order('duty_date');
+      
+      if (error) throw error;
+      setDutyLeaders((data || []).map(d => ({
+        ...d,
+        profile: d.profile as unknown as Profile
+      })) as DutyLeader[]);
+    } catch (error) {
+      console.error('Error fetching duty leaders:', error);
+    }
+  };
+
+  // Fetch leader members (all school members for selection)
+  const fetchLeaderMembers = async () => {
+    if (!currentSchool) return;
+    try {
+      const { data } = await supabase
+        .from('school_memberships')
+        .select('user_id, profile:profiles(*)')
+        .eq('school_id', currentSchool.id)
+        .eq('status', 'active');
+      
+      setLeaderMembers((data || []).map(d => d.profile as unknown as Profile).filter(Boolean));
+    } catch (error) {
+      console.error('Error fetching leader members:', error);
+    }
+  };
+
+  // Assign/remove leader for a date
+  const toggleLeader = async (userId: string, date: Date) => {
+    if (!currentSchool) return;
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const existing = dutyLeaders.find(l => l.duty_date === dateStr);
+
+    setIsSaving(true);
+    try {
+      if (existing) {
+        if (existing.user_id === userId) {
+          // Remove
+          await supabase.from('duty_leaders').delete().eq('id', existing.id);
+          setDutyLeaders(prev => prev.filter(l => l.id !== existing.id));
+        } else {
+          // Update to new person
+          const { data } = await supabase
+            .from('duty_leaders')
+            .update({ user_id: userId })
+            .eq('id', existing.id)
+            .select('*, profile:profiles(*)')
+            .single();
+          if (data) {
+            setDutyLeaders(prev => prev.map(l => l.id === existing.id ? { ...data, profile: data.profile as unknown as Profile } as DutyLeader : l));
+          }
+        }
+      } else {
+        // Insert
+        const { data } = await supabase
+          .from('duty_leaders')
+          .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
+          .select('*, profile:profiles(*)')
+          .single();
+        if (data) {
+          setDutyLeaders(prev => [...prev, { ...data, profile: data.profile as unknown as Profile } as DutyLeader]);
+        }
+      }
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (!currentSchool) return;
     fetchSchedules();
     fetchSavedDutyMembers();
+    fetchDutySettings();
+    fetchDutyLeaders();
+    fetchLeaderMembers();
   }, [currentSchool, currentMonth]);
 
   const fetchSchedules = async () => {
@@ -1220,6 +1386,19 @@ export default function DutySchedule() {
             <p className="text-xs text-muted-foreground mb-2">
               Ca trực: {format(getCurrentDutyDate(), 'dd/MM/yyyy', { locale: vi })} (6h sáng - 6h sáng hôm sau)
             </p>
+            {/* Current duty leader */}
+            {(() => {
+              const currentLeader = dutyLeaders.find(l => l.duty_date === format(getCurrentDutyDate(), 'yyyy-MM-dd'));
+              return currentLeader ? (
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium">Lãnh đạo trực:</span>
+                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
+                    {currentLeader.profile?.full_name}
+                  </Badge>
+                </div>
+              ) : null;
+            })()}
             {currentDutyPersons.length === 0 ? (
               <p className="text-sm text-muted-foreground">Chưa có người trực được phân công</p>
             ) : (
@@ -1258,23 +1437,36 @@ export default function DutySchedule() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className={cn(
           "grid w-full mb-4",
-          canManageDuty ? "grid-cols-3" : "grid-cols-1"
+          canManageDuty ? "grid-cols-5" : "grid-cols-1"
         )}>
           {/* Lịch trực tab - always visible, first for teachers */}
-          <TabsTrigger value="calendar" className="gap-2">
+          <TabsTrigger value="calendar" className="gap-1 text-xs sm:text-sm">
             <Calendar className="h-4 w-4" />
-            Lịch trực
+            <span className="hidden sm:inline">Lịch trực</span>
+            <span className="sm:hidden">Lịch</span>
           </TabsTrigger>
           {/* Phân công & Thống kê - only for admins and authorized users */}
           {canManageDuty && (
             <>
-              <TabsTrigger value="assignment" className="gap-2">
+              <TabsTrigger value="assignment" className="gap-1 text-xs sm:text-sm">
                 <Users className="h-4 w-4" />
-                Phân công
+                <span className="hidden sm:inline">Phân công</span>
+                <span className="sm:hidden">PC</span>
               </TabsTrigger>
-              <TabsTrigger value="statistics" className="gap-2">
+              <TabsTrigger value="leaders" className="gap-1 text-xs sm:text-sm">
+                <Shield className="h-4 w-4" />
+                <span className="hidden sm:inline">Lãnh đạo trực</span>
+                <span className="sm:hidden">LĐ</span>
+              </TabsTrigger>
+              <TabsTrigger value="statistics" className="gap-1 text-xs sm:text-sm">
                 <BarChart3 className="h-4 w-4" />
-                Thống kê
+                <span className="hidden sm:inline">Thống kê</span>
+                <span className="sm:hidden">TK</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-1 text-xs sm:text-sm">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Cài đặt</span>
+                <span className="sm:hidden">CĐ</span>
               </TabsTrigger>
             </>
           )}
@@ -1784,6 +1976,16 @@ export default function DutySchedule() {
                       "p-2",
                       viewMode === 'month' ? "min-h-[60px]" : "min-h-[100px]"
                     )}>
+                      {/* Leader for this day */}
+                      {(() => {
+                        const leader = dutyLeaders.find(l => l.duty_date === format(day, 'yyyy-MM-dd'));
+                        return leader ? (
+                          <div className="flex items-center gap-1 mb-1 text-[10px] text-amber-700 dark:text-amber-300">
+                            <Shield className="h-3 w-3" />
+                            <span className="truncate font-medium">{leader.profile?.full_name?.split(' ').pop()}</span>
+                          </div>
+                        ) : null;
+                      })()}
                       {daySchedules.length === 0 ? (
                         <p className="text-xs text-muted-foreground text-center py-2">
                           Chưa phân công
@@ -1825,6 +2027,161 @@ export default function DutySchedule() {
               currentMonth={currentMonth}
               schoolName={currentSchool?.name || ''}
             />
+          </TabsContent>
+        )}
+
+        {/* Leaders Tab */}
+        {canManageDuty && (
+          <TabsContent value="leaders" className="space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <h2 className="text-lg font-semibold min-w-[140px] text-center">
+                      Tháng {format(currentMonth, 'MM/yyyy')}
+                    </h2>
+                    <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-amber-500" />
+                  Phân công lãnh đạo trực
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Mỗi ngày chỉ định 1 lãnh đạo trực. Chọn người từ danh sách rồi chọn ngày.
+                </p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-[60px] text-center">Ngày</TableHead>
+                        <TableHead className="w-[80px] text-center">Thứ</TableHead>
+                        <TableHead>Lãnh đạo trực</TableHead>
+                        <TableHead className="w-[100px] text-center">Thao tác</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {daysInMonth.map(day => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const leader = dutyLeaders.find(l => l.duty_date === dateStr);
+                        const dayName = getDayName(day);
+                        const isWeekend = dayName === 'CN' || dayName === 'T7';
+                        const today = isToday(day);
+
+                        return (
+                          <TableRow key={dateStr} className={cn(
+                            today && "bg-primary/5",
+                            isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10"
+                          )}>
+                            <TableCell className="text-center font-medium">
+                              {format(day, 'dd/MM')}
+                            </TableCell>
+                            <TableCell className={cn(
+                              "text-center text-sm",
+                              isWeekend && "text-orange-600 dark:text-orange-400 font-medium"
+                            )}>
+                              {format(day, 'EEEE', { locale: vi })}
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={leader?.user_id || ''}
+                                onValueChange={(v) => {
+                                  if (v) toggleLeader(v, day);
+                                }}
+                              >
+                                <SelectTrigger className="w-full max-w-[250px]">
+                                  <SelectValue placeholder="Chọn lãnh đạo trực" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {leaderMembers.map(m => (
+                                    <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {leader && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => toggleLeader(leader.user_id, day)}
+                                  disabled={isSaving}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Settings Tab */}
+        {canManageDuty && (
+          <TabsContent value="settings" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-primary" />
+                  Cài đặt lịch trực
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxPerDay">Số người trực trong 1 ngày</Label>
+                    <Input
+                      id="maxPerDay"
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={settingsMaxPerDay}
+                      onChange={(e) => setSettingsMaxPerDay(parseInt(e.target.value) || 1)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Hiện tại: {maxPerDay} người/ngày
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxPerPerson">Số lần trực tối đa của 1 người/tháng</Label>
+                    <Input
+                      id="maxPerPerson"
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={settingsMaxPerPerson}
+                      onChange={(e) => setSettingsMaxPerPerson(parseInt(e.target.value) || 1)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Hiện tại: {maxPerPerson} lần/tháng
+                    </p>
+                  </div>
+                </div>
+                <Button onClick={saveDutySettings} disabled={isSavingSettings} className="gap-2">
+                  {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Lưu cài đặt
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
       </Tabs>
