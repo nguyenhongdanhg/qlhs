@@ -239,10 +239,150 @@ export default function DutySchedule() {
     return counts;
   }, [schedules, currentMonth]);
 
+  // Fetch duty settings
+  const fetchDutySettings = async () => {
+    if (!currentSchool) return;
+    try {
+      const { data } = await supabase
+        .from('duty_settings')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .maybeSingle();
+      
+      if (data) {
+        setMaxPerDay(data.max_per_day);
+        setMaxPerPerson(data.max_per_person);
+        setSettingsMaxPerDay(data.max_per_day);
+        setSettingsMaxPerPerson(data.max_per_person);
+      }
+    } catch (error) {
+      console.error('Error fetching duty settings:', error);
+    }
+  };
+
+  // Save duty settings
+  const saveDutySettings = async () => {
+    if (!currentSchool) return;
+    setIsSavingSettings(true);
+    try {
+      const { data: existing } = await supabase
+        .from('duty_settings')
+        .select('id')
+        .eq('school_id', currentSchool.id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('duty_settings')
+          .update({ max_per_day: settingsMaxPerDay, max_per_person: settingsMaxPerPerson })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('duty_settings')
+          .insert({ school_id: currentSchool.id, max_per_day: settingsMaxPerDay, max_per_person: settingsMaxPerPerson });
+      }
+
+      setMaxPerDay(settingsMaxPerDay);
+      setMaxPerPerson(settingsMaxPerPerson);
+      toast({ title: 'Thành công', description: 'Đã lưu cài đặt lịch trực' });
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Fetch duty leaders
+  const fetchDutyLeaders = async () => {
+    if (!currentSchool) return;
+    try {
+      const monthStart = format(addDays(startOfMonth(currentMonth), -7), 'yyyy-MM-dd');
+      const monthEnd = format(addDays(endOfMonth(currentMonth), 7), 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .from('duty_leaders')
+        .select('*, profile:profiles(*)')
+        .eq('school_id', currentSchool.id)
+        .gte('duty_date', monthStart)
+        .lte('duty_date', monthEnd)
+        .order('duty_date');
+      
+      if (error) throw error;
+      setDutyLeaders((data || []).map(d => ({
+        ...d,
+        profile: d.profile as unknown as Profile
+      })) as DutyLeader[]);
+    } catch (error) {
+      console.error('Error fetching duty leaders:', error);
+    }
+  };
+
+  // Fetch leader members (all school members for selection)
+  const fetchLeaderMembers = async () => {
+    if (!currentSchool) return;
+    try {
+      const { data } = await supabase
+        .from('school_memberships')
+        .select('user_id, profile:profiles(*)')
+        .eq('school_id', currentSchool.id)
+        .eq('status', 'active');
+      
+      setLeaderMembers((data || []).map(d => d.profile as unknown as Profile).filter(Boolean));
+    } catch (error) {
+      console.error('Error fetching leader members:', error);
+    }
+  };
+
+  // Assign/remove leader for a date
+  const toggleLeader = async (userId: string, date: Date) => {
+    if (!currentSchool) return;
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const existing = dutyLeaders.find(l => l.duty_date === dateStr);
+
+    setIsSaving(true);
+    try {
+      if (existing) {
+        if (existing.user_id === userId) {
+          // Remove
+          await supabase.from('duty_leaders').delete().eq('id', existing.id);
+          setDutyLeaders(prev => prev.filter(l => l.id !== existing.id));
+        } else {
+          // Update to new person
+          const { data } = await supabase
+            .from('duty_leaders')
+            .update({ user_id: userId })
+            .eq('id', existing.id)
+            .select('*, profile:profiles(*)')
+            .single();
+          if (data) {
+            setDutyLeaders(prev => prev.map(l => l.id === existing.id ? { ...data, profile: data.profile as unknown as Profile } as DutyLeader : l));
+          }
+        }
+      } else {
+        // Insert
+        const { data } = await supabase
+          .from('duty_leaders')
+          .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
+          .select('*, profile:profiles(*)')
+          .single();
+        if (data) {
+          setDutyLeaders(prev => [...prev, { ...data, profile: data.profile as unknown as Profile } as DutyLeader]);
+        }
+      }
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (!currentSchool) return;
     fetchSchedules();
     fetchSavedDutyMembers();
+    fetchDutySettings();
+    fetchDutyLeaders();
+    fetchLeaderMembers();
   }, [currentSchool, currentMonth]);
 
   const fetchSchedules = async () => {
