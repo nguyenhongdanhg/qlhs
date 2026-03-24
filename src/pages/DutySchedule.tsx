@@ -1386,6 +1386,19 @@ export default function DutySchedule() {
             <p className="text-xs text-muted-foreground mb-2">
               Ca trực: {format(getCurrentDutyDate(), 'dd/MM/yyyy', { locale: vi })} (6h sáng - 6h sáng hôm sau)
             </p>
+            {/* Current duty leader */}
+            {(() => {
+              const currentLeader = dutyLeaders.find(l => l.duty_date === format(getCurrentDutyDate(), 'yyyy-MM-dd'));
+              return currentLeader ? (
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium">Lãnh đạo trực:</span>
+                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
+                    {currentLeader.profile?.full_name}
+                  </Badge>
+                </div>
+              ) : null;
+            })()}
             {currentDutyPersons.length === 0 ? (
               <p className="text-sm text-muted-foreground">Chưa có người trực được phân công</p>
             ) : (
