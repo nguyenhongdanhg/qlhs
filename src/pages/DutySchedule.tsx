@@ -2019,6 +2019,161 @@ export default function DutySchedule() {
             />
           </TabsContent>
         )}
+
+        {/* Leaders Tab */}
+        {canManageDuty && (
+          <TabsContent value="leaders" className="space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <h2 className="text-lg font-semibold min-w-[140px] text-center">
+                      Tháng {format(currentMonth, 'MM/yyyy')}
+                    </h2>
+                    <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-amber-500" />
+                  Phân công lãnh đạo trực
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Mỗi ngày chỉ định 1 lãnh đạo trực. Chọn người từ danh sách rồi chọn ngày.
+                </p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-[60px] text-center">Ngày</TableHead>
+                        <TableHead className="w-[80px] text-center">Thứ</TableHead>
+                        <TableHead>Lãnh đạo trực</TableHead>
+                        <TableHead className="w-[100px] text-center">Thao tác</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {daysInMonth.map(day => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const leader = dutyLeaders.find(l => l.duty_date === dateStr);
+                        const dayName = getDayName(day);
+                        const isWeekend = dayName === 'CN' || dayName === 'T7';
+                        const today = isToday(day);
+
+                        return (
+                          <TableRow key={dateStr} className={cn(
+                            today && "bg-primary/5",
+                            isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10"
+                          )}>
+                            <TableCell className="text-center font-medium">
+                              {format(day, 'dd/MM')}
+                            </TableCell>
+                            <TableCell className={cn(
+                              "text-center text-sm",
+                              isWeekend && "text-orange-600 dark:text-orange-400 font-medium"
+                            )}>
+                              {format(day, 'EEEE', { locale: vi })}
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={leader?.user_id || ''}
+                                onValueChange={(v) => {
+                                  if (v) toggleLeader(v, day);
+                                }}
+                              >
+                                <SelectTrigger className="w-full max-w-[250px]">
+                                  <SelectValue placeholder="Chọn lãnh đạo trực" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {leaderMembers.map(m => (
+                                    <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {leader && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => toggleLeader(leader.user_id, day)}
+                                  disabled={isSaving}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Settings Tab */}
+        {canManageDuty && (
+          <TabsContent value="settings" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-primary" />
+                  Cài đặt lịch trực
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxPerDay">Số người trực trong 1 ngày</Label>
+                    <Input
+                      id="maxPerDay"
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={settingsMaxPerDay}
+                      onChange={(e) => setSettingsMaxPerDay(parseInt(e.target.value) || 1)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Hiện tại: {maxPerDay} người/ngày
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxPerPerson">Số lần trực tối đa của 1 người/tháng</Label>
+                    <Input
+                      id="maxPerPerson"
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={settingsMaxPerPerson}
+                      onChange={(e) => setSettingsMaxPerPerson(parseInt(e.target.value) || 1)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Hiện tại: {maxPerPerson} lần/tháng
+                    </p>
+                  </div>
+                </div>
+                <Button onClick={saveDutySettings} disabled={isSavingSettings} className="gap-2">
+                  {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Lưu cài đặt
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Add Member Dialog */}
