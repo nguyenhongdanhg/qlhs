@@ -1437,23 +1437,36 @@ export default function DutySchedule() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className={cn(
           "grid w-full mb-4",
-          canManageDuty ? "grid-cols-3" : "grid-cols-1"
+          canManageDuty ? "grid-cols-5" : "grid-cols-1"
         )}>
           {/* Lịch trực tab - always visible, first for teachers */}
-          <TabsTrigger value="calendar" className="gap-2">
+          <TabsTrigger value="calendar" className="gap-1 text-xs sm:text-sm">
             <Calendar className="h-4 w-4" />
-            Lịch trực
+            <span className="hidden sm:inline">Lịch trực</span>
+            <span className="sm:hidden">Lịch</span>
           </TabsTrigger>
           {/* Phân công & Thống kê - only for admins and authorized users */}
           {canManageDuty && (
             <>
-              <TabsTrigger value="assignment" className="gap-2">
+              <TabsTrigger value="assignment" className="gap-1 text-xs sm:text-sm">
                 <Users className="h-4 w-4" />
-                Phân công
+                <span className="hidden sm:inline">Phân công</span>
+                <span className="sm:hidden">PC</span>
               </TabsTrigger>
-              <TabsTrigger value="statistics" className="gap-2">
+              <TabsTrigger value="leaders" className="gap-1 text-xs sm:text-sm">
+                <Shield className="h-4 w-4" />
+                <span className="hidden sm:inline">Lãnh đạo trực</span>
+                <span className="sm:hidden">LĐ</span>
+              </TabsTrigger>
+              <TabsTrigger value="statistics" className="gap-1 text-xs sm:text-sm">
                 <BarChart3 className="h-4 w-4" />
-                Thống kê
+                <span className="hidden sm:inline">Thống kê</span>
+                <span className="sm:hidden">TK</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-1 text-xs sm:text-sm">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Cài đặt</span>
+                <span className="sm:hidden">CĐ</span>
               </TabsTrigger>
             </>
           )}
