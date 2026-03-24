@@ -153,7 +153,14 @@ export default function DutySchedule() {
   const MAX_PER_DAY = maxPerDay;
   const MAX_PER_PERSON = maxPerPerson;
 
-  // Calculate current duty date (6am to 6am next day)
+  // Get days in current month
+  const daysInMonth = useMemo(() => {
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+    return eachDayOfInterval({ start, end });
+  }, [currentMonth]);
+
+
   const getCurrentDutyDate = () => {
     const now = new Date();
     const currentHour = now.getHours();
