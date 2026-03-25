@@ -597,7 +597,7 @@ export default function Boarding() {
       const reportData: AttendanceReportData[] = historyRecords.map(record => ({
         date: record.date,
         session: 'boarding',
-        sessionLabel: detectBoardingSessionLabel(record.reportedAt),
+        sessionLabel: detectSessionLabelByTime(record.reportedAt, sessions),
         reporter: record.reporterName,
         reportTime: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
         total: record.total,
