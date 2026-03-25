@@ -409,9 +409,10 @@ export default function DormitoryExit() {
       'STT': i + 1,
       'Họ và tên': r.student?.full_name || '',
       'Lớp': r.class?.name || '',
-      'Ngày': format(new Date(r.request_date), 'dd/MM/yyyy'),
+      'Ngày ra': r.exit_date ? format(new Date(r.exit_date), 'dd/MM/yyyy') : format(new Date(r.request_date), 'dd/MM/yyyy'),
       'Giờ ra': r.exit_time?.slice(0, 5) || '',
-      'Giờ về': r.expected_return_time?.slice(0, 5) || '',
+      'Ngày vào': r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
+      'Giờ vào': r.expected_return_time?.slice(0, 5) || '',
       'Lý do': r.reason || '',
       'GVCN': r.requester?.full_name || '',
       'Người duyệt': r.approver?.full_name || '',
@@ -419,7 +420,7 @@ export default function DormitoryExit() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ra vào KTX');
-    ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
+    ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
     const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     XLSX.writeFile(wb, `Ra_vao_KTX_${rangeLabel}.xlsx`);
     toast({ title: 'Đã xuất Excel' });
