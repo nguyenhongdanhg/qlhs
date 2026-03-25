@@ -281,20 +281,21 @@ export function HealthHistoryTab({
           <CardTitle className="text-base">Lịch sử chăm sóc sức khỏe</CardTitle>
           <div className="flex flex-wrap gap-2">
             {canDelete && (
-            <Button
-              variant={showTrash ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowTrash(!showTrash)}
-              className={showTrash ? 'bg-orange-600 hover:bg-orange-700' : ''}
-            >
-              <Archive className="h-4 w-4 mr-1" />
-              Thùng rác
-              {trashedRecords.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                  {trashedRecords.length}
-                </Badge>
-              )}
-            </Button>
+              <Button
+                variant={showTrash ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowTrash(!showTrash)}
+                className={showTrash ? 'bg-orange-600 hover:bg-orange-700' : ''}
+              >
+                <Archive className="h-4 w-4 mr-1" />
+                Thùng rác
+                {trashedRecords.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {trashedRecords.length}
+                  </Badge>
+                )}
+              </Button>
+            )}
             <div className="flex gap-1">
               {(['day', 'week', 'month'] as const).map((r) => (
                 <Button
