@@ -437,6 +437,17 @@ export default function DormitoryExit() {
     return classes.find(c => c.id === classId)?.name || '';
   };
 
+  // Helper to format exit/return date-time display
+  const formatExitReturn = (req: ExitRequest) => {
+    const eDateStr = req.exit_date ? format(new Date(req.exit_date), 'dd/MM') : format(new Date(req.request_date), 'dd/MM');
+    const rDateStr = req.return_date ? format(new Date(req.return_date), 'dd/MM') : eDateStr;
+    const eTime = req.exit_time?.slice(0, 5) || '';
+    const rTime = req.expected_return_time?.slice(0, 5) || '';
+    const sameDate = eDateStr === rDateStr;
+    if (sameDate) return `${eDateStr} ${eTime} → ${rTime}`;
+    return `${eDateStr} ${eTime} → ${rDateStr} ${rTime}`;
+  };
+
   const dateLabel = filterRange === 'day'
     ? format(selectedDate, 'EEEE, dd/MM/yyyy', { locale: vi })
     : filterRange === 'week'
