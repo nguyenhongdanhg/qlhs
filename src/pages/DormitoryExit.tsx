@@ -71,6 +71,8 @@ export default function DormitoryExit() {
   const [returnTime, setReturnTime] = useState('');
   const [reason, setReason] = useState('');
   const [requestDate, setRequestDate] = useState<Date>(new Date());
+  const [exitDate, setExitDate] = useState<Date>(new Date());
+  const [returnDate, setReturnDate] = useState<Date>(new Date());
   const [isSaving, setIsSaving] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
 
