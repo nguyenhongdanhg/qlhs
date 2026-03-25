@@ -732,26 +732,38 @@ export default function DormitoryExit() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-sm">Ngày</Label>
+                <Label className="text-sm">Ngày ra</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(requestDate, 'dd/MM/yyyy')}
+                      {format(exitDate, 'dd/MM/yyyy')}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={requestDate} onSelect={(d) => d && setRequestDate(d)} locale={vi} /></PopoverContent>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={exitDate} onSelect={(d) => { if (d) { setExitDate(d); if (d > returnDate) setReturnDate(d); }}} locale={vi} className="pointer-events-auto" /></PopoverContent>
                 </Popover>
               </div>
-              <div className="space-y-2">
-                <div>
-                  <Label className="text-sm">Giờ ra</Label>
-                  <Input type="time" value={exitTime} onChange={(e) => setExitTime(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label className="text-sm">Giờ về dự kiến</Label>
-                  <Input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="mt-1" />
-                </div>
+              <div>
+                <Label className="text-sm">Giờ ra</Label>
+                <Input type="time" value={exitTime} onChange={(e) => setExitTime(e.target.value)} className="mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Ngày vào</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(returnDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={returnDate} onSelect={(d) => d && setReturnDate(d)} locale={vi} className="pointer-events-auto" /></PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-sm">Giờ vào</Label>
+                <Input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="mt-1" />
               </div>
             </div>
             <div>
