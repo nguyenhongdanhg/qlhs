@@ -31,6 +31,8 @@ interface ExitRequest {
   student_id: string;
   class_id: string | null;
   request_date: string;
+  exit_date: string | null;
+  return_date: string | null;
   exit_time: string;
   expected_return_time: string;
   reason: string | null;
