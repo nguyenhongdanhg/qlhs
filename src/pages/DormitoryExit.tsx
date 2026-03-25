@@ -715,8 +715,7 @@ export default function DormitoryExit() {
                       <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span>{format(new Date(req.request_date), 'dd/MM')}</span>
-                      <span>{req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}</span>
+                      <span>{formatExitReturn(req)}</span>
                     </div>
                     {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
                     {req.rejection_reason && (
