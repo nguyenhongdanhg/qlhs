@@ -476,7 +476,7 @@ export function HealthHistoryTab({
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              {(isAdmin || record.reporter_id === userId) && (
+                              {canDelete && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
