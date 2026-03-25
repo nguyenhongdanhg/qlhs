@@ -33,6 +33,7 @@ import {
   AlertCircle,
   MessageSquare,
   Image,
+  Settings2,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, vietnameseNameSortCompare } from '@/lib/utils';
