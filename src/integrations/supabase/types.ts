@@ -215,6 +215,7 @@ export type Database = {
           approver_id: string | null
           class_id: string | null
           created_at: string | null
+          exit_date: string | null
           exit_time: string
           expected_return_time: string
           id: string
@@ -222,6 +223,7 @@ export type Database = {
           rejection_reason: string | null
           request_date: string
           requester_id: string
+          return_date: string | null
           school_id: string
           status: string
           student_id: string
@@ -232,6 +234,7 @@ export type Database = {
           approver_id?: string | null
           class_id?: string | null
           created_at?: string | null
+          exit_date?: string | null
           exit_time: string
           expected_return_time: string
           id?: string
@@ -239,6 +242,7 @@ export type Database = {
           rejection_reason?: string | null
           request_date?: string
           requester_id: string
+          return_date?: string | null
           school_id: string
           status?: string
           student_id: string
@@ -249,6 +253,7 @@ export type Database = {
           approver_id?: string | null
           class_id?: string | null
           created_at?: string | null
+          exit_date?: string | null
           exit_time?: string
           expected_return_time?: string
           id?: string
@@ -256,6 +261,7 @@ export type Database = {
           rejection_reason?: string | null
           request_date?: string
           requester_id?: string
+          return_date?: string | null
           school_id?: string
           status?: string
           student_id?: string
