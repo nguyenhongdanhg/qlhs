@@ -122,34 +122,40 @@ export type Database = {
         Row: {
           created_at: string | null
           display_order: number | null
+          end_time: string | null
           id: string
           is_active: boolean | null
           label: string
           school_id: string
           session_id: string
           session_type: string
+          start_time: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           display_order?: number | null
+          end_time?: string | null
           id?: string
           is_active?: boolean | null
           label: string
           school_id: string
           session_id: string
           session_type: string
+          start_time?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           display_order?: number | null
+          end_time?: string | null
           id?: string
           is_active?: boolean | null
           label?: string
           school_id?: string
           session_id?: string
           session_type?: string
+          start_time?: string | null
           updated_at?: string | null
         }
         Relationships: [

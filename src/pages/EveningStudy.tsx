@@ -33,6 +33,7 @@ import {
   MessageSquare,
   Users,
   Image,
+  Settings2,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, vietnameseNameSortCompare } from '@/lib/utils';
@@ -73,6 +74,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime } from '@/components/attendance/SessionSettingsDialog';
 import {
   DateRangeType,
   getDateRange,
@@ -84,7 +86,7 @@ import {
 type AttendanceMap = Record<string, AttendanceStatus>;
 type ExcuseInfo = { excused: boolean; reason: string };
 type ExcuseMap = Record<string, ExcuseInfo>;
-type StudySession = { id: string; label: string };
+type StudySession = { id: string; label: string; start_time?: string | null; end_time?: string | null };
 
 const DEFAULT_SESSIONS: StudySession[] = [
   { id: 'session_1', label: 'Ca 1' },
@@ -136,9 +138,8 @@ export default function EveningStudy() {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);
   const [selectedStudentForExcuse, setSelectedStudentForExcuse] = useState<Student | null>(null);
 
-  // Add session dialog
-  const [isAddSessionOpen, setIsAddSessionOpen] = useState(false);
-  const [newSessionLabel, setNewSessionLabel] = useState('');
+  // Session settings dialog
+  const [isSessionSettingsOpen, setIsSessionSettingsOpen] = useState(false);
 
   // Validation warnings
   const [showWarnings, setShowWarnings] = useState(false);
@@ -227,12 +228,11 @@ export default function EveningStudy() {
     }
 
     if (data && data.length > 0) {
-      const loadedSessions = data.map(s => ({ id: s.session_id, label: s.label }));
+      const loadedSessions = data.map(s => ({ id: s.session_id, label: s.label, start_time: (s as any).start_time, end_time: (s as any).end_time }));
       setSessions(loadedSessions);
-      // Auto-select if only 1 session
-      if (loadedSessions.length === 1) {
-        setSelectedSession(loadedSessions[0].id);
-      }
+      // Auto-select based on time
+      const autoId = detectSessionByTimeConfig(loadedSessions);
+      if (autoId) setSelectedSession(autoId);
     } else {
       // Initialize default sessions in database for this school
       const defaultInserts = DEFAULT_SESSIONS.map((s, index) => ({
@@ -311,15 +311,8 @@ export default function EveningStudy() {
         const dateStr = record.attendance_date;
         if (!reportsByDate.has(dateStr)) {
           const reporterName = record.reporter?.full_name || 'N/A';
-          const detectStudyLabel = (reportedAt: string): string => {
-            const d = new Date(reportedAt);
-            const h = d.getHours();
-            const m = d.getMinutes();
-            const t = h * 60 + m;
-            if (t >= 420 && t < 660) return 'Tự học sáng';
-            if (t >= 810 && t < 1020) return 'Tự học chiều';
-            if (t >= 1140 && t <= 1380) return 'Tự học tối';
-            return 'Tự học';
+           const detectStudyLabel = (reportedAt: string): string => {
+            return detectSessionLabelByTime(reportedAt, sessions);
           };
           reportsByDate.set(dateStr, {
             id: `${dateStr}_evening_study`,
@@ -567,81 +560,7 @@ export default function EveningStudy() {
     }
   };
 
-  const handleAddSession = async () => {
-    if (!newSessionLabel.trim() || !currentSchool) return;
-    
-    const newSessionId = `session_${Date.now()}`;
-    const newSession: StudySession = {
-      id: newSessionId,
-      label: newSessionLabel.trim(),
-    };
-
-    // Save to database
-    const { error } = await supabase.from('attendance_sessions').insert({
-      school_id: currentSchool.id,
-      session_type: 'evening_study',
-      session_id: newSessionId,
-      label: newSessionLabel.trim(),
-      display_order: sessions.length,
-    });
-
-    if (error) {
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể thêm ca học',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setSessions([...sessions, newSession]);
-    setNewSessionLabel('');
-    setIsAddSessionOpen(false);
-    toast({
-      title: 'Đã thêm ca học',
-      description: `Ca "${newSession.label}" đã được thêm`,
-    });
-  };
-
-  const handleDeleteSession = async (sessionId: string) => {
-    if (!currentSchool) return;
-    
-    if (sessions.length <= 1) {
-      toast({
-        title: 'Không thể xóa',
-        description: 'Phải có ít nhất một ca học',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Delete from database
-    const { error } = await supabase
-      .from('attendance_sessions')
-      .delete()
-      .eq('school_id', currentSchool.id)
-      .eq('session_type', 'evening_study')
-      .eq('session_id', sessionId);
-
-    if (error) {
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể xóa ca học',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const newSessions = sessions.filter(s => s.id !== sessionId);
-    setSessions(newSessions);
-    if (selectedSession === sessionId) {
-      setSelectedSession(newSessions.length === 1 ? newSessions[0].id : '');
-    }
-    toast({
-      title: 'Đã xóa',
-      description: 'Đã xóa ca học',
-    });
-  };
+  // Session management is now handled by SessionSettingsDialog
 
   const handleExportSingleReport = (report: SavedReport) => {
     if (!currentSchool) return;
@@ -937,10 +856,10 @@ export default function EveningStudy() {
               )}
 
               <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Quản lý ca</label>
-                <Button variant="outline" className="w-full" onClick={() => setIsAddSessionOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Thêm ca học
+                <label className="text-sm text-muted-foreground mb-1.5 block">Cài đặt ca</label>
+                <Button variant="outline" className="w-full" onClick={() => setIsSessionSettingsOpen(true)}>
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Cài đặt ca học
                 </Button>
               </div>
 
@@ -1121,28 +1040,16 @@ export default function EveningStudy() {
         onSave={handleSaveExcuse}
       />
 
-      {/* Add Session Dialog */}
-      <Dialog open={isAddSessionOpen} onOpenChange={setIsAddSessionOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thêm buổi điểm danh</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Tên buổi</Label>
-              <Input
-                value={newSessionLabel}
-                onChange={(e) => setNewSessionLabel(e.target.value)}
-                placeholder="VD: Ca 3, Tự học thêm..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddSessionOpen(false)}>Hủy</Button>
-            <Button onClick={handleAddSession}>Thêm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Session Settings Dialog */}
+      {currentSchool && (
+        <SessionSettingsDialog
+          open={isSessionSettingsOpen}
+          onOpenChange={setIsSessionSettingsOpen}
+          schoolId={currentSchool.id}
+          sessionType="evening_study"
+          onSessionsUpdated={fetchSessions}
+        />
+      )}
 
       {/* Share Report Dialog */}
       {reportToShare && currentSchool && (
@@ -1151,7 +1058,7 @@ export default function EveningStudy() {
           onOpenChange={setShareDialogOpen}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title="BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI"
+          title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || sessions[0]?.id))?.label || 'ĐIỂM DANH TỰ HỌC').toUpperCase()}`}
         />
       )}
     </div>

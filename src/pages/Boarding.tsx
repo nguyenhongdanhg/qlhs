@@ -33,6 +33,7 @@ import {
   AlertCircle,
   MessageSquare,
   Image,
+  Settings2,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, vietnameseNameSortCompare } from '@/lib/utils';
@@ -73,6 +74,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime } from '@/components/attendance/SessionSettingsDialog';
 import {
   DateRangeType,
   getDateRange,
@@ -84,7 +86,7 @@ import {
 type AttendanceMap = Record<string, AttendanceStatus>;
 type ExcuseInfo = { excused: boolean; reason: string };
 type ExcuseMap = Record<string, ExcuseInfo>;
-type BoardingSession = { id: string; label: string };
+type BoardingSession = { id: string; label: string; start_time?: string | null; end_time?: string | null };
 
 const DEFAULT_SESSIONS: BoardingSession[] = [
   { id: 'morning', label: 'Điểm danh thể dục buổi sáng' },
@@ -93,34 +95,15 @@ const DEFAULT_SESSIONS: BoardingSession[] = [
   { id: 'emergency', label: 'Đột xuất' },
 ];
 
-// Auto-detect session based on time
+// Auto-detect session based on time (uses configured sessions)
 const detectSessionByTime = (): string => {
-  const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const time = hours * 60 + minutes; // Convert to minutes for easier comparison
-  
-  // 6:00 - 11:00 -> Sáng
-  if (time >= 360 && time < 660) return 'morning';
-  // 11:00 - 14:00 -> Trưa
-  if (time >= 660 && time < 840) return 'noon';
-  // 18:00 - 23:59 -> Tối
-  if (time >= 1080 && time <= 1439) return 'night';
-  // Other times -> Đột xuất
-  return 'emergency';
+  // This is now a placeholder; actual detection uses detectSessionByTimeConfig
+  return 'morning';
 };
 
-// Detect boarding session label from a report timestamp
+// Detect boarding session label from a report timestamp (placeholder, uses DB sessions)
 const detectBoardingSessionLabel = (reportedAt: string): string => {
-  const date = new Date(reportedAt);
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const time = hours * 60 + minutes;
-  
-  if (time >= 360 && time < 660) return 'Điểm danh thể dục buổi sáng';
-  if (time >= 660 && time < 840) return 'Điểm danh giờ ngủ trưa';
-  if (time >= 1080 && time <= 1439) return 'Điểm danh giờ ngủ tối';
-  return 'Đột xuất';
+  return 'Điểm danh';
 };
 
 // Database-based history record (replaces localStorage SavedReport)
@@ -191,9 +174,8 @@ export default function Boarding() {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);
   const [selectedStudentForExcuse, setSelectedStudentForExcuse] = useState<Student | null>(null);
 
-  // Add session dialog
-  const [isAddSessionOpen, setIsAddSessionOpen] = useState(false);
-  const [newSessionLabel, setNewSessionLabel] = useState('');
+  // Session settings dialog
+  const [isSessionSettingsOpen, setIsSessionSettingsOpen] = useState(false);
 
   // Validation warnings
   const [showWarnings, setShowWarnings] = useState(false);
@@ -280,7 +262,11 @@ export default function Boarding() {
     }
 
     if (data && data.length > 0) {
-      setSessions(data.map(s => ({ id: s.session_id, label: s.label })));
+      const loadedSessions = data.map(s => ({ id: s.session_id, label: s.label, start_time: (s as any).start_time, end_time: (s as any).end_time }));
+      setSessions(loadedSessions);
+      // Auto-select based on time
+      const autoId = detectSessionByTimeConfig(loadedSessions);
+      if (autoId) setSelectedSession(autoId);
     } else {
       // Initialize default sessions in database for this school
       const defaultInserts = DEFAULT_SESSIONS.map((s, index) => ({
@@ -579,80 +565,7 @@ export default function Boarding() {
     }
   };
 
-  const handleAddSession = async () => {
-    if (!newSessionLabel.trim() || !currentSchool) return;
-    
-    const newSessionId = `session_${Date.now()}`;
-    const newSession: BoardingSession = {
-      id: newSessionId,
-      label: newSessionLabel.trim(),
-    };
-
-    // Save to database
-    const { error } = await supabase.from('attendance_sessions').insert({
-      school_id: currentSchool.id,
-      session_type: 'boarding',
-      session_id: newSessionId,
-      label: newSessionLabel.trim(),
-      display_order: sessions.length,
-    });
-
-    if (error) {
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể thêm buổi điểm danh',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setSessions([...sessions, newSession]);
-    setNewSessionLabel('');
-    setIsAddSessionOpen(false);
-    toast({
-      title: 'Đã thêm buổi',
-      description: `Buổi "${newSession.label}" đã được thêm`,
-    });
-  };
-
-  const handleDeleteSession = async (sessionId: string) => {
-    if (!currentSchool) return;
-    
-    if (sessions.length <= 1) {
-      toast({
-        title: 'Không thể xóa',
-        description: 'Phải có ít nhất một buổi điểm danh',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Delete from database
-    const { error } = await supabase
-      .from('attendance_sessions')
-      .delete()
-      .eq('school_id', currentSchool.id)
-      .eq('session_type', 'boarding')
-      .eq('session_id', sessionId);
-
-    if (error) {
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể xóa buổi điểm danh',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setSessions(sessions.filter(s => s.id !== sessionId));
-    if (selectedSession === sessionId) {
-      setSelectedSession('');
-    }
-    toast({
-      title: 'Đã xóa',
-      description: 'Đã xóa buổi điểm danh',
-    });
-  };
+  // Session management is now handled by SessionSettingsDialog
 
   const handleExportSingleReport = (report: SavedReport) => {
     if (!currentSchool) return;
@@ -684,7 +597,7 @@ export default function Boarding() {
       const reportData: AttendanceReportData[] = historyRecords.map(record => ({
         date: record.date,
         session: 'boarding',
-        sessionLabel: detectBoardingSessionLabel(record.reportedAt),
+        sessionLabel: detectSessionLabelByTime(record.reportedAt, sessions),
         reporter: record.reporterName,
         reportTime: format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy'),
         total: record.total,
@@ -897,7 +810,7 @@ export default function Boarding() {
 
               <div>
                 <label className="text-sm text-muted-foreground mb-1.5 block">
-                  Buổi {!selectedSession && <span className="text-xs text-muted-foreground">(tự động nhận: {sessions.find(s => s.id === detectSessionByTime())?.label})</span>}
+                  Buổi {!selectedSession && <span className="text-xs text-muted-foreground">(tự động nhận: {sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label})</span>}
                 </label>
                 <Select value={selectedSession || '__auto__'} onValueChange={(v) => setSelectedSession(v === '__auto__' ? '' : v)}>
                   <SelectTrigger>
@@ -935,6 +848,14 @@ export default function Boarding() {
                   onReporterChange={setSelectedReporterId}
                 />
               )}
+
+              <div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">Cài đặt</label>
+                <Button variant="outline" className="w-full" onClick={() => setIsSessionSettingsOpen(true)}>
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Cài đặt buổi
+                </Button>
+              </div>
 
               <div>
                 <label className="text-sm text-muted-foreground mb-1.5 block">&nbsp;</label>
@@ -1077,7 +998,7 @@ export default function Boarding() {
                   id: `${record.date}_boarding_${Date.now()}`,
                   date: record.date,
                   session: 'boarding',
-                  sessionLabel: detectBoardingSessionLabel(record.reportedAt),
+                  sessionLabel: detectSessionLabelByTime(record.reportedAt, sessions),
                   total: record.total,
                   present: record.present,
                   absent: record.absent,
@@ -1112,28 +1033,16 @@ export default function Boarding() {
         onSave={handleSaveExcuse}
       />
 
-      {/* Add Session Dialog */}
-      <Dialog open={isAddSessionOpen} onOpenChange={setIsAddSessionOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thêm buổi điểm danh</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Tên buổi</Label>
-              <Input
-                value={newSessionLabel}
-                onChange={(e) => setNewSessionLabel(e.target.value)}
-                placeholder="VD: Ca 3, Thể dục sáng..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddSessionOpen(false)}>Hủy</Button>
-            <Button onClick={handleAddSession}>Thêm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Session Settings Dialog */}
+      {currentSchool && (
+        <SessionSettingsDialog
+          open={isSessionSettingsOpen}
+          onOpenChange={setIsSessionSettingsOpen}
+          schoolId={currentSchool.id}
+          sessionType="boarding"
+          onSessionsUpdated={fetchSessions}
+        />
+      )}
 
       {/* Share Report Dialog */}
       {reportToShare && currentSchool && (
@@ -1142,7 +1051,7 @@ export default function Boarding() {
           onOpenChange={setShareDialogOpen}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title="BÁO CÁO ĐIỂM DANH NỘI TRÚ"
+          title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || detectSessionByTimeConfig(sessions)))?.label || 'ĐIỂM DANH NỘI TRÚ').toUpperCase()}`}
         />
       )}
     </div>
