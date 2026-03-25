@@ -850,6 +850,14 @@ export default function Boarding() {
               )}
 
               <div>
+                <label className="text-sm text-muted-foreground mb-1.5 block">Cài đặt</label>
+                <Button variant="outline" className="w-full" onClick={() => setIsSessionSettingsOpen(true)}>
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Cài đặt buổi
+                </Button>
+              </div>
+
+              <div>
                 <label className="text-sm text-muted-foreground mb-1.5 block">&nbsp;</label>
                 <Button 
                   variant="outline" 
