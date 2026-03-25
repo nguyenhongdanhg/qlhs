@@ -244,6 +244,8 @@ export default function DormitoryExit() {
       setSelectedStudents([]);
       setExitTime('');
       setReturnTime('');
+      setExitDate(new Date());
+      setReturnDate(new Date());
       setReason('');
       fetchRequests();
     } catch (error: any) {
