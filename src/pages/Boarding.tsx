@@ -990,7 +990,7 @@ export default function Boarding() {
                   id: `${record.date}_boarding_${Date.now()}`,
                   date: record.date,
                   session: 'boarding',
-                  sessionLabel: detectBoardingSessionLabel(record.reportedAt),
+                  sessionLabel: detectSessionLabelByTime(record.reportedAt, sessions),
                   total: record.total,
                   present: record.present,
                   absent: record.absent,
