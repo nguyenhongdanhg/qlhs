@@ -174,9 +174,8 @@ export default function Boarding() {
   const [isExcuseDialogOpen, setIsExcuseDialogOpen] = useState(false);
   const [selectedStudentForExcuse, setSelectedStudentForExcuse] = useState<Student | null>(null);
 
-  // Add session dialog
-  const [isAddSessionOpen, setIsAddSessionOpen] = useState(false);
-  const [newSessionLabel, setNewSessionLabel] = useState('');
+  // Session settings dialog
+  const [isSessionSettingsOpen, setIsSessionSettingsOpen] = useState(false);
 
   // Validation warnings
   const [showWarnings, setShowWarnings] = useState(false);
