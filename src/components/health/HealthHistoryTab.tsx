@@ -280,6 +280,7 @@ export function HealthHistoryTab({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">Lịch sử chăm sóc sức khỏe</CardTitle>
           <div className="flex flex-wrap gap-2">
+            {canDelete && (
             <Button
               variant={showTrash ? 'default' : 'outline'}
               size="sm"
