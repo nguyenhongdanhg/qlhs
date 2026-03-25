@@ -810,7 +810,7 @@ export default function Boarding() {
 
               <div>
                 <label className="text-sm text-muted-foreground mb-1.5 block">
-                  Buổi {!selectedSession && <span className="text-xs text-muted-foreground">(tự động nhận: {sessions.find(s => s.id === detectSessionByTime())?.label})</span>}
+                  Buổi {!selectedSession && <span className="text-xs text-muted-foreground">(tự động nhận: {sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label})</span>}
                 </label>
                 <Select value={selectedSession || '__auto__'} onValueChange={(v) => setSelectedSession(v === '__auto__' ? '' : v)}>
                   <SelectTrigger>
