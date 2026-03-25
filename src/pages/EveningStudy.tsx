@@ -227,7 +227,7 @@ export default function EveningStudy() {
     }
 
     if (data && data.length > 0) {
-      const loadedSessions = data.map(s => ({ id: s.session_id, label: s.label }));
+      const loadedSessions = data.map(s => ({ id: s.session_id, label: s.label, start_time: (s as any).start_time, end_time: (s as any).end_time }));
       setSessions(loadedSessions);
       // Auto-select if only 1 session
       if (loadedSessions.length === 1) {
