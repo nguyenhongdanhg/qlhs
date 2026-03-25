@@ -1443,20 +1443,36 @@ export default function Statistics() {
             <div className="flex items-center gap-2">
               {/* Show Finalize button when: has unreported classes + user can supplement + not class teacher */}
               {!isClassTeacher && canSupplementReports && hasUnreportedClasses && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-7 text-xs gap-1"
-                  onClick={() => handleFinalizeMeal(mealType, stats.classesNotReported)}
-                  disabled={isFinalizingThisMeal}
-                >
-                  {isFinalizingThisMeal ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Lock className="h-3 w-3" />
-                  )}
-                  Chốt ({stats.classesNotReported.length} lớp)
-                </Button>
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => handleFinalizeMeal(mealType, stats.classesNotReported)}
+                    disabled={isFinalizingThisMeal}
+                  >
+                    {isFinalizingThisMeal ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Lock className="h-3 w-3" />
+                    )}
+                    Chốt ({stats.classesNotReported.length} lớp)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1 text-success border-success/30 hover:bg-success/10"
+                    onClick={() => handleFinalizeMeal(mealType, stats.classesNotReported)}
+                    disabled={isFinalizingThisMeal}
+                  >
+                    {isFinalizingThisMeal ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3 w-3" />
+                    )}
+                    Còn lại đủ
+                  </Button>
+                </>
               )}
               {stats.hasReport && !isClassTeacher && canSupplementReports && (
                 <Button
