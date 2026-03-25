@@ -1051,7 +1051,7 @@ export default function Boarding() {
           onOpenChange={setShareDialogOpen}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title="BÁO CÁO ĐIỂM DANH NỘI TRÚ"
+          title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || detectSessionByTimeConfig(sessions)))?.label || 'ĐIỂM DANH NỘI TRÚ').toUpperCase()}`}
         />
       )}
     </div>

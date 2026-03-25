@@ -1058,7 +1058,7 @@ export default function EveningStudy() {
           onOpenChange={setShareDialogOpen}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title="BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI"
+          title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || sessions[0]?.id))?.label || 'ĐIỂM DANH TỰ HỌC').toUpperCase()}`}
         />
       )}
     </div>
