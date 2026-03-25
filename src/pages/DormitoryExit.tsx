@@ -31,6 +31,8 @@ interface ExitRequest {
   student_id: string;
   class_id: string | null;
   request_date: string;
+  exit_date: string | null;
+  return_date: string | null;
   exit_time: string;
   expected_return_time: string;
   reason: string | null;
@@ -71,6 +73,8 @@ export default function DormitoryExit() {
   const [returnTime, setReturnTime] = useState('');
   const [reason, setReason] = useState('');
   const [requestDate, setRequestDate] = useState<Date>(new Date());
+  const [exitDate, setExitDate] = useState<Date>(new Date());
+  const [returnDate, setReturnDate] = useState<Date>(new Date());
   const [isSaving, setIsSaving] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
 
@@ -226,7 +230,9 @@ export default function DormitoryExit() {
           school_id: currentSchool.id,
           student_id: studentId,
           class_id: student?.class_id || null,
-          request_date: format(requestDate, 'yyyy-MM-dd'),
+          request_date: format(exitDate, 'yyyy-MM-dd'),
+          exit_date: format(exitDate, 'yyyy-MM-dd'),
+          return_date: format(returnDate, 'yyyy-MM-dd'),
           exit_time: exitTime,
           expected_return_time: returnTime,
           reason: reason || null,
@@ -240,6 +246,8 @@ export default function DormitoryExit() {
       setSelectedStudents([]);
       setExitTime('');
       setReturnTime('');
+      setExitDate(new Date());
+      setReturnDate(new Date());
       setReason('');
       fetchRequests();
     } catch (error: any) {
@@ -287,7 +295,7 @@ export default function DormitoryExit() {
       attendance_type: type,
       status: 'excused' as const,
       excused_reason: 'RP',
-      notes: `Ra ngoài KTX: ${request.exit_time?.slice(0,5)} - ${request.expected_return_time?.slice(0,5)}${request.reason ? ` (${request.reason})` : ''}`,
+      notes: `Ra ngoài KTX: ${request.exit_date || request.request_date} ${request.exit_time?.slice(0,5)} - ${request.return_date || request.request_date} ${request.expected_return_time?.slice(0,5)}${request.reason ? ` (${request.reason})` : ''}`,
       reporter_id: user.id,
     }));
     await supabase.from('attendance_records').insert(records);
@@ -401,9 +409,10 @@ export default function DormitoryExit() {
       'STT': i + 1,
       'Họ và tên': r.student?.full_name || '',
       'Lớp': r.class?.name || '',
-      'Ngày': format(new Date(r.request_date), 'dd/MM/yyyy'),
+      'Ngày ra': r.exit_date ? format(new Date(r.exit_date), 'dd/MM/yyyy') : format(new Date(r.request_date), 'dd/MM/yyyy'),
       'Giờ ra': r.exit_time?.slice(0, 5) || '',
-      'Giờ về': r.expected_return_time?.slice(0, 5) || '',
+      'Ngày vào': r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
+      'Giờ vào': r.expected_return_time?.slice(0, 5) || '',
       'Lý do': r.reason || '',
       'GVCN': r.requester?.full_name || '',
       'Người duyệt': r.approver?.full_name || '',
@@ -411,7 +420,7 @@ export default function DormitoryExit() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ra vào KTX');
-    ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
+    ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
     const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     XLSX.writeFile(wb, `Ra_vao_KTX_${rangeLabel}.xlsx`);
     toast({ title: 'Đã xuất Excel' });
@@ -429,6 +438,17 @@ export default function DormitoryExit() {
     return classes.find(c => c.id === classId)?.name || '';
   };
 
+  // Helper to format exit/return date-time display
+  const formatExitReturn = (req: ExitRequest) => {
+    const eDateStr = req.exit_date ? format(new Date(req.exit_date), 'dd/MM') : format(new Date(req.request_date), 'dd/MM');
+    const rDateStr = req.return_date ? format(new Date(req.return_date), 'dd/MM') : eDateStr;
+    const eTime = req.exit_time?.slice(0, 5) || '';
+    const rTime = req.expected_return_time?.slice(0, 5) || '';
+    const sameDate = eDateStr === rDateStr;
+    if (sameDate) return `${eDateStr} ${eTime} → ${rTime}`;
+    return `${eDateStr} ${eTime} → ${rDateStr} ${rTime}`;
+  };
+
   const dateLabel = filterRange === 'day'
     ? format(selectedDate, 'EEEE, dd/MM/yyyy', { locale: vi })
     : filterRange === 'week'
@@ -438,8 +458,8 @@ export default function DormitoryExit() {
   const imageStudents = approvedRequests.map(r => ({
     name: r.student?.full_name || '',
     className: r.class?.name || '',
-    exitTime: r.exit_time?.slice(0, 5) || '',
-    returnTime: r.expected_return_time?.slice(0, 5) || '',
+    exitTime: `${r.exit_date ? format(new Date(r.exit_date), 'dd/MM') + ' ' : ''}${r.exit_time?.slice(0, 5) || ''}`,
+    returnTime: `${r.return_date ? format(new Date(r.return_date), 'dd/MM') + ' ' : ''}${r.expected_return_time?.slice(0, 5) || ''}`,
     reason: r.reason || undefined,
   }));
 
@@ -601,8 +621,7 @@ export default function DormitoryExit() {
                           <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />{format(new Date(req.request_date), 'dd/MM')}</span>
-                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}</span>
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatExitReturn(req)}</span>
                         </div>
                         {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
                         <p className="text-[10px] text-muted-foreground mt-1">GVCN: {req.requester?.full_name}</p>
@@ -659,7 +678,7 @@ export default function DormitoryExit() {
                             <div className="flex-1 min-w-0">
                               <span className="font-medium">{req.student?.full_name}</span>
                               <span className="text-muted-foreground ml-2">
-                                {req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}
+                                {formatExitReturn(req)}
                               </span>
                               {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
                             </div>
@@ -697,8 +716,7 @@ export default function DormitoryExit() {
                       <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span>{format(new Date(req.request_date), 'dd/MM')}</span>
-                      <span>{req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}</span>
+                      <span>{formatExitReturn(req)}</span>
                     </div>
                     {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
                     {req.rejection_reason && (
@@ -726,26 +744,38 @@ export default function DormitoryExit() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-sm">Ngày</Label>
+                <Label className="text-sm">Ngày ra</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(requestDate, 'dd/MM/yyyy')}
+                      {format(exitDate, 'dd/MM/yyyy')}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={requestDate} onSelect={(d) => d && setRequestDate(d)} locale={vi} /></PopoverContent>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={exitDate} onSelect={(d) => { if (d) { setExitDate(d); if (d > returnDate) setReturnDate(d); }}} locale={vi} className="pointer-events-auto" /></PopoverContent>
                 </Popover>
               </div>
-              <div className="space-y-2">
-                <div>
-                  <Label className="text-sm">Giờ ra</Label>
-                  <Input type="time" value={exitTime} onChange={(e) => setExitTime(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label className="text-sm">Giờ về dự kiến</Label>
-                  <Input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="mt-1" />
-                </div>
+              <div>
+                <Label className="text-sm">Giờ ra</Label>
+                <Input type="time" value={exitTime} onChange={(e) => setExitTime(e.target.value)} className="mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-sm">Ngày vào</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(returnDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={returnDate} onSelect={(d) => d && setReturnDate(d)} locale={vi} className="pointer-events-auto" /></PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-sm">Giờ vào</Label>
+                <Input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="mt-1" />
               </div>
             </div>
             <div>
