@@ -1025,28 +1025,16 @@ export default function Boarding() {
         onSave={handleSaveExcuse}
       />
 
-      {/* Add Session Dialog */}
-      <Dialog open={isAddSessionOpen} onOpenChange={setIsAddSessionOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thêm buổi điểm danh</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Tên buổi</Label>
-              <Input
-                value={newSessionLabel}
-                onChange={(e) => setNewSessionLabel(e.target.value)}
-                placeholder="VD: Ca 3, Thể dục sáng..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddSessionOpen(false)}>Hủy</Button>
-            <Button onClick={handleAddSession}>Thêm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Session Settings Dialog */}
+      {currentSchool && (
+        <SessionSettingsDialog
+          open={isSessionSettingsOpen}
+          onOpenChange={setIsSessionSettingsOpen}
+          schoolId={currentSchool.id}
+          sessionType="boarding"
+          onSessionsUpdated={fetchSessions}
+        />
+      )}
 
       {/* Share Report Dialog */}
       {reportToShare && currentSchool && (
