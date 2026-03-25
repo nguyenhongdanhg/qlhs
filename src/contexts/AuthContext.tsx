@@ -76,17 +76,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Restore saved school from localStorage
       const savedSchoolId = localStorage.getItem('currentSchoolId');
+      let schoolRestored = false;
+      
       if (savedSchoolId && typedMemberships.length > 0) {
         const savedMembership = typedMemberships.find(m => m.school_id === savedSchoolId);
         if (savedMembership) {
           setCurrentSchool(savedMembership.school || null);
           setCurrentMembership(savedMembership);
+          schoolRestored = true;
         }
-      } else if (typedMemberships.length === 1) {
-        // Auto-select if only one school
+      }
+      
+      // Auto-select if only one school and no school was restored
+      if (!schoolRestored && typedMemberships.length === 1) {
         setCurrentSchool(typedMemberships[0].school || null);
         setCurrentMembership(typedMemberships[0]);
         localStorage.setItem('currentSchoolId', typedMemberships[0].school_id);
+      } else if (!schoolRestored && savedSchoolId) {
+        // Clear stale savedSchoolId that doesn't match any membership
+        localStorage.removeItem('currentSchoolId');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
