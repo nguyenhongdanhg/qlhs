@@ -295,7 +295,7 @@ export default function DormitoryExit() {
       attendance_type: type,
       status: 'excused' as const,
       excused_reason: 'RP',
-      notes: `Ra ngoài KTX: ${request.exit_time?.slice(0,5)} - ${request.expected_return_time?.slice(0,5)}${request.reason ? ` (${request.reason})` : ''}`,
+      notes: `Ra ngoài KTX: ${request.exit_date || request.request_date} ${request.exit_time?.slice(0,5)} - ${request.return_date || request.request_date} ${request.expected_return_time?.slice(0,5)}${request.reason ? ` (${request.reason})` : ''}`,
       reporter_id: user.id,
     }));
     await supabase.from('attendance_records').insert(records);
