@@ -311,15 +311,8 @@ export default function EveningStudy() {
         const dateStr = record.attendance_date;
         if (!reportsByDate.has(dateStr)) {
           const reporterName = record.reporter?.full_name || 'N/A';
-          const detectStudyLabel = (reportedAt: string): string => {
-            const d = new Date(reportedAt);
-            const h = d.getHours();
-            const m = d.getMinutes();
-            const t = h * 60 + m;
-            if (t >= 420 && t < 660) return 'Tự học sáng';
-            if (t >= 810 && t < 1020) return 'Tự học chiều';
-            if (t >= 1140 && t <= 1380) return 'Tự học tối';
-            return 'Tự học';
+           const detectStudyLabel = (reportedAt: string): string => {
+            return detectSessionLabelByTime(reportedAt, sessions);
           };
           reportsByDate.set(dateStr, {
             id: `${dateStr}_evening_study`,
