@@ -262,7 +262,11 @@ export default function Boarding() {
     }
 
     if (data && data.length > 0) {
-      setSessions(data.map(s => ({ id: s.session_id, label: s.label })));
+      const loadedSessions = data.map(s => ({ id: s.session_id, label: s.label, start_time: (s as any).start_time, end_time: (s as any).end_time }));
+      setSessions(loadedSessions);
+      // Auto-select based on time
+      const autoId = detectSessionByTimeConfig(loadedSessions);
+      if (autoId) setSelectedSession(autoId);
     } else {
       // Initialize default sessions in database for this school
       const defaultInserts = DEFAULT_SESSIONS.map((s, index) => ({
