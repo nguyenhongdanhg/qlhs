@@ -86,7 +86,7 @@ import {
 type AttendanceMap = Record<string, AttendanceStatus>;
 type ExcuseInfo = { excused: boolean; reason: string };
 type ExcuseMap = Record<string, ExcuseInfo>;
-type BoardingSession = { id: string; label: string };
+type BoardingSession = { id: string; label: string; start_time?: string | null; end_time?: string | null };
 
 const DEFAULT_SESSIONS: BoardingSession[] = [
   { id: 'morning', label: 'Điểm danh thể dục buổi sáng' },
