@@ -95,34 +95,15 @@ const DEFAULT_SESSIONS: BoardingSession[] = [
   { id: 'emergency', label: 'Đột xuất' },
 ];
 
-// Auto-detect session based on time
+// Auto-detect session based on time (uses configured sessions)
 const detectSessionByTime = (): string => {
-  const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const time = hours * 60 + minutes; // Convert to minutes for easier comparison
-  
-  // 6:00 - 11:00 -> Sáng
-  if (time >= 360 && time < 660) return 'morning';
-  // 11:00 - 14:00 -> Trưa
-  if (time >= 660 && time < 840) return 'noon';
-  // 18:00 - 23:59 -> Tối
-  if (time >= 1080 && time <= 1439) return 'night';
-  // Other times -> Đột xuất
-  return 'emergency';
+  // This is now a placeholder; actual detection uses detectSessionByTimeConfig
+  return 'morning';
 };
 
-// Detect boarding session label from a report timestamp
+// Detect boarding session label from a report timestamp (placeholder, uses DB sessions)
 const detectBoardingSessionLabel = (reportedAt: string): string => {
-  const date = new Date(reportedAt);
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const time = hours * 60 + minutes;
-  
-  if (time >= 360 && time < 660) return 'Điểm danh thể dục buổi sáng';
-  if (time >= 660 && time < 840) return 'Điểm danh giờ ngủ trưa';
-  if (time >= 1080 && time <= 1439) return 'Điểm danh giờ ngủ tối';
-  return 'Đột xuất';
+  return 'Điểm danh';
 };
 
 // Database-based history record (replaces localStorage SavedReport)
