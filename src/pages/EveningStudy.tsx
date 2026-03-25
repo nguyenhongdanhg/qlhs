@@ -862,10 +862,10 @@ export default function EveningStudy() {
               )}
 
               <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">Quản lý ca</label>
-                <Button variant="outline" className="w-full" onClick={() => setIsAddSessionOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Thêm ca học
+                <label className="text-sm text-muted-foreground mb-1.5 block">Cài đặt ca</label>
+                <Button variant="outline" className="w-full" onClick={() => setIsSessionSettingsOpen(true)}>
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Cài đặt ca học
                 </Button>
               </div>
 
