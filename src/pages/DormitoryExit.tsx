@@ -677,7 +677,7 @@ export default function DormitoryExit() {
                             <div className="flex-1 min-w-0">
                               <span className="font-medium">{req.student?.full_name}</span>
                               <span className="text-muted-foreground ml-2">
-                                {req.exit_time?.slice(0, 5)} → {req.expected_return_time?.slice(0, 5)}
+                                {formatExitReturn(req)}
                               </span>
                               {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
                             </div>
