@@ -33,6 +33,7 @@ import {
   RefreshCw,
   Lock,
   CalendarOff,
+  CheckCircle2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
