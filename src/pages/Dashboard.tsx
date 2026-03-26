@@ -693,9 +693,23 @@ export default function Dashboard() {
                   {dutyToday && dutyToday.length > 0 ? (
                     <div className="space-y-1.5">
                       {dutyToday.slice(0, 4).map((person, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm bg-muted/50 rounded px-2 py-1.5">
-                          <UserCheck className="h-4 w-4 text-primary shrink-0" />
-                          <span className="font-medium truncate">{person.fullName}</span>
+                        <div key={i} className={cn(
+                          "flex items-center gap-2 text-sm rounded px-2 py-1.5",
+                          person.isLeader 
+                            ? "bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800" 
+                            : "bg-muted/50"
+                        )}>
+                          {person.isLeader ? (
+                            <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                          ) : (
+                            <UserCheck className="h-4 w-4 text-primary shrink-0" />
+                          )}
+                          <span className={cn("font-medium truncate", person.isLeader && "text-amber-700 dark:text-amber-300")}>{person.fullName}</span>
+                          {person.isLeader && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-300 text-amber-600 dark:text-amber-400 ml-auto shrink-0">
+                              LĐ trực
+                            </Badge>
+                          )}
                         </div>
                       ))}
                       {dutyToday.length > 4 && (
