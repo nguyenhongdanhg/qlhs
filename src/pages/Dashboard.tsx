@@ -67,6 +67,7 @@ interface DutyPerson {
   id: string;
   fullName: string;
   shift?: string;
+  isLeader?: boolean;
 }
 
 export default function Dashboard() {
