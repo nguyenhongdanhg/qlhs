@@ -1980,9 +1980,9 @@ export default function DutySchedule() {
                       {(() => {
                         const leader = dutyLeaders.find(l => l.duty_date === format(day, 'yyyy-MM-dd'));
                         return leader ? (
-                          <div className="flex items-center gap-1 mb-1 text-[10px] text-amber-700 dark:text-amber-300">
-                            <Shield className="h-3 w-3" />
-                            <span className="truncate font-medium">{leader.profile?.full_name?.split(' ').pop()}</span>
+                          <div className="flex items-center gap-1 mb-1.5 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                            <Shield className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{leader.profile?.full_name?.split(' ').pop()}</span>
                           </div>
                         ) : null;
                       })()}
