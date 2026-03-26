@@ -327,17 +327,29 @@ export default function Dashboard() {
     queryKey: ['dashboard-duty', currentSchool?.id, dutyDateStr],
     queryFn: async (): Promise<DutyPerson[]> => {
       if (!currentSchool) return [];
-      const { data: schedules } = await supabase
-        .from('duty_schedules')
-        .select(`user_id, shift, profile:profiles!inner(id, full_name)`)
-        .eq('school_id', currentSchool.id)
-        .eq('duty_date', dutyDateStr);
-      if (!schedules) return [];
-      return schedules.map((s: any) => ({
+      const [schedulesRes, leadersRes] = await Promise.all([
+        supabase
+          .from('duty_schedules')
+          .select(`user_id, shift, profile:profiles!inner(id, full_name)`)
+          .eq('school_id', currentSchool.id)
+          .eq('duty_date', dutyDateStr),
+        supabase
+          .from('duty_leaders')
+          .select('user_id')
+          .eq('school_id', currentSchool.id)
+          .eq('duty_date', dutyDateStr)
+          .maybeSingle(),
+      ]);
+      if (!schedulesRes.data) return [];
+      const leaderId = leadersRes.data?.user_id;
+      const persons = schedulesRes.data.map((s: any) => ({
         id: s.user_id,
         fullName: s.profile?.full_name || 'N/A',
         shift: s.shift,
+        isLeader: s.user_id === leaderId,
       }));
+      // Sort leader first
+      return persons.sort((a, b) => (b.isLeader ? 1 : 0) - (a.isLeader ? 1 : 0));
     },
     enabled: !!currentSchool,
     staleTime: 1000 * 60 * 5,
