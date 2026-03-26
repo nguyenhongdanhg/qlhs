@@ -352,8 +352,8 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
 
           {/* Note about applying */}
           {hasChanges && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-sm text-destructive">
                 ⚠️ Nhấn <strong>"Lưu & Áp dụng"</strong> để công thức mới được áp dụng ngay vào bảng thi đua.
               </p>
             </div>
