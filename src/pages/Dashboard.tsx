@@ -20,6 +20,7 @@ import {
   Moon,
   Sun,
   Sunset,
+  Shield,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, isWithinInterval, parseISO, formatDistanceToNow } from 'date-fns';
