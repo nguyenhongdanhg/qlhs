@@ -17,34 +17,15 @@ import { toast } from '@/hooks/use-toast';
 import { naturalSortCompare } from '@/lib/utils';
 import { WeekSettingsDialog } from '@/components/emulation/WeekSettingsDialog';
 import { useCurrentWeek } from '@/hooks/useCurrentWeek';
-
+import { useEmulationFormula, DEFAULT_COLUMNS } from '@/hooks/useEmulationFormula';
 import { EmulationExportDialog } from '@/components/emulation/EmulationExportDialog';
 import { EmulationFormulaTab } from '@/components/emulation/EmulationFormulaTab';
-
-interface EmulationScore {
-  id?: string;
-  school_id: string;
-  class_id: string;
-  week_number: number;
-  school_year: string;
-  academic_score: number;
-  discipline_score: number;
-  boarding_score: number;
-  notes?: string;
-  class?: {
-    id: string;
-    name: string;
-    grade: number;
-  };
-}
 
 interface ClassWithScore {
   class_id: string;
   class_name: string;
   grade: number;
-  academic_score: number;
-  discipline_score: number;
-  boarding_score: number;
+  scores: Record<string, number>; // column_key -> value
   average_score: number;
   rank: number;
   hasData: boolean;
@@ -58,8 +39,7 @@ export default function Emulation() {
   
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth() + 1; // 1-12
-  // School year starts in September: Aug and before = previous year start
+  const currentMonth = currentDate.getMonth() + 1;
   const startYear = currentMonth >= 9 ? currentYear : currentYear - 1;
   const schoolYear = `${startYear}-${startYear + 1}`;
   
@@ -68,29 +48,43 @@ export default function Emulation() {
     schoolYear
   );
   
+  const { columns: formulaColumns, isCustom: hasCustomFormula, calculateScore, getFormulaString } = useEmulationFormula(currentSchool?.id);
+  
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [activeTab, setActiveTab] = useState('weekly');
-  const [editingScores, setEditingScores] = useState<Record<string, Partial<EmulationScore>>>({});
-  // Store raw string values for inputs to preserve decimal formatting
+  // Dynamic editing: key = classId, value = { columnKey: numericValue }
+  const [editingScores, setEditingScores] = useState<Record<string, Record<string, number | string>>>({});
   const [inputValues, setInputValues] = useState<Record<string, Record<string, string>>>({});
-  // Track which rows were changed so saving never "jumps" to wrong rows
   const [dirtyRows, setDirtyRows] = useState<Record<string, true>>({});
   
-  // Period calculation state
   const [periodFromWeek, setPeriodFromWeek] = useState(1);
   const [periodToWeek, setPeriodToWeek] = useState(1);
   const [periodAverages, setPeriodAverages] = useState<ClassWithScore[] | null>(null);
 
   const canEdit = isSuperAdmin || isSchoolAdmin() || hasPermission('emulation', 'edit');
   
-  // Auto-select current week when loaded
+  // Determine which columns to show
+  const displayColumns = useMemo(() => {
+    if (hasCustomFormula && formulaColumns.length > 0) {
+      return formulaColumns.map(col => ({
+        key: col.id,
+        name: col.column_name,
+        weight: col.weight,
+      }));
+    }
+    return DEFAULT_COLUMNS.map(col => ({
+      key: col.key,
+      name: col.column_name,
+      weight: col.weight,
+    }));
+  }, [hasCustomFormula, formulaColumns]);
+  
   useEffect(() => {
     if (currentWeek > 0) {
       setSelectedWeek(currentWeek);
     }
   }, [currentWeek]);
   
-  // Get date range for selected week
   const selectedWeekDateRange = getWeekDateRange(selectedWeek);
   
   const formatWeekDateRange = (weekNum: number) => {
@@ -99,7 +93,6 @@ export default function Emulation() {
     return `${format(parseISO(range.start), 'dd/MM')} - ${format(parseISO(range.end), 'dd/MM')}`;
   };
 
-  // Fetch classes
   const { data: classes = [] } = useQuery({
     queryKey: ['classes', currentSchool?.id],
     queryFn: async () => {
@@ -110,14 +103,12 @@ export default function Emulation() {
         .eq('school_id', currentSchool.id)
         .eq('is_active', true)
         .order('grade', { ascending: true });
-      
       if (error) throw error;
       return data || [];
     },
     enabled: !!currentSchool?.id,
   });
 
-  // Fetch scores for selected week
   const { data: weeklyScores = [], isLoading, refetch } = useQuery({
     queryKey: ['emulation-scores', currentSchool?.id, selectedWeek, schoolYear],
     queryFn: async () => {
@@ -128,72 +119,93 @@ export default function Emulation() {
         .eq('school_id', currentSchool.id)
         .eq('week_number', selectedWeek)
         .eq('school_year', schoolYear);
-      
       if (error) throw error;
       return data || [];
     },
     enabled: !!currentSchool?.id,
   });
 
-  // Calculate average and ranking
+  // Helper: extract score value for a column key from a DB record
+  const getScoreFromRecord = (record: any, colKey: string): number => {
+    // Check custom_scores first (for custom columns)
+    if (record?.custom_scores && record.custom_scores[colKey] !== undefined) {
+      return Number(record.custom_scores[colKey]) || 0;
+    }
+    // Fall back to legacy columns
+    if (record?.[colKey] !== undefined) {
+      return Number(record[colKey]) || 0;
+    }
+    return 0;
+  };
+
   const classesWithScores: ClassWithScore[] = useMemo(() => {
     const sortedClasses = [...classes].sort((a, b) => naturalSortCompare(a.name, b.name));
     
     const result = sortedClasses.map((cls) => {
-      const score = weeklyScores.find((s) => s.class_id === cls.id);
+      const record = weeklyScores.find((s) => s.class_id === cls.id);
       const editing = editingScores[cls.id];
       
-      const academic = editing?.academic_score ?? score?.academic_score ?? 0;
-      const discipline = editing?.discipline_score ?? score?.discipline_score ?? 0;
-      const boarding = editing?.boarding_score ?? score?.boarding_score ?? 0;
-      const notes = editing?.notes ?? score?.notes ?? '';
+      const scores: Record<string, number> = {};
+      displayColumns.forEach(col => {
+        const editVal = editing?.[col.key];
+        if (editVal !== undefined) {
+          scores[col.key] = Number(editVal) || 0;
+        } else {
+          scores[col.key] = getScoreFromRecord(record, col.key);
+        }
+      });
       
-      // Formula: (Academic * 2 + Discipline + Boarding) / 4
-      const average = (academic * 2 + discipline + boarding) / 4;
+      const notes = (editing?.notes as string) ?? record?.notes ?? '';
+      const average = calculateScore(scores);
       
       return {
         class_id: cls.id,
         class_name: cls.name,
         grade: cls.grade,
-        academic_score: academic,
-        discipline_score: discipline,
-        boarding_score: boarding,
+        scores,
         average_score: Math.round(average * 100) / 100,
         rank: 0,
-        hasData: !!score || !!editing,
+        hasData: !!record || !!editing,
         notes,
       };
     });
     
-    // Sort by average score descending for ranking
     const sorted = [...result].sort((a, b) => b.average_score - a.average_score);
     sorted.forEach((item, index) => {
       item.rank = item.average_score > 0 ? index + 1 : 0;
     });
     
-    // Return in original class order with ranks assigned
     return result.map((item) => ({
       ...item,
       rank: sorted.find((s) => s.class_id === item.class_id)?.rank || 0,
     }));
-  }, [classes, weeklyScores, editingScores]);
+  }, [classes, weeklyScores, editingScores, displayColumns, calculateScore]);
 
-  // Save mutation
   const saveMutation = useMutation({
-    mutationFn: async (scores: EmulationScore[]) => {
-      for (const score of scores) {
-        const existing = weeklyScores.find((s) => s.class_id === score.class_id);
+    mutationFn: async (scoresToSave: { classId: string; scores: Record<string, number>; notes?: string }[]) => {
+      for (const item of scoresToSave) {
+        const existing = weeklyScores.find((s) => s.class_id === item.classId);
+        
+        // Build the update/insert payload
+        const payload: any = {
+          reporter_id: user?.id,
+          notes: item.notes,
+        };
+
+        if (hasCustomFormula) {
+          // Store in custom_scores JSONB
+          payload.custom_scores = item.scores;
+        } else {
+          // Store in legacy columns
+          payload.academic_score = item.scores['academic_score'] ?? 0;
+          payload.discipline_score = item.scores['discipline_score'] ?? 0;
+          payload.boarding_score = item.scores['boarding_score'] ?? 0;
+        }
         
         if (existing) {
           const { error } = await supabase
             .from('emulation_scores')
-            .update({
-              academic_score: score.academic_score,
-              discipline_score: score.discipline_score,
-              boarding_score: score.boarding_score,
-              notes: score.notes,
-              reporter_id: user?.id,
-            })
+            .update(payload)
             .eq('id', existing.id);
           if (error) throw error;
         } else {
@@ -201,14 +213,10 @@ export default function Emulation() {
             .from('emulation_scores')
             .insert({
               school_id: currentSchool!.id,
-              class_id: score.class_id,
+              class_id: item.classId,
               week_number: selectedWeek,
               school_year: schoolYear,
-              academic_score: score.academic_score,
-              discipline_score: score.discipline_score,
-              boarding_score: score.boarding_score,
-              notes: score.notes,
-              reporter_id: user?.id,
+              ...payload,
             });
           if (error) throw error;
         }
@@ -227,8 +235,6 @@ export default function Emulation() {
   });
 
   const normalizeDecimalInput = (raw: string) => {
-    // Allow both "," and "." as decimal separators.
-    // Keep at most one dot in the value.
     const replaced = raw.replace(/,/g, '.');
     const cleaned = replaced.replace(/[^0-9.\-]/g, '');
     const firstDotIndex = cleaned.indexOf('.');
@@ -242,103 +248,73 @@ export default function Emulation() {
     setDirtyRows((prev) => (prev[classId] ? prev : { ...prev, [classId]: true }));
   };
 
-  const handleScoreChange = (classId: string, field: keyof EmulationScore, value: string) => {
-    if (field === 'notes') {
+  const handleScoreChange = (classId: string, colKey: string, value: string) => {
+    if (colKey === 'notes') {
       markDirty(classId);
       setEditingScores((prev) => ({
         ...prev,
-        [classId]: {
-          ...prev[classId],
-          [field]: value,
-        },
+        [classId]: { ...prev[classId], notes: value },
       }));
     } else {
       markDirty(classId);
-
       const cleanValue = normalizeDecimalInput(value);
       
-      // Store raw string value for display
       setInputValues((prev) => ({
         ...prev,
-        [classId]: {
-          ...prev[classId],
-          [field]: cleanValue,
-        },
+        [classId]: { ...prev[classId], [colKey]: cleanValue },
       }));
 
-      // Only update numeric state when value is parseable.
-      // IMPORTANT: do NOT force numeric = 0 while user is temporarily clearing to type,
-      // otherwise clicking Save too quickly can persist 0.
       if (cleanValue !== '') {
         const numValue = parseFloat(cleanValue);
         if (!isNaN(numValue)) {
-          const clampedValue = numValue;
           setEditingScores((prev) => ({
             ...prev,
-            [classId]: {
-              ...prev[classId],
-              [field]: clampedValue,
-            },
+            [classId]: { ...prev[classId], [colKey]: numValue },
           }));
         }
       }
     }
   };
 
-  const handleScoreBlur = (classId: string, field: 'academic_score' | 'discipline_score' | 'boarding_score') => {
-    const inputValue = inputValues[classId]?.[field];
+  const handleScoreBlur = (classId: string, colKey: string) => {
+    const inputValue = inputValues[classId]?.[colKey];
     if (inputValue === '' || inputValue === undefined) {
-      // If empty, set to 0 visually
       setInputValues((prev) => ({
         ...prev,
-        [classId]: {
-          ...prev[classId],
-          [field]: '0',
-        },
+        [classId]: { ...prev[classId], [colKey]: '0' },
       }));
-
-      // Ensure numeric state has a deterministic value after leaving the field
       setEditingScores((prev) => ({
         ...prev,
-        [classId]: {
-          ...prev[classId],
-          [field]: 0,
-        },
+        [classId]: { ...prev[classId], [colKey]: 0 },
       }));
     }
   };
 
   const handleSave = () => {
-    const getScoreForSave = (classId: string, field: 'academic_score' | 'discipline_score' | 'boarding_score') => {
-      // Prefer raw input if present (even if user typed ",")
-      const raw = inputValues[classId]?.[field];
-      if (raw !== undefined) {
-        const normalized = normalizeDecimalInput(raw);
-        if (normalized === '') return 0;
-        const parsed = parseFloat(normalized);
-        if (Number.isFinite(parsed)) return parsed;
-      }
+    const scoresToSave = Object.keys(dirtyRows).map((classId) => {
+      const scores: Record<string, number> = {};
+      displayColumns.forEach(col => {
+        const raw = inputValues[classId]?.[col.key];
+        if (raw !== undefined) {
+          const normalized = normalizeDecimalInput(raw);
+          scores[col.key] = normalized === '' ? 0 : (parseFloat(normalized) || 0);
+        } else {
+          const editing = editingScores[classId]?.[col.key];
+          if (editing !== undefined) {
+            scores[col.key] = Number(editing) || 0;
+          } else {
+            const record = weeklyScores.find((s) => s.class_id === classId);
+            scores[col.key] = getScoreFromRecord(record, col.key);
+          }
+        }
+      });
 
-      const editing = editingScores[classId]?.[field];
-      if (editing !== undefined) return Number(editing) || 0;
-
-      const existing = weeklyScores.find((s) => s.class_id === classId);
-      return existing ? Number(existing[field]) || 0 : 0;
-    };
-
-    const scoresToSave: EmulationScore[] = Object.keys(dirtyRows).map((classId) => {
-      const notes = editingScores[classId]?.notes;
+      const notes = editingScores[classId]?.notes as string | undefined;
       const existing = weeklyScores.find((s) => s.class_id === classId);
 
       return {
-        school_id: currentSchool!.id,
-        class_id: classId,
-        week_number: selectedWeek,
-        school_year: schoolYear,
-        academic_score: getScoreForSave(classId, 'academic_score'),
-        discipline_score: getScoreForSave(classId, 'discipline_score'),
-        boarding_score: getScoreForSave(classId, 'boarding_score'),
-        // If notes isn't edited, keep current notes from DB
+        classId,
+        scores,
         notes: notes !== undefined ? notes : (existing?.notes ?? undefined),
       };
     });
@@ -346,6 +322,24 @@ export default function Emulation() {
     if (scoresToSave.length > 0) {
       saveMutation.mutate(scoresToSave);
     }
+  };
+
+  const getDisplayValue = (classId: string, colKey: string): string => {
+    const inputValue = inputValues[classId]?.[colKey];
+    if (inputValue !== undefined) return inputValue;
+    
+    const editing = editingScores[classId]?.[colKey];
+    if (editing !== undefined) return String(editing);
+    
+    const record = weeklyScores.find((s) => s.class_id === classId);
+    return String(getScoreFromRecord(record, colKey));
+  };
+
+  const getNotesValue = (classId: string) => {
+    const editing = editingScores[classId];
+    if (editing && editing.notes !== undefined) return editing.notes as string;
+    const score = weeklyScores.find((s) => s.class_id === classId);
+    return score?.notes || '';
   };
 
   // Period calculation
@@ -371,80 +365,52 @@ export default function Emulation() {
     const sortedClasses = [...classes].sort((a, b) => naturalSortCompare(a.name, b.name));
 
     const result: ClassWithScore[] = sortedClasses.map((cls) => {
-      const classScores = data?.filter((s) => s.class_id === cls.id) || [];
+      const classRecords = data?.filter((s) => s.class_id === cls.id) || [];
       
-      if (classScores.length === 0) {
+      if (classRecords.length === 0) {
+        const emptyScores: Record<string, number> = {};
+        displayColumns.forEach(col => { emptyScores[col.key] = 0; });
         return {
           class_id: cls.id,
           class_name: cls.name,
           grade: cls.grade,
-          academic_score: 0,
-          discipline_score: 0,
-          boarding_score: 0,
+          scores: emptyScores,
           average_score: 0,
           rank: 0,
           hasData: false,
         };
       }
 
-      const totalAcademic = classScores.reduce((sum, s) => sum + (Number(s.academic_score) || 0), 0);
-      const totalDiscipline = classScores.reduce((sum, s) => sum + (Number(s.discipline_score) || 0), 0);
-      const totalBoarding = classScores.reduce((sum, s) => sum + (Number(s.boarding_score) || 0), 0);
-      
-      const avgAcademic = totalAcademic / classScores.length;
-      const avgDiscipline = totalDiscipline / classScores.length;
-      const avgBoarding = totalBoarding / classScores.length;
-      const avgScore = (avgAcademic * 2 + avgDiscipline + avgBoarding) / 4;
+      // Average each column across weeks
+      const avgScores: Record<string, number> = {};
+      displayColumns.forEach(col => {
+        const total = classRecords.reduce((sum, r) => sum + getScoreFromRecord(r, col.key), 0);
+        avgScores[col.key] = Math.round((total / classRecords.length) * 100) / 100;
+      });
+
+      const avgScore = calculateScore(avgScores);
 
       return {
         class_id: cls.id,
         class_name: cls.name,
         grade: cls.grade,
-        academic_score: Math.round(avgAcademic * 100) / 100,
-        discipline_score: Math.round(avgDiscipline * 100) / 100,
-        boarding_score: Math.round(avgBoarding * 100) / 100,
+        scores: avgScores,
         average_score: Math.round(avgScore * 100) / 100,
         rank: 0,
         hasData: true,
       };
     });
 
-    // Assign ranks
     const sorted = [...result].sort((a, b) => b.average_score - a.average_score);
     sorted.forEach((item, index) => {
       item.rank = item.average_score > 0 ? index + 1 : 0;
     });
-
     result.forEach((item) => {
       item.rank = sorted.find((s) => s.class_id === item.class_id)?.rank || 0;
     });
 
     setPeriodAverages(result);
     toast({ title: `Đã tính trung bình từ tuần ${periodFromWeek} đến tuần ${periodToWeek}` });
-  };
-
-  const getScoreValue = (classId: string, field: 'academic_score' | 'discipline_score' | 'boarding_score'): string => {
-    // First check if there's a raw input value being edited
-    const inputValue = inputValues[classId]?.[field];
-    if (inputValue !== undefined) return inputValue;
-    
-    // Then check editing scores
-    const editing = editingScores[classId];
-    if (editing && editing[field] !== undefined) {
-      return String(editing[field]);
-    }
-    
-    // Finally use saved score from database
-    const score = weeklyScores.find((s) => s.class_id === classId);
-    return score ? String(Number(score[field])) : '0';
-  };
-
-  const getNotesValue = (classId: string) => {
-    const editing = editingScores[classId];
-    if (editing && editing.notes !== undefined) return editing.notes;
-    
-    const score = weeklyScores.find((s) => s.class_id === classId);
-    return score?.notes || '';
   };
 
   const getRankBadgeColor = (rank: number) => {
@@ -455,6 +421,7 @@ export default function Emulation() {
   };
 
   const weekOptions = Array.from({ length: 35 }, (_, i) => i + 1);
+  const totalCols = displayColumns.length + 4; // STT + columns + TB + Rank + Notes
 
   return (
     <div className="space-y-6">
@@ -478,7 +445,7 @@ export default function Emulation() {
         {/* Weekly Tab */}
         <TabsContent value="weekly" className="space-y-4">
           <Card>
-<CardHeader className="pb-3">
+            <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <CardTitle className="text-lg">Bảng điểm thi đua</CardTitle>
@@ -526,7 +493,15 @@ export default function Emulation() {
                       schoolYear={schoolYear}
                       currentWeek={selectedWeek}
                       weekSettings={weekSettings}
-                      currentWeekScores={classesWithScores}
+                      currentWeekScores={classesWithScores.map(cls => ({
+                        class_name: cls.class_name,
+                        academic_score: cls.scores['academic_score'] ?? cls.scores[displayColumns[0]?.key] ?? 0,
+                        discipline_score: cls.scores['discipline_score'] ?? cls.scores[displayColumns[1]?.key] ?? 0,
+                        boarding_score: cls.scores['boarding_score'] ?? cls.scores[displayColumns[2]?.key] ?? 0,
+                        average_score: cls.average_score,
+                        rank: cls.rank,
+                        notes: cls.notes,
+                      }))}
                       currentWeekDateRange={selectedWeekDateRange}
                       classes={classes}
                     />
@@ -552,9 +527,14 @@ export default function Emulation() {
                     <TableRow>
                       <TableHead className="w-[50px] text-center">STT</TableHead>
                       <TableHead className="w-[80px]">Lớp</TableHead>
-                      <TableHead className="text-center w-[80px]">Học tập</TableHead>
-                      <TableHead className="text-center w-[80px]">Nề nếp</TableHead>
-                      <TableHead className="text-center w-[80px]">Nội trú</TableHead>
+                      {displayColumns.map(col => (
+                        <TableHead key={col.key} className="text-center w-[80px]">
+                          {col.name}
+                          {col.weight !== 1 && (
+                            <span className="text-xs text-muted-foreground ml-1">(×{col.weight})</span>
+                          )}
+                        </TableHead>
+                      ))}
                       <TableHead className="text-center w-[70px]">TB</TableHead>
                       <TableHead className="text-center w-[70px]">Xếp hạng</TableHead>
                       <TableHead className="min-w-[150px]">Ghi chú</TableHead>
@@ -563,13 +543,13 @@ export default function Emulation() {
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={totalCols} className="text-center py-8 text-muted-foreground">
                           Đang tải...
                         </TableCell>
                       </TableRow>
                     ) : classesWithScores.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={totalCols} className="text-center py-8 text-muted-foreground">
                           Chưa có lớp nào
                         </TableCell>
                       </TableRow>
@@ -578,51 +558,23 @@ export default function Emulation() {
                         <TableRow key={cls.class_id}>
                           <TableCell className="text-center font-medium">{index + 1}</TableCell>
                           <TableCell className="font-medium">{cls.class_name}</TableCell>
-                          <TableCell className="text-center">
-                            {canEdit ? (
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                value={getScoreValue(cls.class_id, 'academic_score')}
-                                onChange={(e) => handleScoreChange(cls.class_id, 'academic_score', e.target.value)}
-                                onBlur={() => handleScoreBlur(cls.class_id, 'academic_score')}
-                                onFocus={(e) => e.target.select()}
-                                className="w-[70px] text-center mx-auto"
-                              />
-                            ) : (
-                              <span>{cls.academic_score}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {canEdit ? (
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                value={getScoreValue(cls.class_id, 'discipline_score')}
-                                onChange={(e) => handleScoreChange(cls.class_id, 'discipline_score', e.target.value)}
-                                onBlur={() => handleScoreBlur(cls.class_id, 'discipline_score')}
-                                onFocus={(e) => e.target.select()}
-                                className="w-[70px] text-center mx-auto"
-                              />
-                            ) : (
-                              <span>{cls.discipline_score}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {canEdit ? (
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                value={getScoreValue(cls.class_id, 'boarding_score')}
-                                onChange={(e) => handleScoreChange(cls.class_id, 'boarding_score', e.target.value)}
-                                onBlur={() => handleScoreBlur(cls.class_id, 'boarding_score')}
-                                onFocus={(e) => e.target.select()}
-                                className="w-[70px] text-center mx-auto"
-                              />
-                            ) : (
-                              <span>{cls.boarding_score}</span>
-                            )}
-                          </TableCell>
+                          {displayColumns.map(col => (
+                            <TableCell key={col.key} className="text-center">
+                              {canEdit ? (
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={getDisplayValue(cls.class_id, col.key)}
+                                  onChange={(e) => handleScoreChange(cls.class_id, col.key, e.target.value)}
+                                  onBlur={() => handleScoreBlur(cls.class_id, col.key)}
+                                  onFocus={(e) => e.target.select()}
+                                  className="w-[70px] text-center mx-auto"
+                                />
+                              ) : (
+                                <span>{cls.scores[col.key]}</span>
+                              )}
+                            </TableCell>
+                          ))}
                           <TableCell className="text-center font-semibold text-primary">
                             {cls.average_score.toFixed(2)}
                           </TableCell>
@@ -655,7 +607,7 @@ export default function Emulation() {
                 </Table>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
-                * Điểm trung bình = (Học tập × 2 + Nề nếp + Nội trú) ÷ 4
+                * Công thức: {getFormulaString()}
               </p>
             </CardContent>
           </Card>
@@ -725,9 +677,11 @@ export default function Emulation() {
                       <TableRow>
                         <TableHead className="w-[60px] text-center">STT</TableHead>
                         <TableHead>Lớp</TableHead>
-                        <TableHead className="text-center">TB Học tập</TableHead>
-                        <TableHead className="text-center">TB Nề nếp</TableHead>
-                        <TableHead className="text-center">TB Nội trú</TableHead>
+                        {displayColumns.map(col => (
+                          <TableHead key={col.key} className="text-center">
+                            TB {col.name}
+                          </TableHead>
+                        ))}
                         <TableHead className="text-center">Điểm TB</TableHead>
                         <TableHead className="text-center w-[80px]">Xếp hạng</TableHead>
                       </TableRow>
@@ -737,9 +691,11 @@ export default function Emulation() {
                         <TableRow key={cls.class_id}>
                           <TableCell className="text-center font-medium">{index + 1}</TableCell>
                           <TableCell className="font-medium">{cls.class_name}</TableCell>
-                          <TableCell className="text-center">{cls.academic_score.toFixed(2)}</TableCell>
-                          <TableCell className="text-center">{cls.discipline_score.toFixed(2)}</TableCell>
-                          <TableCell className="text-center">{cls.boarding_score.toFixed(2)}</TableCell>
+                          {displayColumns.map(col => (
+                            <TableCell key={col.key} className="text-center">
+                              {cls.scores[col.key]?.toFixed(2) ?? '0.00'}
+                            </TableCell>
+                          ))}
                           <TableCell className="text-center font-semibold text-primary">
                             {cls.average_score.toFixed(2)}
                           </TableCell>
