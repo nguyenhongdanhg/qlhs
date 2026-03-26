@@ -19,6 +19,7 @@ import { WeekSettingsDialog } from '@/components/emulation/WeekSettingsDialog';
 import { useCurrentWeek } from '@/hooks/useCurrentWeek';
 
 import { EmulationExportDialog } from '@/components/emulation/EmulationExportDialog';
+import { EmulationFormulaTab } from '@/components/emulation/EmulationFormulaTab';
 
 interface EmulationScore {
   id?: string;
