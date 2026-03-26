@@ -767,6 +767,13 @@ export default function Emulation() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Formula Tab */}
+        <TabsContent value="formula">
+          {currentSchool?.id && (
+            <EmulationFormulaTab schoolId={currentSchool.id} canEdit={canEdit} />
+          )}
+        </TabsContent>
       </Tabs>
     </div>
   );
