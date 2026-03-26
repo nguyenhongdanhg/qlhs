@@ -139,8 +139,8 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
       }
 
       // Upsert formula config
-      const { error: configError } = await supabase
-        .from('emulation_formula_config' as any)
+      const { error: configError } = await (supabase as any)
+        .from('emulation_formula_config')
         .upsert({
           school_id: schoolId,
           formula_type: typeToSave,
