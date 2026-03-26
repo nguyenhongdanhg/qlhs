@@ -469,6 +469,47 @@ export type Database = {
           },
         ]
       }
+      emulation_formula_columns: {
+        Row: {
+          column_name: string
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          school_id: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          column_name: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          school_id: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          column_name?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          school_id?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emulation_formula_columns_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emulation_scores: {
         Row: {
           academic_score: number | null

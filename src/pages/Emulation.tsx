@@ -19,6 +19,7 @@ import { WeekSettingsDialog } from '@/components/emulation/WeekSettingsDialog';
 import { useCurrentWeek } from '@/hooks/useCurrentWeek';
 
 import { EmulationExportDialog } from '@/components/emulation/EmulationExportDialog';
+import { EmulationFormulaTab } from '@/components/emulation/EmulationFormulaTab';
 
 interface EmulationScore {
   id?: string;
@@ -468,9 +469,10 @@ export default function Emulation() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="weekly">Bảng thi đua tuần</TabsTrigger>
           <TabsTrigger value="period">Thống kê giai đoạn</TabsTrigger>
+          <TabsTrigger value="formula">Công thức tính</TabsTrigger>
         </TabsList>
 
         {/* Weekly Tab */}
@@ -764,6 +766,13 @@ export default function Emulation() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Formula Tab */}
+        <TabsContent value="formula">
+          {currentSchool?.id && (
+            <EmulationFormulaTab schoolId={currentSchool.id} canEdit={canEdit} />
+          )}
         </TabsContent>
       </Tabs>
     </div>
