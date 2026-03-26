@@ -26,6 +26,7 @@ import { Link } from 'react-router-dom';
 import { format, isWithinInterval, parseISO, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface AttendanceSnapshot {
   present: number;
