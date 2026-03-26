@@ -510,12 +510,45 @@ export type Database = {
           },
         ]
       }
+      emulation_formula_config: {
+        Row: {
+          created_at: string
+          formula_type: string
+          id: string
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          formula_type?: string
+          id?: string
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          formula_type?: string
+          id?: string
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emulation_formula_config_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emulation_scores: {
         Row: {
           academic_score: number | null
           boarding_score: number | null
           class_id: string
           created_at: string
+          custom_scores: Json | null
           discipline_score: number | null
           id: string
           notes: string | null
@@ -530,6 +563,7 @@ export type Database = {
           boarding_score?: number | null
           class_id: string
           created_at?: string
+          custom_scores?: Json | null
           discipline_score?: number | null
           id?: string
           notes?: string | null
@@ -544,6 +578,7 @@ export type Database = {
           boarding_score?: number | null
           class_id?: string
           created_at?: string
+          custom_scores?: Json | null
           discipline_score?: number | null
           id?: string
           notes?: string | null
