@@ -1418,6 +1418,19 @@ export default function DutySchedule() {
               <ArrowRight className="h-3 w-3" />
               <span>Ca tiếp theo: {format(getNextDutyDate(), 'dd/MM/yyyy', { locale: vi })}</span>
             </div>
+            {/* Next duty leader */}
+            {(() => {
+              const nextLeader = dutyLeaders.find(l => l.duty_date === format(getNextDutyDate(), 'yyyy-MM-dd'));
+              return nextLeader ? (
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Shield className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-xs font-medium">LĐ trực:</span>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-300">
+                    {nextLeader.profile?.full_name}
+                  </Badge>
+                </div>
+              ) : null;
+            })()}
             {nextDutyPersons.length === 0 ? (
               <p className="text-sm text-muted-foreground">Chưa phân công</p>
             ) : (
