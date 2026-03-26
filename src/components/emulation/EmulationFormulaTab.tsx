@@ -18,6 +18,14 @@ interface FormulaColumn {
   is_active: boolean;
 }
 
+type FormulaType = 'weighted_average' | 'sum' | 'average';
+
+const FORMULA_TYPE_LABELS: Record<FormulaType, { label: string; description: string }> = {
+  weighted_average: { label: 'Trung bình có trọng số', description: 'TB = (Cột1 × hệ số1 + Cột2 × hệ số2 + ...) ÷ Tổng hệ số' },
+  sum: { label: 'Tổng điểm', description: 'Tổng = Cột1 × hệ số1 + Cột2 × hệ số2 + ...' },
+  average: { label: 'Trung bình cộng', description: 'TB = (Cột1 + Cột2 + ...) ÷ Số cột (bỏ qua hệ số)' },
+};
+
 interface EmulationFormulaTabProps {
   schoolId: string;
   canEdit: boolean;
@@ -26,8 +34,10 @@ interface EmulationFormulaTabProps {
 export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabProps) {
   const queryClient = useQueryClient();
   const [localColumns, setLocalColumns] = useState<FormulaColumn[] | null>(null);
+  const [localFormulaType, setLocalFormulaType] = useState<FormulaType | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Fetch saved columns
   const { data: savedColumns = [], isLoading } = useQuery({
     queryKey: ['emulation-formula-columns', schoolId],
     queryFn: async () => {
@@ -43,7 +53,23 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
     enabled: !!schoolId,
   });
 
+  // Fetch formula config
+  const { data: formulaConfig } = useQuery({
+    queryKey: ['emulation-formula-config', schoolId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('emulation_formula_config')
+        .select('*')
+        .eq('school_id', schoolId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { formula_type: FormulaType } | null;
+    },
+    enabled: !!schoolId,
+  });
+
   const columns = localColumns ?? savedColumns;
+  const formulaType: FormulaType = localFormulaType ?? (formulaConfig?.formula_type as FormulaType) ?? 'weighted_average';
 
   const initLocalIfNeeded = () => {
     if (!localColumns) {
@@ -81,9 +107,15 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
     setHasChanges(true);
   };
 
+  const handleFormulaTypeChange = (value: FormulaType) => {
+    setLocalFormulaType(value);
+    setHasChanges(true);
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!localColumns) return;
+      const columnsToSave = localColumns ?? savedColumns;
+      const typeToSave = localFormulaType ?? formulaType;
 
       // Delete all existing columns for this school
       await supabase
@@ -92,8 +124,8 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
         .eq('school_id', schoolId);
 
       // Insert new columns
-      if (localColumns.length > 0) {
-        const toInsert = localColumns.map((col, i) => ({
+      if (columnsToSave.length > 0) {
+        const toInsert = columnsToSave.map((col, i) => ({
           school_id: schoolId,
           column_name: col.column_name,
           weight: col.weight,
@@ -105,29 +137,52 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
           .insert(toInsert);
         if (error) throw error;
       }
+
+      // Upsert formula config
+      const { error: configError } = await (supabase as any)
+        .from('emulation_formula_config')
+        .upsert({
+          school_id: schoolId,
+          formula_type: typeToSave,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'school_id' });
+      if (configError) throw configError;
     },
     onSuccess: () => {
       toast({ title: 'Đã lưu công thức thi đua' });
       setLocalColumns(null);
+      setLocalFormulaType(null);
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ['emulation-formula-columns'] });
+      queryClient.invalidateQueries({ queryKey: ['emulation-formula-config'] });
     },
     onError: (error) => {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     },
   });
 
-  // Build formula string
+  // Build formula string based on type
   const totalWeight = columns.reduce((sum, col) => sum + col.weight, 0);
-  const formulaParts = columns.map((col) => {
-    if (col.weight === 1) return col.column_name;
-    return `${col.column_name} ×${col.weight}`;
-  });
-  const formulaString = columns.length > 0
-    ? `(${formulaParts.join(' + ')}) ÷ ${totalWeight}`
-    : 'Chưa có cột nào';
+  const buildFormulaString = () => {
+    if (columns.length === 0) return 'Chưa có cột nào';
+    
+    const parts = columns.map((col) => {
+      if (col.weight === 1) return col.column_name;
+      return `${col.column_name} ×${col.weight}`;
+    });
 
-  // Default formula (currently hardcoded in the system)
+    switch (formulaType) {
+      case 'sum':
+        return parts.join(' + ');
+      case 'average':
+        return `(${columns.map(c => c.column_name).join(' + ')}) ÷ ${columns.length}`;
+      case 'weighted_average':
+      default:
+        return `(${parts.join(' + ')}) ÷ ${totalWeight}`;
+    }
+  };
+
+  const formulaString = buildFormulaString();
   const defaultFormula = '(Học tập ×2 + Nề nếp + Nội trú) ÷ 4';
 
   return (
@@ -137,17 +192,46 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-lg">Công thức tính thi đua</CardTitle>
-              <CardDescription>Thiết lập các cột điểm và hệ số tính trung bình</CardDescription>
+              <CardDescription>Thiết lập các cột điểm, hệ số và kiểu công thức</CardDescription>
             </div>
             {canEdit && hasChanges && (
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                 <Save className="h-4 w-4 mr-2" />
-                Lưu công thức
+                Lưu & Áp dụng
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Formula type selector */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-foreground">Kiểu công thức</h3>
+            {canEdit ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(Object.entries(FORMULA_TYPE_LABELS) as [FormulaType, { label: string; description: string }][]).map(([key, { label, description }]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handleFormulaTypeChange(key)}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      formulaType === key
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{description}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border p-3">
+                <p className="text-sm font-medium">{FORMULA_TYPE_LABELS[formulaType]?.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{FORMULA_TYPE_LABELS[formulaType]?.description}</p>
+              </div>
+            )}
+          </div>
+
           {/* Current formula display */}
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -204,11 +288,14 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
                     )}
                   </div>
                   <div className="w-[120px]">
-                    <label className="text-xs text-muted-foreground mb-1 block">Hệ số</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      {formulaType === 'average' ? 'Hệ số (không dùng)' : 'Hệ số'}
+                    </label>
                     {canEdit ? (
                       <Select
                         value={col.weight.toString()}
                         onValueChange={(v) => updateColumn(index, 'weight', parseFloat(v))}
+                        disabled={formulaType === 'average'}
                       >
                         <SelectTrigger className="h-9">
                           <SelectValue />
@@ -245,17 +332,30 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
             <div className="rounded-lg bg-muted/50 p-4 space-y-2">
               <h4 className="text-sm font-semibold text-foreground">Giải thích công thức</h4>
               <div className="text-sm text-muted-foreground space-y-1">
-                <p>• Tổng hệ số: <span className="font-semibold text-foreground">{totalWeight}</span></p>
+                {formulaType !== 'average' && (
+                  <p>• Tổng hệ số: <span className="font-semibold text-foreground">{totalWeight}</span></p>
+                )}
                 {columns.map((col, i) => (
                   <p key={i}>
-                    • {col.column_name}: hệ số <span className="font-semibold text-foreground">×{col.weight}</span>
-                    {col.weight > 1 && ` (điểm ${col.column_name} được nhân ${col.weight})`}
+                    • {col.column_name}: {formulaType === 'average' ? 'không nhân hệ số' : (
+                      <>hệ số <span className="font-semibold text-foreground">×{col.weight}</span>
+                      {col.weight > 1 && ` (điểm ${col.column_name} được nhân ${col.weight})`}</>
+                    )}
                   </p>
                 ))}
                 <p className="mt-2 font-medium text-foreground">
-                  Điểm TB = {formulaString}
+                  Kết quả = {formulaString}
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Note about applying */}
+          {hasChanges && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-sm text-destructive">
+                ⚠️ Nhấn <strong>"Lưu & Áp dụng"</strong> để công thức mới được áp dụng ngay vào bảng thi đua.
+              </p>
             </div>
           )}
         </CardContent>
