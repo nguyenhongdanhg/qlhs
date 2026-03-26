@@ -57,8 +57,8 @@ export function EmulationFormulaTab({ schoolId, canEdit }: EmulationFormulaTabPr
   const { data: formulaConfig } = useQuery({
     queryKey: ['emulation-formula-config', schoolId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('emulation_formula_config' as any)
+      const { data, error } = await (supabase as any)
+        .from('emulation_formula_config')
         .select('*')
         .eq('school_id', schoolId)
         .maybeSingle();
