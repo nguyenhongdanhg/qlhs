@@ -327,8 +327,8 @@ export default function Dashboard() {
 
   const { data: dutyToday } = useQuery({
     queryKey: ['dashboard-duty', currentSchool?.id, dutyDateStr],
-    queryFn: async (): Promise<DutyPerson[]> => {
-      if (!currentSchool) return [];
+    queryFn: async (): Promise<{ persons: DutyPerson[]; leaderName?: string }> => {
+      if (!currentSchool) return { persons: [] };
       const [schedulesRes, leadersRes] = await Promise.all([
         supabase
           .from('duty_schedules')
@@ -337,21 +337,19 @@ export default function Dashboard() {
           .eq('duty_date', dutyDateStr),
         supabase
           .from('duty_leaders')
-          .select('user_id')
+          .select('user_id, profile:profiles!inner(full_name)')
           .eq('school_id', currentSchool.id)
           .eq('duty_date', dutyDateStr)
           .maybeSingle(),
       ]);
-      if (!schedulesRes.data) return [];
-      const leaderId = leadersRes.data?.user_id;
+      const leaderName = (leadersRes.data as any)?.profile?.full_name || undefined;
+      if (!schedulesRes.data) return { persons: [], leaderName };
       const persons = schedulesRes.data.map((s: any) => ({
         id: s.user_id,
         fullName: s.profile?.full_name || 'N/A',
         shift: s.shift,
-        isLeader: s.user_id === leaderId,
       }));
-      // Sort leader first
-      return persons.sort((a, b) => (b.isLeader ? 1 : 0) - (a.isLeader ? 1 : 0));
+      return { persons, leaderName };
     },
     enabled: !!currentSchool,
     staleTime: 1000 * 60 * 5,
@@ -691,30 +689,27 @@ export default function Dashboard() {
                     <CalendarCheck className="h-5 w-5 text-primary" />
                     <span className="text-sm sm:text-base font-semibold">Ca trực hiện tại</span>
                   </div>
-                  {dutyToday && dutyToday.length > 0 ? (
+                  {/* Leader */}
+                  {dutyToday?.leaderName && (
+                    <div className="flex items-center gap-2 text-sm rounded px-2 py-1.5 mb-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                      <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span className="font-medium truncate text-amber-700 dark:text-amber-300">{dutyToday.leaderName}</span>
+                      <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-300 text-amber-600 dark:text-amber-400 ml-auto shrink-0">
+                        LĐ trực
+                      </Badge>
+                    </div>
+                  )}
+                  {/* Duty persons */}
+                  {dutyToday?.persons && dutyToday.persons.length > 0 ? (
                     <div className="space-y-1.5">
-                      {dutyToday.slice(0, 4).map((person, i) => (
-                        <div key={i} className={cn(
-                          "flex items-center gap-2 text-sm rounded px-2 py-1.5",
-                          person.isLeader 
-                            ? "bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800" 
-                            : "bg-muted/50"
-                        )}>
-                          {person.isLeader ? (
-                            <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                          ) : (
-                            <UserCheck className="h-4 w-4 text-primary shrink-0" />
-                          )}
-                          <span className={cn("font-medium truncate", person.isLeader && "text-amber-700 dark:text-amber-300")}>{person.fullName}</span>
-                          {person.isLeader && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-300 text-amber-600 dark:text-amber-400 ml-auto shrink-0">
-                              LĐ trực
-                            </Badge>
-                          )}
+                      {dutyToday.persons.slice(0, 4).map((person, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm bg-muted/50 rounded px-2 py-1.5">
+                          <UserCheck className="h-4 w-4 text-primary shrink-0" />
+                          <span className="font-medium truncate">{person.fullName}</span>
                         </div>
                       ))}
-                      {dutyToday.length > 4 && (
-                        <p className="text-xs text-muted-foreground text-center">+{dutyToday.length - 4} người khác</p>
+                      {dutyToday.persons.length > 4 && (
+                        <p className="text-xs text-muted-foreground text-center">+{dutyToday.persons.length - 4} người khác</p>
                       )}
                     </div>
                   ) : (
