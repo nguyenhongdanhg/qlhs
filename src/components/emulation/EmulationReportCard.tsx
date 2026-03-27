@@ -147,7 +147,7 @@ export const EmulationReportCard = forwardRef<HTMLDivElement, EmulationReportCar
 
         {/* Footer */}
         <div style={{ marginTop: '12px', fontSize: '11px', color: '#9ca3af' }}>
-          * Công thức: TB = {formulaString}
+          * Công thức: Điểm thi đua = {formulaString}
         </div>
         <div style={{ marginTop: '8px', textAlign: 'right', fontSize: '11px', color: '#9ca3af' }}>
           Xuất lúc: {format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}

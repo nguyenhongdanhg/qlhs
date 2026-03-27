@@ -85,7 +85,7 @@ const createWeekSheet = (
   
   // Formula note
   data.push([]);
-  data.push([`* Công thức: TB = ${formulaString}`]);
+  data.push([`* Công thức: Điểm thi đua = ${formulaString}`]);
   
   const ws = XLSX.utils.aoa_to_sheet(data);
   
