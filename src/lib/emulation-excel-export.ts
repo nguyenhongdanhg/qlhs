@@ -2,18 +2,19 @@ import XLSX from 'xlsx-js-style';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
-  ExcelColors, 
-  ExcelFonts, 
-  ExcelBorders, 
   applyProfessionalStyle,
   CellAlign 
 } from './excel-styles';
 
-interface ClassScore {
+interface DynamicColumn {
+  key: string;
+  name: string;
+  weight: number;
+}
+
+interface DynamicClassScore {
   class_name: string;
-  academic_score: number;
-  discipline_score: number;
-  boarding_score: number;
+  scores: Record<string, number>;
   average_score: number;
   rank: number;
   notes?: string;
@@ -23,7 +24,7 @@ interface WeekData {
   week_number: number;
   start_date?: string;
   end_date?: string;
-  scores: ClassScore[];
+  scores: DynamicClassScore[];
 }
 
 interface ExportOptions {
@@ -34,7 +35,9 @@ interface ExportOptions {
   weekDateRange?: { start: string; end: string };
   monthName?: string;
   weeksData?: WeekData[];
-  classScores?: ClassScore[];
+  classScores?: DynamicClassScore[];
+  columns: DynamicColumn[];
+  formulaString: string;
 }
 
 const formatDate = (dateStr: string) => {
@@ -50,13 +53,16 @@ const createWeekSheet = (
   sheetName: string,
   title: string,
   subtitle: string,
-  classScores: ClassScore[],
+  classScores: DynamicClassScore[],
   schoolName: string,
-  schoolYear: string
+  schoolYear: string,
+  columns: DynamicColumn[],
+  formulaString: string,
 ) => {
   const data: (string | number)[][] = [];
+  const numCols = columns.length + 4; // STT + Lớp + [dynamic cols] + TB + Xếp hạng + Ghi chú
   
-  // Header rows (5 rows for info + 1 empty)
+  // Header rows
   data.push([schoolName]);
   data.push([title]);
   data.push([subtitle]);
@@ -64,65 +70,55 @@ const createWeekSheet = (
   data.push([]);
   
   // Table header
-  data.push(['STT', 'Lớp', 'Học tập', 'Nề nếp', 'Nội trú', 'TB', 'Xếp hạng', 'Ghi chú']);
+  const headerRow: (string | number)[] = ['STT', 'Lớp'];
+  columns.forEach(col => headerRow.push(col.name));
+  headerRow.push('TB', 'Xếp hạng', 'Ghi chú');
+  data.push(headerRow);
   
   // Data rows
   classScores.forEach((cls, index) => {
-    data.push([
-      index + 1,
-      cls.class_name,
-      cls.academic_score,
-      cls.discipline_score,
-      cls.boarding_score,
-      cls.average_score,
-      cls.rank || '-',
-      cls.notes || '',
-    ]);
+    const row: (string | number)[] = [index + 1, cls.class_name];
+    columns.forEach(col => row.push(cls.scores[col.key] ?? 0));
+    row.push(cls.average_score, cls.rank || '-' as any, cls.notes || '');
+    data.push(row);
   });
   
   // Formula note
   data.push([]);
-  data.push(['* Công thức: TB = (Học tập × 2 + Nề nếp + Nội trú) ÷ 4']);
+  data.push([`* Công thức: TB = ${formulaString}`]);
   
   const ws = XLSX.utils.aoa_to_sheet(data);
   
   // Set column widths
-  ws['!cols'] = [
-    { wch: 5 },   // STT
-    { wch: 12 },  // Lớp
-    { wch: 10 },  // Học tập
-    { wch: 10 },  // Nề nếp
-    { wch: 10 },  // Nội trú
-    { wch: 8 },   // TB
-    { wch: 10 },  // Xếp hạng
-    { wch: 30 },  // Ghi chú
+  const colWidths: { wch: number }[] = [
+    { wch: 5 },  // STT
+    { wch: 12 }, // Lớp
   ];
+  columns.forEach(() => colWidths.push({ wch: 10 }));
+  colWidths.push({ wch: 8 }, { wch: 10 }, { wch: 30 }); // TB, Xếp hạng, Ghi chú
+  ws['!cols'] = colWidths;
   
   // Merge header cells
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
-    { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } },
-    { s: { r: 3, c: 0 }, e: { r: 3, c: 7 } },
+    { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: numCols - 1 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: numCols - 1 } },
+    { s: { r: 3, c: 0 }, e: { r: 3, c: numCols - 1 } },
   ];
   
-  // Apply professional styling
+  // Column alignments
   const columnAlignments: CellAlign[] = [
     'center', // STT
     'left',   // Lớp
-    'center', // Học tập
-    'center', // Nề nếp
-    'center', // Nội trú
-    'center', // TB
-    'center', // Xếp hạng
-    'left',   // Ghi chú
   ];
+  columns.forEach(() => columnAlignments.push('center'));
+  columnAlignments.push('center', 'center', 'left'); // TB, Xếp hạng, Ghi chú
   
   applyProfessionalStyle(ws, {
     headerRowIndex: 5,
     dataStartRow: 6,
     dataRowCount: classScores.length,
-    numCols: 8,
+    numCols,
     columnAlignments,
     numTitleRows: 5,
   });
@@ -131,7 +127,7 @@ const createWeekSheet = (
 };
 
 export const exportEmulationToExcel = (options: ExportOptions) => {
-  const { schoolName, schoolYear, type, weekNumber, weekDateRange, monthName, weeksData, classScores } = options;
+  const { schoolName, schoolYear, type, weekNumber, weekDateRange, monthName, weeksData, classScores, columns, formulaString } = options;
   
   const wb = XLSX.utils.book_new();
   
@@ -140,87 +136,38 @@ export const exportEmulationToExcel = (options: ExportOptions) => {
       ? `Từ ${formatDate(weekDateRange.start)} đến ${formatDate(weekDateRange.end)}`
       : '';
     
-    createWeekSheet(
-      wb,
-      `Tuần ${weekNumber}`,
-      `BẢNG THI ĐUA TUẦN ${weekNumber}`,
-      dateRangeStr,
-      classScores,
-      schoolName,
-      schoolYear
-    );
-    
+    createWeekSheet(wb, `Tuần ${weekNumber}`, `BẢNG THI ĐUA TUẦN ${weekNumber}`, dateRangeStr, classScores, schoolName, schoolYear, columns, formulaString);
     XLSX.writeFile(wb, `Thi-dua-Tuan-${weekNumber}-${schoolYear}.xlsx`);
   } else if (type === 'month' && weeksData) {
-    // Create summary sheet
-    const summaryScores = calculateAverageFromWeeks(weeksData);
-    createWeekSheet(
-      wb,
-      'Tổng hợp',
-      `THỐNG KÊ THI ĐUA ${monthName || 'THÁNG'}`,
-      `Tổng hợp ${weeksData.length} tuần`,
-      summaryScores,
-      schoolName,
-      schoolYear
-    );
+    const summaryScores = calculateAverageFromWeeks(weeksData, columns, options);
+    createWeekSheet(wb, 'Tổng hợp', `THỐNG KÊ THI ĐUA ${monthName || 'THÁNG'}`, `Tổng hợp ${weeksData.length} tuần`, summaryScores, schoolName, schoolYear, columns, formulaString);
     
-    // Create individual week sheets
     weeksData.forEach((week) => {
       const dateRangeStr = week.start_date && week.end_date
         ? `Từ ${formatDate(week.start_date)} đến ${formatDate(week.end_date)}`
         : '';
-      
-      createWeekSheet(
-        wb,
-        `Tuần ${week.week_number}`,
-        `BẢNG THI ĐUA TUẦN ${week.week_number}`,
-        dateRangeStr,
-        week.scores,
-        schoolName,
-        schoolYear
-      );
+      createWeekSheet(wb, `Tuần ${week.week_number}`, `BẢNG THI ĐUA TUẦN ${week.week_number}`, dateRangeStr, week.scores, schoolName, schoolYear, columns, formulaString);
     });
     
     XLSX.writeFile(wb, `Thi-dua-${monthName || 'Thang'}-${schoolYear}.xlsx`);
   } else if (type === 'year' && weeksData) {
-    // Create summary sheet for year
-    const summaryScores = calculateAverageFromWeeks(weeksData);
-    createWeekSheet(
-      wb,
-      'Tổng hợp năm',
-      `THỐNG KÊ THI ĐUA NĂM HỌC ${schoolYear}`,
-      `Tổng hợp ${weeksData.length} tuần`,
-      summaryScores,
-      schoolName,
-      schoolYear
-    );
+    const summaryScores = calculateAverageFromWeeks(weeksData, columns, options);
+    createWeekSheet(wb, 'Tổng hợp năm', `THỐNG KÊ THI ĐUA NĂM HỌC ${schoolYear}`, `Tổng hợp ${weeksData.length} tuần`, summaryScores, schoolName, schoolYear, columns, formulaString);
     
-    // Group by months or create individual sheets
     weeksData.forEach((week) => {
       const dateRangeStr = week.start_date && week.end_date
         ? `${formatDate(week.start_date)} - ${formatDate(week.end_date)}`
         : '';
-      
-      createWeekSheet(
-        wb,
-        `T${week.week_number}`,
-        `TUẦN ${week.week_number}`,
-        dateRangeStr,
-        week.scores,
-        schoolName,
-        schoolYear
-      );
+      createWeekSheet(wb, `T${week.week_number}`, `TUẦN ${week.week_number}`, dateRangeStr, week.scores, schoolName, schoolYear, columns, formulaString);
     });
     
     XLSX.writeFile(wb, `Thi-dua-Nam-hoc-${schoolYear}.xlsx`);
   }
 };
 
-const calculateAverageFromWeeks = (weeksData: WeekData[]): ClassScore[] => {
+const calculateAverageFromWeeks = (weeksData: WeekData[], columns: DynamicColumn[], options: ExportOptions): DynamicClassScore[] => {
   const classMap = new Map<string, {
-    totalAcademic: number;
-    totalDiscipline: number;
-    totalBoarding: number;
+    totals: Record<string, number>;
     count: number;
     notes: string[];
   }>();
@@ -228,17 +175,16 @@ const calculateAverageFromWeeks = (weeksData: WeekData[]): ClassScore[] => {
   weeksData.forEach((week) => {
     week.scores.forEach((score) => {
       const existing = classMap.get(score.class_name) || {
-        totalAcademic: 0,
-        totalDiscipline: 0,
-        totalBoarding: 0,
+        totals: {},
         count: 0,
         notes: [],
       };
       
-      if (score.academic_score > 0 || score.discipline_score > 0 || score.boarding_score > 0) {
-        existing.totalAcademic += score.academic_score;
-        existing.totalDiscipline += score.discipline_score;
-        existing.totalBoarding += score.boarding_score;
+      const hasAnyScore = columns.some(col => (score.scores[col.key] ?? 0) > 0);
+      if (hasAnyScore) {
+        columns.forEach(col => {
+          existing.totals[col.key] = (existing.totals[col.key] || 0) + (score.scores[col.key] ?? 0);
+        });
         existing.count += 1;
       }
       
@@ -250,20 +196,26 @@ const calculateAverageFromWeeks = (weeksData: WeekData[]): ClassScore[] => {
     });
   });
   
-  const results: ClassScore[] = [];
+  const results: DynamicClassScore[] = [];
   
   classMap.forEach((value, className) => {
     if (value.count > 0) {
-      const avgAcademic = value.totalAcademic / value.count;
-      const avgDiscipline = value.totalDiscipline / value.count;
-      const avgBoarding = value.totalBoarding / value.count;
-      const avgScore = (avgAcademic * 2 + avgDiscipline + avgBoarding) / 4;
+      const avgScores: Record<string, number> = {};
+      let weightedSum = 0;
+      let totalWeight = 0;
+      
+      columns.forEach(col => {
+        const avg = (value.totals[col.key] || 0) / value.count;
+        avgScores[col.key] = Math.round(avg * 100) / 100;
+        weightedSum += avg * col.weight;
+        totalWeight += col.weight;
+      });
+      
+      const avgScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
       
       results.push({
         class_name: className,
-        academic_score: Math.round(avgAcademic * 100) / 100,
-        discipline_score: Math.round(avgDiscipline * 100) / 100,
-        boarding_score: Math.round(avgBoarding * 100) / 100,
+        scores: avgScores,
         average_score: Math.round(avgScore * 100) / 100,
         rank: 0,
         notes: value.notes.join('; '),
