@@ -86,6 +86,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import DutyStatisticsTab from '@/components/duty/DutyStatisticsTab';
+import DutyGroupsShiftsSettings from '@/components/duty/DutyGroupsShiftsSettings';
 import { Label } from '@/components/ui/label';
 
 const SHIFT_START_HOUR = 6;
@@ -2155,7 +2156,7 @@ export default function DutySchedule() {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Settings className="h-5 w-5 text-primary" />
-                  Cài đặt lịch trực
+                  Cài đặt chung
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -2195,6 +2196,9 @@ export default function DutySchedule() {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Duty Groups & Shifts Settings */}
+            <DutyGroupsShiftsSettings />
           </TabsContent>
         )}
       </Tabs>
