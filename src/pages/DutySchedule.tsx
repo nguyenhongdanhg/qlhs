@@ -86,6 +86,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import DutyStatisticsTab from '@/components/duty/DutyStatisticsTab';
+import DutyGroupsShiftsSettings from '@/components/duty/DutyGroupsShiftsSettings';
 import { Label } from '@/components/ui/label';
 
 const SHIFT_START_HOUR = 6;
