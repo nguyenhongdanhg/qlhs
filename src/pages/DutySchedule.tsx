@@ -163,6 +163,11 @@ export default function DutySchedule() {
   // Filter by person name in calendar tab
   const [calendarFilterName, setCalendarFilterName] = useState('');
   
+  // Assignment mode state
+  const [assignMode, setAssignMode] = useState<'individual' | 'group'>('individual');
+  const [showAutoAssignDialog, setShowAutoAssignDialog] = useState(false);
+  const [dutyGroups, setDutyGroups] = useState<DutyGroup[]>([]);
+  
   // Swap duty state
   const [showSwapDialog, setShowSwapDialog] = useState(false);
   const [swapSource, setSwapSource] = useState<{ userId: string; date: string } | null>(null);
