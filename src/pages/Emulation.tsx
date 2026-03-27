@@ -494,17 +494,15 @@ export default function Emulation() {
                       currentWeek={selectedWeek}
                       weekSettings={weekSettings}
                       currentWeekScores={classesWithScores.map(cls => ({
-                        class_id: cls.class_id,
                         class_name: cls.class_name,
-                        academic_score: cls.scores['academic_score'] ?? cls.scores[displayColumns[0]?.key] ?? 0,
-                        discipline_score: cls.scores['discipline_score'] ?? cls.scores[displayColumns[1]?.key] ?? 0,
-                        boarding_score: cls.scores['boarding_score'] ?? cls.scores[displayColumns[2]?.key] ?? 0,
+                        scores: cls.scores,
                         average_score: cls.average_score,
                         rank: cls.rank,
                         notes: cls.notes,
                       }))}
                       currentWeekDateRange={selectedWeekDateRange}
                       classes={classes}
+                      displayColumns={displayColumns}
                     />
                   )}
                 </div>
