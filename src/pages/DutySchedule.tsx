@@ -1749,7 +1749,36 @@ export default function DutySchedule() {
             </CardContent>
           </Card>
 
-          {/* Assignment Grid - Improved with horizontal scroll and better header */}
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Chế độ xem:</Label>
+            <div className="flex gap-1">
+              <Button
+                variant={assignMode === 'individual' ? 'default' : 'outline'}
+                size="sm"
+                className="gap-1"
+                onClick={() => setAssignMode('individual')}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Theo giáo viên
+              </Button>
+              <Button
+                variant={assignMode === 'group' ? 'default' : 'outline'}
+                size="sm"
+                className="gap-1"
+                onClick={() => setAssignMode('group')}
+                disabled={dutyGroups.length === 0}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Theo nhóm
+              </Button>
+            </div>
+          </div>
+
+          {/* Assignment Grid */}
+          {assignMode === 'individual' ? (
+          <>
+          {/* Individual Assignment Grid */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
