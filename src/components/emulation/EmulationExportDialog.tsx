@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Download, Image, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,13 +20,17 @@ import { useImageExport } from '@/hooks/use-image-export';
 import { EmulationReportCard } from './EmulationReportCard';
 import { exportEmulationToExcel } from '@/lib/emulation-excel-export';
 import { naturalSortCompare } from '@/lib/utils';
+import { useEmulationFormula, DEFAULT_COLUMNS } from '@/hooks/useEmulationFormula';
 
-interface ClassScore {
-  class_id: string;
+interface DynamicColumn {
+  key: string;
+  name: string;
+  weight: number;
+}
+
+interface DynamicClassScore {
   class_name: string;
-  academic_score: number;
-  discipline_score: number;
-  boarding_score: number;
+  scores: Record<string, number>;
   average_score: number;
   rank: number;
   notes?: string;
@@ -44,9 +48,10 @@ interface EmulationExportDialogProps {
   schoolYear: string;
   currentWeek: number;
   weekSettings: WeekSetting[];
-  currentWeekScores: ClassScore[];
+  currentWeekScores: DynamicClassScore[];
   currentWeekDateRange?: { start: string; end: string };
   classes: { id: string; name: string; grade: number }[];
+  displayColumns: DynamicColumn[];
 }
 
 export function EmulationExportDialog({
@@ -58,6 +63,7 @@ export function EmulationExportDialog({
   currentWeekScores,
   currentWeekDateRange,
   classes,
+  displayColumns,
 }: EmulationExportDialogProps) {
   const [open, setOpen] = useState(false);
   const [exportType, setExportType] = useState<'week' | 'month' | 'year'>('week');
@@ -65,6 +71,9 @@ export function EmulationExportDialog({
   const [isLoading, setIsLoading] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const { captureElement, downloadImage } = useImageExport();
+  const { calculateScore, getFormulaString } = useEmulationFormula(schoolId);
+
+  const formulaString = getFormulaString();
 
   const months = [
     { value: '9', label: 'Tháng 9' },
@@ -90,30 +99,39 @@ export function EmulationExportDialog({
     return data || [];
   };
 
-  const processScoresForExport = (scores: any[], weekNum: number) => {
+  const getScoreFromRecord = (record: any, colKey: string): number => {
+    if (record?.custom_scores && record.custom_scores[colKey] !== undefined) {
+      return Number(record.custom_scores[colKey]) || 0;
+    }
+    if (record?.[colKey] !== undefined) {
+      return Number(record[colKey]) || 0;
+    }
+    return 0;
+  };
+
+  const processScoresForExport = (scores: any[], weekNum: number): DynamicClassScore[] => {
     const sortedClasses = [...classes].sort((a, b) => naturalSortCompare(a.name, b.name));
     
     const result = sortedClasses.map((cls) => {
-      const score = scores.find((s) => s.class_id === cls.id && s.week_number === weekNum);
+      const record = scores.find((s) => s.class_id === cls.id && s.week_number === weekNum);
       
-      const academic = Number(score?.academic_score) || 0;
-      const discipline = Number(score?.discipline_score) || 0;
-      const boarding = Number(score?.boarding_score) || 0;
-      const average = (academic * 2 + discipline + boarding) / 4;
+      const scoreValues: Record<string, number> = {};
+      displayColumns.forEach(col => {
+        scoreValues[col.key] = getScoreFromRecord(record, col.key);
+      });
+      
+      const average = calculateScore(scoreValues);
       
       return {
         class_id: cls.id,
         class_name: cls.name,
-        academic_score: academic,
-        discipline_score: discipline,
-        boarding_score: boarding,
+        scores: scoreValues,
         average_score: Math.round(average * 100) / 100,
         rank: 0,
-        notes: score?.notes || '',
+        notes: record?.notes || '',
       };
     });
     
-    // Assign ranks
     const sorted = [...result].sort((a, b) => b.average_score - a.average_score);
     sorted.forEach((item, index) => {
       item.rank = item.average_score > 0 ? index + 1 : 0;
@@ -121,12 +139,11 @@ export function EmulationExportDialog({
     
     return result.map((item) => ({
       ...item,
-      rank: sorted.find((s) => s.class_id === item.class_id)?.rank || 0,
+      rank: sorted.find((s) => s.class_name === item.class_name)?.rank || 0,
     }));
   };
 
   const getWeeksForMonth = (month: number) => {
-    // Find weeks that fall within this month based on week settings
     return weekSettings.filter((ws) => {
       const startMonth = parseISO(ws.start_date).getMonth() + 1;
       const endMonth = parseISO(ws.end_date).getMonth() + 1;
@@ -136,7 +153,6 @@ export function EmulationExportDialog({
 
   const handleExportImage = async () => {
     if (!reportRef.current) return;
-    
     try {
       const dataUrl = await captureElement(reportRef.current);
       if (dataUrl) {
@@ -150,7 +166,6 @@ export function EmulationExportDialog({
 
   const handleExportExcel = async () => {
     setIsLoading(true);
-    
     try {
       if (exportType === 'week') {
         exportEmulationToExcel({
@@ -159,15 +174,9 @@ export function EmulationExportDialog({
           type: 'week',
           weekNumber: currentWeek,
           weekDateRange: currentWeekDateRange,
-          classScores: currentWeekScores.map((s) => ({
-            class_name: s.class_name,
-            academic_score: s.academic_score,
-            discipline_score: s.discipline_score,
-            boarding_score: s.boarding_score,
-            average_score: s.average_score,
-            rank: s.rank,
-            notes: s.notes,
-          })),
+          classScores: currentWeekScores,
+          columns: displayColumns,
+          formulaString,
         });
         toast({ title: 'Đã xuất Excel tuần thành công' });
       } else if (exportType === 'month') {
@@ -186,15 +195,7 @@ export function EmulationExportDialog({
           week_number: ws.week_number,
           start_date: ws.start_date,
           end_date: ws.end_date,
-          scores: processScoresForExport(scores, ws.week_number).map((s) => ({
-            class_name: s.class_name,
-            academic_score: s.academic_score,
-            discipline_score: s.discipline_score,
-            boarding_score: s.boarding_score,
-            average_score: s.average_score,
-            rank: s.rank,
-            notes: s.notes,
-          })),
+          scores: processScoresForExport(scores, ws.week_number),
         }));
         
         exportEmulationToExcel({
@@ -203,6 +204,8 @@ export function EmulationExportDialog({
           type: 'month',
           monthName: `Tháng ${monthNum}`,
           weeksData,
+          columns: displayColumns,
+          formulaString,
         });
         toast({ title: `Đã xuất Excel tháng ${monthNum} thành công` });
       } else if (exportType === 'year') {
@@ -213,15 +216,7 @@ export function EmulationExportDialog({
           week_number: ws.week_number,
           start_date: ws.start_date,
           end_date: ws.end_date,
-          scores: processScoresForExport(scores, ws.week_number).map((s) => ({
-            class_name: s.class_name,
-            academic_score: s.academic_score,
-            discipline_score: s.discipline_score,
-            boarding_score: s.boarding_score,
-            average_score: s.average_score,
-            rank: s.rank,
-            notes: s.notes,
-          })),
+          scores: processScoresForExport(scores, ws.week_number),
         }));
         
         exportEmulationToExcel({
@@ -229,6 +224,8 @@ export function EmulationExportDialog({
           schoolYear,
           type: 'year',
           weeksData,
+          columns: displayColumns,
+          formulaString,
         });
         toast({ title: 'Đã xuất Excel năm học thành công' });
       }
@@ -311,7 +308,7 @@ export function EmulationExportDialog({
           </Button>
         </div>
         
-        {/* Hidden report card for image export */}
+        {/* Report card preview for image export */}
         {exportType === 'week' && (
           <div className="mt-4 border rounded-lg overflow-hidden">
             <EmulationReportCard
@@ -320,15 +317,9 @@ export function EmulationExportDialog({
               weekNumber={currentWeek}
               dateRange={currentWeekDateRange}
               schoolYear={schoolYear}
-              classScores={currentWeekScores.map((s) => ({
-                class_name: s.class_name,
-                academic_score: s.academic_score,
-                discipline_score: s.discipline_score,
-                boarding_score: s.boarding_score,
-                average_score: s.average_score,
-                rank: s.rank,
-                notes: s.notes,
-              }))}
+              classScores={currentWeekScores}
+              columns={displayColumns}
+              formulaString={formulaString}
             />
           </div>
         )}
