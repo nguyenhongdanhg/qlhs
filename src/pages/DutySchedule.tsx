@@ -2241,16 +2241,19 @@ export default function DutySchedule() {
                       <Label htmlFor="mode-group" className="font-medium cursor-pointer">Theo nhóm trực</Label>
                       <p className="text-xs text-muted-foreground">
                         {dutyGroups.length > 0 
-                          ? `Xoay vòng ${dutyGroups.filter(g => (g.members?.length || 0) > 0).length} nhóm, mỗi ngày 1 nhóm trực. Có thể chỉnh sửa sau.`
+                          ? `Mỗi ngày lấy 1 người từ mỗi nhóm, luân phiên thành viên trong nhóm. ${dutyGroups.filter(g => (g.members?.length || 0) > 0).length} nhóm hoạt động.`
                           : 'Chưa có nhóm trực. Vui lòng tạo nhóm trong tab Cài đặt.'}
                       </p>
                       {dutyGroups.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {dutyGroups.map(g => (
-                            <Badge key={g.id} variant="secondary" className="text-[10px]">
-                              {g.name} ({g.members?.length || 0})
-                            </Badge>
-                          ))}
+                          {dutyGroups.map((g, i) => {
+                            const color = GROUP_COLORS[i % GROUP_COLORS.length];
+                            return (
+                              <Badge key={g.id} className={cn("text-[10px]", color.bg, color.text, color.border, "border")}>
+                                {g.name} ({g.members?.length || 0})
+                              </Badge>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
