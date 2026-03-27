@@ -88,6 +88,24 @@ import { cn } from '@/lib/utils';
 import DutyStatisticsTab from '@/components/duty/DutyStatisticsTab';
 import DutyGroupsShiftsSettings from '@/components/duty/DutyGroupsShiftsSettings';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+interface DutyGroup {
+  id: string;
+  school_id: string;
+  name: string;
+  display_order: number;
+  is_active: boolean;
+  members?: DutyGroupMember[];
+}
+
+interface DutyGroupMember {
+  id: string;
+  group_id: string;
+  user_id: string;
+  school_id: string;
+  profile?: Profile;
+}
 
 const SHIFT_START_HOUR = 6;
 
