@@ -1325,19 +1325,32 @@ export default function DutySchedule() {
 
       const newSchedules: { school_id: string; user_id: string; duty_date: string; group_id: string }[] = [];
 
-      // Rotate groups: each day assign a different group
+      // Track member rotation index per group
+      const groupMemberIndex: Record<string, number> = {};
+      activeGroups.forEach(g => { groupMemberIndex[g.id] = 0; });
+
+      // Each day: pick 1 person from EACH group (rotating members within the group)
       for (let i = 0; i < daysInMonth.length; i++) {
         const day = daysInMonth[i];
         const dateStr = format(day, 'yyyy-MM-dd');
-        const groupIndex = i % activeGroups.length;
-        const group = activeGroups[groupIndex];
 
-        // Assign all members of the group to this day
-        for (const member of (group.members || [])) {
+        for (const group of activeGroups) {
+          const members = group.members || [];
+          if (members.length === 0) continue;
+          
+          // Pick the next member in rotation for this group
+          const memberIdx = groupMemberIndex[group.id] % members.length;
+          const member = members[memberIdx];
+          
           newSchedules.push({
             school_id: currentSchool.id,
             user_id: member.user_id,
             duty_date: dateStr,
+            group_id: group.id,
+          });
+          
+          groupMemberIndex[group.id] = memberIdx + 1;
+        }
             group_id: group.id,
           });
         }
