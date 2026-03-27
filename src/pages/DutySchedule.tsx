@@ -1350,6 +1350,7 @@ export default function DutySchedule() {
           });
           
           groupMemberIndex[group.id] = memberIdx + 1;
+        }
       }
 
       if (newSchedules.length > 0) {
