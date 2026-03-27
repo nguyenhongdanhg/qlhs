@@ -1695,28 +1695,16 @@ export default function DutySchedule() {
                         </AlertDialogContent>
                       </AlertDialog>
 
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-1" disabled={isSaving || dutyMembers.length === 0}>
-                            <Wand2 className="h-4 w-4" />
-                            Tự động phân công
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Tự động phân công?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Thao tác này sẽ xóa toàn bộ lịch trực tháng hiện tại và tự động phân công đều cho {dutyMembers.length} người (tối đa {MAX_PER_DAY} người/ngày, {MAX_PER_PERSON} lần/người/tháng).
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                            <AlertDialogAction onClick={autoAssign}>
-                              Xác nhận
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1" 
+                        disabled={isSaving || (dutyMembers.length === 0 && dutyGroups.length === 0)}
+                        onClick={() => setShowAutoAssignDialog(true)}
+                      >
+                        <Wand2 className="h-4 w-4" />
+                        Tự động phân công
+                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive" disabled={isSaving || schedules.length === 0}>
