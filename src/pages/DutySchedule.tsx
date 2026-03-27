@@ -109,6 +109,18 @@ interface DutyGroupMember {
 
 const SHIFT_START_HOUR = 6;
 
+// Group color palette for visual distinction
+const GROUP_COLORS = [
+  { bg: 'bg-blue-100 dark:bg-blue-950/40', border: 'border-blue-400', text: 'text-blue-700 dark:text-blue-300', hex: '#3B82F6', light: 'bg-blue-50 dark:bg-blue-950/20' },
+  { bg: 'bg-emerald-100 dark:bg-emerald-950/40', border: 'border-emerald-400', text: 'text-emerald-700 dark:text-emerald-300', hex: '#10B981', light: 'bg-emerald-50 dark:bg-emerald-950/20' },
+  { bg: 'bg-amber-100 dark:bg-amber-950/40', border: 'border-amber-400', text: 'text-amber-700 dark:text-amber-300', hex: '#F59E0B', light: 'bg-amber-50 dark:bg-amber-950/20' },
+  { bg: 'bg-purple-100 dark:bg-purple-950/40', border: 'border-purple-400', text: 'text-purple-700 dark:text-purple-300', hex: '#8B5CF6', light: 'bg-purple-50 dark:bg-purple-950/20' },
+  { bg: 'bg-rose-100 dark:bg-rose-950/40', border: 'border-rose-400', text: 'text-rose-700 dark:text-rose-300', hex: '#F43F5E', light: 'bg-rose-50 dark:bg-rose-950/20' },
+  { bg: 'bg-cyan-100 dark:bg-cyan-950/40', border: 'border-cyan-400', text: 'text-cyan-700 dark:text-cyan-300', hex: '#06B6D4', light: 'bg-cyan-50 dark:bg-cyan-950/20' },
+  { bg: 'bg-orange-100 dark:bg-orange-950/40', border: 'border-orange-400', text: 'text-orange-700 dark:text-orange-300', hex: '#F97316', light: 'bg-orange-50 dark:bg-orange-950/20' },
+  { bg: 'bg-indigo-100 dark:bg-indigo-950/40', border: 'border-indigo-400', text: 'text-indigo-700 dark:text-indigo-300', hex: '#6366F1', light: 'bg-indigo-50 dark:bg-indigo-950/20' },
+];
+
 interface DutyMember extends Profile {
   dutyCount: number;
   isFixed: boolean;
