@@ -681,7 +681,7 @@ export default function Emulation() {
                             TB {col.name}
                           </TableHead>
                         ))}
-                        <TableHead className="text-center">Điểm TB</TableHead>
+                        <TableHead className="text-center">Điểm thi đua</TableHead>
                         <TableHead className="text-center w-[80px]">Xếp hạng</TableHead>
                       </TableRow>
                     </TableHeader>

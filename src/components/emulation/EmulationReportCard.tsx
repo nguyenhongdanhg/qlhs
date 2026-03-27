@@ -93,7 +93,7 @@ export const EmulationReportCard = forwardRef<HTMLDivElement, EmulationReportCar
                   {col.name}
                 </th>
               ))}
-              <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center', width: '70px' }}>TB</th>
+              <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center', width: '70px' }}>Điểm thi đua</th>
               <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center', width: '60px' }}>Xếp hạng</th>
               <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Ghi chú</th>
             </tr>
