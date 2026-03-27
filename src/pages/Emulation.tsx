@@ -534,7 +534,7 @@ export default function Emulation() {
                           )}
                         </TableHead>
                       ))}
-                      <TableHead className="text-center w-[70px]">TB</TableHead>
+                      <TableHead className="text-center w-[70px]">Điểm thi đua</TableHead>
                       <TableHead className="text-center w-[70px]">Xếp hạng</TableHead>
                       <TableHead className="min-w-[150px]">Ghi chú</TableHead>
                     </TableRow>
