@@ -2032,6 +2032,20 @@ export default function DutySchedule() {
                 <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">5/5</Badge>
                 <span>Đã đủ {MAX_PER_PERSON} lần/người</span>
               </div>
+              {dutyGroups.length > 0 && (
+                <>
+                  <span className="text-muted-foreground">|</span>
+                  {dutyGroups.map((g, i) => {
+                    const color = GROUP_COLORS[i % GROUP_COLORS.length];
+                    return (
+                      <div key={g.id} className="flex items-center gap-1">
+                        <div className={cn("w-3 h-3 rounded border", color.bg, color.border)} />
+                        <span>{g.name}</span>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
           </>
