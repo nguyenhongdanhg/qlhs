@@ -400,6 +400,40 @@ export default function DutySchedule() {
     }
   };
 
+  // Fetch duty groups with members
+  const fetchDutyGroups = async () => {
+    if (!currentSchool) return;
+    try {
+      const { data: groups } = await supabase
+        .from('duty_groups')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true)
+        .order('display_order');
+
+      if (!groups || groups.length === 0) {
+        setDutyGroups([]);
+        return;
+      }
+
+      const { data: members } = await supabase
+        .from('duty_group_members')
+        .select('*, profile:profiles(*)')
+        .eq('school_id', currentSchool.id);
+
+      const groupsWithMembers = groups.map(g => ({
+        ...g,
+        members: (members || [])
+          .filter(m => m.group_id === g.id)
+          .map(m => ({ ...m, profile: m.profile as unknown as Profile }))
+      }));
+
+      setDutyGroups(groupsWithMembers);
+    } catch (error) {
+      console.error('Error fetching duty groups:', error);
+    }
+  };
+
   useEffect(() => {
     if (!currentSchool) return;
     fetchSchedules();
@@ -407,6 +441,7 @@ export default function DutySchedule() {
     fetchDutySettings();
     fetchDutyLeaders();
     fetchLeaderMembers();
+    fetchDutyGroups();
   }, [currentSchool, currentMonth]);
 
   const fetchSchedules = async () => {
