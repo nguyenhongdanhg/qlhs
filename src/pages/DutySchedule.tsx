@@ -1269,7 +1269,94 @@ export default function DutySchedule() {
     }
   };
 
-  const getInitials = (name: string) => {
+  // Auto-assign by group rotation
+  const autoAssignByGroup = async () => {
+    if (!currentSchool || dutyGroups.length === 0) {
+      toast({
+        title: 'Thông báo',
+        description: 'Chưa có nhóm trực nào. Vui lòng tạo nhóm trực trong phần Cài đặt.',
+      });
+      return;
+    }
+
+    const activeGroups = dutyGroups.filter(g => g.members && g.members.length > 0);
+    if (activeGroups.length === 0) {
+      toast({
+        title: 'Thông báo', 
+        description: 'Các nhóm trực chưa có thành viên. Vui lòng thêm thành viên vào nhóm.',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Clear current month
+      const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+
+      await supabase
+        .from('duty_schedules')
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .gte('duty_date', monthStart)
+        .lte('duty_date', monthEnd);
+
+      const newSchedules: { school_id: string; user_id: string; duty_date: string; group_id: string }[] = [];
+
+      // Rotate groups: each day assign a different group
+      for (let i = 0; i < daysInMonth.length; i++) {
+        const day = daysInMonth[i];
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const groupIndex = i % activeGroups.length;
+        const group = activeGroups[groupIndex];
+
+        // Assign all members of the group to this day
+        for (const member of (group.members || [])) {
+          newSchedules.push({
+            school_id: currentSchool.id,
+            user_id: member.user_id,
+            duty_date: dateStr,
+            group_id: group.id,
+          });
+        }
+      }
+
+      if (newSchedules.length > 0) {
+        const { error } = await supabase
+          .from('duty_schedules')
+          .insert(newSchedules);
+        if (error) throw error;
+      }
+
+      toast({
+        title: 'Thành công',
+        description: `Đã phân công ${newSchedules.length} lượt cho ${activeGroups.length} nhóm xoay vòng`,
+      });
+
+      fetchSchedules();
+    } catch (error: any) {
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể tự động phân công theo nhóm',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+      setShowAutoAssignDialog(false);
+    }
+  };
+
+  // Handle auto assign based on mode
+  const handleAutoAssign = () => {
+    if (assignMode === 'group') {
+      autoAssignByGroup();
+    } else {
+      autoAssign();
+      setShowAutoAssignDialog(false);
+    }
+  };
+
+
     return name
       .split(' ')
       .slice(-2)
