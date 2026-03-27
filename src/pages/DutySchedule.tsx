@@ -1884,30 +1884,60 @@ export default function DutySchedule() {
                       {dutyMembers.map((member, idx) => {
                         const memberDutyCount = dutiesPerMember[member.id] || 0;
                         const isFull = memberDutyCount >= MAX_PER_PERSON;
+                        const groupInfo = memberGroupMap[member.id];
+                        const groupColor = groupInfo ? GROUP_COLORS[groupInfo.groupIndex % GROUP_COLORS.length] : null;
 
                         return (
-                          <TableRow key={member.id} className={cn(isFull && "bg-yellow-50/50 dark:bg-yellow-950/10")}>
-                            <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                          <TableRow key={member.id} className={cn(
+                            isFull && "bg-yellow-50/50 dark:bg-yellow-950/10",
+                            groupColor && !isFull && groupColor.light
+                          )}>
+                            <TableCell className={cn(
+                              "text-center font-medium sticky left-0 z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                              groupColor ? groupColor.light : "bg-background"
+                            )}>
                               {idx + 1}
                             </TableCell>
-                            <TableCell className="sticky left-10 bg-background z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                            <TableCell className={cn(
+                              "sticky left-10 z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                              groupColor ? groupColor.light : "bg-background"
+                            )}>
                               <div className="flex items-center gap-1.5">
+                                {groupColor && (
+                                  <div className={cn("w-1.5 h-6 rounded-full shrink-0", groupColor.bg, groupColor.border, "border")} />
+                                )}
                                 <Avatar className="h-5 w-5 shrink-0">
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                  <AvatarFallback className={cn(
+                                    "text-[10px]",
+                                    groupColor ? cn(groupColor.bg, groupColor.text) : "bg-primary/10 text-primary"
+                                  )}>
                                     {getInitials(member.full_name)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="font-medium text-sm whitespace-nowrap">
-                                  {member.full_name}
-                                </span>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm whitespace-nowrap">
+                                    {member.full_name}
+                                  </span>
+                                  {groupInfo && (
+                                    <span className={cn("text-[9px] leading-tight", groupColor?.text || "text-muted-foreground")}>
+                                      {groupInfo.groupName}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </TableCell>
-                            <TableCell className="text-center sticky left-[220px] bg-background z-10 border-r px-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                            <TableCell className={cn(
+                              "text-center sticky left-[220px] z-10 border-r px-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                              groupColor ? groupColor.light : "bg-background"
+                            )}>
                               <Badge variant={isFull ? "destructive" : "outline"} className="text-[10px] px-1.5 py-0">
                                 {memberDutyCount}/{MAX_PER_PERSON}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-center sticky left-[276px] bg-background z-10 border-r px-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                            <TableCell className={cn(
+                              "text-center sticky left-[276px] z-10 border-r px-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                              groupColor ? groupColor.light : "bg-background"
+                            )}>
                               {canManageDuty && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
@@ -1953,7 +1983,8 @@ export default function DutySchedule() {
                                   className={cn(
                                     "text-center p-1",
                                     today && "bg-primary/5",
-                                    isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10"
+                                    isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10",
+                                    assigned && groupColor && !today && !isWeekend && groupColor.light
                                   )}
                                 >
                                   <div className="flex justify-center">
@@ -1963,7 +1994,9 @@ export default function DutySchedule() {
                                       onCheckedChange={() => toggleAssignment(member.id, day)}
                                       className={cn(
                                         "h-5 w-5",
-                                        assigned && "bg-primary border-primary"
+                                        assigned && groupColor 
+                                          ? cn(groupColor.bg, groupColor.border, "border") 
+                                          : assigned && "bg-primary border-primary"
                                       )}
                                     />
                                   </div>
