@@ -1362,7 +1362,7 @@ export default function DutySchedule() {
 
       toast({
         title: 'Thành công',
-        description: `Đã phân công ${newSchedules.length} lượt cho ${activeGroups.length} nhóm xoay vòng`,
+        description: `Đã phân công ${newSchedules.length} lượt (mỗi ngày 1 người/nhóm, ${activeGroups.length} nhóm luân phiên)`,
       });
 
       fetchSchedules();
