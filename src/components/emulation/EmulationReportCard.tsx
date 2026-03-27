@@ -93,7 +93,7 @@ export const EmulationReportCard = forwardRef<HTMLDivElement, EmulationReportCar
                   {col.name}
                 </th>
               ))}
-              <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center', width: '70px' }}>TB</th>
+              <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center', width: '70px' }}>Điểm thi đua</th>
               <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'center', width: '60px' }}>Xếp hạng</th>
               <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Ghi chú</th>
             </tr>
@@ -147,7 +147,7 @@ export const EmulationReportCard = forwardRef<HTMLDivElement, EmulationReportCar
 
         {/* Footer */}
         <div style={{ marginTop: '12px', fontSize: '11px', color: '#9ca3af' }}>
-          * Công thức: TB = {formulaString}
+          * Công thức: Điểm thi đua = {formulaString}
         </div>
         <div style={{ marginTop: '8px', textAlign: 'right', fontSize: '11px', color: '#9ca3af' }}>
           Xuất lúc: {format(new Date(), 'HH:mm dd/MM/yyyy', { locale: vi })}

@@ -72,7 +72,7 @@ const createWeekSheet = (
   // Table header
   const headerRow: (string | number)[] = ['STT', 'Lớp'];
   columns.forEach(col => headerRow.push(col.name));
-  headerRow.push('TB', 'Xếp hạng', 'Ghi chú');
+  headerRow.push('Điểm thi đua', 'Xếp hạng', 'Ghi chú');
   data.push(headerRow);
   
   // Data rows
@@ -85,7 +85,7 @@ const createWeekSheet = (
   
   // Formula note
   data.push([]);
-  data.push([`* Công thức: TB = ${formulaString}`]);
+  data.push([`* Công thức: Điểm thi đua = ${formulaString}`]);
   
   const ws = XLSX.utils.aoa_to_sheet(data);
   
