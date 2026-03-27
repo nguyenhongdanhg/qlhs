@@ -261,7 +261,17 @@ export default function DutySchedule() {
     return counts;
   }, [schedules]);
 
-  // Count duties per member for current month
+  // Map member -> group info for color coding
+  const memberGroupMap = useMemo(() => {
+    const map: Record<string, { groupId: string; groupIndex: number; groupName: string }> = {};
+    dutyGroups.forEach((group, idx) => {
+      (group.members || []).forEach(m => {
+        map[m.user_id] = { groupId: group.id, groupIndex: idx, groupName: group.name };
+      });
+    });
+    return map;
+  }, [dutyGroups]);
+
   const dutiesPerMember = useMemo(() => {
     const counts: Record<string, number> = {};
     const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
