@@ -2195,7 +2195,7 @@ export default function DutySchedule() {
                                       onCheckedChange={toggleGroupAssignment}
                                       className={cn(
                                         "h-5 w-5",
-                                        isGroupAssigned && "bg-primary border-primary"
+                                        isGroupAssigned && cn(color.bg, color.border, "border")
                                       )}
                                     />
                                   </div>
