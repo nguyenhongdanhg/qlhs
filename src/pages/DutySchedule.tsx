@@ -109,6 +109,18 @@ interface DutyGroupMember {
 
 const SHIFT_START_HOUR = 6;
 
+// Group color palette for visual distinction
+const GROUP_COLORS = [
+  { bg: 'bg-blue-100 dark:bg-blue-950/40', border: 'border-blue-400', text: 'text-blue-700 dark:text-blue-300', hex: '#3B82F6', light: 'bg-blue-50 dark:bg-blue-950/20' },
+  { bg: 'bg-emerald-100 dark:bg-emerald-950/40', border: 'border-emerald-400', text: 'text-emerald-700 dark:text-emerald-300', hex: '#10B981', light: 'bg-emerald-50 dark:bg-emerald-950/20' },
+  { bg: 'bg-amber-100 dark:bg-amber-950/40', border: 'border-amber-400', text: 'text-amber-700 dark:text-amber-300', hex: '#F59E0B', light: 'bg-amber-50 dark:bg-amber-950/20' },
+  { bg: 'bg-purple-100 dark:bg-purple-950/40', border: 'border-purple-400', text: 'text-purple-700 dark:text-purple-300', hex: '#8B5CF6', light: 'bg-purple-50 dark:bg-purple-950/20' },
+  { bg: 'bg-rose-100 dark:bg-rose-950/40', border: 'border-rose-400', text: 'text-rose-700 dark:text-rose-300', hex: '#F43F5E', light: 'bg-rose-50 dark:bg-rose-950/20' },
+  { bg: 'bg-cyan-100 dark:bg-cyan-950/40', border: 'border-cyan-400', text: 'text-cyan-700 dark:text-cyan-300', hex: '#06B6D4', light: 'bg-cyan-50 dark:bg-cyan-950/20' },
+  { bg: 'bg-orange-100 dark:bg-orange-950/40', border: 'border-orange-400', text: 'text-orange-700 dark:text-orange-300', hex: '#F97316', light: 'bg-orange-50 dark:bg-orange-950/20' },
+  { bg: 'bg-indigo-100 dark:bg-indigo-950/40', border: 'border-indigo-400', text: 'text-indigo-700 dark:text-indigo-300', hex: '#6366F1', light: 'bg-indigo-50 dark:bg-indigo-950/20' },
+];
+
 interface DutyMember extends Profile {
   dutyCount: number;
   isFixed: boolean;
@@ -249,7 +261,17 @@ export default function DutySchedule() {
     return counts;
   }, [schedules]);
 
-  // Count duties per member for current month
+  // Map member -> group info for color coding
+  const memberGroupMap = useMemo(() => {
+    const map: Record<string, { groupId: string; groupIndex: number; groupName: string }> = {};
+    dutyGroups.forEach((group, idx) => {
+      (group.members || []).forEach(m => {
+        map[m.user_id] = { groupId: group.id, groupIndex: idx, groupName: group.name };
+      });
+    });
+    return map;
+  }, [dutyGroups]);
+
   const dutiesPerMember = useMemo(() => {
     const counts: Record<string, number> = {};
     const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
@@ -1303,21 +1325,31 @@ export default function DutySchedule() {
 
       const newSchedules: { school_id: string; user_id: string; duty_date: string; group_id: string }[] = [];
 
-      // Rotate groups: each day assign a different group
+      // Track member rotation index per group
+      const groupMemberIndex: Record<string, number> = {};
+      activeGroups.forEach(g => { groupMemberIndex[g.id] = 0; });
+
+      // Each day: pick 1 person from EACH group (rotating members within the group)
       for (let i = 0; i < daysInMonth.length; i++) {
         const day = daysInMonth[i];
         const dateStr = format(day, 'yyyy-MM-dd');
-        const groupIndex = i % activeGroups.length;
-        const group = activeGroups[groupIndex];
 
-        // Assign all members of the group to this day
-        for (const member of (group.members || [])) {
+        for (const group of activeGroups) {
+          const members = group.members || [];
+          if (members.length === 0) continue;
+          
+          // Pick the next member in rotation for this group
+          const memberIdx = groupMemberIndex[group.id] % members.length;
+          const member = members[memberIdx];
+          
           newSchedules.push({
             school_id: currentSchool.id,
             user_id: member.user_id,
             duty_date: dateStr,
             group_id: group.id,
           });
+          
+          groupMemberIndex[group.id] = memberIdx + 1;
         }
       }
 
@@ -1330,7 +1362,7 @@ export default function DutySchedule() {
 
       toast({
         title: 'Thành công',
-        description: `Đã phân công ${newSchedules.length} lượt cho ${activeGroups.length} nhóm xoay vòng`,
+        description: `Đã phân công ${newSchedules.length} lượt (mỗi ngày 1 người/nhóm, ${activeGroups.length} nhóm luân phiên)`,
       });
 
       fetchSchedules();
@@ -1852,30 +1884,60 @@ export default function DutySchedule() {
                       {dutyMembers.map((member, idx) => {
                         const memberDutyCount = dutiesPerMember[member.id] || 0;
                         const isFull = memberDutyCount >= MAX_PER_PERSON;
+                        const groupInfo = memberGroupMap[member.id];
+                        const groupColor = groupInfo ? GROUP_COLORS[groupInfo.groupIndex % GROUP_COLORS.length] : null;
 
                         return (
-                          <TableRow key={member.id} className={cn(isFull && "bg-yellow-50/50 dark:bg-yellow-950/10")}>
-                            <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                          <TableRow key={member.id} className={cn(
+                            isFull && "bg-yellow-50/50 dark:bg-yellow-950/10",
+                            groupColor && !isFull && groupColor.light
+                          )}>
+                            <TableCell className={cn(
+                              "text-center font-medium sticky left-0 z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                              groupColor ? groupColor.light : "bg-background"
+                            )}>
                               {idx + 1}
                             </TableCell>
-                            <TableCell className="sticky left-10 bg-background z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                            <TableCell className={cn(
+                              "sticky left-10 z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                              groupColor ? groupColor.light : "bg-background"
+                            )}>
                               <div className="flex items-center gap-1.5">
+                                {groupColor && (
+                                  <div className={cn("w-1.5 h-6 rounded-full shrink-0", groupColor.bg, groupColor.border, "border")} />
+                                )}
                                 <Avatar className="h-5 w-5 shrink-0">
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                  <AvatarFallback className={cn(
+                                    "text-[10px]",
+                                    groupColor ? cn(groupColor.bg, groupColor.text) : "bg-primary/10 text-primary"
+                                  )}>
                                     {getInitials(member.full_name)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="font-medium text-sm whitespace-nowrap">
-                                  {member.full_name}
-                                </span>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm whitespace-nowrap">
+                                    {member.full_name}
+                                  </span>
+                                  {groupInfo && (
+                                    <span className={cn("text-[9px] leading-tight", groupColor?.text || "text-muted-foreground")}>
+                                      {groupInfo.groupName}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </TableCell>
-                            <TableCell className="text-center sticky left-[220px] bg-background z-10 border-r px-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                            <TableCell className={cn(
+                              "text-center sticky left-[220px] z-10 border-r px-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                              groupColor ? groupColor.light : "bg-background"
+                            )}>
                               <Badge variant={isFull ? "destructive" : "outline"} className="text-[10px] px-1.5 py-0">
                                 {memberDutyCount}/{MAX_PER_PERSON}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-center sticky left-[276px] bg-background z-10 border-r px-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                            <TableCell className={cn(
+                              "text-center sticky left-[276px] z-10 border-r px-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]",
+                              groupColor ? groupColor.light : "bg-background"
+                            )}>
                               {canManageDuty && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
@@ -1921,7 +1983,8 @@ export default function DutySchedule() {
                                   className={cn(
                                     "text-center p-1",
                                     today && "bg-primary/5",
-                                    isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10"
+                                    isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10",
+                                    assigned && groupColor && !today && !isWeekend && groupColor.light
                                   )}
                                 >
                                   <div className="flex justify-center">
@@ -1931,7 +1994,9 @@ export default function DutySchedule() {
                                       onCheckedChange={() => toggleAssignment(member.id, day)}
                                       className={cn(
                                         "h-5 w-5",
-                                        assigned && "bg-primary border-primary"
+                                        assigned && groupColor 
+                                          ? cn(groupColor.bg, groupColor.border, "border") 
+                                          : assigned && "bg-primary border-primary"
                                       )}
                                     />
                                   </div>
@@ -1967,6 +2032,20 @@ export default function DutySchedule() {
                 <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">5/5</Badge>
                 <span>Đã đủ {MAX_PER_PERSON} lần/người</span>
               </div>
+              {dutyGroups.length > 0 && (
+                <>
+                  <span className="text-muted-foreground">|</span>
+                  {dutyGroups.map((g, i) => {
+                    const color = GROUP_COLORS[i % GROUP_COLORS.length];
+                    return (
+                      <div key={g.id} className="flex items-center gap-1">
+                        <div className={cn("w-3 h-3 rounded border", color.bg, color.border)} />
+                        <span>{g.name}</span>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
           </>
@@ -2033,18 +2112,22 @@ export default function DutySchedule() {
                       {dutyGroups.map((group, idx) => {
                         const memberIds = (group.members || []).map(m => m.user_id);
                         const memberNames = (group.members || []).map(m => m.profile?.full_name || '').filter(Boolean);
+                        const color = GROUP_COLORS[idx % GROUP_COLORS.length];
                         
                         return (
-                          <TableRow key={group.id}>
-                            <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                          <TableRow key={group.id} className={color.light}>
+                            <TableCell className={cn("text-center font-medium sticky left-0 z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]", color.light)}>
                               {idx + 1}
                             </TableCell>
-                            <TableCell className="sticky left-10 bg-background z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                              <div>
-                                <span className="font-medium text-sm">{group.name}</span>
-                                <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">
-                                  {memberNames.join(', ') || 'Chưa có TV'}
-                                </p>
+                            <TableCell className={cn("sticky left-10 z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]", color.light)}>
+                              <div className="flex items-center gap-1.5">
+                                <div className={cn("w-1.5 h-6 rounded-full shrink-0 border", color.bg, color.border)} />
+                                <div>
+                                  <span className={cn("font-medium text-sm", color.text)}>{group.name}</span>
+                                  <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">
+                                    {memberNames.join(', ') || 'Chưa có TV'}
+                                  </p>
+                                </div>
                               </div>
                             </TableCell>
                             {daysInMonth.map((day, i) => {
@@ -2112,7 +2195,7 @@ export default function DutySchedule() {
                                       onCheckedChange={toggleGroupAssignment}
                                       className={cn(
                                         "h-5 w-5",
-                                        isGroupAssigned && "bg-primary border-primary"
+                                        isGroupAssigned && cn(color.bg, color.border, "border")
                                       )}
                                     />
                                   </div>
@@ -2162,16 +2245,19 @@ export default function DutySchedule() {
                       <Label htmlFor="mode-group" className="font-medium cursor-pointer">Theo nhóm trực</Label>
                       <p className="text-xs text-muted-foreground">
                         {dutyGroups.length > 0 
-                          ? `Xoay vòng ${dutyGroups.filter(g => (g.members?.length || 0) > 0).length} nhóm, mỗi ngày 1 nhóm trực. Có thể chỉnh sửa sau.`
+                          ? `Mỗi ngày lấy 1 người từ mỗi nhóm, luân phiên thành viên trong nhóm. ${dutyGroups.filter(g => (g.members?.length || 0) > 0).length} nhóm hoạt động.`
                           : 'Chưa có nhóm trực. Vui lòng tạo nhóm trong tab Cài đặt.'}
                       </p>
                       {dutyGroups.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {dutyGroups.map(g => (
-                            <Badge key={g.id} variant="secondary" className="text-[10px]">
-                              {g.name} ({g.members?.length || 0})
-                            </Badge>
-                          ))}
+                          {dutyGroups.map((g, i) => {
+                            const color = GROUP_COLORS[i % GROUP_COLORS.length];
+                            return (
+                              <Badge key={g.id} className={cn("text-[10px]", color.bg, color.text, color.border, "border")}>
+                                {g.name} ({g.members?.length || 0})
+                              </Badge>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
