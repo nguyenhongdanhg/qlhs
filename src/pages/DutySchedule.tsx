@@ -88,6 +88,24 @@ import { cn } from '@/lib/utils';
 import DutyStatisticsTab from '@/components/duty/DutyStatisticsTab';
 import DutyGroupsShiftsSettings from '@/components/duty/DutyGroupsShiftsSettings';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+interface DutyGroup {
+  id: string;
+  school_id: string;
+  name: string;
+  display_order: number;
+  is_active: boolean;
+  members?: DutyGroupMember[];
+}
+
+interface DutyGroupMember {
+  id: string;
+  group_id: string;
+  user_id: string;
+  school_id: string;
+  profile?: Profile;
+}
 
 const SHIFT_START_HOUR = 6;
 
@@ -144,6 +162,11 @@ export default function DutySchedule() {
   
   // Filter by person name in calendar tab
   const [calendarFilterName, setCalendarFilterName] = useState('');
+  
+  // Assignment mode state
+  const [assignMode, setAssignMode] = useState<'individual' | 'group'>('individual');
+  const [showAutoAssignDialog, setShowAutoAssignDialog] = useState(false);
+  const [dutyGroups, setDutyGroups] = useState<DutyGroup[]>([]);
   
   // Swap duty state
   const [showSwapDialog, setShowSwapDialog] = useState(false);
@@ -377,6 +400,40 @@ export default function DutySchedule() {
     }
   };
 
+  // Fetch duty groups with members
+  const fetchDutyGroups = async () => {
+    if (!currentSchool) return;
+    try {
+      const { data: groups } = await supabase
+        .from('duty_groups')
+        .select('*')
+        .eq('school_id', currentSchool.id)
+        .eq('is_active', true)
+        .order('display_order');
+
+      if (!groups || groups.length === 0) {
+        setDutyGroups([]);
+        return;
+      }
+
+      const { data: members } = await supabase
+        .from('duty_group_members')
+        .select('*, profile:profiles(*)')
+        .eq('school_id', currentSchool.id);
+
+      const groupsWithMembers = groups.map(g => ({
+        ...g,
+        members: (members || [])
+          .filter(m => m.group_id === g.id)
+          .map(m => ({ ...m, profile: m.profile as unknown as Profile }))
+      }));
+
+      setDutyGroups(groupsWithMembers);
+    } catch (error) {
+      console.error('Error fetching duty groups:', error);
+    }
+  };
+
   useEffect(() => {
     if (!currentSchool) return;
     fetchSchedules();
@@ -384,6 +441,7 @@ export default function DutySchedule() {
     fetchDutySettings();
     fetchDutyLeaders();
     fetchLeaderMembers();
+    fetchDutyGroups();
   }, [currentSchool, currentMonth]);
 
   const fetchSchedules = async () => {
@@ -1211,6 +1269,93 @@ export default function DutySchedule() {
     }
   };
 
+  // Auto-assign by group rotation
+  const autoAssignByGroup = async () => {
+    if (!currentSchool || dutyGroups.length === 0) {
+      toast({
+        title: 'Thông báo',
+        description: 'Chưa có nhóm trực nào. Vui lòng tạo nhóm trực trong phần Cài đặt.',
+      });
+      return;
+    }
+
+    const activeGroups = dutyGroups.filter(g => g.members && g.members.length > 0);
+    if (activeGroups.length === 0) {
+      toast({
+        title: 'Thông báo', 
+        description: 'Các nhóm trực chưa có thành viên. Vui lòng thêm thành viên vào nhóm.',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Clear current month
+      const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+
+      await supabase
+        .from('duty_schedules')
+        .delete()
+        .eq('school_id', currentSchool.id)
+        .gte('duty_date', monthStart)
+        .lte('duty_date', monthEnd);
+
+      const newSchedules: { school_id: string; user_id: string; duty_date: string; group_id: string }[] = [];
+
+      // Rotate groups: each day assign a different group
+      for (let i = 0; i < daysInMonth.length; i++) {
+        const day = daysInMonth[i];
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const groupIndex = i % activeGroups.length;
+        const group = activeGroups[groupIndex];
+
+        // Assign all members of the group to this day
+        for (const member of (group.members || [])) {
+          newSchedules.push({
+            school_id: currentSchool.id,
+            user_id: member.user_id,
+            duty_date: dateStr,
+            group_id: group.id,
+          });
+        }
+      }
+
+      if (newSchedules.length > 0) {
+        const { error } = await supabase
+          .from('duty_schedules')
+          .insert(newSchedules);
+        if (error) throw error;
+      }
+
+      toast({
+        title: 'Thành công',
+        description: `Đã phân công ${newSchedules.length} lượt cho ${activeGroups.length} nhóm xoay vòng`,
+      });
+
+      fetchSchedules();
+    } catch (error: any) {
+      toast({
+        title: 'Lỗi',
+        description: error.message || 'Không thể tự động phân công theo nhóm',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+      setShowAutoAssignDialog(false);
+    }
+  };
+
+  // Handle auto assign based on mode
+  const handleAutoAssign = () => {
+    if (assignMode === 'group') {
+      autoAssignByGroup();
+    } else {
+      autoAssign();
+      setShowAutoAssignDialog(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -1550,28 +1695,16 @@ export default function DutySchedule() {
                         </AlertDialogContent>
                       </AlertDialog>
 
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="gap-1" disabled={isSaving || dutyMembers.length === 0}>
-                            <Wand2 className="h-4 w-4" />
-                            Tự động phân công
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Tự động phân công?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Thao tác này sẽ xóa toàn bộ lịch trực tháng hiện tại và tự động phân công đều cho {dutyMembers.length} người (tối đa {MAX_PER_DAY} người/ngày, {MAX_PER_PERSON} lần/người/tháng).
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Hủy</AlertDialogCancel>
-                            <AlertDialogAction onClick={autoAssign}>
-                              Xác nhận
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1" 
+                        disabled={isSaving || (dutyMembers.length === 0 && dutyGroups.length === 0)}
+                        onClick={() => setShowAutoAssignDialog(true)}
+                      >
+                        <Wand2 className="h-4 w-4" />
+                        Tự động phân công
+                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive" disabled={isSaving || schedules.length === 0}>
@@ -1616,7 +1749,36 @@ export default function DutySchedule() {
             </CardContent>
           </Card>
 
-          {/* Assignment Grid - Improved with horizontal scroll and better header */}
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium">Chế độ xem:</Label>
+            <div className="flex gap-1">
+              <Button
+                variant={assignMode === 'individual' ? 'default' : 'outline'}
+                size="sm"
+                className="gap-1"
+                onClick={() => setAssignMode('individual')}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Theo giáo viên
+              </Button>
+              <Button
+                variant={assignMode === 'group' ? 'default' : 'outline'}
+                size="sm"
+                className="gap-1"
+                onClick={() => setAssignMode('group')}
+                disabled={dutyGroups.length === 0}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Theo nhóm
+              </Button>
+            </div>
+          </div>
+
+          {/* Assignment Grid */}
+          {assignMode === 'individual' ? (
+          <>
+          {/* Individual Assignment Grid */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1807,6 +1969,227 @@ export default function DutySchedule() {
               </div>
             </div>
           )}
+          </>
+          ) : (
+          <>
+          {/* Group Assignment Grid */}
+          {dutyGroups.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Users className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground mb-4">Chưa có nhóm trực nào</p>
+                <p className="text-sm text-muted-foreground">Vui lòng tạo nhóm trực trong tab Cài đặt</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table className="relative">
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-10 text-center sticky left-0 bg-muted z-20 border-r px-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">STT</TableHead>
+                        <TableHead className="min-w-[200px] sticky left-10 bg-muted z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Nhóm trực</TableHead>
+                        {daysInMonth.map((day, i) => {
+                          const dayName = getDayName(day);
+                          const today = isToday(day);
+                          const isWeekend = dayName === "CN" || dayName === "T7";
+                          
+                          // Check which group is assigned this day
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const daySchedules = schedules.filter(s => s.duty_date === dateStr);
+                          
+                          return (
+                            <TableHead 
+                              key={i} 
+                              className={cn(
+                                "w-11 text-center p-0",
+                                today && "bg-primary/10",
+                                isWeekend && !today && "bg-orange-50 dark:bg-orange-950/20"
+                              )}
+                            >
+                              <div className="flex flex-col items-center py-1.5">
+                                <span className={cn(
+                                  "text-[10px] font-semibold",
+                                  isWeekend ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground",
+                                  today && "text-primary"
+                                )}>
+                                  {dayName}
+                                </span>
+                                <span className={cn(
+                                  "text-base font-bold leading-tight",
+                                  isWeekend && "text-orange-600 dark:text-orange-400",
+                                  today && "text-primary"
+                                )}>
+                                  {format(day, 'd')}
+                                </span>
+                              </div>
+                            </TableHead>
+                          );
+                        })}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dutyGroups.map((group, idx) => {
+                        const memberIds = (group.members || []).map(m => m.user_id);
+                        const memberNames = (group.members || []).map(m => m.profile?.full_name || '').filter(Boolean);
+                        
+                        return (
+                          <TableRow key={group.id}>
+                            <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell className="sticky left-10 bg-background z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                              <div>
+                                <span className="font-medium text-sm">{group.name}</span>
+                                <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">
+                                  {memberNames.join(', ') || 'Chưa có TV'}
+                                </p>
+                              </div>
+                            </TableCell>
+                            {daysInMonth.map((day, i) => {
+                              const dateStr = format(day, 'yyyy-MM-dd');
+                              // Check if any member of this group is assigned on this day
+                              const isGroupAssigned = schedules.some(s => 
+                                s.duty_date === dateStr && memberIds.includes(s.user_id)
+                              );
+                              const today = isToday(day);
+                              const dayName = getDayName(day);
+                              const isWeekend = dayName === "CN" || dayName === "T7";
+
+                              const toggleGroupAssignment = async () => {
+                                if (!currentSchool) return;
+                                setIsSaving(true);
+                                try {
+                                  if (isGroupAssigned) {
+                                    // Remove all members of this group from this day
+                                    for (const memberId of memberIds) {
+                                      const existing = schedules.find(s => s.user_id === memberId && s.duty_date === dateStr);
+                                      if (existing) {
+                                        await supabase.from('duty_schedules').delete().eq('id', existing.id);
+                                      }
+                                    }
+                                  } else {
+                                    // Remove existing schedules for this day first (replace with group)
+                                    await supabase
+                                      .from('duty_schedules')
+                                      .delete()
+                                      .eq('school_id', currentSchool.id)
+                                      .eq('duty_date', dateStr);
+                                    
+                                    // Add all members of this group
+                                    const inserts = memberIds.map(userId => ({
+                                      school_id: currentSchool.id,
+                                      user_id: userId,
+                                      duty_date: dateStr,
+                                      group_id: group.id,
+                                    }));
+                                    if (inserts.length > 0) {
+                                      await supabase.from('duty_schedules').insert(inserts);
+                                    }
+                                  }
+                                  fetchSchedules();
+                                } catch (error: any) {
+                                  toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+                                } finally {
+                                  setIsSaving(false);
+                                }
+                              };
+
+                              return (
+                                <TableCell 
+                                  key={i} 
+                                  className={cn(
+                                    "text-center p-1",
+                                    today && "bg-primary/5",
+                                    isWeekend && !today && "bg-orange-50/50 dark:bg-orange-950/10"
+                                  )}
+                                >
+                                  <div className="flex justify-center">
+                                    <Checkbox
+                                      checked={isGroupAssigned}
+                                      disabled={!canManageDuty || isSaving}
+                                      onCheckedChange={toggleGroupAssignment}
+                                      className={cn(
+                                        "h-5 w-5",
+                                        isGroupAssigned && "bg-primary border-primary"
+                                      )}
+                                    />
+                                  </div>
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          </>
+          )}
+
+          {/* Auto Assign Dialog */}
+          <Dialog open={showAutoAssignDialog} onOpenChange={setShowAutoAssignDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Tự động phân công</DialogTitle>
+                <DialogDescription>
+                  Chọn phương thức phân công tự động cho tháng {format(currentMonth, 'MM/yyyy')}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <RadioGroup value={assignMode} onValueChange={(v) => setAssignMode(v as 'individual' | 'group')}>
+                  <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
+                    onClick={() => setAssignMode('individual')}>
+                    <RadioGroupItem value="individual" id="mode-individual" className="mt-0.5" />
+                    <div className="space-y-1">
+                      <Label htmlFor="mode-individual" className="font-medium cursor-pointer">Theo giáo viên</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Phân công đều cho {dutyMembers.length} giáo viên (tối đa {MAX_PER_DAY} người/ngày, {MAX_PER_PERSON} lần/tháng). Đảm bảo cân bằng giới tính và cuối tuần.
+                      </p>
+                    </div>
+                  </div>
+                  <div className={cn(
+                    "flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer",
+                    dutyGroups.length === 0 && "opacity-50 pointer-events-none"
+                  )}
+                    onClick={() => dutyGroups.length > 0 && setAssignMode('group')}>
+                    <RadioGroupItem value="group" id="mode-group" className="mt-0.5" disabled={dutyGroups.length === 0} />
+                    <div className="space-y-1">
+                      <Label htmlFor="mode-group" className="font-medium cursor-pointer">Theo nhóm trực</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {dutyGroups.length > 0 
+                          ? `Xoay vòng ${dutyGroups.filter(g => (g.members?.length || 0) > 0).length} nhóm, mỗi ngày 1 nhóm trực. Có thể chỉnh sửa sau.`
+                          : 'Chưa có nhóm trực. Vui lòng tạo nhóm trong tab Cài đặt.'}
+                      </p>
+                      {dutyGroups.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {dutyGroups.map(g => (
+                            <Badge key={g.id} variant="secondary" className="text-[10px]">
+                              {g.name} ({g.members?.length || 0})
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-destructive">
+                  ⚠️ Thao tác này sẽ xóa toàn bộ lịch trực tháng hiện tại và phân công lại.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAutoAssignDialog(false)}>Hủy</Button>
+                <Button onClick={handleAutoAssign} disabled={isSaving}>
+                  {isSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  Xác nhận phân công
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
         )}
 
