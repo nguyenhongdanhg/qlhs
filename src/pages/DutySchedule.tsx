@@ -1356,7 +1356,7 @@ export default function DutySchedule() {
     }
   };
 
-
+  const getInitials = (name: string) => {
     return name
       .split(' ')
       .slice(-2)
