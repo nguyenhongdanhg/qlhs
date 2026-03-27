@@ -2112,18 +2112,22 @@ export default function DutySchedule() {
                       {dutyGroups.map((group, idx) => {
                         const memberIds = (group.members || []).map(m => m.user_id);
                         const memberNames = (group.members || []).map(m => m.profile?.full_name || '').filter(Boolean);
+                        const color = GROUP_COLORS[idx % GROUP_COLORS.length];
                         
                         return (
-                          <TableRow key={group.id}>
-                            <TableCell className="text-center font-medium sticky left-0 bg-background z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                          <TableRow key={group.id} className={color.light}>
+                            <TableCell className={cn("text-center font-medium sticky left-0 z-10 border-r px-1 text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]", color.light)}>
                               {idx + 1}
                             </TableCell>
-                            <TableCell className="sticky left-10 bg-background z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                              <div>
-                                <span className="font-medium text-sm">{group.name}</span>
-                                <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">
-                                  {memberNames.join(', ') || 'Chưa có TV'}
-                                </p>
+                            <TableCell className={cn("sticky left-10 z-10 border-r py-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]", color.light)}>
+                              <div className="flex items-center gap-1.5">
+                                <div className={cn("w-1.5 h-6 rounded-full shrink-0 border", color.bg, color.border)} />
+                                <div>
+                                  <span className={cn("font-medium text-sm", color.text)}>{group.name}</span>
+                                  <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">
+                                    {memberNames.join(', ') || 'Chưa có TV'}
+                                  </p>
+                                </div>
                               </div>
                             </TableCell>
                             {daysInMonth.map((day, i) => {
