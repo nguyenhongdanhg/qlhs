@@ -2028,10 +2028,10 @@ export default function Statistics() {
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-primary">
-                          {filteredMealStats.totalRice.toFixed(1)} kg
+                          {filteredMealStats.totalRice.toFixed(2)} kg
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          (Trưa: {((filteredMealStats.lunch as MealStats).present * ricePerStudent).toFixed(1)}kg / Tối: {((filteredMealStats.dinner as MealStats).present * ricePerStudent).toFixed(1)}kg)
+                          (Trưa: {((filteredMealStats.lunch as MealStats).present * ricePerStudent).toFixed(2)}kg / Tối: {((filteredMealStats.dinner as MealStats).present * ricePerStudent).toFixed(2)}kg)
                         </div>
                       </div>
                     </CardContent>
@@ -2078,16 +2078,16 @@ export default function Statistics() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="rounded-lg bg-success/10 p-3 text-center">
                     <div className="text-xs text-muted-foreground">Tổng nhập</div>
-                    <div className="text-xl font-bold text-success">{totalRiceAdded.toFixed(1)} kg</div>
+                    <div className="text-xl font-bold text-success">{totalRiceAdded.toFixed(2)} kg</div>
                   </div>
                   <div className="rounded-lg bg-destructive/10 p-3 text-center">
                     <div className="text-xs text-muted-foreground">Đã dùng ({riceDateRange.label.toLowerCase()})</div>
-                    <div className="text-xl font-bold text-destructive">{totalRiceInRange.toFixed(1)} kg</div>
+                    <div className="text-xl font-bold text-destructive">{totalRiceInRange.toFixed(2)} kg</div>
                   </div>
                   <div className={`rounded-lg p-3 text-center ${remainingRice >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
                     <div className="text-xs text-muted-foreground">Còn lại</div>
                     <div className={`text-xl font-bold ${remainingRice >= 0 ? 'text-primary' : 'text-warning'}`}>
-                      {remainingRice.toFixed(1)} kg
+                      {remainingRice.toFixed(2)} kg
                     </div>
                   </div>
                 </div>
@@ -2285,14 +2285,14 @@ export default function Statistics() {
                           Tổng gạo đã dùng {riceDateRange.label.toLowerCase()}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          (Bữa trưa + Bữa tối × 0.2kg/học sinh)
+                          (Bữa trưa + Bữa tối × {ricePerStudent}kg/học sinh)
                         </div>
                       </div>
                       <div className="text-3xl font-bold text-primary">
                         {isLoadingRice ? (
                           <Loader2 className="h-8 w-8 animate-spin" />
                         ) : (
-                          `${totalRiceInRange.toFixed(1)} kg`
+                          `${totalRiceInRange.toFixed(2)} kg`
                         )}
                       </div>
                     </div>
@@ -2313,14 +2313,14 @@ export default function Statistics() {
                         {riceStats.map((item, idx) => (
                           <tr key={item.date} className={idx % 2 === 0 ? 'bg-muted/30' : ''}>
                             <td className="p-2">{format(new Date(item.date), 'EEEE, dd/MM/yyyy', { locale: vi })}</td>
-                            <td className="p-2 text-right font-medium">{item.rice.toFixed(1)}</td>
+                            <td className="p-2 text-right font-medium">{item.rice.toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot className="border-t bg-primary/10 font-bold">
                         <tr>
                           <td className="p-2">Tổng cộng</td>
-                          <td className="p-2 text-right">{totalRiceInRange.toFixed(1)} kg</td>
+                          <td className="p-2 text-right">{totalRiceInRange.toFixed(2)} kg</td>
                         </tr>
                       </tfoot>
                     </table>
