@@ -355,7 +355,7 @@ function createMealStatsSheet(
     [],
     ['Ghi chú: x = ăn, o = vắng, - = chưa báo cáo. Mỗi ô: Sáng/Trưa/Tối'],
     [`Lượng gạo: ${riceRate}kg/học sinh cho mỗi bữa trưa và tối`],
-    [`Tổng gạo: ${grandTotalRice.toFixed(1)} kg`],
+    [`Tổng gạo: ${grandTotalRice.toFixed(2)} kg`],
   ];
 
   // Header info rows
