@@ -531,7 +531,7 @@ function createSchoolSummarySheet(
   });
   const riceRate2 = config.ricePerStudent ?? 0.2;
   const grandRice = (grandLunch + grandDinner) * riceRate2;
-  totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1));
+  totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(2));
 
   // Note row
   const noteRows: any[][] = [
