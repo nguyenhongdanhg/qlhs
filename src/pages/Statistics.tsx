@@ -310,6 +310,9 @@ export default function Statistics() {
           { type: 'lunch', deadlineHour: lunchTime.hour, deadlineMinute: lunchTime.minute, dayOffset: data.lunch_deadline_offset },
           { type: 'dinner', deadlineHour: dinnerTime.hour, deadlineMinute: dinnerTime.minute, dayOffset: data.dinner_deadline_offset },
         ]);
+        if (data.rice_per_student) {
+          setRicePerStudent(Number(data.rice_per_student));
+        }
       }
     } catch (error) {
       console.error('Error fetching meal settings:', error);
