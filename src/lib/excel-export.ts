@@ -348,7 +348,7 @@ function createMealStatsSheet(
   
   const riceRate = config.ricePerStudent ?? 0.2;
   const grandTotalRice = (grandTotalLunch + grandTotalDinner) * riceRate;
-  totalsRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(1));
+  totalsRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(2));
 
   // Note rows
   const noteRows: any[][] = [
