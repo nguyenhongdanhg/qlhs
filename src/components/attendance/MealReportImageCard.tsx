@@ -34,7 +34,7 @@ interface MealReportImageCardProps {
 }
 
 export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportImageCardProps>(
-  ({ schoolName, date, reporter, breakfast, lunch, dinner, totalRice, lunchRice, dinnerRice }, ref) => {
+  ({ schoolName, date, reporter, breakfast, lunch, dinner, totalRice, lunchRice, dinnerRice, ricePerStudent = 0.2 }, ref) => {
     const baseTextStyle: React.CSSProperties = {
       letterSpacing: '0.01em',
       fontKerning: 'normal',
