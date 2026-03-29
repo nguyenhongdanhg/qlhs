@@ -508,7 +508,8 @@ function createSchoolSummarySheet(
       classDinner += dPresent;
     });
 
-    const classRice = (classLunch + classDinner) * 0.2;
+    const riceRate = config.ricePerStudent ?? 0.2;
+    const classRice = (classLunch + classDinner) * riceRate;
     row.push(classBreakfast, classLunch, classDinner, classRice.toFixed(1));
     dataRows.push(row);
 
