@@ -30,6 +30,7 @@ interface MealReportImageCardProps {
   totalRice: number;
   lunchRice?: number;
   dinnerRice?: number;
+  ricePerStudent?: number;
 }
 
 export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportImageCardProps>(
