@@ -24,6 +24,7 @@ interface SingleMealImageCardProps {
   absent: number;
   absentStudents: AbsentStudent[];
   riceAmount?: number;
+  ricePerStudent?: number;
 }
 
 const getMealConfig = (mealType: AttendanceType) => {
