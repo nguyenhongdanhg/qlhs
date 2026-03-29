@@ -128,6 +128,7 @@ export const ShareSingleMealDialog = memo(function ShareSingleMealDialog({
                     absent={absent}
                     absentStudents={absentStudents}
                     riceAmount={riceAmount}
+                    ricePerStudent={ricePerStudent}
                   />
                 </div>
               </div>
