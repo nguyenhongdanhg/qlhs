@@ -1082,6 +1082,7 @@ export default function Statistics() {
         dateRange: getDateRange(selectedDate, 'day'),
         reporterName: profile?.full_name,
         exportTime: new Date(),
+        ricePerStudent,
       });
 
       toast({
