@@ -2082,7 +2082,7 @@ export default function Statistics() {
                   </div>
                   <div className="rounded-lg bg-destructive/10 p-3 text-center">
                     <div className="text-xs text-muted-foreground">Đã dùng ({riceDateRange.label.toLowerCase()})</div>
-                    <div className="text-xl font-bold text-destructive">{totalRiceInRange.toFixed(1)} kg</div>
+                    <div className="text-xl font-bold text-destructive">{totalRiceInRange.toFixed(2)} kg</div>
                   </div>
                   <div className={`rounded-lg p-3 text-center ${remainingRice >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
                     <div className="text-xs text-muted-foreground">Còn lại</div>
