@@ -128,6 +128,7 @@ export default function Statistics() {
   const [newRiceNotes, setNewRiceNotes] = useState('');
   const [isAddingRice, setIsAddingRice] = useState(false);
   const [showAddRiceForm, setShowAddRiceForm] = useState(false);
+  const [ricePerStudent, setRicePerStudent] = useState(0.2);
   
   // Share meal report dialog
   const [shareMealDialogOpen, setShareMealDialogOpen] = useState(false);
