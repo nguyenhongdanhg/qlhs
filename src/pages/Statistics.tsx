@@ -2292,7 +2292,7 @@ export default function Statistics() {
                         {isLoadingRice ? (
                           <Loader2 className="h-8 w-8 animate-spin" />
                         ) : (
-                          `${totalRiceInRange.toFixed(1)} kg`
+                          `${totalRiceInRange.toFixed(2)} kg`
                         )}
                       </div>
                     </div>
