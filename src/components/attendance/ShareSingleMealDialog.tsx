@@ -58,6 +58,7 @@ export const ShareSingleMealDialog = memo(function ShareSingleMealDialog({
   present,
   absent,
   absentStudents,
+  ricePerStudent = 0.2,
 }: ShareSingleMealDialogProps) {
   const statsImageRef = useRef<HTMLDivElement>(null);
   const absentImageRef = useRef<HTMLDivElement>(null);
@@ -66,7 +67,7 @@ export const ShareSingleMealDialog = memo(function ShareSingleMealDialog({
 
   const dateStr = format(date, 'yyyy-MM-dd');
   const mealLabel = getMealLabel(mealType);
-  const riceAmount = (mealType === 'lunch' || mealType === 'dinner') ? present * 0.2 : undefined;
+  const riceAmount = (mealType === 'lunch' || mealType === 'dinner') ? present * ricePerStudent : undefined;
 
   const handleDownload = () => {
     const ref = activeTab === 'stats' ? statsImageRef : absentImageRef;
