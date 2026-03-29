@@ -197,8 +197,8 @@ export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportIma
           color: '#92400e'
         }}>
           <span style={{ fontWeight: 500 }}>Chi tiết gạo:</span>{' '}
-          Trưa {(lunchRice ?? lunch.present * 0.2).toFixed(1)}kg ({lunch.present} suất) + 
-          Tối {(dinnerRice ?? dinner.present * 0.2).toFixed(1)}kg ({dinner.present} suất)
+          Trưa {(lunchRice ?? lunch.present * ricePerStudent).toFixed(1)}kg ({lunch.present} suất) + 
+          Tối {(dinnerRice ?? dinner.present * ricePerStudent).toFixed(1)}kg ({dinner.present} suất)
         </div>
 
         {/* Absent Students - Compact */}
