@@ -737,7 +737,7 @@ export function exportMealStatistics(
     grandLAbsent,
     grandDPresent,
     grandDAbsent,
-    grandRice.toFixed(1),
+    grandRice.toFixed(2),
   ]);
 
   // Create daily summary sheet with header info
