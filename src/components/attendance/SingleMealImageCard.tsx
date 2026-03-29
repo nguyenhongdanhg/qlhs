@@ -137,7 +137,7 @@ export const SingleMealImageCard = memo(forwardRef<HTMLDivElement, SingleMealIma
           }}>
             <span style={{ fontSize: '11px', color: '#92400e' }}>Lượng gạo:</span>
             <span style={{ fontSize: '16px', fontWeight: 700, color: '#b45309' }}>{riceAmount.toFixed(1)} kg</span>
-            <span style={{ fontSize: '10px', color: '#d97706' }}>({present} × 0.2kg)</span>
+            <span style={{ fontSize: '10px', color: '#d97706' }}>({present} × {ricePerStudent}kg)</span>
           </div>
         )}
 
