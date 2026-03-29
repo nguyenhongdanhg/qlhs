@@ -2320,7 +2320,7 @@ export default function Statistics() {
                       <tfoot className="border-t bg-primary/10 font-bold">
                         <tr>
                           <td className="p-2">Tổng cộng</td>
-                          <td className="p-2 text-right">{totalRiceInRange.toFixed(1)} kg</td>
+                          <td className="p-2 text-right">{totalRiceInRange.toFixed(2)} kg</td>
                         </tr>
                       </tfoot>
                     </table>
