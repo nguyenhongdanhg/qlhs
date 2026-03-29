@@ -2028,7 +2028,7 @@ export default function Statistics() {
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-primary">
-                          {filteredMealStats.totalRice.toFixed(1)} kg
+                          {filteredMealStats.totalRice.toFixed(2)} kg
                         </div>
                         <div className="text-xs text-muted-foreground">
                           (Trưa: {((filteredMealStats.lunch as MealStats).present * ricePerStudent).toFixed(1)}kg / Tối: {((filteredMealStats.dinner as MealStats).present * ricePerStudent).toFixed(1)}kg)
