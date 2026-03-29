@@ -258,7 +258,7 @@ export default function Statistics() {
       breakfast: filterMealForClass(dailyMealStats.breakfast),
       lunch: filterMealForClass(dailyMealStats.lunch),
       dinner: filterMealForClass(dailyMealStats.dinner),
-      totalRice: (filterMealForClass(dailyMealStats.lunch).present + filterMealForClass(dailyMealStats.dinner).present) * 0.2,
+      totalRice: (filterMealForClass(dailyMealStats.lunch).present + filterMealForClass(dailyMealStats.dinner).present) * ricePerStudent,
     };
   }, [dailyMealStats, isClassTeacher, teacherClassName, filteredStudents]);
 
