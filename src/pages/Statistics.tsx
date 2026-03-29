@@ -2344,8 +2344,9 @@ export default function Statistics() {
           lunch={dailyMealStats.lunch as MealStats}
           dinner={dailyMealStats.dinner as MealStats}
           totalRice={dailyMealStats.totalRice}
-          lunchRice={(dailyMealStats.lunch as MealStats).present * 0.2}
-          dinnerRice={(dailyMealStats.dinner as MealStats).present * 0.2}
+          lunchRice={(dailyMealStats.lunch as MealStats).present * ricePerStudent}
+          dinnerRice={(dailyMealStats.dinner as MealStats).present * ricePerStudent}
+          ricePerStudent={ricePerStudent}
         />
       )}
 
