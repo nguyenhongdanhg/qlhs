@@ -726,7 +726,7 @@ export function exportMealStatistics(
   });
 
   // Add grand total row
-  const grandRice = (grandLPresent + grandDPresent) * 0.2;
+  const grandRice = (grandLPresent + grandDPresent) * (config.ricePerStudent ?? 0.2);
   dailySummary.push([]); // Empty row
   dailySummary.push([
     'TỔNG CỘNG',
