@@ -2078,7 +2078,7 @@ export default function Statistics() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="rounded-lg bg-success/10 p-3 text-center">
                     <div className="text-xs text-muted-foreground">Tổng nhập</div>
-                    <div className="text-xl font-bold text-success">{totalRiceAdded.toFixed(1)} kg</div>
+                    <div className="text-xl font-bold text-success">{totalRiceAdded.toFixed(2)} kg</div>
                   </div>
                   <div className="rounded-lg bg-destructive/10 p-3 text-center">
                     <div className="text-xs text-muted-foreground">Đã dùng ({riceDateRange.label.toLowerCase()})</div>
