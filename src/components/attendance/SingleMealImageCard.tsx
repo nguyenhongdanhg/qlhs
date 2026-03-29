@@ -41,7 +41,7 @@ const getMealConfig = (mealType: AttendanceType) => {
 };
 
 export const SingleMealImageCard = memo(forwardRef<HTMLDivElement, SingleMealImageCardProps>(
-  ({ schoolName, date, reporter, mealType, total, present, absent, absentStudents, riceAmount }, ref) => {
+  ({ schoolName, date, reporter, mealType, total, present, absent, absentStudents, riceAmount, ricePerStudent = 0.2 }, ref) => {
     const baseTextStyle: React.CSSProperties = {
       letterSpacing: '0.01em',
       fontKerning: 'normal',
