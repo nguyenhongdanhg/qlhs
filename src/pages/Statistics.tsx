@@ -2285,7 +2285,7 @@ export default function Statistics() {
                           Tổng gạo đã dùng {riceDateRange.label.toLowerCase()}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          (Bữa trưa + Bữa tối × 0.2kg/học sinh)
+                          (Bữa trưa + Bữa tối × {ricePerStudent}kg/học sinh)
                         </div>
                       </div>
                       <div className="text-3xl font-bold text-primary">
