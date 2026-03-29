@@ -108,6 +108,7 @@ export const ShareMealReportDialog = memo(function ShareMealReportDialog({
                 totalRice={totalRice}
                 lunchRice={lunchRice}
                 dinnerRice={dinnerRice}
+                ricePerStudent={ricePerStudent}
               />
             </div>
           </div>
