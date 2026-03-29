@@ -860,7 +860,7 @@ export default function Statistics() {
       }
 
       // Calculate total rice for lunch and dinner
-      mealStats.totalRice = ((mealStats.lunch as MealStats).present + (mealStats.dinner as MealStats).present) * 0.2;
+      mealStats.totalRice = ((mealStats.lunch as MealStats).present + (mealStats.dinner as MealStats).present) * ricePerStudent;
 
       setDailyMealStats(mealStats);
     } catch (error) {
