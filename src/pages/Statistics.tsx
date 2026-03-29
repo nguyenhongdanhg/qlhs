@@ -2401,6 +2401,7 @@ export default function Statistics() {
               ? filteredMealStats.lunch.absentStudents
               : filteredMealStats.dinner.absentStudents
           }
+          ricePerStudent={ricePerStudent}
         />
       )}
 
