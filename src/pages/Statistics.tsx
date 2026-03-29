@@ -2313,7 +2313,7 @@ export default function Statistics() {
                         {riceStats.map((item, idx) => (
                           <tr key={item.date} className={idx % 2 === 0 ? 'bg-muted/30' : ''}>
                             <td className="p-2">{format(new Date(item.date), 'EEEE, dd/MM/yyyy', { locale: vi })}</td>
-                            <td className="p-2 text-right font-medium">{item.rice.toFixed(1)}</td>
+                            <td className="p-2 text-right font-medium">{item.rice.toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
