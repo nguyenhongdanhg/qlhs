@@ -720,7 +720,7 @@ export function exportMealStatistics(
         lReported - lPresent,
         dPresent,
         dReported - dPresent,
-        dailyRice.toFixed(1),
+        dailyRice.toFixed(2),
       ]);
     }
   });
