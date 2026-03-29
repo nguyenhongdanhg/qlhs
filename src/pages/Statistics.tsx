@@ -2020,7 +2020,7 @@ export default function Statistics() {
                           }
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          (Trưa: {(filteredMealStats.lunch as MealStats).present} + Tối: {(filteredMealStats.dinner as MealStats).present}) × 0.2kg
+                          (Trưa: {(filteredMealStats.lunch as MealStats).present} + Tối: {(filteredMealStats.dinner as MealStats).present}) × {ricePerStudent}kg
                         </div>
                       </div>
                       <div className="text-right">
