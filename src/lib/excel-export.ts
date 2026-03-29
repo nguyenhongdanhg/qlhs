@@ -319,7 +319,8 @@ function createMealStatsSheet(
       }
     });
 
-    const totalRice = (lunchCount + dinnerCount) * 0.2;
+    const riceRate = config.ricePerStudent ?? 0.2;
+    const totalRice = (lunchCount + dinnerCount) * riceRate;
     row.push(breakfastCount, lunchCount, dinnerCount, totalRice.toFixed(1));
 
     grandTotalBreakfast += breakfastCount;
