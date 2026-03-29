@@ -1229,6 +1229,7 @@ export default function Statistics() {
         dateRange: riceDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
+        ricePerStudent,
       });
     } catch (error) {
       console.error('Error exporting meal stats:', error);
