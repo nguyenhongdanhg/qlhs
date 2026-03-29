@@ -528,12 +528,20 @@ export function MealHistoryTab({
         titleSuffix = ` LỚP ${historyClassFilter}`;
       }
 
+      // Fetch rice_per_student setting
+      const { data: mealSettingsData } = await supabase
+        .from('meal_settings')
+        .select('rice_per_student')
+        .eq('school_id', currentSchool.id)
+        .maybeSingle();
+
       exportMealStatistics(mealStudents, {
         schoolName: currentSchool.name,
         title: `THỐNG KÊ BỮA ĂN${titleSuffix ? titleSuffix : ' HỌC SINH NỘI TRÚ'}`,
         dateRange: exportDateRange,
         reporterName: profile?.full_name || '',
         exportTime: new Date(),
+        ricePerStudent: mealSettingsData?.rice_per_student ? Number(mealSettingsData.rice_per_student) : undefined,
       });
 
       toast({

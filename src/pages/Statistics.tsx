@@ -128,6 +128,7 @@ export default function Statistics() {
   const [newRiceNotes, setNewRiceNotes] = useState('');
   const [isAddingRice, setIsAddingRice] = useState(false);
   const [showAddRiceForm, setShowAddRiceForm] = useState(false);
+  const [ricePerStudent, setRicePerStudent] = useState(0.2);
   
   // Share meal report dialog
   const [shareMealDialogOpen, setShareMealDialogOpen] = useState(false);
@@ -257,7 +258,7 @@ export default function Statistics() {
       breakfast: filterMealForClass(dailyMealStats.breakfast),
       lunch: filterMealForClass(dailyMealStats.lunch),
       dinner: filterMealForClass(dailyMealStats.dinner),
-      totalRice: (filterMealForClass(dailyMealStats.lunch).present + filterMealForClass(dailyMealStats.dinner).present) * 0.2,
+      totalRice: (filterMealForClass(dailyMealStats.lunch).present + filterMealForClass(dailyMealStats.dinner).present) * ricePerStudent,
     };
   }, [dailyMealStats, isClassTeacher, teacherClassName, filteredStudents]);
 
@@ -309,6 +310,9 @@ export default function Statistics() {
           { type: 'lunch', deadlineHour: lunchTime.hour, deadlineMinute: lunchTime.minute, dayOffset: data.lunch_deadline_offset },
           { type: 'dinner', deadlineHour: dinnerTime.hour, deadlineMinute: dinnerTime.minute, dayOffset: data.dinner_deadline_offset },
         ]);
+        if (data.rice_per_student) {
+          setRicePerStudent(Number(data.rice_per_student));
+        }
       }
     } catch (error) {
       console.error('Error fetching meal settings:', error);
@@ -856,7 +860,7 @@ export default function Statistics() {
       }
 
       // Calculate total rice for lunch and dinner
-      mealStats.totalRice = ((mealStats.lunch as MealStats).present + (mealStats.dinner as MealStats).present) * 0.2;
+      mealStats.totalRice = ((mealStats.lunch as MealStats).present + (mealStats.dinner as MealStats).present) * ricePerStudent;
 
       setDailyMealStats(mealStats);
     } catch (error) {
@@ -1078,6 +1082,7 @@ export default function Statistics() {
         dateRange: getDateRange(selectedDate, 'day'),
         reporterName: profile?.full_name,
         exportTime: new Date(),
+        ricePerStudent,
       });
 
       toast({
@@ -1224,6 +1229,7 @@ export default function Statistics() {
         dateRange: riceDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
+        ricePerStudent,
       });
     } catch (error) {
       console.error('Error exporting meal stats:', error);
@@ -1376,6 +1382,7 @@ export default function Statistics() {
         dateRange: exportDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
+        ricePerStudent,
       });
 
       toast({
@@ -2016,7 +2023,7 @@ export default function Statistics() {
                           }
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          (Trưa: {(filteredMealStats.lunch as MealStats).present} + Tối: {(filteredMealStats.dinner as MealStats).present}) × 0.2kg
+                          (Trưa: {(filteredMealStats.lunch as MealStats).present} + Tối: {(filteredMealStats.dinner as MealStats).present}) × {ricePerStudent}kg
                         </div>
                       </div>
                       <div className="text-right">
@@ -2024,7 +2031,7 @@ export default function Statistics() {
                           {filteredMealStats.totalRice.toFixed(1)} kg
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          (Trưa: {((filteredMealStats.lunch as MealStats).present * 0.2).toFixed(1)}kg / Tối: {((filteredMealStats.dinner as MealStats).present * 0.2).toFixed(1)}kg)
+                          (Trưa: {((filteredMealStats.lunch as MealStats).present * ricePerStudent).toFixed(1)}kg / Tối: {((filteredMealStats.dinner as MealStats).present * ricePerStudent).toFixed(1)}kg)
                         </div>
                       </div>
                     </CardContent>
@@ -2337,8 +2344,9 @@ export default function Statistics() {
           lunch={dailyMealStats.lunch as MealStats}
           dinner={dailyMealStats.dinner as MealStats}
           totalRice={dailyMealStats.totalRice}
-          lunchRice={(dailyMealStats.lunch as MealStats).present * 0.2}
-          dinnerRice={(dailyMealStats.dinner as MealStats).present * 0.2}
+          lunchRice={(dailyMealStats.lunch as MealStats).present * ricePerStudent}
+          dinnerRice={(dailyMealStats.dinner as MealStats).present * ricePerStudent}
+          ricePerStudent={ricePerStudent}
         />
       )}
 
@@ -2393,6 +2401,7 @@ export default function Statistics() {
               ? filteredMealStats.lunch.absentStudents
               : filteredMealStats.dinner.absentStudents
           }
+          ricePerStudent={ricePerStudent}
         />
       )}
 

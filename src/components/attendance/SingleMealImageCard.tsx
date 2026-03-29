@@ -24,6 +24,7 @@ interface SingleMealImageCardProps {
   absent: number;
   absentStudents: AbsentStudent[];
   riceAmount?: number;
+  ricePerStudent?: number;
 }
 
 const getMealConfig = (mealType: AttendanceType) => {
@@ -40,7 +41,7 @@ const getMealConfig = (mealType: AttendanceType) => {
 };
 
 export const SingleMealImageCard = memo(forwardRef<HTMLDivElement, SingleMealImageCardProps>(
-  ({ schoolName, date, reporter, mealType, total, present, absent, absentStudents, riceAmount }, ref) => {
+  ({ schoolName, date, reporter, mealType, total, present, absent, absentStudents, riceAmount, ricePerStudent = 0.2 }, ref) => {
     const baseTextStyle: React.CSSProperties = {
       letterSpacing: '0.01em',
       fontKerning: 'normal',
@@ -136,7 +137,7 @@ export const SingleMealImageCard = memo(forwardRef<HTMLDivElement, SingleMealIma
           }}>
             <span style={{ fontSize: '11px', color: '#92400e' }}>Lượng gạo:</span>
             <span style={{ fontSize: '16px', fontWeight: 700, color: '#b45309' }}>{riceAmount.toFixed(1)} kg</span>
-            <span style={{ fontSize: '10px', color: '#d97706' }}>({present} × 0.2kg)</span>
+            <span style={{ fontSize: '10px', color: '#d97706' }}>({present} × {ricePerStudent}kg)</span>
           </div>
         )}
 

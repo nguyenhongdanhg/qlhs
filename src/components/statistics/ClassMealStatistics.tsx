@@ -270,12 +270,20 @@ export const ClassMealStatistics = memo(function ClassMealStatistics({
         };
       });
 
+      // Fetch rice_per_student setting
+      const { data: mealSettingsData } = await supabase
+        .from('meal_settings')
+        .select('rice_per_student')
+        .eq('school_id', currentSchool.id)
+        .maybeSingle();
+
       exportMealStatistics(studentData, {
         schoolName: currentSchool.name,
         title: `THỐNG KÊ BỮA ĂN LỚP ${teacherClassName}`,
         dateRange: dateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
+        ricePerStudent: mealSettingsData?.rice_per_student ? Number(mealSettingsData.rice_per_student) : undefined,
       });
     } catch (error) {
       console.error('Error exporting meal stats:', error);

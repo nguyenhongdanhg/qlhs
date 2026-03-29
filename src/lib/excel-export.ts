@@ -72,6 +72,7 @@ export interface ExcelExportConfig {
   dateRange: DateRange;
   reporterName?: string;
   exportTime: Date;
+  ricePerStudent?: number;
 }
 
 // Create worksheet with professional formatting
@@ -318,7 +319,8 @@ function createMealStatsSheet(
       }
     });
 
-    const totalRice = (lunchCount + dinnerCount) * 0.2;
+    const riceRate = config.ricePerStudent ?? 0.2;
+    const totalRice = (lunchCount + dinnerCount) * riceRate;
     row.push(breakfastCount, lunchCount, dinnerCount, totalRice.toFixed(1));
 
     grandTotalBreakfast += breakfastCount;
@@ -344,14 +346,15 @@ function createMealStatsSheet(
     }
   });
   
-  const grandTotalRice = (grandTotalLunch + grandTotalDinner) * 0.2;
+  const riceRate = config.ricePerStudent ?? 0.2;
+  const grandTotalRice = (grandTotalLunch + grandTotalDinner) * riceRate;
   totalsRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(1));
 
   // Note rows
   const noteRows: any[][] = [
     [],
     ['Ghi chú: x = ăn, o = vắng, - = chưa báo cáo. Mỗi ô: Sáng/Trưa/Tối'],
-    ['Lượng gạo: 0.2kg/học sinh cho mỗi bữa trưa và tối'],
+    [`Lượng gạo: ${riceRate}kg/học sinh cho mỗi bữa trưa và tối`],
     [`Tổng gạo: ${grandTotalRice.toFixed(1)} kg`],
   ];
 
@@ -505,7 +508,8 @@ function createSchoolSummarySheet(
       classDinner += dPresent;
     });
 
-    const classRice = (classLunch + classDinner) * 0.2;
+    const riceRate = config.ricePerStudent ?? 0.2;
+    const classRice = (classLunch + classDinner) * riceRate;
     row.push(classBreakfast, classLunch, classDinner, classRice.toFixed(1));
     dataRows.push(row);
 
@@ -525,13 +529,14 @@ function createSchoolSummarySheet(
       totalsRow.push(`${dt.breakfast}/${dt.lunch}/${dt.dinner}`);
     }
   });
-  const grandRice = (grandLunch + grandDinner) * 0.2;
+  const riceRate2 = config.ricePerStudent ?? 0.2;
+  const grandRice = (grandLunch + grandDinner) * riceRate2;
   totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1));
 
   // Note row
   const noteRows: any[][] = [
     [],
-    ['Ghi chú: Mỗi ô ngày hiển thị Sáng/Trưa/Tối (số suất ăn). Gạo = 0.2kg × (Trưa + Tối)'],
+    [`Ghi chú: Mỗi ô ngày hiển thị Sáng/Trưa/Tối (số suất ăn). Gạo = ${riceRate2}kg × (Trưa + Tối)`],
   ];
 
   // Header info rows
@@ -703,7 +708,8 @@ export function exportMealStatistics(
       grandLAbsent += (lReported - lPresent);
       grandDAbsent += (dReported - dPresent);
 
-      const dailyRice = (lPresent + dPresent) * 0.2;
+      const riceRateDaily = config.ricePerStudent ?? 0.2;
+      const dailyRice = (lPresent + dPresent) * riceRateDaily;
 
       dailySummary.push([
         format(day, 'dd/MM/yyyy'),
@@ -720,7 +726,7 @@ export function exportMealStatistics(
   });
 
   // Add grand total row
-  const grandRice = (grandLPresent + grandDPresent) * 0.2;
+  const grandRice = (grandLPresent + grandDPresent) * (config.ricePerStudent ?? 0.2);
   dailySummary.push([]); // Empty row
   dailySummary.push([
     'TỔNG CỘNG',
