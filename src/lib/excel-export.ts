@@ -346,14 +346,15 @@ function createMealStatsSheet(
     }
   });
   
-  const grandTotalRice = (grandTotalLunch + grandTotalDinner) * 0.2;
+  const riceRate = config.ricePerStudent ?? 0.2;
+  const grandTotalRice = (grandTotalLunch + grandTotalDinner) * riceRate;
   totalsRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(1));
 
   // Note rows
   const noteRows: any[][] = [
     [],
     ['Ghi chú: x = ăn, o = vắng, - = chưa báo cáo. Mỗi ô: Sáng/Trưa/Tối'],
-    ['Lượng gạo: 0.2kg/học sinh cho mỗi bữa trưa và tối'],
+    [`Lượng gạo: ${riceRate}kg/học sinh cho mỗi bữa trưa và tối`],
     [`Tổng gạo: ${grandTotalRice.toFixed(1)} kg`],
   ];
 
