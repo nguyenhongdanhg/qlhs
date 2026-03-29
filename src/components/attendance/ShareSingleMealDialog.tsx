@@ -35,6 +35,7 @@ interface ShareSingleMealDialogProps {
   present: number;
   absent: number;
   absentStudents: AbsentStudent[];
+  ricePerStudent?: number;
 }
 
 const getMealLabel = (mealType: AttendanceType) => {
