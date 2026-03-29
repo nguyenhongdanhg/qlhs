@@ -529,13 +529,14 @@ function createSchoolSummarySheet(
       totalsRow.push(`${dt.breakfast}/${dt.lunch}/${dt.dinner}`);
     }
   });
-  const grandRice = (grandLunch + grandDinner) * 0.2;
+  const riceRate2 = config.ricePerStudent ?? 0.2;
+  const grandRice = (grandLunch + grandDinner) * riceRate2;
   totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1));
 
   // Note row
   const noteRows: any[][] = [
     [],
-    ['Ghi chú: Mỗi ô ngày hiển thị Sáng/Trưa/Tối (số suất ăn). Gạo = 0.2kg × (Trưa + Tối)'],
+    [`Ghi chú: Mỗi ô ngày hiển thị Sáng/Trưa/Tối (số suất ăn). Gạo = ${riceRate2}kg × (Trưa + Tối)`],
   ];
 
   // Header info rows
