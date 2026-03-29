@@ -321,7 +321,7 @@ function createMealStatsSheet(
 
     const riceRate = config.ricePerStudent ?? 0.2;
     const totalRice = (lunchCount + dinnerCount) * riceRate;
-    row.push(breakfastCount, lunchCount, dinnerCount, totalRice.toFixed(1));
+    row.push(breakfastCount, lunchCount, dinnerCount, totalRice.toFixed(2));
 
     grandTotalBreakfast += breakfastCount;
     grandTotalLunch += lunchCount;
@@ -348,14 +348,14 @@ function createMealStatsSheet(
   
   const riceRate = config.ricePerStudent ?? 0.2;
   const grandTotalRice = (grandTotalLunch + grandTotalDinner) * riceRate;
-  totalsRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(1));
+  totalsRow.push(grandTotalBreakfast, grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(2));
 
   // Note rows
   const noteRows: any[][] = [
     [],
     ['Ghi chú: x = ăn, o = vắng, - = chưa báo cáo. Mỗi ô: Sáng/Trưa/Tối'],
     [`Lượng gạo: ${riceRate}kg/học sinh cho mỗi bữa trưa và tối`],
-    [`Tổng gạo: ${grandTotalRice.toFixed(1)} kg`],
+    [`Tổng gạo: ${grandTotalRice.toFixed(2)} kg`],
   ];
 
   // Header info rows
@@ -510,7 +510,7 @@ function createSchoolSummarySheet(
 
     const riceRate = config.ricePerStudent ?? 0.2;
     const classRice = (classLunch + classDinner) * riceRate;
-    row.push(classBreakfast, classLunch, classDinner, classRice.toFixed(1));
+    row.push(classBreakfast, classLunch, classDinner, classRice.toFixed(2));
     dataRows.push(row);
 
     grandBreakfast += classBreakfast;
@@ -531,7 +531,7 @@ function createSchoolSummarySheet(
   });
   const riceRate2 = config.ricePerStudent ?? 0.2;
   const grandRice = (grandLunch + grandDinner) * riceRate2;
-  totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(1));
+  totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(2));
 
   // Note row
   const noteRows: any[][] = [
@@ -720,7 +720,7 @@ export function exportMealStatistics(
         lReported - lPresent,
         dPresent,
         dReported - dPresent,
-        dailyRice.toFixed(1),
+        dailyRice.toFixed(2),
       ]);
     }
   });
@@ -737,7 +737,7 @@ export function exportMealStatistics(
     grandLAbsent,
     grandDPresent,
     grandDAbsent,
-    grandRice.toFixed(1),
+    grandRice.toFixed(2),
   ]);
 
   // Create daily summary sheet with header info
