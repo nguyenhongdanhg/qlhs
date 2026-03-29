@@ -181,7 +181,7 @@ export const MealReportImageCard = memo(forwardRef<HTMLDivElement, MealReportIma
           </div>
           <div style={{ width: '1px', backgroundColor: '#e5e7eb' }} />
           <div style={{ flex: 1, textAlign: 'center' }}>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#b45309' }}>{totalRice.toFixed(1)}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#b45309' }}>{totalRice.toFixed(2)}</div>
             <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase' }}>kg gạo</div>
           </div>
         </div>
