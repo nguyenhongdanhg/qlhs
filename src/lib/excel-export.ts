@@ -708,7 +708,8 @@ export function exportMealStatistics(
       grandLAbsent += (lReported - lPresent);
       grandDAbsent += (dReported - dPresent);
 
-      const dailyRice = (lPresent + dPresent) * 0.2;
+      const riceRateDaily = config.ricePerStudent ?? 0.2;
+      const dailyRice = (lPresent + dPresent) * riceRateDaily;
 
       dailySummary.push([
         format(day, 'dd/MM/yyyy'),
