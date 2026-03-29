@@ -72,6 +72,7 @@ export interface ExcelExportConfig {
   dateRange: DateRange;
   reporterName?: string;
   exportTime: Date;
+  ricePerStudent?: number;
 }
 
 // Create worksheet with professional formatting
