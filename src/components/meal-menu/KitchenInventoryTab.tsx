@@ -62,6 +62,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const [transactionType, setTransactionType] = useState<string>('import');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [copySourceType, setCopySourceType] = useState<string>('same');
   const [showAddFoodDialog, setShowAddFoodDialog] = useState(false);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const [copyFromDate, setCopyFromDate] = useState<Date>(subDays(new Date(), 1));
@@ -287,15 +288,18 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const copyFromOtherDate = async () => {
     setLoading(true);
     const copyDateStr = format(copyFromDate, 'yyyy-MM-dd');
+    const sourceType = copySourceType === 'same' ? transactionType : (transactionType === 'import' ? 'export' : 'import');
+    const sourceLabel = sourceType === 'import' ? 'nhập' : 'xuất';
+    
     const { data: sourceData } = await supabase
       .from('kitchen_transactions')
       .select('*')
       .eq('school_id', schoolId)
       .eq('transaction_date', copyDateStr)
-      .eq('transaction_type', transactionType);
+      .eq('transaction_type', sourceType);
 
     if (!sourceData || sourceData.length === 0) {
-      toast({ title: "Không có dữ liệu", description: `Ngày ${format(copyFromDate, 'dd/MM/yyyy')} không có phiếu ${transactionType === 'import' ? 'nhập' : 'xuất'}`, variant: "destructive" });
+      toast({ title: "Không có dữ liệu", description: `Ngày ${format(copyFromDate, 'dd/MM/yyyy')} không có phiếu ${sourceLabel}`, variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -308,7 +312,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       quantity: item.quantity,
       unit_price: item.unit_price,
       transaction_type: transactionType,
-      notes: `Sao chép từ ${format(copyFromDate, 'dd/MM/yyyy')}`,
+      notes: `Sao chép từ phiếu ${sourceLabel} ngày ${format(copyFromDate, 'dd/MM/yyyy')}`,
       supplier: item.supplier || null,
       created_by: user?.id,
     }));
@@ -793,22 +797,39 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       <Dialog open={showCopyDialog} onOpenChange={setShowCopyDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sao chép từ ngày khác</DialogTitle>
+            <DialogTitle>Sao chép dữ liệu kho</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Sao chép danh sách {transactionType === 'import' ? 'nhập' : 'xuất'} kho từ ngày khác sang ngày {format(selectedDate, 'dd/MM/yyyy')}.
-          </p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                {format(copyFromDate, 'dd/MM/yyyy')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={copyFromDate} onSelect={(d) => d && setCopyFromDate(d)} locale={vi} />
-            </PopoverContent>
-          </Popover>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Sao chép dữ liệu sang phiếu {transactionType === 'import' ? 'nhập' : 'xuất'} kho ngày {format(selectedDate, 'dd/MM/yyyy')}.
+            </p>
+            <div>
+              <p className="text-sm font-medium mb-1">Nguồn sao chép:</p>
+              <Select value={copySourceType} onValueChange={setCopySourceType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="same">Từ phiếu {transactionType === 'import' ? 'nhập' : 'xuất'} kho (cùng loại)</SelectItem>
+                  <SelectItem value="other">Từ phiếu {transactionType === 'import' ? 'xuất' : 'nhập'} kho (khác loại)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-1">Chọn ngày nguồn:</p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {format(copyFromDate, 'dd/MM/yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={copyFromDate} onSelect={(d) => d && setCopyFromDate(d)} locale={vi} />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCopyDialog(false)}>Hủy</Button>
             <Button onClick={copyFromOtherDate} disabled={loading}>
