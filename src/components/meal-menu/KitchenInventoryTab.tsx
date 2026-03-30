@@ -62,6 +62,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const [transactionType, setTransactionType] = useState<string>('import');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [copySourceType, setCopySourceType] = useState<string>('same');
   const [showAddFoodDialog, setShowAddFoodDialog] = useState(false);
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const [copyFromDate, setCopyFromDate] = useState<Date>(subDays(new Date(), 1));
