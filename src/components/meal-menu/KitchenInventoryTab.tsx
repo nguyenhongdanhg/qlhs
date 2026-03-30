@@ -288,15 +288,18 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
   const copyFromOtherDate = async () => {
     setLoading(true);
     const copyDateStr = format(copyFromDate, 'yyyy-MM-dd');
+    const sourceType = copySourceType === 'same' ? transactionType : (transactionType === 'import' ? 'export' : 'import');
+    const sourceLabel = sourceType === 'import' ? 'nhập' : 'xuất';
+    
     const { data: sourceData } = await supabase
       .from('kitchen_transactions')
       .select('*')
       .eq('school_id', schoolId)
       .eq('transaction_date', copyDateStr)
-      .eq('transaction_type', transactionType);
+      .eq('transaction_type', sourceType);
 
     if (!sourceData || sourceData.length === 0) {
-      toast({ title: "Không có dữ liệu", description: `Ngày ${format(copyFromDate, 'dd/MM/yyyy')} không có phiếu ${transactionType === 'import' ? 'nhập' : 'xuất'}`, variant: "destructive" });
+      toast({ title: "Không có dữ liệu", description: `Ngày ${format(copyFromDate, 'dd/MM/yyyy')} không có phiếu ${sourceLabel}`, variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -309,7 +312,7 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       quantity: item.quantity,
       unit_price: item.unit_price,
       transaction_type: transactionType,
-      notes: `Sao chép từ ${format(copyFromDate, 'dd/MM/yyyy')}`,
+      notes: `Sao chép từ phiếu ${sourceLabel} ngày ${format(copyFromDate, 'dd/MM/yyyy')}`,
       supplier: item.supplier || null,
       created_by: user?.id,
     }));
