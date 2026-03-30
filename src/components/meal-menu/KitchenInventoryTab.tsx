@@ -797,22 +797,39 @@ export function KitchenInventoryTab({ schoolId, canEdit }: KitchenInventoryTabPr
       <Dialog open={showCopyDialog} onOpenChange={setShowCopyDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sao chép từ ngày khác</DialogTitle>
+            <DialogTitle>Sao chép dữ liệu kho</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Sao chép danh sách {transactionType === 'import' ? 'nhập' : 'xuất'} kho từ ngày khác sang ngày {format(selectedDate, 'dd/MM/yyyy')}.
-          </p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                {format(copyFromDate, 'dd/MM/yyyy')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={copyFromDate} onSelect={(d) => d && setCopyFromDate(d)} locale={vi} />
-            </PopoverContent>
-          </Popover>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Sao chép dữ liệu sang phiếu {transactionType === 'import' ? 'nhập' : 'xuất'} kho ngày {format(selectedDate, 'dd/MM/yyyy')}.
+            </p>
+            <div>
+              <p className="text-sm font-medium mb-1">Nguồn sao chép:</p>
+              <Select value={copySourceType} onValueChange={setCopySourceType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="same">Từ phiếu {transactionType === 'import' ? 'nhập' : 'xuất'} kho (cùng loại)</SelectItem>
+                  <SelectItem value="other">Từ phiếu {transactionType === 'import' ? 'xuất' : 'nhập'} kho (khác loại)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-1">Chọn ngày nguồn:</p>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {format(copyFromDate, 'dd/MM/yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={copyFromDate} onSelect={(d) => d && setCopyFromDate(d)} locale={vi} />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCopyDialog(false)}>Hủy</Button>
             <Button onClick={copyFromOtherDate} disabled={loading}>
