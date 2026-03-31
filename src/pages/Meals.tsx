@@ -1097,7 +1097,7 @@ export default function Meals() {
             )}
 
             <Button 
-              onClick={handleSave} 
+              onClick={handleSaveClick} 
               disabled={isSaving || (currentMealDeadline.isExpired && !canBypassDeadline) || !canReportMeals} 
               className="w-full h-10"
             >
