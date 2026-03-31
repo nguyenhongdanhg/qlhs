@@ -168,9 +168,14 @@ export default function DutySchedule() {
   const [settingsMaxPerPerson, setSettingsMaxPerPerson] = useState(5);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   
-  // Leadership duty state
+   // Leadership duty state
   const [dutyLeaders, setDutyLeaders] = useState<DutyLeader[]>([]);
   const [leaderMembers, setLeaderMembers] = useState<Profile[]>([]);
+  
+  // Quick assign leader state
+  const [quickAssignUserId, setQuickAssignUserId] = useState<string>('');
+  const [quickAssignDays, setQuickAssignDays] = useState<number[]>([]); // 0=CN, 1=T2, ..., 6=T7
+  const [isQuickAssigning, setIsQuickAssigning] = useState(false);
   
   // Filter by person name in calendar tab
   const [calendarFilterName, setCalendarFilterName] = useState('');
@@ -420,6 +425,52 @@ export default function DutySchedule() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Quick assign leader to specific weekdays
+  const quickAssignLeader = async () => {
+    if (!currentSchool || !quickAssignUserId || quickAssignDays.length === 0) return;
+    setIsQuickAssigning(true);
+    try {
+      const targetDays = daysInMonth.filter(day => quickAssignDays.includes(getDay(day)));
+      const upserts: { school_id: string; user_id: string; duty_date: string }[] = [];
+      const deleteIds: string[] = [];
+      
+      for (const day of targetDays) {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const existing = dutyLeaders.find(l => l.duty_date === dateStr);
+        if (existing) {
+          if (existing.user_id !== quickAssignUserId) {
+            deleteIds.push(existing.id);
+            upserts.push({ school_id: currentSchool.id, user_id: quickAssignUserId, duty_date: dateStr });
+          }
+        } else {
+          upserts.push({ school_id: currentSchool.id, user_id: quickAssignUserId, duty_date: dateStr });
+        }
+      }
+
+      if (deleteIds.length > 0) {
+        await supabase.from('duty_leaders').delete().in('id', deleteIds);
+      }
+      if (upserts.length > 0) {
+        await supabase.from('duty_leaders').insert(upserts);
+      }
+
+      await fetchDutyLeaders();
+      const userName = leaderMembers.find(m => m.id === quickAssignUserId)?.full_name || '';
+      toast({ title: 'Thành công', description: `Đã gán ${userName} cho ${targetDays.length} ngày` });
+      setQuickAssignUserId('');
+      setQuickAssignDays([]);
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsQuickAssigning(false);
+    }
+  };
+
+  // Toggle weekday in quick assign
+  const toggleQuickDay = (day: number) => {
+    setQuickAssignDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   };
 
   // Fetch duty groups with members
@@ -2545,6 +2596,72 @@ export default function DutySchedule() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Mỗi ngày chỉ định 1 lãnh đạo trực. Chọn người từ danh sách rồi chọn ngày.
                 </p>
+                
+                {/* Quick Assign Section */}
+                <Card className="mb-4 border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20">
+                  <CardContent className="pt-4 pb-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Wand2 className="h-4 w-4 text-amber-600" />
+                      <span className="text-sm font-medium">Gán nhanh theo thứ</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Select value={quickAssignUserId} onValueChange={setQuickAssignUserId}>
+                        <SelectTrigger className="w-full sm:w-[220px]">
+                          <SelectValue placeholder="Chọn lãnh đạo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {leaderMembers.map(m => (
+                            <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { day: 1, label: 'T2' },
+                          { day: 2, label: 'T3' },
+                          { day: 3, label: 'T4' },
+                          { day: 4, label: 'T5' },
+                          { day: 5, label: 'T6' },
+                          { day: 6, label: 'T7' },
+                          { day: 0, label: 'CN' },
+                        ].map(({ day, label }) => (
+                          <Button
+                            key={day}
+                            variant={quickAssignDays.includes(day) ? 'default' : 'outline'}
+                            size="sm"
+                            className={cn("h-8 w-10 text-xs", day === 0 || day === 6 ? "border-orange-300 dark:border-orange-700" : "")}
+                            onClick={() => toggleQuickDay(day)}
+                          >
+                            {label}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => setQuickAssignDays(quickAssignDays.length === 7 ? [] : [1,2,3,4,5,6,0])}
+                        >
+                          {quickAssignDays.length === 7 ? 'Bỏ chọn' : 'Tất cả'}
+                        </Button>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="h-8"
+                        disabled={!quickAssignUserId || quickAssignDays.length === 0 || isQuickAssigning}
+                        onClick={quickAssignLeader}
+                      >
+                        {isQuickAssigning ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Wand2 className="h-3.5 w-3.5 mr-1" />}
+                        Gán nhanh
+                      </Button>
+                    </div>
+                    {quickAssignUserId && quickAssignDays.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Sẽ gán <span className="font-medium text-foreground">{leaderMembers.find(m => m.id === quickAssignUserId)?.full_name}</span> cho{' '}
+                        <span className="font-medium text-foreground">{daysInMonth.filter(d => quickAssignDays.includes(getDay(d))).length} ngày</span> trong tháng
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
