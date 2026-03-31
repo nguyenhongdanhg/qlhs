@@ -255,8 +255,29 @@ export default function DormitoryExit() {
       });
       const { error } = await supabase.from('dormitory_exit_requests').insert(records);
       if (error) throw error;
+
+      // Save data for image export before clearing state
+      const createdStudents = selectedStudents.map(sid => {
+        const s = students.find(st => st.id === sid);
+        return {
+          name: s?.full_name || '',
+          className: s?.class_id ? (classes.find(c => c.id === s.class_id)?.name || '') : '',
+        };
+      });
+      const profileRes = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+      setLastCreatedRequest({
+        students: createdStudents,
+        exitDate: format(exitDate, 'yyyy-MM-dd'),
+        returnDate: format(returnDate, 'yyyy-MM-dd'),
+        exitTime,
+        returnTime,
+        reason: reason || '',
+        requesterName: profileRes.data?.full_name || '',
+      });
+
       toast({ title: 'Đã gửi đơn', description: `Đã đăng ký ${selectedStudents.length} học sinh ra ngoài` });
       setShowCreateDialog(false);
+      setShowExitRequestShare(true);
       setSelectedStudents([]);
       setExitTime('');
       setReturnTime('');
