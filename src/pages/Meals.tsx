@@ -593,10 +593,19 @@ export default function Meals() {
     }
   };
 
-  const handleSave = async () => {
+  // Collect absent students for meal confirmation
+  const mealAbsentStudentsForConfirm = useMemo(() => {
+    return filteredStudents
+      .filter(s => attendance[s.id] === 'absent')
+      .map(s => ({
+        id: s.id,
+        name: s.full_name,
+        className: s.class?.name || 'Khác',
+      }));
+  }, [filteredStudents, attendance]);
+
+  const handleSaveClick = () => {
     if (!currentSchool || !user) return;
-    const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
-    
     // Check deadline - but allow bypass for Admin/Accountant
     if (currentMealDeadline.isExpired && !canBypassDeadline) {
       toast({ 
@@ -606,8 +615,13 @@ export default function Meals() {
       });
       return;
     }
+    setShowMealConfirmDialog(true);
+  };
 
-    setIsSaving(true);
+  const handleSave = async () => {
+    if (!currentSchool || !user) return;
+    setShowMealConfirmDialog(false);
+    const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
       
