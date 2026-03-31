@@ -491,8 +491,28 @@ export default function Boarding() {
     return sessionToUse;
   };
 
+  // Collect absent students for confirmation
+  const absentStudentsForConfirm = useMemo(() => {
+    return students
+      .filter(s => attendance[s.id] === 'absent' || attendance[s.id] === 'excused')
+      .map(s => ({
+        id: s.id,
+        name: s.full_name,
+        className: s.class?.name || 'Khác',
+        excused: excuseInfo[s.id]?.excused || attendance[s.id] === 'excused',
+        reason: excuseInfo[s.id]?.reason || '',
+      }));
+  }, [students, attendance, excuseInfo]);
+
+  const handleSaveClick = () => {
+    if (!currentSchool || !user) return;
+    validateBeforeSave();
+    setShowConfirmDialog(true);
+  };
+
   const handleSave = async () => {
     if (!currentSchool || !user) return;
+    setShowConfirmDialog(false);
     const sessionToUse = validateBeforeSave();
 
     const reporterId = (isSchoolAdmin() || isSuperAdmin) && selectedReporterId ? selectedReporterId : user.id;
