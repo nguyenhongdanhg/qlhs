@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { GraduationCap, Bell, ChevronDown, Building2, LogOut, Settings } from 'lucide-react';
+import { GraduationCap, ChevronDown, Building2, LogOut, Settings } from 'lucide-react';
+import { NotificationDropdown } from './NotificationDropdown';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
