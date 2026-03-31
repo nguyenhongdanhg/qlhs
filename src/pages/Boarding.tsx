@@ -198,6 +198,9 @@ export default function Boarding() {
   // Admin report on behalf
   const [selectedReporterId, setSelectedReporterId] = useState(user?.id || '');
 
+  // Confirmation dialog
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
   // Total boarding students count for accurate stats
   const [totalBoardingStudents, setTotalBoardingStudents] = useState(0);
 
