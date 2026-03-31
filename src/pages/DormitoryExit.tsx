@@ -23,6 +23,7 @@ import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet,
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
+import { ExitRequestImageCard } from '@/components/dormitory/ExitRequestImageCard';
 import * as XLSX from 'xlsx-js-style';
 
 interface ExitRequest {
@@ -96,6 +97,19 @@ export default function DormitoryExit() {
   // Batch reject dialog
   const [showBatchRejectDialog, setShowBatchRejectDialog] = useState(false);
   const [batchRejectionReason, setBatchRejectionReason] = useState('');
+
+  // Exit request share dialog
+  const [showExitRequestShare, setShowExitRequestShare] = useState(false);
+  const exitRequestImageRef = useRef<HTMLDivElement>(null);
+  const [lastCreatedRequest, setLastCreatedRequest] = useState<{
+    students: { name: string; className: string }[];
+    exitDate: string;
+    returnDate: string;
+    exitTime: string;
+    returnTime: string;
+    reason: string;
+    requesterName: string;
+  } | null>(null);
 
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
@@ -241,8 +255,29 @@ export default function DormitoryExit() {
       });
       const { error } = await supabase.from('dormitory_exit_requests').insert(records);
       if (error) throw error;
+
+      // Save data for image export before clearing state
+      const createdStudents = selectedStudents.map(sid => {
+        const s = students.find(st => st.id === sid);
+        return {
+          name: s?.full_name || '',
+          className: s?.class_id ? (classes.find(c => c.id === s.class_id)?.name || '') : '',
+        };
+      });
+      const profileRes = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+      setLastCreatedRequest({
+        students: createdStudents,
+        exitDate: format(exitDate, 'yyyy-MM-dd'),
+        returnDate: format(returnDate, 'yyyy-MM-dd'),
+        exitTime,
+        returnTime,
+        reason: reason || '',
+        requesterName: profileRes.data?.full_name || '',
+      });
+
       toast({ title: 'Đã gửi đơn', description: `Đã đăng ký ${selectedStudents.length} học sinh ra ngoài` });
       setShowCreateDialog(false);
+      setShowExitRequestShare(true);
       setSelectedStudents([]);
       setExitTime('');
       setReturnTime('');
@@ -917,6 +952,47 @@ export default function DormitoryExit() {
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Hủy</Button>
             <Button variant="destructive" onClick={handleDelete}>Xóa</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Exit Request Image Share Dialog */}
+      <Dialog open={showExitRequestShare} onOpenChange={setShowExitRequestShare}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Image className="h-5 w-5" />
+              Xuất ảnh đơn xin ra ngoài
+            </DialogTitle>
+          </DialogHeader>
+          {lastCreatedRequest && (
+            <>
+              <div className="flex justify-center overflow-x-auto py-4">
+                <div className="scale-75 origin-top">
+                  <ExitRequestImageCard
+                    ref={exitRequestImageRef}
+                    schoolName={currentSchool?.name || ''}
+                    requesterName={lastCreatedRequest.requesterName}
+                    exitDate={lastCreatedRequest.exitDate}
+                    returnDate={lastCreatedRequest.returnDate}
+                    exitTime={lastCreatedRequest.exitTime}
+                    returnTime={lastCreatedRequest.returnTime}
+                    reason={lastCreatedRequest.reason}
+                    students={lastCreatedRequest.students}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai_${lastCreatedRequest.exitDate}`, 'Đơn xin ra ngoài KTX', 'download')} disabled={isExporting}>
+                  {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
+                  Tải ảnh
+                </Button>
+                <Button className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai_${lastCreatedRequest.exitDate}`, 'Đơn xin ra ngoài KTX', 'share')} disabled={isExporting}>
+                  {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
+                  Chia sẻ
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
