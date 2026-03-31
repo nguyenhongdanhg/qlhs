@@ -136,17 +136,42 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
   const addDish = async () => {
     if (!newDishName.trim()) return;
     setLoading(true);
-    const { error } = await supabase.from('food_items').insert({
-      school_id: schoolId,
-      name: newDishName.trim(),
-      category: newDishCategory,
-    });
-    if (error) {
-      toast({ title: "Lỗi", description: error.message.includes('duplicate') ? "Món ăn đã tồn tại" : error.message, variant: "destructive" });
+    
+    // Check if item exists but is inactive (was deleted before)
+    const { data: existing } = await supabase
+      .from('food_items')
+      .select('id, is_active')
+      .eq('school_id', schoolId)
+      .eq('name', newDishName.trim())
+      .maybeSingle();
+    
+    if (existing && !existing.is_active) {
+      // Reactivate the existing item
+      const { error } = await supabase.from('food_items')
+        .update({ is_active: true, category: newDishCategory })
+        .eq('id', existing.id);
+      if (error) {
+        toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Đã thêm món" });
+        setNewDishName("");
+        fetchDishes();
+      }
+    } else if (existing && existing.is_active) {
+      toast({ title: "Lỗi", description: "Món ăn đã tồn tại", variant: "destructive" });
     } else {
-      toast({ title: "Đã thêm món" });
-      setNewDishName("");
-      fetchDishes();
+      const { error } = await supabase.from('food_items').insert({
+        school_id: schoolId,
+        name: newDishName.trim(),
+        category: newDishCategory,
+      });
+      if (error) {
+        toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Đã thêm món" });
+        setNewDishName("");
+        fetchDishes();
+      }
     }
     setLoading(false);
   };
