@@ -955,6 +955,47 @@ export default function DormitoryExit() {
         </DialogContent>
       </Dialog>
 
+      {/* Exit Request Image Share Dialog */}
+      <Dialog open={showExitRequestShare} onOpenChange={setShowExitRequestShare}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Image className="h-5 w-5" />
+              Xuất ảnh đơn xin ra ngoài
+            </DialogTitle>
+          </DialogHeader>
+          {lastCreatedRequest && (
+            <>
+              <div className="flex justify-center overflow-x-auto py-4">
+                <div className="scale-75 origin-top">
+                  <ExitRequestImageCard
+                    ref={exitRequestImageRef}
+                    schoolName={currentSchool?.name || ''}
+                    requesterName={lastCreatedRequest.requesterName}
+                    exitDate={lastCreatedRequest.exitDate}
+                    returnDate={lastCreatedRequest.returnDate}
+                    exitTime={lastCreatedRequest.exitTime}
+                    returnTime={lastCreatedRequest.returnTime}
+                    reason={lastCreatedRequest.reason}
+                    students={lastCreatedRequest.students}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai_${lastCreatedRequest.exitDate}`, 'Đơn xin ra ngoài KTX', 'download')} disabled={isExporting}>
+                  {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
+                  Tải ảnh
+                </Button>
+                <Button className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai_${lastCreatedRequest.exitDate}`, 'Đơn xin ra ngoài KTX', 'share')} disabled={isExporting}>
+                  {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
+                  Chia sẻ
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Share/Download image dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
