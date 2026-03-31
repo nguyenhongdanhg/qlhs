@@ -593,16 +593,6 @@ export default function Meals() {
     }
   };
 
-  // Collect absent students for meal confirmation
-  const mealAbsentStudentsForConfirm = useMemo(() => {
-    return filteredStudents
-      .filter(s => attendance[s.id] === 'absent')
-      .map(s => ({
-        id: s.id,
-        name: s.full_name,
-        className: s.class?.name || 'Khác',
-      }));
-  }, [filteredStudents, attendance]);
 
   const handleSaveClick = () => {
     if (!currentSchool || !user) return;
