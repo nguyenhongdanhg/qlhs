@@ -507,6 +507,15 @@ export default function DutySchedule() {
     }
   };
 
+  // Sync currentMonth when selectedDate changes to a different month (calendar tab navigation)
+  useEffect(() => {
+    const selectedMonth = startOfMonth(selectedDate);
+    const current = startOfMonth(currentMonth);
+    if (selectedMonth.getTime() !== current.getTime()) {
+      setCurrentMonth(selectedDate);
+    }
+  }, [selectedDate]);
+
   useEffect(() => {
     if (!currentSchool) return;
     fetchSchedules();
