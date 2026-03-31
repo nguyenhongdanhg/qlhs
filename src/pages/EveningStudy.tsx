@@ -1085,6 +1085,18 @@ export default function EveningStudy() {
           title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || sessions[0]?.id))?.label || 'ĐIỂM DANH TỰ HỌC').toUpperCase()}`}
         />
       )}
+
+      {/* Absent Confirmation Dialog */}
+      <AbsentConfirmationDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onConfirm={handleSave}
+        isLoading={isSaving}
+        title="Xác nhận báo cáo điểm danh Tự học"
+        description={`Ngày ${format(date, 'dd/MM/yyyy')} - ${sessions.find(s => s.id === selectedSession)?.label || 'Tự học'}`}
+        absentStudents={absentStudentsForConfirm}
+        totalStudents={students.length}
+      />
     </div>
   );
 }

@@ -1078,6 +1078,18 @@ export default function Boarding() {
           title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || detectSessionByTimeConfig(sessions)))?.label || 'ĐIỂM DANH NỘI TRÚ').toUpperCase()}`}
         />
       )}
+
+      {/* Absent Confirmation Dialog */}
+      <AbsentConfirmationDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onConfirm={handleSave}
+        isLoading={isSaving}
+        title="Xác nhận báo cáo điểm danh Nội trú"
+        description={`Ngày ${format(date, 'dd/MM/yyyy')} - ${sessions.find(s => s.id === selectedSession)?.label || 'Điểm danh'}`}
+        absentStudents={absentStudentsForConfirm}
+        totalStudents={students.length}
+      />
     </div>
   );
 }
