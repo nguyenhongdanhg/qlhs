@@ -1005,7 +1005,7 @@ export default function EveningStudy() {
 
             {/* Save Button */}
             {canCreate && (
-              <Button onClick={handleSave} disabled={isSaving} className="w-full">
+              <Button onClick={handleSaveClick} disabled={isSaving} className="w-full">
                 {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Lưu báo cáo
               </Button>
