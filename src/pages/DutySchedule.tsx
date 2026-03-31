@@ -168,9 +168,14 @@ export default function DutySchedule() {
   const [settingsMaxPerPerson, setSettingsMaxPerPerson] = useState(5);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   
-  // Leadership duty state
+   // Leadership duty state
   const [dutyLeaders, setDutyLeaders] = useState<DutyLeader[]>([]);
   const [leaderMembers, setLeaderMembers] = useState<Profile[]>([]);
+  
+  // Quick assign leader state
+  const [quickAssignUserId, setQuickAssignUserId] = useState<string>('');
+  const [quickAssignDays, setQuickAssignDays] = useState<number[]>([]); // 0=CN, 1=T2, ..., 6=T7
+  const [isQuickAssigning, setIsQuickAssigning] = useState(false);
   
   // Filter by person name in calendar tab
   const [calendarFilterName, setCalendarFilterName] = useState('');
