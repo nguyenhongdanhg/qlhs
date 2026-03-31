@@ -23,6 +23,7 @@ import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet,
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
+import { ExitRequestImageCard } from '@/components/dormitory/ExitRequestImageCard';
 import * as XLSX from 'xlsx-js-style';
 
 interface ExitRequest {
