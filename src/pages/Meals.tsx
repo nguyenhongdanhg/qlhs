@@ -51,6 +51,7 @@ import {
   MealStudentData 
 } from '@/lib/excel-export';
 import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
+import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirmationDialog';
 import { MealHistoryTab } from '@/components/attendance/MealHistoryTab';
 import { StudentSearchInput } from '@/components/attendance/StudentSearchInput';
 import { AdminReportOptions } from '@/components/attendance/AdminReportOptions';
