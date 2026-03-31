@@ -137,19 +137,22 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
     if (!newDishName.trim()) return;
     setLoading(true);
     
-    // Check if item exists but is inactive (was deleted before)
-    const { data: existing } = await supabase
+    // Check if item exists (unique constraint is school_id + name + category)
+    const { data: exactMatch } = await supabase
       .from('food_items')
       .select('id, is_active')
       .eq('school_id', schoolId)
       .eq('name', newDishName.trim())
+      .eq('category', newDishCategory)
       .maybeSingle();
-    
-    if (existing && !existing.is_active) {
+
+    if (exactMatch && exactMatch.is_active) {
+      toast({ title: "Lỗi", description: "Món ăn đã tồn tại trong danh mục này", variant: "destructive" });
+    } else if (exactMatch && !exactMatch.is_active) {
       // Reactivate the existing item
       const { error } = await supabase.from('food_items')
-        .update({ is_active: true, category: newDishCategory })
-        .eq('id', existing.id);
+        .update({ is_active: true })
+        .eq('id', exactMatch.id);
       if (error) {
         toast({ title: "Lỗi", description: error.message, variant: "destructive" });
       } else {
@@ -157,20 +160,41 @@ export function MenuTemplateTab({ schoolId, canEdit }: MenuTemplateTabProps) {
         setNewDishName("");
         fetchDishes();
       }
-    } else if (existing && existing.is_active) {
-      toast({ title: "Lỗi", description: "Món ăn đã tồn tại", variant: "destructive" });
     } else {
-      const { error } = await supabase.from('food_items').insert({
-        school_id: schoolId,
-        name: newDishName.trim(),
-        category: newDishCategory,
-      });
-      if (error) {
-        toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+      // Check if same name exists in another category (inactive) - update its category
+      const { data: sameNameInactive } = await supabase
+        .from('food_items')
+        .select('id')
+        .eq('school_id', schoolId)
+        .eq('name', newDishName.trim())
+        .eq('is_active', false)
+        .limit(1)
+        .maybeSingle();
+
+      if (sameNameInactive) {
+        const { error } = await supabase.from('food_items')
+          .update({ is_active: true, category: newDishCategory })
+          .eq('id', sameNameInactive.id);
+        if (error) {
+          toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+        } else {
+          toast({ title: "Đã thêm món" });
+          setNewDishName("");
+          fetchDishes();
+        }
       } else {
-        toast({ title: "Đã thêm món" });
-        setNewDishName("");
-        fetchDishes();
+        const { error } = await supabase.from('food_items').insert({
+          school_id: schoolId,
+          name: newDishName.trim(),
+          category: newDishCategory,
+        });
+        if (error) {
+          toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+        } else {
+          toast({ title: "Đã thêm món" });
+          setNewDishName("");
+          fetchDishes();
+        }
       }
     }
     setLoading(false);
