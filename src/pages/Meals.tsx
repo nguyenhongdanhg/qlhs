@@ -612,6 +612,7 @@ export default function Meals() {
     if (!currentSchool || !user) return;
     setShowMealConfirmDialog(false);
     const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
+    setIsSaving(true);
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
       
