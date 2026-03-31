@@ -75,6 +75,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime } from '@/components/attendance/SessionSettingsDialog';
+import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirmationDialog';
 import {
   DateRangeType,
   getDateRange,
@@ -196,6 +197,9 @@ export default function Boarding() {
 
   // Admin report on behalf
   const [selectedReporterId, setSelectedReporterId] = useState(user?.id || '');
+
+  // Confirmation dialog
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   // Total boarding students count for accurate stats
   const [totalBoardingStudents, setTotalBoardingStudents] = useState(0);
@@ -487,8 +491,28 @@ export default function Boarding() {
     return sessionToUse;
   };
 
+  // Collect absent students for confirmation
+  const absentStudentsForConfirm = useMemo(() => {
+    return students
+      .filter(s => attendance[s.id] === 'absent' || attendance[s.id] === 'excused')
+      .map(s => ({
+        id: s.id,
+        name: s.full_name,
+        className: s.class?.name || 'Khác',
+        excused: excuseInfo[s.id]?.excused || attendance[s.id] === 'excused',
+        reason: excuseInfo[s.id]?.reason || '',
+      }));
+  }, [students, attendance, excuseInfo]);
+
+  const handleSaveClick = () => {
+    if (!currentSchool || !user) return;
+    validateBeforeSave();
+    setShowConfirmDialog(true);
+  };
+
   const handleSave = async () => {
     if (!currentSchool || !user) return;
+    setShowConfirmDialog(false);
     const sessionToUse = validateBeforeSave();
 
     const reporterId = (isSchoolAdmin() || isSuperAdmin) && selectedReporterId ? selectedReporterId : user.id;
@@ -975,7 +999,7 @@ export default function Boarding() {
 
             {/* Save Button */}
             {canCreate && (
-              <Button onClick={handleSave} disabled={isSaving} className="w-full">
+              <Button onClick={handleSaveClick} disabled={isSaving} className="w-full">
                 {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Lưu báo cáo
               </Button>
@@ -1054,6 +1078,18 @@ export default function Boarding() {
           title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || detectSessionByTimeConfig(sessions)))?.label || 'ĐIỂM DANH NỘI TRÚ').toUpperCase()}`}
         />
       )}
+
+      {/* Absent Confirmation Dialog */}
+      <AbsentConfirmationDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onConfirm={handleSave}
+        isLoading={isSaving}
+        title="Xác nhận báo cáo điểm danh Nội trú"
+        description={`Ngày ${format(date, 'dd/MM/yyyy')} - ${sessions.find(s => s.id === selectedSession)?.label || 'Điểm danh'}`}
+        absentStudents={absentStudentsForConfirm}
+        totalStudents={students.length}
+      />
     </div>
   );
 }

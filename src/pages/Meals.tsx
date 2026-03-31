@@ -51,6 +51,7 @@ import {
   MealStudentData 
 } from '@/lib/excel-export';
 import { MealAbsentSelectionDialog } from '@/components/attendance/MealAbsentSelectionDialog';
+import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirmationDialog';
 import { MealHistoryTab } from '@/components/attendance/MealHistoryTab';
 import { StudentSearchInput } from '@/components/attendance/StudentSearchInput';
 import { AdminReportOptions } from '@/components/attendance/AdminReportOptions';
@@ -154,6 +155,8 @@ export default function Meals() {
   // Check if user can bypass deadline (Admin, Super Admin, or Accountant)
   const canBypassDeadline = isSuperAdmin || isSchoolAdmin() || currentMembership?.role === 'accountant';
 
+  // Confirmation dialog for single meal save
+  const [showMealConfirmDialog, setShowMealConfirmDialog] = useState(false);
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
       if (a.grade !== b.grade) return a.grade - b.grade;
@@ -590,10 +593,9 @@ export default function Meals() {
     }
   };
 
-  const handleSave = async () => {
+
+  const handleSaveClick = () => {
     if (!currentSchool || !user) return;
-    const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
-    
     // Check deadline - but allow bypass for Admin/Accountant
     if (currentMealDeadline.isExpired && !canBypassDeadline) {
       toast({ 
@@ -603,7 +605,13 @@ export default function Meals() {
       });
       return;
     }
+    setShowMealConfirmDialog(true);
+  };
 
+  const handleSave = async () => {
+    if (!currentSchool || !user) return;
+    setShowMealConfirmDialog(false);
+    const reporterId = (isSuperAdmin || isSchoolAdmin()) && selectedReporterId ? selectedReporterId : user.id;
     setIsSaving(true);
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
@@ -753,7 +761,17 @@ export default function Meals() {
     return filtered;
   }, [students, selectedClass, isClassTeacher, teacherClassId, studentSearch]);
 
-  // Get the teacher's class name for display
+  // Collect absent students for meal confirmation
+  const mealAbsentStudentsForConfirm = useMemo(() => {
+    return filteredStudents
+      .filter(s => attendance[s.id] === 'absent')
+      .map(s => ({
+        id: s.id,
+        name: s.full_name,
+        className: s.class?.name || 'Khác',
+      }));
+  }, [filteredStudents, attendance]);
+
   const teacherClassName = useMemo(() => {
     if (!isClassTeacher || !teacherClassId) return null;
     return classes.find(c => c.id === teacherClassId)?.name;
@@ -1079,7 +1097,7 @@ export default function Meals() {
             )}
 
             <Button 
-              onClick={handleSave} 
+              onClick={handleSaveClick} 
               disabled={isSaving || (currentMealDeadline.isExpired && !canBypassDeadline) || !canReportMeals} 
               className="w-full h-10"
             >
@@ -1142,6 +1160,18 @@ export default function Meals() {
         isLoading={isSaving}
         title={`${mealTypes.find(m => m.type === selectedMeal)?.label} - Chọn học sinh vắng`}
         description="Chọn học sinh vắng cho bữa này. Các học sinh không chọn sẽ được báo đủ."
+      />
+
+      {/* Meal Save Confirmation Dialog */}
+      <AbsentConfirmationDialog
+        open={showMealConfirmDialog}
+        onOpenChange={setShowMealConfirmDialog}
+        onConfirm={handleSave}
+        isLoading={isSaving}
+        title={`Xác nhận ${mealTypes.find(m => m.type === selectedMeal)?.label}`}
+        description={`Ngày ${format(date, 'dd/MM/yyyy')} - Kiểm tra danh sách vắng trước khi lưu`}
+        absentStudents={mealAbsentStudentsForConfirm}
+        totalStudents={filteredStudents.length}
       />
     </div>
   );
