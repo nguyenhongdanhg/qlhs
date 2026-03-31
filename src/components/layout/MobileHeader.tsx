@@ -68,9 +68,7 @@ export const MobileHeader = memo(function MobileHeader() {
 
       {/* Right Actions */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-9 w-9">
-          <Bell className="h-5 w-5" />
-        </Button>
+        <NotificationDropdown />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -27,10 +27,7 @@ export const MainHeader = memo(function MainHeader() {
           />
         </div>
         
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-destructive" />
-        </Button>
+        <NotificationDropdown />
       </div>
     </header>
   );
