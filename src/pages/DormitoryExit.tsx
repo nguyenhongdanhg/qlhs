@@ -98,6 +98,19 @@ export default function DormitoryExit() {
   const [showBatchRejectDialog, setShowBatchRejectDialog] = useState(false);
   const [batchRejectionReason, setBatchRejectionReason] = useState('');
 
+  // Exit request share dialog
+  const [showExitRequestShare, setShowExitRequestShare] = useState(false);
+  const exitRequestImageRef = useRef<HTMLDivElement>(null);
+  const [lastCreatedRequest, setLastCreatedRequest] = useState<{
+    students: { name: string; className: string }[];
+    exitDate: string;
+    returnDate: string;
+    exitTime: string;
+    returnTime: string;
+    reason: string;
+    requesterName: string;
+  } | null>(null);
+
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
   const canDelete = isSchoolAdmin() || isSuperAdmin;
