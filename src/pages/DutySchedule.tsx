@@ -471,8 +471,6 @@ export default function DutySchedule() {
   // Toggle weekday in quick assign
   const toggleQuickDay = (day: number) => {
     setQuickAssignDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
-      setIsSaving(false);
-    }
   };
 
   // Fetch duty groups with members
