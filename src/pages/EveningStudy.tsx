@@ -75,6 +75,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime } from '@/components/attendance/SessionSettingsDialog';
+import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirmationDialog';
 import {
   DateRangeType,
   getDateRange,
