@@ -760,7 +760,17 @@ export default function Meals() {
     return filtered;
   }, [students, selectedClass, isClassTeacher, teacherClassId, studentSearch]);
 
-  // Get the teacher's class name for display
+  // Collect absent students for meal confirmation
+  const mealAbsentStudentsForConfirm = useMemo(() => {
+    return filteredStudents
+      .filter(s => attendance[s.id] === 'absent')
+      .map(s => ({
+        id: s.id,
+        name: s.full_name,
+        className: s.class?.name || 'Khác',
+      }));
+  }, [filteredStudents, attendance]);
+
   const teacherClassName = useMemo(() => {
     if (!isClassTeacher || !teacherClassId) return null;
     return classes.find(c => c.id === teacherClassId)?.name;
