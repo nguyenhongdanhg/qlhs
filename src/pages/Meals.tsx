@@ -155,6 +155,8 @@ export default function Meals() {
   // Check if user can bypass deadline (Admin, Super Admin, or Accountant)
   const canBypassDeadline = isSuperAdmin || isSchoolAdmin() || currentMembership?.role === 'accountant';
 
+  // Confirmation dialog for single meal save
+  const [showMealConfirmDialog, setShowMealConfirmDialog] = useState(false);
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
       if (a.grade !== b.grade) return a.grade - b.grade;
