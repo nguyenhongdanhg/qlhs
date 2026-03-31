@@ -162,6 +162,9 @@ export default function EveningStudy() {
   // Admin report on behalf
   const [selectedReporterId, setSelectedReporterId] = useState(user?.id || '');
 
+  // Confirmation dialog
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
   // Sort classes by grade
