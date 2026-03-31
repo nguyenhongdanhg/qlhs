@@ -1161,6 +1161,18 @@ export default function Meals() {
         title={`${mealTypes.find(m => m.type === selectedMeal)?.label} - Chọn học sinh vắng`}
         description="Chọn học sinh vắng cho bữa này. Các học sinh không chọn sẽ được báo đủ."
       />
+
+      {/* Meal Save Confirmation Dialog */}
+      <AbsentConfirmationDialog
+        open={showMealConfirmDialog}
+        onOpenChange={setShowMealConfirmDialog}
+        onConfirm={handleSave}
+        isLoading={isSaving}
+        title={`Xác nhận ${mealTypes.find(m => m.type === selectedMeal)?.label}`}
+        description={`Ngày ${format(date, 'dd/MM/yyyy')} - Kiểm tra danh sách vắng trước khi lưu`}
+        absentStudents={mealAbsentStudentsForConfirm}
+        totalStudents={filteredStudents.length}
+      />
     </div>
   );
 }
