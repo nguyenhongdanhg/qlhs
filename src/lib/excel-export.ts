@@ -1,4 +1,20 @@
 import XLSX from 'xlsx-js-style';
+
+// Browser-safe file download (avoids fs.writeFileSync error)
+function saveWorkbook(wb: XLSX.WorkBook, fileName: string) {
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
+}
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
