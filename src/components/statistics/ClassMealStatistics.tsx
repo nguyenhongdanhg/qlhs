@@ -161,17 +161,17 @@ export const ClassMealStatistics = memo(function ClassMealStatistics({
 
       // Get latest record per student/date/meal - this ensures no duplicates
       const latestByKey = new Map<string, any>();
-      (records || []).forEach((record: any) => {
+      records.forEach((record: any) => {
         const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
         const existing = latestByKey.get(key);
-        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+        if (!existing || record.created_at > existing.created_at) {
           latestByKey.set(key, record);
         }
       });
 
       // Track report counts per date/meal to detect re-reports
       const reportCountByDateMeal = new Map<string, Set<string>>();
-      (records || []).forEach((record: any) => {
+      records.forEach((record: any) => {
         const key = `${record.attendance_date}-${record.attendance_type}`;
         const reportTime = (record.created_at || '').substring(0, 16); // Round to minute
         if (!reportCountByDateMeal.has(key)) {
