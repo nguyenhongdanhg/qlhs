@@ -39,7 +39,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
-import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
+import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData, MealExportFilter } from '@/lib/excel-export';
 import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDialog';
 import { ShareAbsentByMealGroupDialog } from '@/components/attendance/ShareAbsentByMealGroupDialog';
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
