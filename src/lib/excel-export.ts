@@ -1,4 +1,20 @@
 import XLSX from 'xlsx-js-style';
+
+// Browser-safe file download (avoids fs.writeFileSync error)
+function saveWorkbook(wb: XLSX.WorkBook, fileName: string) {
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
+}
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
@@ -213,7 +229,7 @@ export function exportAttendanceReport(
   }
 
   const fileName = `Diem_danh_${type === 'boarding' ? 'noi_tru' : 'tu_hoc'}_${format(config.dateRange.start, 'dd-MM-yyyy')}_${format(config.dateRange.end, 'dd-MM-yyyy')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  saveWorkbook(wb, fileName);
 }
 
 // Export meal statistics
@@ -908,7 +924,7 @@ export function exportMealStatistics(
 
   const filterSuffix = config.mealFilter === 'breakfast' ? '_sang' : config.mealFilter === 'lunch_dinner' ? '_trua_toi' : '';
   const fileName = `Thong_ke_bua_an${filterSuffix}_${format(config.dateRange.start, 'dd-MM-yyyy')}_${format(config.dateRange.end, 'dd-MM-yyyy')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  saveWorkbook(wb, fileName);
 }
 
 // Apply header style to a row
@@ -983,7 +999,7 @@ export function exportSingleAttendanceReport(
   XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
 
   const fileName = `Bao_cao_${type === 'boarding' ? 'noi_tru' : 'tu_hoc'}_${report.date}_${report.session}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  saveWorkbook(wb, fileName);
 }
 
 // Export absent students by meal group
@@ -1110,5 +1126,5 @@ export function exportAbsentStudentsByMealGroup(
   XLSX.utils.book_append_sheet(wb, dinnerWs, 'Vắng tối');
 
   const fileName = `DS_vang_theo_mam_${format(config.date, 'dd-MM-yyyy')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  saveWorkbook(wb, fileName);
 }
