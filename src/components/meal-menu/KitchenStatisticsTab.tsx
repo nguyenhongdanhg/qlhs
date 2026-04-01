@@ -207,7 +207,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
       ['', '', '', '', '', 'TỔNG:', importTotal],
     ];
     const wsImport = XLSX.utils.aoa_to_sheet(importData);
-    wsImport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }];
+    fitColumnsToA4(wsImport, [5, 25, 18, 10, 12, 12, 15]);
     wsImport['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
