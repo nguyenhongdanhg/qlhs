@@ -7,6 +7,7 @@ import {
   ExcelFonts,
   ExcelBorders,
   CellAlign,
+  fitColumnsToA4,
 } from './excel-styles';
 
 interface DutyMember extends Profile {

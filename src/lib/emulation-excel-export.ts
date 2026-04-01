@@ -3,7 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
   applyProfessionalStyle,
-  CellAlign 
+  CellAlign,
+  fitColumnsToA4
 } from './excel-styles';
 
 interface DynamicColumn {
