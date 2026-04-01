@@ -64,6 +64,9 @@ export interface ExcelStyle {
   };
 }
 
+// Meal filter type for selective export
+export type MealExportFilter = 'all' | 'breakfast' | 'lunch_dinner';
+
 // Professional Excel export config
 export interface ExcelExportConfig {
   schoolName: string;
@@ -73,6 +76,7 @@ export interface ExcelExportConfig {
   reporterName?: string;
   exportTime: Date;
   ricePerStudent?: number;
+  mealFilter?: MealExportFilter;
 }
 
 // Create worksheet with professional formatting
