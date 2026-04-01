@@ -170,7 +170,7 @@ export function MealExportDialog({
               ) : (
                 <UtensilsCrossed className="mr-2 h-4 w-4" />
               )}
-              Xuất trưa & tối (/ trưa, \ tối, x cả hai)
+              Xuất trưa & tối (\ trưa, / tối, x cả hai)
             </Button>
           </div>
         </div>
