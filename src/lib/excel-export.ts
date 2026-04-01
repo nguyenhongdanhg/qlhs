@@ -425,11 +425,7 @@ function createMealStatsSheet(
   ].slice(0, 5 + days.length + numSummaryCols);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = columnWidths.map(w => ({ wch: w }));
-
-  ws['!margins'] = {
-    left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.2, footer: 0.2,
-  };
+  fitColumnsToA4(ws, columnWidths);
 
   if (!ws['!merges']) ws['!merges'] = [];
   const totalCols = headerRow.length;
