@@ -933,7 +933,7 @@ export function exportSingleAttendanceReport(
   }
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{ wch: 8 }, { wch: 30 }, { wch: 12 }, { wch: 15 }, { wch: 35 }];
+  fitColumnsToA4(ws, [8, 30, 12, 15, 35]);
 
   // Merge title cells
   ws['!merges'] = [
