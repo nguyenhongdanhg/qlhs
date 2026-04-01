@@ -200,31 +200,32 @@ export function MealHistoryTab({
       const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
       const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
 
-      let query = supabase
-        .from('attendance_records')
-        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name), student:students(full_name, class:classes(name))')
-        .eq('school_id', currentSchool.id)
-        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .gte('attendance_date', startDate)
-        .lte('attendance_date', endDate)
-        .order('created_at', { ascending: false });
+      const buildHistoryQuery = () => {
+        let q = supabase
+          .from('attendance_records')
+          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name), student:students(full_name, class:classes(name))')
+          .eq('school_id', currentSchool.id)
+          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
+          .order('created_at', { ascending: false });
 
-      // Class teachers only see their class
-      if (isClassTeacher && teacherClassId) {
-        query = query.eq('class_id', teacherClassId);
-      } else if (historyClassFilter !== 'all') {
-        const selectedClassObj = classes.find(c => c.name === historyClassFilter);
-        if (selectedClassObj) {
-          query = query.eq('class_id', selectedClassObj.id);
+        if (isClassTeacher && teacherClassId) {
+          q = q.eq('class_id', teacherClassId);
+        } else if (historyClassFilter !== 'all') {
+          const selectedClassObj = classes.find(c => c.name === historyClassFilter);
+          if (selectedClassObj) {
+            q = q.eq('class_id', selectedClassObj.id);
+          }
         }
-      }
 
-      // Reporter filter
-      if (historyReporterFilter !== 'all') {
-        query = query.eq('reporter_id', historyReporterFilter);
-      }
+        if (historyReporterFilter !== 'all') {
+          q = q.eq('reporter_id', historyReporterFilter);
+        }
+        return q;
+      };
 
-      const recordsData = await fetchAllRecords(query);
+      const recordsData = await fetchAllRecords(buildHistoryQuery);
 
       // Get latest record per student/date/meal
       const latestByStudentDateMeal = new Map<string, any>();
