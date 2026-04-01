@@ -15,7 +15,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-f
 import { vi } from "date-fns/locale";
 import { CalendarIcon, Download, TrendingUp, TrendingDown, ChevronDown, Share2 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
-import { ExcelColors, ExcelFonts, ExcelBorders, applyProfessionalStyle, type CellAlign } from "@/lib/excel-styles";
+import { ExcelColors, ExcelFonts, ExcelBorders, applyProfessionalStyle, fitColumnsToA4, type CellAlign } from "@/lib/excel-styles";
 import { KitchenStatsImageCard } from "./KitchenStatsImageCard";
 
 interface KitchenTransaction {
