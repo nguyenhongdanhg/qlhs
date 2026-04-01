@@ -99,18 +99,7 @@ export function createProfessionalWorksheet(
   const wsData = [...headerRows, ...data];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  // Set column widths
-  ws['!cols'] = columnWidths.map(w => ({ wch: w }));
-
-  // Set print settings for A4 landscape
-  ws['!margins'] = {
-    left: 0.5,
-    right: 0.5,
-    top: 0.75,
-    bottom: 0.75,
-    header: 0.3,
-    footer: 0.3,
-  };
+  fitColumnsToA4(ws, columnWidths);
 
   // Merge title cells
   if (!ws['!merges']) ws['!merges'] = [];
