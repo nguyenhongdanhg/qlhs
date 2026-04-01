@@ -411,7 +411,7 @@ function createMealStatsSheet(
   if (mealFilter === 'breakfast') {
     noteRows.push(['Ghi chú: x = ăn sáng, o = vắng, - = chưa báo cáo']);
   } else if (mealFilter === 'lunch_dinner') {
-    noteRows.push(['Ghi chú: / = ăn trưa, \\ = ăn tối, x = ăn cả trưa+tối, o = vắng']);
+    noteRows.push(['Ghi chú: \\ = ăn trưa, / = ăn tối, x = ăn cả trưa+tối, o = vắng']);
     noteRows.push([`Lượng gạo: ${riceRate}kg/học sinh cho mỗi bữa trưa và tối`]);
     noteRows.push([`Tổng gạo: ${grandTotalRice.toFixed(2)} kg`]);
   } else {
