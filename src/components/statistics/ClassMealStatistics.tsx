@@ -109,7 +109,7 @@ export const ClassMealStatistics = memo(function ClassMealStatistics({
   }, [dailyRecords]);
 
   const fetchAllRecords = async (buildQuery: () => any) => {
-    const PAGE_SIZE = 5000;
+    const PAGE_SIZE = 1000;
     let allData: any[] = [];
     let from = 0;
     for (;;) {

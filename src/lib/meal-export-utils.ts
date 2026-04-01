@@ -20,7 +20,7 @@ export async function fetchAttendanceRecordsBatched(
   // Fetch all batches in parallel
   const results = await Promise.all(
     batches.map(async (batchIds) => {
-      const PAGE_SIZE = 5000;
+      const PAGE_SIZE = 1000;
       const allPages: any[] = [];
       let page = 0;
 

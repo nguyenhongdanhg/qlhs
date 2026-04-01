@@ -136,7 +136,7 @@ export function MealHistoryTab({
   }, [currentSchool, historyDateRange, historyClassFilter, historyReporterFilter, classes]);
 
   const fetchAllRecords = async (buildQuery: () => any) => {
-    const PAGE_SIZE = 5000;
+    const PAGE_SIZE = 1000;
     let allData: any[] = [];
     let from = 0;
     let hasMore = true;
