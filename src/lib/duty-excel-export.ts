@@ -1,4 +1,5 @@
 import XLSX from 'xlsx-js-style';
+import { vietnameseNameSortCompare } from './utils';
 import { format, eachDayOfInterval, getDay, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachWeekOfInterval } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { DutySchedule as DutyScheduleType, Profile } from '@/types';
@@ -116,7 +117,7 @@ export function exportDutyAssignment(options: DutyExportOptions) {
   });
 
   // Data rows
-  const sortedMembers = [...dutyMembers].sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
+  const sortedMembers = [...dutyMembers].sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
 
   sortedMembers.forEach((member, idx) => {
     const rowIdx = 3 + idx;

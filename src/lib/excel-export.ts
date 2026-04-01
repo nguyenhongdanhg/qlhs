@@ -1,4 +1,5 @@
 import XLSX from 'xlsx-js-style';
+import { vietnameseNameSortCompare } from './utils';
 
 // Browser-safe file download (avoids fs.writeFileSync error)
 function saveWorkbook(wb: XLSX.WorkBook, fileName: string) {
@@ -284,7 +285,10 @@ function createMealStatsSheet(
   let grandTotalLunch = 0;
   let grandTotalDinner = 0;
 
-  students.forEach((student, idx) => {
+  // Sort students by Vietnamese name (by last word / tên)
+  const sortedStudents = [...students].sort((a, b) => vietnameseNameSortCompare(a.name, b.name));
+
+  sortedStudents.forEach((student, idx) => {
     const row: any[] = [
       idx + 1,
       student.name,
@@ -1089,7 +1093,7 @@ export function exportAbsentStudentsByMealGroup(
           groupStudents
             .sort((a, b) => {
               if (a.classGrade !== b.classGrade) return a.classGrade - b.classGrade;
-              return a.name.localeCompare(b.name, 'vi');
+              return vietnameseNameSortCompare(a.name, b.name);
             })
             .forEach((student, idx) => {
               wsData.push([
