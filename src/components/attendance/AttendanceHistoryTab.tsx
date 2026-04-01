@@ -217,21 +217,23 @@ export function AttendanceHistoryTab({
       const total = studentsData?.length || 0;
       setTotalStudents(total);
 
-      let query = supabase
-        .from('attendance_records')
-        .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name), student:students(full_name, class:classes(name))')
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_type', attendanceType)
-        .gte('attendance_date', startDate)
-        .lte('attendance_date', endDate)
-        .order('created_at', { ascending: false });
+      const buildQuery = () => {
+        let q = supabase
+          .from('attendance_records')
+          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name), student:students(full_name, class:classes(name))')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_type', attendanceType)
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
+          .order('created_at', { ascending: false });
 
-      // Reporter filter
-      if (historyReporterFilter !== 'all') {
-        query = query.eq('reporter_id', historyReporterFilter);
-      }
+        if (historyReporterFilter !== 'all') {
+          q = q.eq('reporter_id', historyReporterFilter);
+        }
+        return q;
+      };
 
-      const recordsData = await fetchAllRecords(query);
+      const recordsData = await fetchAllRecords(buildQuery);
 
       // Get latest record per student/date
       const latestByStudentDate = new Map<string, any>();
