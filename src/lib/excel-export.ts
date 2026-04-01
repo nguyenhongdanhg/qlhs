@@ -615,6 +615,25 @@ function createSchoolSummarySheet(
     totalsRow.push(grandLunch, grandDinner, grandRice.toFixed(2));
   }
 
+  // Daily combined totals row (lunch + dinner per day)
+  const dailyCombinedRow: any[] = ['', 'TỔNG ĂN/NGÀY', ''];
+  if (mealFilter === 'lunch_dinner' || mealFilter === 'all') {
+    days.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const dt = dayTotals.get(dateStr);
+      if (!dt) {
+        dailyCombinedRow.push('-');
+      } else {
+        dailyCombinedRow.push(dt.lunch + dt.dinner);
+      }
+    });
+    if (mealFilter === 'all') {
+      dailyCombinedRow.push('', grandLunch + grandDinner, '', '');
+    } else {
+      dailyCombinedRow.push(grandLunch + grandDinner, '', '');
+    }
+  }
+
   // Note row
   const noteRows: any[][] = [[]];
   if (mealFilter === 'breakfast') {
@@ -638,7 +657,8 @@ function createSchoolSummarySheet(
     [],
   ];
 
-  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...noteRows];
+  const hasDailyCombined = mealFilter === 'lunch_dinner' || mealFilter === 'all';
+  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...(hasDailyCombined ? [dailyCombinedRow] : []), ...noteRows];
   const numCols = headerRow.length;
 
   // Column widths
