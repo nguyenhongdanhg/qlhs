@@ -449,48 +449,10 @@ export function MealHistoryTab({
       const startDate = format(exportDateRange.start, 'yyyy-MM-dd');
       const endDate = format(exportDateRange.end, 'yyyy-MM-dd');
 
-      // Fetch attendance records with pagination to ensure complete data
-      const PAGE_SIZE = 1000;
-      const MAX_PAGES = 500;
-      const recordsData: any[] = [];
-
-      let pageNum = 0;
-      while (pageNum < MAX_PAGES) {
-        const from = pageNum * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        const { data, error } = await supabase
-          .from('attendance_records')
-          .select('*')
-          .eq('school_id', currentSchool.id)
-          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-          .gte('attendance_date', startDate)
-          .lte('attendance_date', endDate)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-
-        const page = data || [];
-        recordsData.push(...page);
-
-        if (page.length < PAGE_SIZE) break;
-        pageNum++;
-      }
-
-      // Filter to only include students we're exporting
-      const studentIdSet = new Set(studentIds);
-      const filteredRecords = recordsData.filter(r => studentIdSet.has(r.student_id));
-
-      // Get latest record per student/date/meal
-      const latestByKey = new Map<string, any>();
-      filteredRecords.forEach((record: any) => {
-        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
-        const existing = latestByKey.get(key);
-        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
-          latestByKey.set(key, record);
-        }
-      });
+      // Fetch attendance records in parallel batches (filtered by student IDs at DB level)
+      const { fetchAttendanceRecordsBatched, deduplicateRecords } = await import('@/lib/meal-export-utils');
+      const recordsData = await fetchAttendanceRecordsBatched(currentSchool.id, studentIds, startDate, endDate);
+      const latestByKey = deduplicateRecords(recordsData);
 
       // Build student data with null for unreported meals
       const mealStudents: MealStudentData[] = studentsToExport.map(student => {

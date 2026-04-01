@@ -126,7 +126,7 @@ export function MealExportDialog({
             <ul className="list-disc pl-4 space-y-0.5">
               <li><strong>Cả 3 bữa:</strong> x = ăn, o = vắng, - = chưa báo</li>
               <li><strong>Bữa sáng:</strong> x = ăn sáng</li>
-              <li><strong>Trưa & Tối:</strong> / = ăn trưa, \ = ăn tối, x = cả hai</li>
+              <li><strong>Trưa & Tối:</strong> \ = ăn trưa, / = ăn tối, x = cả hai</li>
             </ul>
           </div>
         </div>
@@ -170,7 +170,7 @@ export function MealExportDialog({
               ) : (
                 <UtensilsCrossed className="mr-2 h-4 w-4" />
               )}
-              Xuất trưa & tối (/ trưa, \ tối, x cả hai)
+              Xuất trưa & tối (\ trưa, / tối, x cả hai)
             </Button>
           </div>
         </div>
