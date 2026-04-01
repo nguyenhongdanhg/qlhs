@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
+import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData, MealExportFilter } from '@/lib/excel-export';
 import { MealDiagnosticDialog } from '@/components/attendance/MealDiagnosticDialog';
 import { MealExportDialog } from '@/components/attendance/MealExportDialog';
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
