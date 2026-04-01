@@ -503,12 +503,20 @@ function createSchoolSummarySheet(
     return a[0].localeCompare(b[0], 'vi');
   });
 
+  const mealFilter = config.mealFilter || 'all';
+
   // Build header row with day columns
   const headerRow: any[] = ['STT', 'Lớp', 'Sĩ số'];
   days.forEach(day => {
     headerRow.push(format(day, 'dd/MM'));
   });
-  headerRow.push('Tổng sáng', 'Tổng trưa', 'Tổng tối', 'Gạo (kg)');
+  if (mealFilter === 'all') {
+    headerRow.push('Tổng sáng', 'Tổng trưa', 'Tổng tối', 'Gạo (kg)');
+  } else if (mealFilter === 'breakfast') {
+    headerRow.push('Tổng sáng');
+  } else {
+    headerRow.push('Tổng trưa', 'Tổng tối', 'Gạo (kg)');
+  }
 
   // Build data rows - one per class with daily totals
   const dataRows: any[][] = [];
@@ -538,11 +546,14 @@ function createSchoolSummarySheet(
 
       if (!hasAnyReport) {
         row.push('-');
+      } else if (mealFilter === 'breakfast') {
+        row.push(bPresent);
+      } else if (mealFilter === 'lunch_dinner') {
+        row.push(`${lPresent}/${dPresent}`);
       } else {
         row.push(`${bPresent}/${lPresent}/${dPresent}`);
       }
 
-      // Accumulate per-day school totals
       if (!dayTotals.has(dateStr)) {
         dayTotals.set(dateStr, { breakfast: 0, lunch: 0, dinner: 0 });
       }
@@ -557,8 +568,15 @@ function createSchoolSummarySheet(
     });
 
     const riceRate = config.ricePerStudent ?? 0.2;
-    const classRice = (classLunch + classDinner) * riceRate;
-    row.push(classBreakfast, classLunch, classDinner, classRice.toFixed(2));
+    if (mealFilter === 'all') {
+      const classRice = (classLunch + classDinner) * riceRate;
+      row.push(classBreakfast, classLunch, classDinner, classRice.toFixed(2));
+    } else if (mealFilter === 'breakfast') {
+      row.push(classBreakfast);
+    } else {
+      const classRice = (classLunch + classDinner) * riceRate;
+      row.push(classLunch, classDinner, classRice.toFixed(2));
+    }
     dataRows.push(row);
 
     grandBreakfast += classBreakfast;
@@ -573,23 +591,40 @@ function createSchoolSummarySheet(
     const dt = dayTotals.get(dateStr);
     if (!dt) {
       totalsRow.push('-');
+    } else if (mealFilter === 'breakfast') {
+      totalsRow.push(dt.breakfast);
+    } else if (mealFilter === 'lunch_dinner') {
+      totalsRow.push(`${dt.lunch}/${dt.dinner}`);
     } else {
       totalsRow.push(`${dt.breakfast}/${dt.lunch}/${dt.dinner}`);
     }
   });
   const riceRate2 = config.ricePerStudent ?? 0.2;
   const grandRice = (grandLunch + grandDinner) * riceRate2;
-  totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(2));
+  if (mealFilter === 'all') {
+    totalsRow.push(grandBreakfast, grandLunch, grandDinner, grandRice.toFixed(2));
+  } else if (mealFilter === 'breakfast') {
+    totalsRow.push(grandBreakfast);
+  } else {
+    totalsRow.push(grandLunch, grandDinner, grandRice.toFixed(2));
+  }
 
   // Note row
-  const noteRows: any[][] = [
-    [],
-    [`Ghi chú: Mỗi ô ngày hiển thị Sáng/Trưa/Tối (số suất ăn). Gạo = ${riceRate2}kg × (Trưa + Tối)`],
-  ];
+  const noteRows: any[][] = [[]];
+  if (mealFilter === 'breakfast') {
+    noteRows.push(['Ghi chú: Mỗi ô hiển thị số suất ăn sáng']);
+  } else if (mealFilter === 'lunch_dinner') {
+    noteRows.push([`Ghi chú: Mỗi ô hiển thị Trưa/Tối. Gạo = ${riceRate2}kg × (Trưa + Tối)`]);
+  } else {
+    noteRows.push([`Ghi chú: Mỗi ô ngày hiển thị Sáng/Trưa/Tối (số suất ăn). Gạo = ${riceRate2}kg × (Trưa + Tối)`]);
+  }
+
+  // Title based on filter
+  const filterLabel = mealFilter === 'breakfast' ? ' - BỮA SÁNG' : mealFilter === 'lunch_dinner' ? ' - BỮA TRƯA & TỐI' : '';
 
   // Header info rows
   const headerInfoRows: any[][] = [
-    ['THỐNG KÊ BỮA ĂN TOÀN TRƯỜNG'],
+    [`THỐNG KÊ BỮA ĂN TOÀN TRƯỜNG${filterLabel}`],
     [`Trường: ${config.schoolName}`],
     [`Thời gian: ${config.dateRange.label}`],
     [config.reporterName ? `Người xuất: ${config.reporterName}` : ''],
@@ -601,16 +636,16 @@ function createSchoolSummarySheet(
   const numCols = headerRow.length;
 
   // Column widths
+  const numSummaryCols = mealFilter === 'all' ? 4 : mealFilter === 'breakfast' ? 1 : 3;
   const columnWidths = [
     5, 12, 6,
     ...days.map(() => 10),
-    8, 8, 8, 9,
+    ...Array(numSummaryCols).fill(8),
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   ws['!cols'] = columnWidths.map(w => ({ wch: w }));
 
-  // Merge header info cells
   if (!ws['!merges']) ws['!merges'] = [];
   for (let i = 0; i < 5; i++) {
     if (wsData[i] && wsData[i][0]) {
@@ -618,13 +653,10 @@ function createSchoolSummarySheet(
     }
   }
 
-  // Apply professional styling
   const columnAlignments: CellAlign[] = [
-    'center', // STT
-    'left',   // Lớp
-    'center', // Sĩ số
+    'center', 'left', 'center',
     ...days.map(() => 'center' as CellAlign),
-    'center', 'center', 'center', 'center',
+    ...Array(numSummaryCols).fill('center' as CellAlign),
   ];
   
   applyProfessionalStyle(ws, {
