@@ -160,20 +160,22 @@ export function MealHistoryTab({
       const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
       const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
 
-      let query = supabase
-        .from('attendance_records')
-        .select('reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-        .eq('school_id', currentSchool.id)
-        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .gte('attendance_date', startDate)
-        .lte('attendance_date', endDate);
+      const buildReporterQuery = () => {
+        let q = supabase
+          .from('attendance_records')
+          .select('reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+          .eq('school_id', currentSchool.id)
+          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate);
 
-      // Class teachers only see reporters from their class
-      if (isClassTeacher && teacherClassId) {
-        query = query.eq('class_id', teacherClassId);
-      }
+        if (isClassTeacher && teacherClassId) {
+          q = q.eq('class_id', teacherClassId);
+        }
+        return q;
+      };
 
-      const data = await fetchAllRecords(query);
+      const data = await fetchAllRecords(buildReporterQuery);
 
       // Get unique reporters
       const reporterMap = new Map<string, string>();
