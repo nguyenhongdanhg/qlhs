@@ -116,7 +116,7 @@ export function exportDutyAssignment(options: DutyExportOptions) {
   });
 
   // Data rows
-  const sortedMembers = [...dutyMembers].sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'));
+  const sortedMembers = [...dutyMembers].sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
 
   sortedMembers.forEach((member, idx) => {
     const rowIdx = 3 + idx;
