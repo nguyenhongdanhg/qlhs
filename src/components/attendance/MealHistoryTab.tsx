@@ -542,6 +542,7 @@ export function MealHistoryTab({
         reporterName: profile?.full_name || '',
         exportTime: new Date(),
         ricePerStudent: mealSettingsData?.rice_per_student ? Number(mealSettingsData.rice_per_student) : undefined,
+        mealFilter: mealFilter || 'all',
       });
 
       toast({
