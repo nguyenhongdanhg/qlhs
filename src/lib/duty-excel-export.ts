@@ -156,14 +156,8 @@ export function exportDutyAssignment(options: DutyExportOptions) {
   });
   applyCell(ws1, totalsRow, 3 + days.length, grandTotal, totalsStyle());
 
-  // Column widths
-  ws1['!cols'] = [
-    { wch: 5 },   // STT
-    { wch: 22 },  // Họ tên
-    { wch: 6 },   // GT
-    ...days.map(() => ({ wch: 5 })),  // Days
-    { wch: 6 },   // Tổng
-  ];
+  // Column widths - fit to A4 landscape
+  fitColumnsToA4(ws1, [5, 22, 6, ...days.map(() => 5), 6]);
 
   // Set range
   ws1['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalsRow, c: numCols - 1 } });
