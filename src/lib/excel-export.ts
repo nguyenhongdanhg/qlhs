@@ -630,7 +630,7 @@ function createSchoolSummarySheet(
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = columnWidths.map(w => ({ wch: w }));
+  fitColumnsToA4(ws, columnWidths);
 
   if (!ws['!merges']) ws['!merges'] = [];
   for (let i = 0; i < 5; i++) {
