@@ -8,7 +8,8 @@ import {
   applyProfessionalStyle,
   applyTitleRowsStyle,
   CellAlign,
-  getColumnAlignments 
+  getColumnAlignments,
+  fitColumnsToA4
 } from './excel-styles';
 
 export type DateRangeType = 'day' | 'week' | 'month' | 'custom';
