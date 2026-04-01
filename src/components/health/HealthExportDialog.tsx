@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx-js-style';
+import { fitColumnsToA4 } from '@/lib/excel-styles';
 import type { HealthRecord, HealthTreatmentType } from '@/types';
 
 interface HealthExportDialogProps {
