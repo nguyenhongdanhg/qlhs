@@ -940,11 +940,6 @@ export function exportSingleAttendanceReport(
     { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
   ];
 
-  // Print setup for A4 landscape
-  ws['!margins'] = {
-    left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3,
-  };
-
   XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
 
   const fileName = `Bao_cao_${type === 'boarding' ? 'noi_tru' : 'tu_hoc'}_${report.date}_${report.session}.xlsx`;
