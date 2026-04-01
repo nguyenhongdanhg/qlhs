@@ -1383,6 +1383,7 @@ export default function Statistics() {
         reporterName: profile?.full_name,
         exportTime: new Date(),
         ricePerStudent,
+        mealFilter: mealFilter || 'all',
       });
 
       toast({
