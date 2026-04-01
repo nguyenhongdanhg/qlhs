@@ -737,7 +737,7 @@ export function exportMealStatistics(
       classData.students,
       days,
       config,
-      `THỐNG KÊ BỮA ĂN - LỚP ${className}`
+      `THỐNG KÊ BỮA ĂN - LỚP ${className}${config.mealFilter === 'breakfast' ? ' (Sáng)' : config.mealFilter === 'lunch_dinner' ? ' (Trưa & Tối)' : ''}`
     );
     
     // Truncate sheet name if too long (Excel limit is 31 chars)
