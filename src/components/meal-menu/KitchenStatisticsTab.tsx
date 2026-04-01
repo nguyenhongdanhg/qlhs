@@ -15,7 +15,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-f
 import { vi } from "date-fns/locale";
 import { CalendarIcon, Download, TrendingUp, TrendingDown, ChevronDown, Share2 } from "lucide-react";
 import * as XLSX from "xlsx-js-style";
-import { ExcelColors, ExcelFonts, ExcelBorders, applyProfessionalStyle, type CellAlign } from "@/lib/excel-styles";
+import { ExcelColors, ExcelFonts, ExcelBorders, applyProfessionalStyle, fitColumnsToA4, type CellAlign } from "@/lib/excel-styles";
 import { KitchenStatsImageCard } from "./KitchenStatsImageCard";
 
 interface KitchenTransaction {
@@ -207,7 +207,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
       ['', '', '', '', '', 'TỔNG:', importTotal],
     ];
     const wsImport = XLSX.utils.aoa_to_sheet(importData);
-    wsImport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }];
+    fitColumnsToA4(wsImport, [5, 25, 18, 10, 12, 12, 15]);
     wsImport['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
@@ -236,7 +236,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
       ['', '', '', '', '', 'TỔNG:', exportTotal],
     ];
     const wsExport = XLSX.utils.aoa_to_sheet(exportData);
-    wsExport['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }];
+    fitColumnsToA4(wsExport, [5, 25, 18, 10, 12, 12, 15]);
     wsExport['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
@@ -275,7 +275,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
       ]),
     ];
     const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
-    wsDetail['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 8 }, { wch: 25 }, { wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 18 }];
+    fitColumnsToA4(wsDetail, [5, 12, 8, 25, 18, 8, 10, 12, 15, 20, 18]);
     wsDetail['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },

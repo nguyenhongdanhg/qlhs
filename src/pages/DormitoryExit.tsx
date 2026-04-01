@@ -25,6 +25,7 @@ import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
 import { ExitRequestImageCard } from '@/components/dormitory/ExitRequestImageCard';
 import * as XLSX from 'xlsx-js-style';
+import { fitColumnsToA4 } from '@/lib/excel-styles';
 
 interface ExitRequest {
   id: string;
@@ -455,7 +456,7 @@ export default function DormitoryExit() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ra vào KTX');
-    ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 8 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
+    fitColumnsToA4(ws, [5, 25, 10, 12, 8, 12, 8, 30, 20, 20]);
     const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     XLSX.writeFile(wb, `Ra_vao_KTX_${rangeLabel}.xlsx`);
     toast({ title: 'Đã xuất Excel' });

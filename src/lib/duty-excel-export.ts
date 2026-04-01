@@ -7,6 +7,7 @@ import {
   ExcelFonts,
   ExcelBorders,
   CellAlign,
+  fitColumnsToA4,
 } from './excel-styles';
 
 interface DutyMember extends Profile {
@@ -155,14 +156,8 @@ export function exportDutyAssignment(options: DutyExportOptions) {
   });
   applyCell(ws1, totalsRow, 3 + days.length, grandTotal, totalsStyle());
 
-  // Column widths
-  ws1['!cols'] = [
-    { wch: 5 },   // STT
-    { wch: 22 },  // Họ tên
-    { wch: 6 },   // GT
-    ...days.map(() => ({ wch: 5 })),  // Days
-    { wch: 6 },   // Tổng
-  ];
+  // Column widths - fit to A4 landscape
+  fitColumnsToA4(ws1, [5, 22, 6, ...days.map(() => 5), 6]);
 
   // Set range
   ws1['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: totalsRow, c: numCols - 1 } });
@@ -261,16 +256,7 @@ export function exportDutyAssignment(options: DutyExportOptions) {
   applyCell(ws2, avgRow, 6, '', totalsStyle());
   applyCell(ws2, avgRow, 7, avgWeekend2, totalsStyle());
 
-  ws2['!cols'] = [
-    { wch: 5 },   // STT
-    { wch: 22 },  // Họ tên
-    { wch: 10 },  // Giới tính
-    { wch: 10 },  // Tổng lượt
-    { wch: 12 },  // Ngày thường
-    { wch: 8 },   // T7
-    { wch: 10 },  // CN
-    { wch: 10 },  // Cuối tuần
-  ];
+  fitColumnsToA4(ws2, [5, 22, 10, 10, 12, 8, 10, 10]);
 
   ws2['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: avgRow, c: statsNumCols - 1 } });
 
@@ -350,12 +336,7 @@ export function exportDutyAssignment(options: DutyExportOptions) {
     });
     applyCell(ws3, weekTotalsRow, 2 + weekRanges.length, weekGrandTotal, totalsStyle());
 
-    ws3['!cols'] = [
-      { wch: 5 },
-      { wch: 22 },
-      ...weekRanges.map(() => ({ wch: 14 })),
-      { wch: 6 },
-    ];
+    fitColumnsToA4(ws3, [5, 22, ...weekRanges.map(() => 14), 6]);
 
     ws3['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: weekTotalsRow, c: weekNumCols - 1 } });
 

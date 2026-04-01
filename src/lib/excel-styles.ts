@@ -1,5 +1,50 @@
 import XLSX from 'xlsx-js-style';
 
+// A4 landscape target width in Excel "character width" units
+// A4 = 297mm wide, margins ~15mm each = 267mm usable ≈ 10.5" ≈ ~100 char widths
+const A4_LANDSCAPE_TARGET_WIDTH = 100;
+// A4 portrait
+const A4_PORTRAIT_TARGET_WIDTH = 68;
+
+// Scale column widths to fit within A4 page
+export function fitColumnsToA4(
+  ws: XLSX.WorkSheet,
+  columnWidths: number[],
+  landscape: boolean = true
+): void {
+  const targetWidth = landscape ? A4_LANDSCAPE_TARGET_WIDTH : A4_PORTRAIT_TARGET_WIDTH;
+  const totalWidth = columnWidths.reduce((sum, w) => sum + w, 0);
+  
+  let scaledWidths: number[];
+  if (totalWidth > targetWidth) {
+    // Scale down proportionally, but keep minimum widths for readability
+    const scale = targetWidth / totalWidth;
+    scaledWidths = columnWidths.map(w => {
+      const scaled = Math.round(w * scale * 10) / 10;
+      return Math.max(scaled, 3); // minimum 3 chars wide
+    });
+  } else {
+    scaledWidths = columnWidths;
+  }
+  
+  ws['!cols'] = scaledWidths.map(w => ({ wch: w }));
+  
+  // Set margins and page setup for A4
+  ws['!margins'] = {
+    left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2,
+  };
+  
+  // Page setup: landscape, fit to 1 page wide, A4 paper
+  // @ts-ignore - xlsx-js-style supports these but types may not declare them
+  ws['!pageSetup'] = {
+    paperSize: 9, // A4
+    orientation: landscape ? 'landscape' : 'portrait',
+    fitToWidth: 1,
+    fitToHeight: 0, // 0 = as many pages tall as needed
+    scale: 100,
+  };
+}
+
 // Professional Excel styling constants
 export const ExcelColors = {
   // Header colors

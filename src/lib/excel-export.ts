@@ -8,7 +8,8 @@ import {
   applyProfessionalStyle,
   applyTitleRowsStyle,
   CellAlign,
-  getColumnAlignments 
+  getColumnAlignments,
+  fitColumnsToA4
 } from './excel-styles';
 
 export type DateRangeType = 'day' | 'week' | 'month' | 'custom';
@@ -98,18 +99,7 @@ export function createProfessionalWorksheet(
   const wsData = [...headerRows, ...data];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  // Set column widths
-  ws['!cols'] = columnWidths.map(w => ({ wch: w }));
-
-  // Set print settings for A4 landscape
-  ws['!margins'] = {
-    left: 0.5,
-    right: 0.5,
-    top: 0.75,
-    bottom: 0.75,
-    header: 0.3,
-    footer: 0.3,
-  };
+  fitColumnsToA4(ws, columnWidths);
 
   // Merge title cells
   if (!ws['!merges']) ws['!merges'] = [];
@@ -435,11 +425,7 @@ function createMealStatsSheet(
   ].slice(0, 5 + days.length + numSummaryCols);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = columnWidths.map(w => ({ wch: w }));
-
-  ws['!margins'] = {
-    left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.2, footer: 0.2,
-  };
+  fitColumnsToA4(ws, columnWidths);
 
   if (!ws['!merges']) ws['!merges'] = [];
   const totalCols = headerRow.length;
@@ -644,7 +630,7 @@ function createSchoolSummarySheet(
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = columnWidths.map(w => ({ wch: w }));
+  fitColumnsToA4(ws, columnWidths);
 
   if (!ws['!merges']) ws['!merges'] = [];
   for (let i = 0; i < 5; i++) {
@@ -831,10 +817,7 @@ export function exportMealStatistics(
 
   const dailyWsData = [...dailyHeaderRows, ...dailySummary];
   const dailyWs = XLSX.utils.aoa_to_sheet(dailyWsData);
-  dailyWs['!cols'] = [
-    { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 10 },
-    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }
-  ];
+  fitColumnsToA4(dailyWs, [12, 8, 10, 10, 10, 10, 10, 10, 10]);
 
   // Merge header cells
   if (!dailyWs['!merges']) dailyWs['!merges'] = [];
@@ -950,17 +933,12 @@ export function exportSingleAttendanceReport(
   }
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols'] = [{ wch: 8 }, { wch: 30 }, { wch: 12 }, { wch: 15 }, { wch: 35 }];
+  fitColumnsToA4(ws, [8, 30, 12, 15, 35]);
 
   // Merge title cells
   ws['!merges'] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
   ];
-
-  // Print setup for A4 landscape
-  ws['!margins'] = {
-    left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3,
-  };
 
   XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
 
@@ -1071,7 +1049,7 @@ export function exportAbsentStudentsByMealGroup(
     }
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 10 }, { wch: 8 }, { wch: 30 }];
+    fitColumnsToA4(ws, [8, 28, 10, 8, 30]);
 
     // Merge title cells
     if (!ws['!merges']) ws['!merges'] = [];

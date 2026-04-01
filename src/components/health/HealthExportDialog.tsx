@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx-js-style';
+import { fitColumnsToA4 } from '@/lib/excel-styles';
 import type { HealthRecord, HealthTreatmentType } from '@/types';
 
 interface HealthExportDialogProps {
@@ -167,12 +168,7 @@ export function HealthExportDialog({
 
       const ws = XLSX.utils.json_to_sheet(data);
       
-      // Set column widths
-      ws['!cols'] = [
-        { wch: 5 }, { wch: 12 }, { wch: 18 }, { wch: 25 }, { wch: 8 }, { wch: 10 },
-        { wch: 30 }, { wch: 12 }, { wch: 40 }, { wch: 20 }, { wch: 12 },
-        { wch: 30 }, { wch: 18 },
-      ];
+      fitColumnsToA4(ws, [5, 12, 18, 25, 8, 10, 30, 12, 40, 20, 12, 30, 18]);
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Sức khỏe');

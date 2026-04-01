@@ -3,7 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
   applyProfessionalStyle,
-  CellAlign 
+  CellAlign,
+  fitColumnsToA4
 } from './excel-styles';
 
 interface DynamicColumn {
@@ -89,14 +90,10 @@ const createWeekSheet = (
   
   const ws = XLSX.utils.aoa_to_sheet(data);
   
-  // Set column widths
-  const colWidths: { wch: number }[] = [
-    { wch: 5 },  // STT
-    { wch: 12 }, // Lớp
-  ];
-  columns.forEach(() => colWidths.push({ wch: 10 }));
-  colWidths.push({ wch: 8 }, { wch: 10 }, { wch: 30 }); // TB, Xếp hạng, Ghi chú
-  ws['!cols'] = colWidths;
+  const colWidthValues: number[] = [5, 12];
+  columns.forEach(() => colWidthValues.push(10));
+  colWidthValues.push(8, 10, 30);
+  fitColumnsToA4(ws, colWidthValues);
   
   // Merge header cells
   ws['!merges'] = [
