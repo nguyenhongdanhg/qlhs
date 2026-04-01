@@ -256,16 +256,7 @@ export function exportDutyAssignment(options: DutyExportOptions) {
   applyCell(ws2, avgRow, 6, '', totalsStyle());
   applyCell(ws2, avgRow, 7, avgWeekend2, totalsStyle());
 
-  ws2['!cols'] = [
-    { wch: 5 },   // STT
-    { wch: 22 },  // Họ tên
-    { wch: 10 },  // Giới tính
-    { wch: 10 },  // Tổng lượt
-    { wch: 12 },  // Ngày thường
-    { wch: 8 },   // T7
-    { wch: 10 },  // CN
-    { wch: 10 },  // Cuối tuần
-  ];
+  fitColumnsToA4(ws2, [5, 22, 10, 10, 12, 8, 10, 10]);
 
   ws2['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: avgRow, c: statsNumCols - 1 } });
 
