@@ -151,7 +151,7 @@ export function AttendanceHistoryTab({
   }, [currentSchool, historyDateRange, historyReporterFilter]);
 
   const fetchAllRecords = async (buildQuery: () => any) => {
-    const PAGE_SIZE = 5000;
+    const PAGE_SIZE = 1000;
     let allData: any[] = [];
     let from = 0;
     let hasMore = true;
