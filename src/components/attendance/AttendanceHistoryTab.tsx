@@ -175,7 +175,7 @@ export function AttendanceHistoryTab({
       const startDate = format(historyDateRange.start, 'yyyy-MM-dd');
       const endDate = format(historyDateRange.end, 'yyyy-MM-dd');
 
-      const data = await fetchAllRecords(
+      const data = await fetchAllRecords(() =>
         supabase
           .from('attendance_records')
           .select('reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
