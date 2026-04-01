@@ -387,6 +387,25 @@ function createMealStatsSheet(
     totalsRow.push(grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(2));
   }
 
+  // Daily combined totals row (lunch + dinner per day)
+  const dailyCombinedRow: any[] = ['', 'TỔNG ĂN/NGÀY', '', '', ''];
+  if (mealFilter === 'lunch_dinner' || mealFilter === 'all') {
+    days.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const totals = dayTotals.get(dateStr);
+      if (!totals) {
+        dailyCombinedRow.push('-');
+      } else {
+        dailyCombinedRow.push(totals.lunch + totals.dinner);
+      }
+    });
+    if (mealFilter === 'all') {
+      dailyCombinedRow.push('', grandTotalLunch + grandTotalDinner, '', '');
+    } else {
+      dailyCombinedRow.push(grandTotalLunch + grandTotalDinner, '', '');
+    }
+  }
+
   // Note rows
   const noteRows: any[][] = [[]];
   if (mealFilter === 'breakfast') {
