@@ -407,7 +407,7 @@ export function MealHistoryTab({
     setExpandedMeals(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleExportExcel = async (rangeType: DateRangeType, selectedDate: Date) => {
+  const handleExportExcel = async (rangeType: DateRangeType, selectedDate: Date, mealFilter?: MealExportFilter) => {
     if (!currentSchool) return;
     setIsExporting(true);
     
