@@ -64,13 +64,13 @@ export function AttendanceStatsTab({ currentSchool, classes, students, profile }
 
   const dateRange = useMemo(() => getDateRange(selectedDate, rangeType), [selectedDate, rangeType]);
 
-  const fetchAllRecords = async (query: any) => {
+  const fetchAllRecords = async (buildQuery: () => any) => {
     const PAGE_SIZE = 5000;
     let allData: any[] = [];
     let from = 0;
     let hasMore = true;
     while (hasMore) {
-      const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+      const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
       if (error) throw error;
       if (data && data.length > 0) {
         allData = allData.concat(data);
@@ -93,7 +93,7 @@ export function AttendanceStatsTab({ currentSchool, classes, students, profile }
 
       // Fetch both boarding and evening_study records
       const [boardingRecords, studyRecords] = await Promise.all([
-        fetchAllRecords(
+        fetchAllRecords(() =>
           supabase
             .from('attendance_records')
             .select('student_id, class_id, attendance_date, status, created_at, reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name), excused_reason')
@@ -103,7 +103,7 @@ export function AttendanceStatsTab({ currentSchool, classes, students, profile }
             .lte('attendance_date', endDate)
             .order('created_at', { ascending: false })
         ),
-        fetchAllRecords(
+        fetchAllRecords(() =>
           supabase
             .from('attendance_records')
             .select('student_id, class_id, attendance_date, status, created_at, reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name), excused_reason')
@@ -215,7 +215,7 @@ export function AttendanceStatsTab({ currentSchool, classes, students, profile }
       const startDate = format(dateRange.start, 'yyyy-MM-dd');
       const endDate = format(dateRange.end, 'yyyy-MM-dd');
 
-      const records = await fetchAllRecords(
+      const records = await fetchAllRecords(() =>
         supabase
           .from('attendance_records')
           .select('student_id, class_id, attendance_date, status, created_at, reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name), excused_reason, notes')
