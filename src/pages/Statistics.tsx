@@ -1239,7 +1239,7 @@ export default function Statistics() {
   };
 
   // Handler for export dialog (like Meals page) - MUST match Meals.tsx logic exactly
-  const handleExportFromDialog = useCallback(async (rangeType: DateRangeType, selectedDialogDate: Date) => {
+  const handleExportFromDialog = useCallback(async (rangeType: DateRangeType, selectedDialogDate: Date, mealFilter?: MealExportFilter) => {
     if (!currentSchool) return;
     setIsExporting(true);
 
