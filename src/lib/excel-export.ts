@@ -817,10 +817,7 @@ export function exportMealStatistics(
 
   const dailyWsData = [...dailyHeaderRows, ...dailySummary];
   const dailyWs = XLSX.utils.aoa_to_sheet(dailyWsData);
-  dailyWs['!cols'] = [
-    { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 10 },
-    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }
-  ];
+  fitColumnsToA4(dailyWs, [12, 8, 10, 10, 10, 10, 10, 10, 10]);
 
   // Merge header cells
   if (!dailyWs['!merges']) dailyWs['!merges'] = [];
