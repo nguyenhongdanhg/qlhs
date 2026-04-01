@@ -229,7 +229,7 @@ export function exportAttendanceReport(
   }
 
   const fileName = `Diem_danh_${type === 'boarding' ? 'noi_tru' : 'tu_hoc'}_${format(config.dateRange.start, 'dd-MM-yyyy')}_${format(config.dateRange.end, 'dd-MM-yyyy')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  saveWorkbook(wb, fileName);
 }
 
 // Export meal statistics
@@ -924,7 +924,7 @@ export function exportMealStatistics(
 
   const filterSuffix = config.mealFilter === 'breakfast' ? '_sang' : config.mealFilter === 'lunch_dinner' ? '_trua_toi' : '';
   const fileName = `Thong_ke_bua_an${filterSuffix}_${format(config.dateRange.start, 'dd-MM-yyyy')}_${format(config.dateRange.end, 'dd-MM-yyyy')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  saveWorkbook(wb, fileName);
 }
 
 // Apply header style to a row
@@ -999,7 +999,7 @@ export function exportSingleAttendanceReport(
   XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
 
   const fileName = `Bao_cao_${type === 'boarding' ? 'noi_tru' : 'tu_hoc'}_${report.date}_${report.session}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  saveWorkbook(wb, fileName);
 }
 
 // Export absent students by meal group
@@ -1126,5 +1126,5 @@ export function exportAbsentStudentsByMealGroup(
   XLSX.utils.book_append_sheet(wb, dinnerWs, 'Vắng tối');
 
   const fileName = `DS_vang_theo_mam_${format(config.date, 'dd-MM-yyyy')}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  saveWorkbook(wb, fileName);
 }
