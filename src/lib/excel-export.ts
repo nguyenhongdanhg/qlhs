@@ -430,7 +430,8 @@ function createMealStatsSheet(
     [],
   ];
 
-  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...noteRows];
+  const hasDailyCombined = mealFilter === 'lunch_dinner' || mealFilter === 'all';
+  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...(hasDailyCombined ? [dailyCombinedRow] : []), ...noteRows];
 
   // Calculate number of summary columns
   const numSummaryCols = mealFilter === 'all' ? 4 : mealFilter === 'breakfast' ? 1 : 3;
