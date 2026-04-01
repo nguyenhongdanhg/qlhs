@@ -1054,7 +1054,7 @@ export function exportAbsentStudentsByMealGroup(
     }
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 10 }, { wch: 8 }, { wch: 30 }];
+    fitColumnsToA4(ws, [8, 28, 10, 8, 30]);
 
     // Merge title cells
     if (!ws['!merges']) ws['!merges'] = [];
