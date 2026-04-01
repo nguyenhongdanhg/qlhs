@@ -275,7 +275,7 @@ export function KitchenStatisticsTab({ schoolId }: KitchenStatisticsTabProps) {
       ]),
     ];
     const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
-    wsDetail['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 8 }, { wch: 25 }, { wch: 18 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 18 }];
+    fitColumnsToA4(wsDetail, [5, 12, 8, 25, 18, 8, 10, 12, 15, 20, 18]);
     wsDetail['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
