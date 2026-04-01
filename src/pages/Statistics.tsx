@@ -1282,61 +1282,12 @@ export default function Statistics() {
       const startDate = format(exportDateRange.start, 'yyyy-MM-dd');
       const endDate = format(exportDateRange.end, 'yyyy-MM-dd');
 
-      // Fetch attendance records with pagination
-      // IMPORTANT: Supabase has default limit of 1000 rows. Use smaller page size for reliability.
-      const PAGE_SIZE = 1000;
-      const MAX_PAGES = 500; // safety cap = 500,000 rows max
-      const recordsData: any[] = [];
+      // Fetch attendance records in parallel batches (filtered by student IDs at DB level)
+      const { fetchAttendanceRecordsBatched, deduplicateRecords } = await import('@/lib/meal-export-utils');
+      const recordsData = await fetchAttendanceRecordsBatched(currentSchool.id, studentIds, startDate, endDate);
+      const latestByKey = deduplicateRecords(recordsData);
 
-      console.log(`[Statistics Excel Export] Fetching records for date range: ${startDate} to ${endDate}`);
-
-      let pageNum = 0;
-      while (pageNum < MAX_PAGES) {
-        const from = pageNum * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        const { data, error } = await supabase
-          .from('attendance_records')
-          .select('*')
-          .eq('school_id', currentSchool.id)
-          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-          .gte('attendance_date', startDate)
-          .lte('attendance_date', endDate)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-
-        const page = data || [];
-        recordsData.push(...page);
-
-        console.log(`[Statistics Excel Export] Fetched page ${pageNum + 1}: ${page.length} records (total so far: ${recordsData.length})`);
-
-        // If we got less than PAGE_SIZE, we've reached the end
-        if (page.length < PAGE_SIZE) break;
-
-        pageNum++;
-      }
-
-      console.log(`[Statistics Excel Export] Total raw records fetched: ${recordsData.length}`);
-
-      // Filter to only include students we're exporting
-      const studentIdSet = new Set(studentIds);
-      const filteredRecords = recordsData.filter(r => studentIdSet.has(r.student_id));
-
-      console.log(`[Statistics Excel Export] Records after filtering to export students: ${filteredRecords.length}`);
-
-      // Create attendance map: studentId -> date -> meal -> status (based on latest report per meal/date)
-      const latestByKey = new Map<string, any>();
-      filteredRecords.forEach((record: any) => {
-        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
-        const existing = latestByKey.get(key);
-        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
-          latestByKey.set(key, record);
-        }
-      });
-
-      console.log(`[Statistics Excel Export] Unique latest records: ${latestByKey.size}`);
+      console.log(`[Statistics Excel Export] Fetched ${recordsData.length} records, ${latestByKey.size} unique`);
 
       // Build student data with null for unreported meals
       const studentData: MealStudentData[] = studentsToExport.map(student => {
