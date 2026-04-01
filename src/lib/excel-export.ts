@@ -1093,7 +1093,7 @@ export function exportAbsentStudentsByMealGroup(
           groupStudents
             .sort((a, b) => {
               if (a.classGrade !== b.classGrade) return a.classGrade - b.classGrade;
-              return a.name.localeCompare(b.name, 'vi');
+              return vietnameseNameSortCompare(a.name, b.name);
             })
             .forEach((student, idx) => {
               wsData.push([
