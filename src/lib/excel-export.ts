@@ -883,7 +883,8 @@ export function exportMealStatistics(
 
   XLSX.utils.book_append_sheet(wb, dailyWs, 'Theo ngày');
 
-  const fileName = `Thong_ke_bua_an_${format(config.dateRange.start, 'dd-MM-yyyy')}_${format(config.dateRange.end, 'dd-MM-yyyy')}.xlsx`;
+  const filterSuffix = config.mealFilter === 'breakfast' ? '_sang' : config.mealFilter === 'lunch_dinner' ? '_trua_toi' : '';
+  const fileName = `Thong_ke_bua_an${filterSuffix}_${format(config.dateRange.start, 'dd-MM-yyyy')}_${format(config.dateRange.end, 'dd-MM-yyyy')}.xlsx`;
   XLSX.writeFile(wb, fileName);
 }
 
