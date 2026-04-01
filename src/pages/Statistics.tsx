@@ -39,7 +39,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
-import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
+import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData, MealExportFilter } from '@/lib/excel-export';
 import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDialog';
 import { ShareAbsentByMealGroupDialog } from '@/components/attendance/ShareAbsentByMealGroupDialog';
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
@@ -1239,7 +1239,7 @@ export default function Statistics() {
   };
 
   // Handler for export dialog (like Meals page) - MUST match Meals.tsx logic exactly
-  const handleExportFromDialog = useCallback(async (rangeType: DateRangeType, selectedDialogDate: Date) => {
+  const handleExportFromDialog = useCallback(async (rangeType: DateRangeType, selectedDialogDate: Date, mealFilter?: MealExportFilter) => {
     if (!currentSchool) return;
     setIsExporting(true);
 
@@ -1383,6 +1383,7 @@ export default function Statistics() {
         reporterName: profile?.full_name,
         exportTime: new Date(),
         ricePerStudent,
+        mealFilter: mealFilter || 'all',
       });
 
       toast({

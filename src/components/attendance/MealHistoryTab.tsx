@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData } from '@/lib/excel-export';
+import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData, MealExportFilter } from '@/lib/excel-export';
 import { MealDiagnosticDialog } from '@/components/attendance/MealDiagnosticDialog';
 import { MealExportDialog } from '@/components/attendance/MealExportDialog';
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
@@ -407,7 +407,7 @@ export function MealHistoryTab({
     setExpandedMeals(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleExportExcel = async (rangeType: DateRangeType, selectedDate: Date) => {
+  const handleExportExcel = async (rangeType: DateRangeType, selectedDate: Date, mealFilter?: MealExportFilter) => {
     if (!currentSchool) return;
     setIsExporting(true);
     
@@ -542,6 +542,7 @@ export function MealHistoryTab({
         reporterName: profile?.full_name || '',
         exportTime: new Date(),
         ricePerStudent: mealSettingsData?.rice_per_student ? Number(mealSettingsData.rice_per_student) : undefined,
+        mealFilter: mealFilter || 'all',
       });
 
       toast({
