@@ -64,13 +64,13 @@ export function AttendanceStatsTab({ currentSchool, classes, students, profile }
 
   const dateRange = useMemo(() => getDateRange(selectedDate, rangeType), [selectedDate, rangeType]);
 
-  const fetchAllRecords = async (query: any) => {
+  const fetchAllRecords = async (buildQuery: () => any) => {
     const PAGE_SIZE = 5000;
     let allData: any[] = [];
     let from = 0;
     let hasMore = true;
     while (hasMore) {
-      const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+      const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
       if (error) throw error;
       if (data && data.length > 0) {
         allData = allData.concat(data);
