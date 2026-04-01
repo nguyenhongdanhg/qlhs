@@ -233,26 +233,29 @@ export const ClassMealStatistics = memo(function ClassMealStatistics({
     try {
       const days = eachDayOfInterval({ start: dateRange.start, end: dateRange.end });
 
-      // CRITICAL FIX: Query by student IDs instead of class_id to ensure data integrity
-      // This matches the display logic which also uses classStudents (filtered by student IDs)
       const studentIds = classStudents.map(s => s.id);
+      const startDate = format(dateRange.start, 'yyyy-MM-dd');
+      const endDate = format(dateRange.end, 'yyyy-MM-dd');
 
-      const { data: records } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .eq('school_id', currentSchool.id)
-        .in('student_id', studentIds)
-        .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-        .gte('attendance_date', format(dateRange.start, 'yyyy-MM-dd'))
-        .lte('attendance_date', format(dateRange.end, 'yyyy-MM-dd'))
-        .limit(50000);
+      // Use paginated fetch for export too
+      const records = await fetchAllRecords(() =>
+        supabase
+          .from('attendance_records')
+          .select('student_id,attendance_date,attendance_type,status,created_at')
+          .eq('school_id', currentSchool.id)
+          .in('student_id', studentIds)
+          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+          .gte('attendance_date', startDate)
+          .lte('attendance_date', endDate)
+          .order('created_at', { ascending: false })
+      );
 
-      // Get latest record per student/date/meal - ensures no duplicates affect the export
+      // Get latest record per student/date/meal
       const latestByKey = new Map<string, any>();
-      (records || []).forEach((record: any) => {
+      records.forEach((record: any) => {
         const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
         const existing = latestByKey.get(key);
-        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+        if (!existing || record.created_at > existing.created_at) {
           latestByKey.set(key, record);
         }
       });
