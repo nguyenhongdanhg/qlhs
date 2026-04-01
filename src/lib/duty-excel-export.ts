@@ -336,12 +336,7 @@ export function exportDutyAssignment(options: DutyExportOptions) {
     });
     applyCell(ws3, weekTotalsRow, 2 + weekRanges.length, weekGrandTotal, totalsStyle());
 
-    ws3['!cols'] = [
-      { wch: 5 },
-      { wch: 22 },
-      ...weekRanges.map(() => ({ wch: 14 })),
-      { wch: 6 },
-    ];
+    fitColumnsToA4(ws3, [5, 22, ...weekRanges.map(() => 14), 6]);
 
     ws3['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: weekTotalsRow, c: weekNumCols - 1 } });
 
