@@ -93,7 +93,7 @@ export function AttendanceStatsTab({ currentSchool, classes, students, profile }
 
       // Fetch both boarding and evening_study records
       const [boardingRecords, studyRecords] = await Promise.all([
-        fetchAllRecords(
+        fetchAllRecords(() =>
           supabase
             .from('attendance_records')
             .select('student_id, class_id, attendance_date, status, created_at, reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name), excused_reason')
@@ -103,7 +103,7 @@ export function AttendanceStatsTab({ currentSchool, classes, students, profile }
             .lte('attendance_date', endDate)
             .order('created_at', { ascending: false })
         ),
-        fetchAllRecords(
+        fetchAllRecords(() =>
           supabase
             .from('attendance_records')
             .select('student_id, class_id, attendance_date, status, created_at, reporter_id, reporter:profiles!attendance_records_reporter_id_fkey(full_name), excused_reason')
