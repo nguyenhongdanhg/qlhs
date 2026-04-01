@@ -387,6 +387,25 @@ function createMealStatsSheet(
     totalsRow.push(grandTotalLunch, grandTotalDinner, grandTotalRice.toFixed(2));
   }
 
+  // Daily combined totals row (lunch + dinner per day)
+  const dailyCombinedRow: any[] = ['', 'TỔNG ĂN/NGÀY', '', '', ''];
+  if (mealFilter === 'lunch_dinner' || mealFilter === 'all') {
+    days.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const totals = dayTotals.get(dateStr);
+      if (!totals) {
+        dailyCombinedRow.push('-');
+      } else {
+        dailyCombinedRow.push(totals.lunch + totals.dinner);
+      }
+    });
+    if (mealFilter === 'all') {
+      dailyCombinedRow.push('', grandTotalLunch + grandTotalDinner, '', '');
+    } else {
+      dailyCombinedRow.push(grandTotalLunch + grandTotalDinner, '', '');
+    }
+  }
+
   // Note rows
   const noteRows: any[][] = [[]];
   if (mealFilter === 'breakfast') {
@@ -411,7 +430,8 @@ function createMealStatsSheet(
     [],
   ];
 
-  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...noteRows];
+  const hasDailyCombined = mealFilter === 'lunch_dinner' || mealFilter === 'all';
+  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...(hasDailyCombined ? [dailyCombinedRow] : []), ...noteRows];
 
   // Calculate number of summary columns
   const numSummaryCols = mealFilter === 'all' ? 4 : mealFilter === 'breakfast' ? 1 : 3;
@@ -595,6 +615,25 @@ function createSchoolSummarySheet(
     totalsRow.push(grandLunch, grandDinner, grandRice.toFixed(2));
   }
 
+  // Daily combined totals row (lunch + dinner per day)
+  const dailyCombinedRow: any[] = ['', 'TỔNG ĂN/NGÀY', ''];
+  if (mealFilter === 'lunch_dinner' || mealFilter === 'all') {
+    days.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      const dt = dayTotals.get(dateStr);
+      if (!dt) {
+        dailyCombinedRow.push('-');
+      } else {
+        dailyCombinedRow.push(dt.lunch + dt.dinner);
+      }
+    });
+    if (mealFilter === 'all') {
+      dailyCombinedRow.push('', grandLunch + grandDinner, '', '');
+    } else {
+      dailyCombinedRow.push(grandLunch + grandDinner, '', '');
+    }
+  }
+
   // Note row
   const noteRows: any[][] = [[]];
   if (mealFilter === 'breakfast') {
@@ -618,7 +657,8 @@ function createSchoolSummarySheet(
     [],
   ];
 
-  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...noteRows];
+  const hasDailyCombined = mealFilter === 'lunch_dinner' || mealFilter === 'all';
+  const wsData: any[][] = [...headerInfoRows, headerRow, ...dataRows, [], totalsRow, ...(hasDailyCombined ? [dailyCombinedRow] : []), ...noteRows];
   const numCols = headerRow.length;
 
   // Column widths
