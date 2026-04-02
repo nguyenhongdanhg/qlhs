@@ -672,7 +672,7 @@ export default function Statistics() {
 
       // Process evening study report - show ONLY the latest report
       // Use directly from parallel fetch (studyRes.data) instead of filtering allRecords
-      const studyRecords = studyRes.data || [];
+      const studyRecords = studyData;
       const { records: latestStudyRecords, reporter: latestStudyReporter } = getLatestReport(studyRecords);
       
       if (latestStudyRecords.length > 0 && latestStudyReporter) {
