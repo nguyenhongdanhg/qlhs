@@ -1689,8 +1689,8 @@ export default function DutySchedule() {
               </TabsTrigger>
               <TabsTrigger value="leaders" className="gap-1 text-xs sm:text-sm">
                 <Shield className="h-4 w-4" />
-                <span className="hidden sm:inline">Lãnh đạo trực</span>
-                <span className="sm:hidden">LĐ</span>
+                <span className="hidden sm:inline">Quản lý trực</span>
+                <span className="sm:hidden">QL</span>
               </TabsTrigger>
               <TabsTrigger value="statistics" className="gap-1 text-xs sm:text-sm">
                 <BarChart3 className="h-4 w-4" />
