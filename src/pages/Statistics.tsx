@@ -725,9 +725,9 @@ export default function Statistics() {
 
       const mealTypes: AttendanceType[] = ['breakfast', 'lunch', 'dinner'];
       const mealDataMap: Record<AttendanceType, any[]> = {
-        'breakfast': breakfastRes.data || [],
-        'lunch': lunchRes.data || [],
-        'dinner': dinnerRes.data || [],
+        'breakfast': breakfastData,
+        'lunch': lunchData,
+        'dinner': dinnerData,
         'boarding': [],
         'evening_study': [],
       };
