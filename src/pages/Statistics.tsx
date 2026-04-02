@@ -629,7 +629,7 @@ export default function Statistics() {
 
       // Process boarding report - show ONLY the latest report
       // Use directly from parallel fetch (boardingRes.data) instead of filtering allRecords
-      const boardingRecords = boardingRes.data || [];
+      const boardingRecords = boardingData;
       const { records: latestBoardingRecords, reporter: latestBoardingReporter } = getLatestReport(boardingRecords);
       
       if (latestBoardingRecords.length > 0 && latestBoardingReporter) {
