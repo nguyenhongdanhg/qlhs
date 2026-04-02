@@ -1603,16 +1603,18 @@ export default function DutySchedule() {
             <p className="text-xs text-muted-foreground mb-2">
               Ca trực: {format(getCurrentDutyDate(), 'dd/MM/yyyy', { locale: vi })} (6h sáng - 6h sáng hôm sau)
             </p>
-            {/* Current duty leader */}
+            {/* Current duty managers */}
             {(() => {
-              const currentLeader = dutyLeaders.find(l => l.duty_date === format(getCurrentDutyDate(), 'yyyy-MM-dd'));
-              return currentLeader ? (
-                <div className="flex items-center gap-2 mb-2">
+              const currentManagers = dutyLeaders.filter(l => l.duty_date === format(getCurrentDutyDate(), 'yyyy-MM-dd'));
+              return currentManagers.length > 0 ? (
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <Shield className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm font-medium">Lãnh đạo trực:</span>
-                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
-                    {currentLeader.profile?.full_name}
-                  </Badge>
+                  <span className="text-sm font-medium">Quản lý trực:</span>
+                  {currentManagers.map(leader => (
+                    <Badge key={leader.id} variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
+                      {leader.profile?.full_name}
+                    </Badge>
+                  ))}
                 </div>
               ) : null;
             })()}
