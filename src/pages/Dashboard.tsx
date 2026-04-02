@@ -505,6 +505,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Announcements */}
+      <AnnouncementBanner />
+
       {/* Class Teacher Info */}
       {isClassTeacher && stats?.className && (
         <div className="flex items-center gap-2 bg-primary/5 border border-primary/10 rounded-lg px-4 py-2.5">
