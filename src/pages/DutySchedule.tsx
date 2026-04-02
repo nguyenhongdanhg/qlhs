@@ -2585,12 +2585,13 @@ export default function DutySchedule() {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Shield className="h-5 w-5 text-amber-500" />
-                  Phân công lãnh đạo trực
+                  Phân công quản lý trực
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Mỗi ngày chỉ định 1 lãnh đạo trực. Chọn người từ danh sách rồi chọn ngày.
+                  Chọn quản lý trực cho mỗi ngày. Có thể chỉ định nhiều quản lý trong cùng một ngày.
+                </p>
                 </p>
                 
                 {/* Quick Assign Section */}
