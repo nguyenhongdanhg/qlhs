@@ -521,59 +521,44 @@ export default function Statistics() {
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      // PARALLEL FETCH: Fetch each attendance type separately
-      // Use ORDER BY created_at DESC to prioritize getting the LATEST reports first
-      // This ensures we always get the most recent report even if hitting row limits
-      const [boardingRes, studyRes, breakfastRes, lunchRes, dinnerRes] = await Promise.all([
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'boarding')
-          .order('created_at', { ascending: false })
-          .limit(5000),
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'evening_study')
-          .order('created_at', { ascending: false })
-          .limit(5000),
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'breakfast')
-          .order('created_at', { ascending: false })
-          .limit(5000),
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'lunch')
-          .order('created_at', { ascending: false })
-          .limit(5000),
-        supabase
-          .from('attendance_records')
-          .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
-          .eq('school_id', currentSchool.id)
-          .eq('attendance_date', dateStr)
-          .eq('attendance_type', 'dinner')
-          .order('created_at', { ascending: false })
-          .limit(5000),
+      // PARALLEL FETCH with proper pagination (PostgREST caps at 1000 rows per query)
+      const fetchAllPages = async (attendanceType: string) => {
+        const PAGE_SIZE = 1000;
+        let allData: any[] = [];
+        let from = 0;
+        for (;;) {
+          const { data, error } = await supabase
+            .from('attendance_records')
+            .select('*, reporter:profiles!attendance_records_reporter_id_fkey(full_name)')
+            .eq('school_id', currentSchool.id)
+            .eq('attendance_date', dateStr)
+            .eq('attendance_type', attendanceType)
+            .order('created_at', { ascending: false })
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          if (!data?.length) break;
+          allData = allData.concat(data);
+          if (data.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+        return allData;
+      };
+
+      const [boardingData, studyData, breakfastData, lunchData, dinnerData] = await Promise.all([
+        fetchAllPages('boarding'),
+        fetchAllPages('evening_study'),
+        fetchAllPages('breakfast'),
+        fetchAllPages('lunch'),
+        fetchAllPages('dinner'),
       ]);
 
       // Combine all records
       const allRecords = [
-        ...(boardingRes.data || []),
-        ...(studyRes.data || []),
-        ...(breakfastRes.data || []),
-        ...(lunchRes.data || []),
-        ...(dinnerRes.data || []),
+        ...boardingData,
+        ...studyData,
+        ...breakfastData,
+        ...lunchData,
+        ...dinnerData,
       ];
       
       // Debug: log the latest record from each type to verify correct fetching
