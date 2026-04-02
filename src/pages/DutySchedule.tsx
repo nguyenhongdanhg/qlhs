@@ -2527,7 +2527,7 @@ export default function DutySchedule() {
                             {dayManagers.map(leader => (
                               <div key={leader.id} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                                 <Shield className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{leader.profile?.full_name?.split(' ').pop()}</span>
+                                <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{leader.profile?.full_name?.split(' ').pop()}{leader.notes ? ` (${leader.notes})` : ''}</span>
                               </div>
                             ))}
                           </div>
