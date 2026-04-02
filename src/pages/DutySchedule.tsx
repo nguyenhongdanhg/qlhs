@@ -197,11 +197,8 @@ export default function DutySchedule() {
   const MAX_PER_DAY = maxPerDay;
   const MAX_PER_PERSON = maxPerPerson;
 
-  const getLeaderDisplayName = (leader: Pick<DutyLeader, 'notes' | 'profile'>) => {
-    const fullName = leader.profile?.full_name || 'Chưa rõ tên';
-    const suffix = leader.notes?.trim() || leader.profile?.position?.trim();
-
-    return suffix ? `${fullName} (${suffix})` : fullName;
+  const getLeaderDisplayName = (leader: Pick<DutyLeader, 'profile'>) => {
+    return leader.profile?.full_name || 'Chưa rõ tên';
   };
 
   const invalidateDutyLeaderViews = () => {
@@ -416,15 +413,21 @@ export default function DutySchedule() {
     if (!currentSchool) return;
     const dateStr = format(date, 'yyyy-MM-dd');
     const existing = dutyLeaders.find(l => l.duty_date === dateStr && l.user_id === userId);
-    if (existing) return; // already assigned
+    if (existing) {
+      toast({ title: 'Thông báo', description: 'Người này đã được phân công trong ngày này' });
+      return;
+    }
 
     setIsSaving(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('duty_leaders')
         .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
         .select('*, profile:profiles(*)')
         .single();
+
+      if (error) throw error;
+
       if (data) {
         setDutyLeaders(prev => [...prev, { ...data, profile: data.profile as unknown as Profile } as DutyLeader]);
         invalidateDutyLeaderViews();
@@ -441,7 +444,9 @@ export default function DutySchedule() {
   const removeLeader = async (leaderId: string) => {
     setIsSaving(true);
     try {
-      await supabase.from('duty_leaders').delete().eq('id', leaderId);
+      const { error } = await supabase.from('duty_leaders').delete().eq('id', leaderId);
+      if (error) throw error;
+
       setDutyLeaders(prev => prev.filter(l => l.id !== leaderId));
       invalidateDutyLeaderViews();
     } catch (error: any) {
@@ -454,7 +459,9 @@ export default function DutySchedule() {
   // Update leader notes
   const updateLeaderNotes = async (leaderId: string, notes: string) => {
     try {
-      await supabase.from('duty_leaders').update({ notes }).eq('id', leaderId);
+      const { error } = await supabase.from('duty_leaders').update({ notes }).eq('id', leaderId);
+      if (error) throw error;
+
       setDutyLeaders(prev => prev.map(l => l.id === leaderId ? { ...l, notes } : l));
       invalidateDutyLeaderViews();
     } catch (error: any) {
@@ -491,8 +498,9 @@ export default function DutySchedule() {
         }
       }
 
-      if (upserts.length > 0) {
-        await supabase.from('duty_leaders').insert(upserts);
+        if (upserts.length > 0) {
+          const { error } = await supabase.from('duty_leaders').insert(upserts);
+          if (error) throw error;
       }
 
       await fetchDutyLeaders();
@@ -2726,7 +2734,7 @@ export default function DutySchedule() {
                         <TableHead className="w-[60px] text-center">Ngày</TableHead>
                         <TableHead className="w-[80px] text-center">Thứ</TableHead>
                         <TableHead>Quản lý trực</TableHead>
-                        <TableHead className="w-[100px] text-center">Thao tác</TableHead>
+                        <TableHead className="w-[240px]">Ghi chú</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2758,17 +2766,6 @@ export default function DutySchedule() {
                                     <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300 shrink-0">
                                       {leader.profile?.full_name}
                                     </Badge>
-                                    <Input
-                                      className="h-7 text-xs w-[160px]"
-                                      placeholder="Chức vụ..."
-                                      defaultValue={leader.notes || ''}
-                                      onBlur={(e) => {
-                                        const val = e.target.value.trim();
-                                        if (val !== (leader.notes || '')) {
-                                          updateLeaderNotes(leader.id, val);
-                                        }
-                                      }}
-                                    />
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -2803,7 +2800,27 @@ export default function DutySchedule() {
                                 })()}
                               </div>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell>
+                              {dayLeaders.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  {dayLeaders.map(leader => (
+                                    <Input
+                                      key={`${leader.id}-${leader.notes || ''}`}
+                                      className="h-7 text-xs"
+                                      placeholder="Ghi chú..."
+                                      defaultValue={leader.notes || ''}
+                                      onBlur={(e) => {
+                                        const val = e.target.value.trim();
+                                        if (val !== (leader.notes || '')) {
+                                          void updateLeaderNotes(leader.id, val);
+                                        }
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
