@@ -1138,45 +1138,10 @@ export default function Statistics() {
         return;
       }
 
-      // Fetch attendance records with pagination, filtered by student_id batches
-      const PAGE_SIZE = 1000;
-      const BATCH_SIZE = 100; // Supabase .in() limit
-      const allRecords: any[] = [];
-
-      // Split studentIds into batches to filter at DB level
-      for (let batchStart = 0; batchStart < studentIds.length; batchStart += BATCH_SIZE) {
-        const batch = studentIds.slice(batchStart, batchStart + BATCH_SIZE);
-        
-        let from = 0;
-        for (;;) {
-          const { data, error } = await supabase
-            .from('attendance_records')
-            .select('student_id,attendance_date,attendance_type,status,created_at')
-            .eq('school_id', currentSchool.id)
-            .in('student_id', batch)
-            .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-            .gte('attendance_date', startDate)
-            .lte('attendance_date', endDate)
-            .order('created_at', { ascending: false })
-            .range(from, from + PAGE_SIZE - 1);
-
-          if (error) throw error;
-          if (!data?.length) break;
-          allRecords.push(...data);
-          if (data.length < PAGE_SIZE) break;
-          from += PAGE_SIZE;
-        }
-      }
-
-      // Get latest record per student/date/meal
-      const latestByKey = new Map<string, any>();
-      allRecords.forEach((record: any) => {
-        const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
-        const existing = latestByKey.get(key);
-        if (!existing || record.created_at > existing.created_at) {
-          latestByKey.set(key, record);
-        }
-      });
+      // Fetch attendance records filtered by student IDs at DB level
+      const { fetchAttendanceRecordsBatched, deduplicateRecords } = await import('@/lib/meal-export-utils');
+      const allRecords = await fetchAttendanceRecordsBatched(currentSchool.id, studentIds, startDate, endDate);
+      const latestByKey = deduplicateRecords(allRecords);
 
       console.log(`[Rice Excel Export] Unique latest records: ${latestByKey.size}`);
 
