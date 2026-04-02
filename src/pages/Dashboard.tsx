@@ -22,6 +22,7 @@ import {
   Sunset,
   Shield,
 } from 'lucide-react';
+import { AnnouncementBanner } from '@/components/dashboard/AnnouncementBanner';
 import { Link } from 'react-router-dom';
 import { format, isWithinInterval, parseISO, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -503,6 +504,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Announcements */}
+      <AnnouncementBanner />
 
       {/* Class Teacher Info */}
       {isClassTeacher && stats?.className && (
