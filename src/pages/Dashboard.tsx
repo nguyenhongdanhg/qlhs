@@ -688,13 +688,15 @@ export default function Dashboard() {
                     <CalendarCheck className="h-5 w-5 text-primary" />
                     <span className="text-sm sm:text-base font-semibold">Ca trực hiện tại</span>
                   </div>
-                  {/* Leader */}
-                  {dutyToday?.leaderName && (
-                    <div className="flex items-center gap-2 text-sm rounded px-2 py-1.5 mb-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                  {/* Managers */}
+                  {dutyToday?.leaderNames && dutyToday.leaderNames.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm rounded px-2 py-1.5 mb-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex-wrap">
                       <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                      <span className="font-medium truncate text-amber-700 dark:text-amber-300">{dutyToday.leaderName}</span>
+                      {dutyToday.leaderNames.map((name, i) => (
+                        <span key={i} className="font-medium truncate text-amber-700 dark:text-amber-300">{name}</span>
+                      ))}
                       <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-300 text-amber-600 dark:text-amber-400 ml-auto shrink-0">
-                        LĐ trực
+                        QL trực
                       </Badge>
                     </div>
                   )}

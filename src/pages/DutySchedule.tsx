@@ -2665,14 +2665,14 @@ export default function DutySchedule() {
                       <TableRow className="bg-muted/50">
                         <TableHead className="w-[60px] text-center">Ngày</TableHead>
                         <TableHead className="w-[80px] text-center">Thứ</TableHead>
-                        <TableHead>Lãnh đạo trực</TableHead>
+                        <TableHead>Quản lý trực</TableHead>
                         <TableHead className="w-[100px] text-center">Thao tác</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {daysInMonth.map(day => {
                         const dateStr = format(day, 'yyyy-MM-dd');
-                        const leader = dutyLeaders.find(l => l.duty_date === dateStr);
+                        const dayLeaders = dutyLeaders.filter(l => l.duty_date === dateStr);
                         const dayName = getDayName(day);
                         const isWeekend = dayName === 'CN' || dayName === 'T7';
                         const today = isToday(day);
@@ -2692,34 +2692,43 @@ export default function DutySchedule() {
                               {format(day, 'EEEE', { locale: vi })}
                             </TableCell>
                             <TableCell>
-                              <Select
-                                value={leader?.user_id || ''}
-                                onValueChange={(v) => {
-                                  if (v) toggleLeader(v, day);
-                                }}
-                              >
-                                <SelectTrigger className="w-full max-w-[250px]">
-                                  <SelectValue placeholder="Chọn lãnh đạo trực" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {leaderMembers.map(m => (
-                                    <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div className="space-y-1">
+                                {dayLeaders.map(leader => (
+                                  <div key={leader.id} className="flex items-center gap-2">
+                                    <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
+                                      {leader.profile?.full_name}
+                                    </Badge>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() => toggleLeader(leader.user_id, day)}
+                                      disabled={isSaving}
+                                    >
+                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Select
+                                  value=""
+                                  onValueChange={(v) => {
+                                    if (v) toggleLeader(v, day);
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full max-w-[250px]">
+                                    <SelectValue placeholder="+ Thêm quản lý" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {leaderMembers
+                                      .filter(m => !dayLeaders.some(l => l.user_id === m.id))
+                                      .map(m => (
+                                        <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </TableCell>
                             <TableCell className="text-center">
-                              {leader && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => toggleLeader(leader.user_id, day)}
-                                  disabled={isSaving}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                </Button>
-                              )}
                             </TableCell>
                           </TableRow>
                         );
