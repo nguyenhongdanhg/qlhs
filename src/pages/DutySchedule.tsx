@@ -384,33 +384,50 @@ export default function DutySchedule() {
     }
   };
 
-  // Assign/remove leader for a date (supports multiple leaders per day)
-  const toggleLeader = async (userId: string, date: Date) => {
+  // Add leader for a date
+  const addLeader = async (userId: string, date: Date) => {
     if (!currentSchool) return;
     const dateStr = format(date, 'yyyy-MM-dd');
     const existing = dutyLeaders.find(l => l.duty_date === dateStr && l.user_id === userId);
+    if (existing) return; // already assigned
 
     setIsSaving(true);
     try {
-      if (existing) {
-        // Remove this specific leader
-        await supabase.from('duty_leaders').delete().eq('id', existing.id);
-        setDutyLeaders(prev => prev.filter(l => l.id !== existing.id));
-      } else {
-        // Add new leader (allow multiple per day)
-        const { data } = await supabase
-          .from('duty_leaders')
-          .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
-          .select('*, profile:profiles(*)')
-          .single();
-        if (data) {
-          setDutyLeaders(prev => [...prev, { ...data, profile: data.profile as unknown as Profile } as DutyLeader]);
-        }
+      const { data } = await supabase
+        .from('duty_leaders')
+        .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
+        .select('*, profile:profiles(*)')
+        .single();
+      if (data) {
+        setDutyLeaders(prev => [...prev, { ...data, profile: data.profile as unknown as Profile } as DutyLeader]);
       }
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Remove leader
+  const removeLeader = async (leaderId: string) => {
+    setIsSaving(true);
+    try {
+      await supabase.from('duty_leaders').delete().eq('id', leaderId);
+      setDutyLeaders(prev => prev.filter(l => l.id !== leaderId));
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Update leader notes
+  const updateLeaderNotes = async (leaderId: string, notes: string) => {
+    try {
+      await supabase.from('duty_leaders').update({ notes }).eq('id', leaderId);
+      setDutyLeaders(prev => prev.map(l => l.id === leaderId ? { ...l, notes } : l));
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     }
   };
 
