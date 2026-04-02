@@ -384,33 +384,50 @@ export default function DutySchedule() {
     }
   };
 
-  // Assign/remove leader for a date (supports multiple leaders per day)
-  const toggleLeader = async (userId: string, date: Date) => {
+  // Add leader for a date
+  const addLeader = async (userId: string, date: Date) => {
     if (!currentSchool) return;
     const dateStr = format(date, 'yyyy-MM-dd');
     const existing = dutyLeaders.find(l => l.duty_date === dateStr && l.user_id === userId);
+    if (existing) return; // already assigned
 
     setIsSaving(true);
     try {
-      if (existing) {
-        // Remove this specific leader
-        await supabase.from('duty_leaders').delete().eq('id', existing.id);
-        setDutyLeaders(prev => prev.filter(l => l.id !== existing.id));
-      } else {
-        // Add new leader (allow multiple per day)
-        const { data } = await supabase
-          .from('duty_leaders')
-          .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
-          .select('*, profile:profiles(*)')
-          .single();
-        if (data) {
-          setDutyLeaders(prev => [...prev, { ...data, profile: data.profile as unknown as Profile } as DutyLeader]);
-        }
+      const { data } = await supabase
+        .from('duty_leaders')
+        .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
+        .select('*, profile:profiles(*)')
+        .single();
+      if (data) {
+        setDutyLeaders(prev => [...prev, { ...data, profile: data.profile as unknown as Profile } as DutyLeader]);
       }
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Remove leader
+  const removeLeader = async (leaderId: string) => {
+    setIsSaving(true);
+    try {
+      await supabase.from('duty_leaders').delete().eq('id', leaderId);
+      setDutyLeaders(prev => prev.filter(l => l.id !== leaderId));
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Update leader notes
+  const updateLeaderNotes = async (leaderId: string, notes: string) => {
+    try {
+      await supabase.from('duty_leaders').update({ notes }).eq('id', leaderId);
+      setDutyLeaders(prev => prev.map(l => l.id === leaderId ? { ...l, notes } : l));
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -1612,7 +1629,7 @@ export default function DutySchedule() {
                   <span className="text-sm font-medium">Quản lý trực:</span>
                   {currentManagers.map(leader => (
                     <Badge key={leader.id} variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
-                      {leader.profile?.full_name}
+                      {leader.profile?.full_name}{leader.notes ? ` (${leader.notes})` : ''}
                     </Badge>
                   ))}
                 </div>
@@ -2510,7 +2527,7 @@ export default function DutySchedule() {
                             {dayManagers.map(leader => (
                               <div key={leader.id} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                                 <Shield className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{leader.profile?.full_name?.split(' ').pop()}</span>
+                                <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{leader.profile?.full_name?.split(' ').pop()}{leader.notes ? ` (${leader.notes})` : ''}</span>
                               </div>
                             ))}
                           </div>
@@ -2691,40 +2708,55 @@ export default function DutySchedule() {
                               {format(day, 'EEEE', { locale: vi })}
                             </TableCell>
                             <TableCell>
-                              <div className="space-y-1">
+                              <div className="space-y-1.5">
                                 {dayLeaders.map(leader => (
                                   <div key={leader.id} className="flex items-center gap-2">
-                                    <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
+                                    <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300 shrink-0">
                                       {leader.profile?.full_name}
                                     </Badge>
+                                    <Input
+                                      className="h-7 text-xs w-[160px]"
+                                      placeholder="Chức vụ..."
+                                      defaultValue={leader.notes || ''}
+                                      onBlur={(e) => {
+                                        const val = e.target.value.trim();
+                                        if (val !== (leader.notes || '')) {
+                                          updateLeaderNotes(leader.id, val);
+                                        }
+                                      }}
+                                    />
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6"
-                                      onClick={() => toggleLeader(leader.user_id, day)}
+                                      className="h-6 w-6 shrink-0"
+                                      onClick={() => removeLeader(leader.id)}
                                       disabled={isSaving}
                                     >
                                       <Trash2 className="h-3 w-3 text-destructive" />
                                     </Button>
                                   </div>
                                 ))}
-                                <Select
-                                  value=""
-                                  onValueChange={(v) => {
-                                    if (v) toggleLeader(v, day);
-                                  }}
-                                >
-                                  <SelectTrigger className="w-full max-w-[250px]">
-                                    <SelectValue placeholder="+ Thêm quản lý" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {leaderMembers
-                                      .filter(m => !dayLeaders.some(l => l.user_id === m.id))
-                                      .map(m => (
-                                        <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
-                                      ))}
-                                  </SelectContent>
-                                </Select>
+                                {(() => {
+                                  const available = leaderMembers.filter(m => !dayLeaders.some(l => l.user_id === m.id));
+                                  if (available.length === 0) return null;
+                                  return (
+                                    <Select
+                                      value="__placeholder__"
+                                      onValueChange={(v) => {
+                                        if (v && v !== '__placeholder__') addLeader(v, day);
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-full max-w-[250px] h-8 text-xs">
+                                        <span className="text-muted-foreground">+ Thêm quản lý</span>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {available.map(m => (
+                                          <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  );
+                                })()}
                               </div>
                             </TableCell>
                             <TableCell className="text-center">
