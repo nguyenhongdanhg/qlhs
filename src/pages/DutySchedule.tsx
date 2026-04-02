@@ -1629,7 +1629,7 @@ export default function DutySchedule() {
                   <span className="text-sm font-medium">Quản lý trực:</span>
                   {currentManagers.map(leader => (
                     <Badge key={leader.id} variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
-                      {leader.profile?.full_name}
+                      {leader.profile?.full_name}{leader.notes ? ` (${leader.notes})` : ''}
                     </Badge>
                   ))}
                 </div>
