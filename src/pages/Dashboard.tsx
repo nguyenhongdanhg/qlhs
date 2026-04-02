@@ -327,7 +327,7 @@ export default function Dashboard() {
 
   const { data: dutyToday } = useQuery({
     queryKey: ['dashboard-duty', currentSchool?.id, dutyDateStr],
-    queryFn: async (): Promise<{ persons: DutyPerson[]; leaderName?: string }> => {
+    queryFn: async (): Promise<{ persons: DutyPerson[]; leaderNames?: string[] }> => {
       if (!currentSchool) return { persons: [] };
       const [schedulesRes, leadersRes] = await Promise.all([
         supabase
@@ -339,17 +339,16 @@ export default function Dashboard() {
           .from('duty_leaders')
           .select('user_id, profile:profiles!inner(full_name)')
           .eq('school_id', currentSchool.id)
-          .eq('duty_date', dutyDateStr)
-          .maybeSingle(),
+          .eq('duty_date', dutyDateStr),
       ]);
-      const leaderName = (leadersRes.data as any)?.profile?.full_name || undefined;
-      if (!schedulesRes.data) return { persons: [], leaderName };
+      const leaderNames = (leadersRes.data || []).map((l: any) => l.profile?.full_name).filter(Boolean);
+      if (!schedulesRes.data) return { persons: [], leaderNames };
       const persons = schedulesRes.data.map((s: any) => ({
         id: s.user_id,
         fullName: s.profile?.full_name || 'N/A',
         shift: s.shift,
       }));
-      return { persons, leaderName };
+      return { persons, leaderNames };
     },
     enabled: !!currentSchool,
     staleTime: 1000 * 60 * 5,
