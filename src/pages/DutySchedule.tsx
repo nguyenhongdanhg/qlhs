@@ -384,33 +384,20 @@ export default function DutySchedule() {
     }
   };
 
-  // Assign/remove leader for a date
+  // Assign/remove leader for a date (supports multiple leaders per day)
   const toggleLeader = async (userId: string, date: Date) => {
     if (!currentSchool) return;
     const dateStr = format(date, 'yyyy-MM-dd');
-    const existing = dutyLeaders.find(l => l.duty_date === dateStr);
+    const existing = dutyLeaders.find(l => l.duty_date === dateStr && l.user_id === userId);
 
     setIsSaving(true);
     try {
       if (existing) {
-        if (existing.user_id === userId) {
-          // Remove
-          await supabase.from('duty_leaders').delete().eq('id', existing.id);
-          setDutyLeaders(prev => prev.filter(l => l.id !== existing.id));
-        } else {
-          // Update to new person
-          const { data } = await supabase
-            .from('duty_leaders')
-            .update({ user_id: userId })
-            .eq('id', existing.id)
-            .select('*, profile:profiles(*)')
-            .single();
-          if (data) {
-            setDutyLeaders(prev => prev.map(l => l.id === existing.id ? { ...data, profile: data.profile as unknown as Profile } as DutyLeader : l));
-          }
-        }
+        // Remove this specific leader
+        await supabase.from('duty_leaders').delete().eq('id', existing.id);
+        setDutyLeaders(prev => prev.filter(l => l.id !== existing.id));
       } else {
-        // Insert
+        // Add new leader (allow multiple per day)
         const { data } = await supabase
           .from('duty_leaders')
           .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
@@ -427,38 +414,30 @@ export default function DutySchedule() {
     }
   };
 
-  // Quick assign leader to specific weekdays
+  // Quick assign leader to specific weekdays (adds without removing existing)
   const quickAssignLeader = async () => {
     if (!currentSchool || !quickAssignUserId || quickAssignDays.length === 0) return;
     setIsQuickAssigning(true);
     try {
       const targetDays = daysInMonth.filter(day => quickAssignDays.includes(getDay(day)));
       const upserts: { school_id: string; user_id: string; duty_date: string }[] = [];
-      const deleteIds: string[] = [];
       
       for (const day of targetDays) {
         const dateStr = format(day, 'yyyy-MM-dd');
-        const existing = dutyLeaders.find(l => l.duty_date === dateStr);
-        if (existing) {
-          if (existing.user_id !== quickAssignUserId) {
-            deleteIds.push(existing.id);
-            upserts.push({ school_id: currentSchool.id, user_id: quickAssignUserId, duty_date: dateStr });
-          }
-        } else {
+        // Only add if this user is not already assigned on this day
+        const alreadyAssigned = dutyLeaders.some(l => l.duty_date === dateStr && l.user_id === quickAssignUserId);
+        if (!alreadyAssigned) {
           upserts.push({ school_id: currentSchool.id, user_id: quickAssignUserId, duty_date: dateStr });
         }
       }
 
-      if (deleteIds.length > 0) {
-        await supabase.from('duty_leaders').delete().in('id', deleteIds);
-      }
       if (upserts.length > 0) {
         await supabase.from('duty_leaders').insert(upserts);
       }
 
       await fetchDutyLeaders();
       const userName = leaderMembers.find(m => m.id === quickAssignUserId)?.full_name || '';
-      toast({ title: 'Thành công', description: `Đã gán ${userName} cho ${targetDays.length} ngày` });
+      toast({ title: 'Thành công', description: `Đã gán ${userName} cho ${upserts.length} ngày` });
       setQuickAssignUserId('');
       setQuickAssignDays([]);
     } catch (error: any) {
@@ -1624,16 +1603,18 @@ export default function DutySchedule() {
             <p className="text-xs text-muted-foreground mb-2">
               Ca trực: {format(getCurrentDutyDate(), 'dd/MM/yyyy', { locale: vi })} (6h sáng - 6h sáng hôm sau)
             </p>
-            {/* Current duty leader */}
+            {/* Current duty managers */}
             {(() => {
-              const currentLeader = dutyLeaders.find(l => l.duty_date === format(getCurrentDutyDate(), 'yyyy-MM-dd'));
-              return currentLeader ? (
-                <div className="flex items-center gap-2 mb-2">
+              const currentManagers = dutyLeaders.filter(l => l.duty_date === format(getCurrentDutyDate(), 'yyyy-MM-dd'));
+              return currentManagers.length > 0 ? (
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <Shield className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm font-medium">Lãnh đạo trực:</span>
-                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
-                    {currentLeader.profile?.full_name}
-                  </Badge>
+                  <span className="text-sm font-medium">Quản lý trực:</span>
+                  {currentManagers.map(leader => (
+                    <Badge key={leader.id} variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
+                      {leader.profile?.full_name}
+                    </Badge>
+                  ))}
                 </div>
               ) : null;
             })()}
@@ -1656,16 +1637,18 @@ export default function DutySchedule() {
               <ArrowRight className="h-3 w-3" />
               <span>Ca tiếp theo: {format(getNextDutyDate(), 'dd/MM/yyyy', { locale: vi })}</span>
             </div>
-            {/* Next duty leader */}
+            {/* Next duty managers */}
             {(() => {
-              const nextLeader = dutyLeaders.find(l => l.duty_date === format(getNextDutyDate(), 'yyyy-MM-dd'));
-              return nextLeader ? (
-                <div className="flex items-center gap-1.5 mb-2">
+              const nextManagers = dutyLeaders.filter(l => l.duty_date === format(getNextDutyDate(), 'yyyy-MM-dd'));
+              return nextManagers.length > 0 ? (
+                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                   <Shield className="h-3.5 w-3.5 text-amber-500" />
-                  <span className="text-xs font-medium">LĐ trực:</span>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-300">
-                    {nextLeader.profile?.full_name}
-                  </Badge>
+                  <span className="text-xs font-medium">QL trực:</span>
+                  {nextManagers.map(leader => (
+                    <Badge key={leader.id} variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-300">
+                      {leader.profile?.full_name}
+                    </Badge>
+                  ))}
                 </div>
               ) : null;
             })()}
@@ -1706,8 +1689,8 @@ export default function DutySchedule() {
               </TabsTrigger>
               <TabsTrigger value="leaders" className="gap-1 text-xs sm:text-sm">
                 <Shield className="h-4 w-4" />
-                <span className="hidden sm:inline">Lãnh đạo trực</span>
-                <span className="sm:hidden">LĐ</span>
+                <span className="hidden sm:inline">Quản lý trực</span>
+                <span className="sm:hidden">QL</span>
               </TabsTrigger>
               <TabsTrigger value="statistics" className="gap-1 text-xs sm:text-sm">
                 <BarChart3 className="h-4 w-4" />
@@ -2519,13 +2502,17 @@ export default function DutySchedule() {
                       "p-2",
                       viewMode === 'month' ? "min-h-[60px]" : "min-h-[100px]"
                     )}>
-                      {/* Leader for this day */}
+                      {/* Managers for this day */}
                       {(() => {
-                        const leader = dutyLeaders.find(l => l.duty_date === format(day, 'yyyy-MM-dd'));
-                        return leader ? (
-                          <div className="flex items-center gap-1 mb-1.5 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                            <Shield className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                            <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{leader.profile?.full_name?.split(' ').pop()}</span>
+                        const dayManagers = dutyLeaders.filter(l => l.duty_date === format(day, 'yyyy-MM-dd'));
+                        return dayManagers.length > 0 ? (
+                          <div className="space-y-0.5 mb-1.5">
+                            {dayManagers.map(leader => (
+                              <div key={leader.id} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                                <Shield className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{leader.profile?.full_name?.split(' ').pop()}</span>
+                              </div>
+                            ))}
                           </div>
                         ) : null;
                       })()}
@@ -2598,12 +2585,12 @@ export default function DutySchedule() {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Shield className="h-5 w-5 text-amber-500" />
-                  Phân công lãnh đạo trực
+                  Phân công quản lý trực
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Mỗi ngày chỉ định 1 lãnh đạo trực. Chọn người từ danh sách rồi chọn ngày.
+                  Chọn quản lý trực cho mỗi ngày. Có thể chỉ định nhiều quản lý trong cùng một ngày.
                 </p>
                 
                 {/* Quick Assign Section */}
@@ -2616,7 +2603,7 @@ export default function DutySchedule() {
                     <div className="flex flex-col sm:flex-row gap-3">
                       <Select value={quickAssignUserId} onValueChange={setQuickAssignUserId}>
                         <SelectTrigger className="w-full sm:w-[220px]">
-                          <SelectValue placeholder="Chọn lãnh đạo" />
+                        <SelectValue placeholder="Chọn quản lý" />
                         </SelectTrigger>
                         <SelectContent>
                           {leaderMembers.map(m => (
@@ -2677,14 +2664,14 @@ export default function DutySchedule() {
                       <TableRow className="bg-muted/50">
                         <TableHead className="w-[60px] text-center">Ngày</TableHead>
                         <TableHead className="w-[80px] text-center">Thứ</TableHead>
-                        <TableHead>Lãnh đạo trực</TableHead>
+                        <TableHead>Quản lý trực</TableHead>
                         <TableHead className="w-[100px] text-center">Thao tác</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {daysInMonth.map(day => {
                         const dateStr = format(day, 'yyyy-MM-dd');
-                        const leader = dutyLeaders.find(l => l.duty_date === dateStr);
+                        const dayLeaders = dutyLeaders.filter(l => l.duty_date === dateStr);
                         const dayName = getDayName(day);
                         const isWeekend = dayName === 'CN' || dayName === 'T7';
                         const today = isToday(day);
@@ -2704,34 +2691,43 @@ export default function DutySchedule() {
                               {format(day, 'EEEE', { locale: vi })}
                             </TableCell>
                             <TableCell>
-                              <Select
-                                value={leader?.user_id || ''}
-                                onValueChange={(v) => {
-                                  if (v) toggleLeader(v, day);
-                                }}
-                              >
-                                <SelectTrigger className="w-full max-w-[250px]">
-                                  <SelectValue placeholder="Chọn lãnh đạo trực" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {leaderMembers.map(m => (
-                                    <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div className="space-y-1">
+                                {dayLeaders.map(leader => (
+                                  <div key={leader.id} className="flex items-center gap-2">
+                                    <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
+                                      {leader.profile?.full_name}
+                                    </Badge>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() => toggleLeader(leader.user_id, day)}
+                                      disabled={isSaving}
+                                    >
+                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Select
+                                  value=""
+                                  onValueChange={(v) => {
+                                    if (v) toggleLeader(v, day);
+                                  }}
+                                >
+                                  <SelectTrigger className="w-full max-w-[250px]">
+                                    <SelectValue placeholder="+ Thêm quản lý" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {leaderMembers
+                                      .filter(m => !dayLeaders.some(l => l.user_id === m.id))
+                                      .map(m => (
+                                        <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </TableCell>
                             <TableCell className="text-center">
-                              {leader && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => toggleLeader(leader.user_id, day)}
-                                  disabled={isSaving}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                </Button>
-                              )}
                             </TableCell>
                           </TableRow>
                         );
