@@ -89,6 +89,7 @@ import DutyStatisticsTab from '@/components/duty/DutyStatisticsTab';
 import DutyGroupsShiftsSettings from '@/components/duty/DutyGroupsShiftsSettings';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface DutyGroup {
   id: string;
@@ -142,6 +143,7 @@ export default function DutySchedule() {
   const { currentSchool, isSchoolAdmin, isSuperAdmin } = useAuth();
   const { hasPermission } = useSchool();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Check if user has permission to manage duty (admin or has duty_schedule permission)
   const canManageDuty = isSuperAdmin || isSchoolAdmin() || hasPermission('duty_schedule', 'edit');
@@ -176,6 +178,7 @@ export default function DutySchedule() {
   const [quickAssignUserId, setQuickAssignUserId] = useState<string>('');
   const [quickAssignDays, setQuickAssignDays] = useState<number[]>([]); // 0=CN, 1=T2, ..., 6=T7
   const [isQuickAssigning, setIsQuickAssigning] = useState(false);
+  const [leaderPickerValues, setLeaderPickerValues] = useState<Record<string, string>>({});
   
   // Filter by person name in calendar tab
   const [calendarFilterName, setCalendarFilterName] = useState('');
@@ -193,6 +196,19 @@ export default function DutySchedule() {
   // Shorthand for limits
   const MAX_PER_DAY = maxPerDay;
   const MAX_PER_PERSON = maxPerPerson;
+
+  const getLeaderDisplayName = (leader: Pick<DutyLeader, 'notes' | 'profile'>) => {
+    const fullName = leader.profile?.full_name || 'Chưa rõ tên';
+    const suffix = leader.notes?.trim() || leader.profile?.position?.trim();
+
+    return suffix ? `${fullName} (${suffix})` : fullName;
+  };
+
+  const invalidateDutyLeaderViews = () => {
+    if (!currentSchool) return;
+
+    queryClient.invalidateQueries({ queryKey: ['dashboard-duty', currentSchool.id] });
+  };
 
   // Get days in current month
   const daysInMonth = useMemo(() => {
@@ -377,8 +393,19 @@ export default function DutySchedule() {
         .select('user_id, profile:profiles(*)')
         .eq('school_id', currentSchool.id)
         .eq('status', 'active');
-      
-      setLeaderMembers((data || []).map(d => d.profile as unknown as Profile).filter(Boolean));
+
+      const uniqueMembers = new Map<string, Profile>();
+
+      (data || []).forEach((item) => {
+        const profile = item.profile as unknown as Profile | null;
+        if (profile?.id && !uniqueMembers.has(profile.id)) {
+          uniqueMembers.set(profile.id, profile);
+        }
+      });
+
+      setLeaderMembers(
+        Array.from(uniqueMembers.values()).sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi')),
+      );
     } catch (error) {
       console.error('Error fetching leader members:', error);
     }
@@ -400,6 +427,8 @@ export default function DutySchedule() {
         .single();
       if (data) {
         setDutyLeaders(prev => [...prev, { ...data, profile: data.profile as unknown as Profile } as DutyLeader]);
+        invalidateDutyLeaderViews();
+        toast({ title: 'Thành công', description: 'Đã thêm quản lý trực' });
       }
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -414,6 +443,7 @@ export default function DutySchedule() {
     try {
       await supabase.from('duty_leaders').delete().eq('id', leaderId);
       setDutyLeaders(prev => prev.filter(l => l.id !== leaderId));
+      invalidateDutyLeaderViews();
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     } finally {
@@ -426,9 +456,22 @@ export default function DutySchedule() {
     try {
       await supabase.from('duty_leaders').update({ notes }).eq('id', leaderId);
       setDutyLeaders(prev => prev.map(l => l.id === leaderId ? { ...l, notes } : l));
+      invalidateDutyLeaderViews();
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     }
+  };
+
+  const handleLeaderSelect = async (date: Date, userId: string) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+
+    setLeaderPickerValues(prev => ({ ...prev, [dateStr]: userId }));
+    await addLeader(userId, date);
+    setLeaderPickerValues(prev => {
+      const next = { ...prev };
+      delete next[dateStr];
+      return next;
+    });
   };
 
   // Quick assign leader to specific weekdays (adds without removing existing)
@@ -453,6 +496,7 @@ export default function DutySchedule() {
       }
 
       await fetchDutyLeaders();
+      invalidateDutyLeaderViews();
       const userName = leaderMembers.find(m => m.id === quickAssignUserId)?.full_name || '';
       toast({ title: 'Thành công', description: `Đã gán ${userName} cho ${upserts.length} ngày` });
       setQuickAssignUserId('');
@@ -1629,7 +1673,7 @@ export default function DutySchedule() {
                   <span className="text-sm font-medium">Quản lý trực:</span>
                   {currentManagers.map(leader => (
                     <Badge key={leader.id} variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-300">
-                      {leader.profile?.full_name}{leader.notes ? ` (${leader.notes})` : ''}
+                      {getLeaderDisplayName(leader)}
                     </Badge>
                   ))}
                 </div>
@@ -1663,7 +1707,7 @@ export default function DutySchedule() {
                   <span className="text-xs font-medium">QL trực:</span>
                   {nextManagers.map(leader => (
                     <Badge key={leader.id} variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-300">
-                      {leader.profile?.full_name}
+                      {getLeaderDisplayName(leader)}
                     </Badge>
                   ))}
                 </div>
@@ -2527,7 +2571,7 @@ export default function DutySchedule() {
                             {dayManagers.map(leader => (
                               <div key={leader.id} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                                 <Shield className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{leader.profile?.full_name?.split(' ').pop()}{leader.notes ? ` (${leader.notes})` : ''}</span>
+                                <span className="truncate text-[11px] font-semibold text-amber-700 dark:text-amber-300">{getLeaderDisplayName(leader)}</span>
                               </div>
                             ))}
                           </div>
@@ -2741,17 +2785,17 @@ export default function DutySchedule() {
                                   if (available.length === 0) return null;
                                   return (
                                     <Select
-                                      value="__placeholder__"
-                                      onValueChange={(v) => {
-                                        if (v && v !== '__placeholder__') addLeader(v, day);
-                                      }}
+                                      value={leaderPickerValues[dateStr]}
+                                      onValueChange={(value) => void handleLeaderSelect(day, value)}
                                     >
-                                      <SelectTrigger className="w-full max-w-[250px] h-8 text-xs">
-                                        <span className="text-muted-foreground">+ Thêm quản lý</span>
+                                      <SelectTrigger className="w-full max-w-[250px] h-8 text-xs" disabled={isSaving}>
+                                        <SelectValue placeholder="+ Thêm quản lý" />
                                       </SelectTrigger>
                                       <SelectContent>
                                         {available.map(m => (
-                                          <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                                          <SelectItem key={m.id} value={m.id}>
+                                            {m.full_name}{m.position ? ` (${m.position})` : ''}
+                                          </SelectItem>
                                         ))}
                                       </SelectContent>
                                     </Select>
