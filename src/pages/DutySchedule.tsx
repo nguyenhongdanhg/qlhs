@@ -2592,7 +2592,6 @@ export default function DutySchedule() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Chọn quản lý trực cho mỗi ngày. Có thể chỉ định nhiều quản lý trong cùng một ngày.
                 </p>
-                </p>
                 
                 {/* Quick Assign Section */}
                 <Card className="mb-4 border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20">
