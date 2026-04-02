@@ -561,19 +561,14 @@ export default function Statistics() {
         ...dinnerData,
       ];
       
-      // Debug: log the latest record from each type to verify correct fetching
-      const latestBoarding = boardingRes.data?.[0];
-      const latestStudy = studyRes.data?.[0];
-      console.log('Statistics - Latest Boarding:', latestBoarding ? {
-        reporter: (latestBoarding as any).reporter?.full_name,
-        created_at: latestBoarding.created_at,
-        count: boardingRes.data?.length
-      } : 'No data');
-      console.log('Statistics - Latest Evening Study:', latestStudy ? {
-        reporter: (latestStudy as any).reporter?.full_name,
-        created_at: latestStudy.created_at,
-        count: studyRes.data?.length
-      } : 'No data');
+      // Debug: log record counts
+      console.log('Statistics fetch counts:', {
+        boarding: boardingData.length,
+        evening_study: studyData.length,
+        breakfast: breakfastData.length,
+        lunch: lunchData.length,
+        dinner: dinnerData.length,
+      });
 
       // SIMPLIFIED LOGIC for Admin Statistics:
       // Show the LATEST REPORT based on the most recent created_at timestamp
