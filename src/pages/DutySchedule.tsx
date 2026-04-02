@@ -2604,7 +2604,7 @@ export default function DutySchedule() {
                     <div className="flex flex-col sm:flex-row gap-3">
                       <Select value={quickAssignUserId} onValueChange={setQuickAssignUserId}>
                         <SelectTrigger className="w-full sm:w-[220px]">
-                          <SelectValue placeholder="Chọn lãnh đạo" />
+                        <SelectValue placeholder="Chọn quản lý" />
                         </SelectTrigger>
                         <SelectContent>
                           {leaderMembers.map(m => (
