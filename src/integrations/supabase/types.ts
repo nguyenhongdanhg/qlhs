@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          expire_at: string | null
+          id: string
+          is_active: boolean
+          school_id: string
+          start_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          expire_at?: string | null
+          id?: string
+          is_active?: boolean
+          school_id: string
+          start_at?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          expire_at?: string | null
+          id?: string
+          is_active?: boolean
+          school_id?: string
+          start_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_features: {
         Row: {
           code: string
