@@ -74,8 +74,22 @@ export function AnnouncementBanner() {
     enabled: !!currentSchool && manageOpen,
   });
 
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const visibleAnnouncements = announcements.filter(a => !dismissedIds.has(a.id));
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('seen_announcements');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const markAsSeen = (id: string) => {
+    setSeenIds(prev => {
+      const next = new Set(prev).add(id);
+      localStorage.setItem('seen_announcements', JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const visibleAnnouncements = announcements.filter(a => !seenIds.has(a.id));
 
   if (visibleAnnouncements.length === 0 && !canManage) return null;
 
