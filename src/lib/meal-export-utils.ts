@@ -30,13 +30,14 @@ export async function fetchAttendanceRecordsBatched(
 
         const { data, error } = await supabase
           .from('attendance_records')
-          .select('student_id,attendance_date,attendance_type,status,created_at')
+          .select('id,student_id,attendance_date,attendance_type,status,created_at')
           .eq('school_id', schoolId)
           .in('student_id', batchIds)
           .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
           .gte('attendance_date', startDate)
           .lte('attendance_date', endDate)
           .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
           .range(from, to);
 
         if (error) throw error;
