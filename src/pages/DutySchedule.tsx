@@ -414,38 +414,30 @@ export default function DutySchedule() {
     }
   };
 
-  // Quick assign leader to specific weekdays
+  // Quick assign leader to specific weekdays (adds without removing existing)
   const quickAssignLeader = async () => {
     if (!currentSchool || !quickAssignUserId || quickAssignDays.length === 0) return;
     setIsQuickAssigning(true);
     try {
       const targetDays = daysInMonth.filter(day => quickAssignDays.includes(getDay(day)));
       const upserts: { school_id: string; user_id: string; duty_date: string }[] = [];
-      const deleteIds: string[] = [];
       
       for (const day of targetDays) {
         const dateStr = format(day, 'yyyy-MM-dd');
-        const existing = dutyLeaders.find(l => l.duty_date === dateStr);
-        if (existing) {
-          if (existing.user_id !== quickAssignUserId) {
-            deleteIds.push(existing.id);
-            upserts.push({ school_id: currentSchool.id, user_id: quickAssignUserId, duty_date: dateStr });
-          }
-        } else {
+        // Only add if this user is not already assigned on this day
+        const alreadyAssigned = dutyLeaders.some(l => l.duty_date === dateStr && l.user_id === quickAssignUserId);
+        if (!alreadyAssigned) {
           upserts.push({ school_id: currentSchool.id, user_id: quickAssignUserId, duty_date: dateStr });
         }
       }
 
-      if (deleteIds.length > 0) {
-        await supabase.from('duty_leaders').delete().in('id', deleteIds);
-      }
       if (upserts.length > 0) {
         await supabase.from('duty_leaders').insert(upserts);
       }
 
       await fetchDutyLeaders();
       const userName = leaderMembers.find(m => m.id === quickAssignUserId)?.full_name || '';
-      toast({ title: 'Thành công', description: `Đã gán ${userName} cho ${targetDays.length} ngày` });
+      toast({ title: 'Thành công', description: `Đã gán ${userName} cho ${upserts.length} ngày` });
       setQuickAssignUserId('');
       setQuickAssignDays([]);
     } catch (error: any) {
