@@ -384,33 +384,20 @@ export default function DutySchedule() {
     }
   };
 
-  // Assign/remove leader for a date
+  // Assign/remove leader for a date (supports multiple leaders per day)
   const toggleLeader = async (userId: string, date: Date) => {
     if (!currentSchool) return;
     const dateStr = format(date, 'yyyy-MM-dd');
-    const existing = dutyLeaders.find(l => l.duty_date === dateStr);
+    const existing = dutyLeaders.find(l => l.duty_date === dateStr && l.user_id === userId);
 
     setIsSaving(true);
     try {
       if (existing) {
-        if (existing.user_id === userId) {
-          // Remove
-          await supabase.from('duty_leaders').delete().eq('id', existing.id);
-          setDutyLeaders(prev => prev.filter(l => l.id !== existing.id));
-        } else {
-          // Update to new person
-          const { data } = await supabase
-            .from('duty_leaders')
-            .update({ user_id: userId })
-            .eq('id', existing.id)
-            .select('*, profile:profiles(*)')
-            .single();
-          if (data) {
-            setDutyLeaders(prev => prev.map(l => l.id === existing.id ? { ...data, profile: data.profile as unknown as Profile } as DutyLeader : l));
-          }
-        }
+        // Remove this specific leader
+        await supabase.from('duty_leaders').delete().eq('id', existing.id);
+        setDutyLeaders(prev => prev.filter(l => l.id !== existing.id));
       } else {
-        // Insert
+        // Add new leader (allow multiple per day)
         const { data } = await supabase
           .from('duty_leaders')
           .insert({ school_id: currentSchool.id, user_id: userId, duty_date: dateStr })
