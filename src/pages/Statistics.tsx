@@ -522,7 +522,7 @@ export default function Statistics() {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
       // PARALLEL FETCH with proper pagination (PostgREST caps at 1000 rows per query)
-      const fetchAllPages = async (attendanceType: string) => {
+      const fetchAllPages = async (attendanceType: 'boarding' | 'evening_study' | 'breakfast' | 'lunch' | 'dinner') => {
         const PAGE_SIZE = 1000;
         let allData: any[] = [];
         let from = 0;
