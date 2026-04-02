@@ -1138,51 +1138,42 @@ export default function Statistics() {
         return;
       }
 
-      // Fetch attendance records with pagination (same as overview tab export)
+      // Fetch attendance records with pagination, filtered by student_id batches
       const PAGE_SIZE = 1000;
-      const MAX_PAGES = 500;
-      const recordsData: any[] = [];
+      const BATCH_SIZE = 100; // Supabase .in() limit
+      const allRecords: any[] = [];
 
-      console.log(`[Rice Excel Export] Fetching records for date range: ${startDate} to ${endDate}`);
+      // Split studentIds into batches to filter at DB level
+      for (let batchStart = 0; batchStart < studentIds.length; batchStart += BATCH_SIZE) {
+        const batch = studentIds.slice(batchStart, batchStart + BATCH_SIZE);
+        
+        let from = 0;
+        for (;;) {
+          const { data, error } = await supabase
+            .from('attendance_records')
+            .select('student_id,attendance_date,attendance_type,status,created_at')
+            .eq('school_id', currentSchool.id)
+            .in('student_id', batch)
+            .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
+            .gte('attendance_date', startDate)
+            .lte('attendance_date', endDate)
+            .order('created_at', { ascending: false })
+            .range(from, from + PAGE_SIZE - 1);
 
-      let pageNum = 0;
-      while (pageNum < MAX_PAGES) {
-        const from = pageNum * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        const { data, error } = await supabase
-          .from('attendance_records')
-          .select('*')
-          .eq('school_id', currentSchool.id)
-          .in('attendance_type', ['breakfast', 'lunch', 'dinner'])
-          .gte('attendance_date', startDate)
-          .lte('attendance_date', endDate)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-
-        const page = data || [];
-        recordsData.push(...page);
-
-        console.log(`[Rice Excel Export] Fetched page ${pageNum + 1}: ${page.length} records (total: ${recordsData.length})`);
-
-        if (page.length < PAGE_SIZE) break;
-        pageNum++;
+          if (error) throw error;
+          if (!data?.length) break;
+          allRecords.push(...data);
+          if (data.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
       }
-
-      // Filter to only include students we're exporting
-      const studentIdSet = new Set(studentIds);
-      const filteredRecords = recordsData.filter(r => studentIdSet.has(r.student_id));
-
-      console.log(`[Rice Excel Export] Total: ${recordsData.length}, After filtering: ${filteredRecords.length}`);
 
       // Get latest record per student/date/meal
       const latestByKey = new Map<string, any>();
-      filteredRecords.forEach((record: any) => {
+      allRecords.forEach((record: any) => {
         const key = `${record.student_id}-${record.attendance_date}-${record.attendance_type}`;
         const existing = latestByKey.get(key);
-        if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+        if (!existing || record.created_at > existing.created_at) {
           latestByKey.set(key, record);
         }
       });
