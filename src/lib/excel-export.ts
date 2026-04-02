@@ -533,7 +533,24 @@ function createMealStatsSheet(
 
   // --- Styling ---
   const thinBorder = ExcelBorders.thin;
-  const headerFont = { bold: true, sz: 10 };
+  const headerFont = { bold: true, sz: 10, color: { rgb: 'FFFFFF' } };
+
+  // Color palette
+  const headerBg = '2E75B6';       // Steel blue for header rows
+  const headerBgAlt = '3A8FD6';    // Lighter blue for day-of-week row
+  const oddRowBg = 'F2F7FB';       // Very light blue for odd rows
+  const evenRowBg = 'FFFFFF';      // White for even rows
+  const totalsBg = 'FFF3E0';       // Light orange for totals
+  const totalsFont = { bold: true, sz: 10, color: { rgb: 'BF360C' } }; // Deep orange text
+  const titleColor = '1A237E';     // Dark navy for titles
+  const sundayBg = 'FFEBEE';       // Light red for Sunday columns
+  const sundayHeaderBg = 'C62828'; // Dark red for Sunday header
+
+  // Detect Sunday columns
+  const sundayCols = new Set<number>();
+  days.forEach((day, i) => {
+    if (day.getDay() === 0) sundayCols.add(2 + i);
+  });
 
   // Style rows 0-1 (school/quốc hiệu)
   const setCell = (r: number, c: number, style: any) => {
@@ -542,28 +559,30 @@ function createMealStatsSheet(
     ws[ref].s = style;
   };
 
-  setCell(0, 0, { font: { bold: true, sz: 11 }, alignment: { horizontal: 'center', vertical: 'center' } });
-  setCell(0, midCol, { font: { bold: true, sz: 12 }, alignment: { horizontal: 'center', vertical: 'center' } });
-  setCell(1, 0, { font: { sz: 10 }, alignment: { horizontal: 'center', vertical: 'center' } });
-  setCell(1, midCol, { font: { bold: true, sz: 11, underline: true }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(0, 0, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(0, midCol, { font: { bold: true, sz: 12, color: { rgb: 'C62828' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(1, 0, { font: { sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(1, midCol, { font: { bold: true, sz: 11, underline: true, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   // Title rows
-  setCell(3, 0, { font: { bold: true, sz: 13 }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true } });
-  setCell(4, 0, { font: { bold: true, sz: 11 }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(3, 0, { font: { bold: true, sz: 13, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true } });
+  setCell(4, 0, { font: { bold: true, sz: 11, color: { rgb: '37474F' } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   // Sub-header row 6
-  setCell(6, 2, { font: { italic: true, sz: 9 }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(6, 2, { font: { italic: true, sz: 9, color: { rgb: '616161' } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   // Header rows 7-8 styling
   for (let c = 0; c < numCols; c++) {
+    const isSunday = sundayCols.has(c);
     for (let r = 7; r <= 8; r++) {
       const ref = XLSX.utils.encode_cell({ r, c });
       if (!ws[ref]) ws[ref] = { v: '', t: 's' };
+      const bg = isSunday ? sundayHeaderBg : (r === 8 ? headerBgAlt : headerBg);
       ws[ref].s = {
-        font: headerFont,
+        font: { ...headerFont, sz: r === 8 ? 9 : 10 },
         alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
         border: thinBorder,
-        fill: { fgColor: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: bg } },
       };
     }
   }
@@ -572,16 +591,35 @@ function createMealStatsSheet(
   const dataStartRow = 9;
   for (let rowIdx = 0; rowIdx < dataRows.length; rowIdx++) {
     const actualRow = dataStartRow + rowIdx;
+    const bgColor = rowIdx % 2 === 0 ? evenRowBg : oddRowBg;
+
     for (let c = 0; c < numCols; c++) {
       const ref = XLSX.utils.encode_cell({ r: actualRow, c });
       if (!ws[ref]) ws[ref] = { v: '', t: 's' };
+
+      const isSunday = sundayCols.has(c);
+      const cellBg = isSunday ? sundayBg : bgColor;
+
+      // Check for absence markers
+      const val = ws[ref].v;
+      const hasAbsence = typeof val === 'string' && (val.includes('o') || val === '');
+      const isAttendMark = typeof val === 'string' && (val === 'x' || val === '\\' || val === '/');
+
+      let fontStyle: any = { sz: 10 };
+      if (isAttendMark) {
+        fontStyle = { sz: 10, bold: true, color: { rgb: '1B5E20' } }; // Green for attendance
+      } else if (c >= 2 && c < 2 + numDays && hasAbsence && val === 'o') {
+        fontStyle = { sz: 10, color: { rgb: 'C62828' } }; // Red for absent
+      }
+
       ws[ref].s = {
-        font: { sz: 10 },
+        font: fontStyle,
         alignment: {
           horizontal: c <= 1 ? (c === 0 ? 'center' : 'left') : 'center',
           vertical: 'center',
         },
         border: thinBorder,
+        fill: { fgColor: { rgb: cellBg } },
       };
     }
   }
@@ -592,19 +630,20 @@ function createMealStatsSheet(
     const ref = XLSX.utils.encode_cell({ r: totalsRowIdx, c });
     if (!ws[ref]) ws[ref] = { v: '', t: 's' };
     ws[ref].s = {
-      font: { bold: true, sz: 10 },
+      font: totalsFont,
       alignment: { horizontal: 'center', vertical: 'center' },
       border: thinBorder,
+      fill: { fgColor: { rgb: totalsBg } },
     };
   }
 
   // Note row styling
-  setCell(noteRowIdx, 0, { font: { italic: true, sz: 9 }, alignment: { horizontal: 'left', vertical: 'center' } });
+  setCell(noteRowIdx, 0, { font: { italic: true, sz: 9, color: { rgb: '616161' } }, alignment: { horizontal: 'left', vertical: 'center' } });
 
   // Signature styling
-  setCell(sigDateRowIdx, sigDateCol, { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center', vertical: 'center' } });
-  setCell(sigTitleRowIdx, 0, { font: { bold: true, sz: 11 }, alignment: { horizontal: 'center', vertical: 'center' } });
-  setCell(sigTitleRowIdx, sigDateCol, { font: { bold: true, sz: 11 }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(sigDateRowIdx, sigDateCol, { font: { italic: true, sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(sigTitleRowIdx, 0, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(sigTitleRowIdx, sigDateCol, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   return ws;
 }
