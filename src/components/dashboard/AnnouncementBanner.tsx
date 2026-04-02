@@ -103,7 +103,7 @@ export function AnnouncementBanner() {
               <CardContent className="p-3 sm:p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center mt-0.5">
-                    <Megaphone className="h-4.5 w-4.5 text-primary" />
+                    <Bell className="h-4.5 w-4.5 text-primary animate-[bell-ring_1s_ease-in-out_2]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
@@ -118,13 +118,16 @@ export function AnnouncementBanner() {
                     {a.content && (
                       <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{a.content}</p>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-1.5 h-7 text-xs text-muted-foreground hover:text-primary gap-1"
+                      onClick={() => markAsSeen(a.id)}
+                    >
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      Đã xem
+                    </Button>
                   </div>
-                  <button
-                    onClick={() => setDismissedIds(prev => new Set(prev).add(a.id))}
-                    className="flex-shrink-0 text-muted-foreground/60 hover:text-foreground transition-colors p-0.5"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
                 </div>
               </CardContent>
             </Card>
