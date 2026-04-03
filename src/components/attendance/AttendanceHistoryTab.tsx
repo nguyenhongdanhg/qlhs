@@ -381,7 +381,7 @@ export function AttendanceHistoryTab({
 
       const config = {
         schoolName: currentSchool.name,
-        title: `BÁO CÁO ĐIỂM DANH ${typeLabel.toUpperCase()}`,
+        title: `ĐIỂM DANH ${typeLabel.toUpperCase()}`,
         dateRange: historyDateRange,
         exportTime: new Date(),
       };
