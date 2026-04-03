@@ -1097,9 +1097,10 @@ function applyHeaderStyle(ws: XLSX.WorkSheet, rowIndex: number, numCols: number)
 export function exportSingleAttendanceReport(
   report: AttendanceReportData,
   config: Omit<ExcelExportConfig, 'dateRange'>,
-  type: 'boarding' | 'evening_study'
+  type: 'boarding' | 'evening_study',
+  customTypeLabel?: string
 ): void {
-  const typeLabel = type === 'boarding' ? 'NỘI TRÚ' : 'TỰ HỌC TỐI';
+  const typeLabel = customTypeLabel || (type === 'boarding' ? 'NỘI TRÚ' : 'TỰ HỌC TỐI');
   const wb = XLSX.utils.book_new();
 
   const wsData: any[][] = [
