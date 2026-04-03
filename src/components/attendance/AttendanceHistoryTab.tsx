@@ -33,40 +33,14 @@ import { DateRangeType, getDateRange, exportAttendanceReport, AttendanceReportDa
 import { Class, AttendanceStatus } from '@/types';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ShareReportDialog } from './ShareReportDialog';
+import { detectSessionLabelByTime } from './SessionSettingsDialog';
 
-// Auto-detect boarding session label from report time
-const detectBoardingSessionLabel = (reportedAt: string): string => {
-  const date = new Date(reportedAt);
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const time = hours * 60 + minutes;
-  
-  // 6:00 - 11:00 -> Thể Dục Sáng
-  if (time >= 360 && time < 660) return 'Thể Dục Sáng';
-  // 11:00 - 14:00 -> Giờ Ngủ Trưa
-  if (time >= 660 && time < 840) return 'Giờ Ngủ Trưa';
-  // 18:00 - 23:59 -> Giờ Ngủ Tối
-  if (time >= 1080 && time <= 1439) return 'Giờ Ngủ Tối';
-  // Other -> Kiểm Tra Đột Xuất
-  return 'Kiểm Tra Đột Xuất';
-};
-
-// Auto-detect evening study session label from report time
-const detectStudySessionLabel = (reportedAt: string): string => {
-  const date = new Date(reportedAt);
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const time = hours * 60 + minutes;
-  
-  // 7:00 - 11:00 -> Tự học sáng
-  if (time >= 420 && time < 660) return 'Tự học sáng';
-  // 13:30 - 17:00 -> Tự học chiều
-  if (time >= 810 && time < 1020) return 'Tự học chiều';
-  // 19:00 - 23:00 -> Tự học tối
-  if (time >= 1140 && time <= 1380) return 'Tự học tối';
-  // Default
-  return 'Tự học';
-};
+interface SessionInfo {
+  id: string;
+  label: string;
+  start_time?: string | null;
+  end_time?: string | null;
+}
 
 interface AbsentStudentInfo {
   id: string;
