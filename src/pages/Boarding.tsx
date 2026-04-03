@@ -561,7 +561,9 @@ export default function Boarding() {
       // Determine session label: manual selection takes priority, then auto-detect
       const sessionLabel = selectedSession 
         ? (sessions.find(s => s.id === selectedSession)?.label || selectedSession)
-        : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Điểm danh nội trú');
+        : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Nội trú');
+      const isSupplementary = selectedSession ? !isSessionMatchingCurrentTime(selectedSession, sessions) : false;
+      const reportTitle = isSupplementary ? `ĐIỂM DANH ${sessionLabel.toUpperCase()} (BỔ SUNG)` : `ĐIỂM DANH ${sessionLabel.toUpperCase()}`;
 
       // Data is already saved to database, just refresh history
       await fetchHistory();
