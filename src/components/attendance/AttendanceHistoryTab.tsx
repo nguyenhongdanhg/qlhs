@@ -661,9 +661,7 @@ export function AttendanceHistoryTab({
             id: `${attendanceType}_${reportToShare.date}`,
             date: reportToShare.date,
             session: attendanceType,
-            sessionLabel: attendanceType === 'boarding' 
-              ? detectBoardingSessionLabel(reportToShare.reportedAt) 
-              : detectStudySessionLabel(reportToShare.reportedAt),
+            sessionLabel: getSessionLabel(reportToShare.reportedAt),
             total: reportToShare.total,
             present: reportToShare.present,
             absent: reportToShare.absent,
