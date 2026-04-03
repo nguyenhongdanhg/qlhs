@@ -1031,7 +1031,7 @@ export default function EveningStudy() {
                   id: `${record.date}_evening_study_${Date.now()}`,
                   date: record.date,
                   session: 'evening_study',
-                  sessionLabel: 'Tự học tối',
+                  sessionLabel: detectSessionLabelByTime(record.reportedAt, sessions) || 'Tự học tối',
                   total: record.total,
                   present: record.present,
                   absent: record.absent,
