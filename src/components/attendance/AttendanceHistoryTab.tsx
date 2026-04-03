@@ -89,6 +89,14 @@ export function AttendanceHistoryTab({
 }: AttendanceHistoryTabProps) {
   const { currentSchool, user, isSuperAdmin, isSchoolAdmin } = useAuth();
 
+  // Helper to detect session label using configured sessions or fallback to typeLabel
+  const getSessionLabel = (reportedAt: string): string => {
+    if (sessions.length > 0) {
+      return detectSessionLabelByTime(reportedAt, sessions);
+    }
+    return typeLabel;
+  };
+
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('week');
   const [historyReporterFilter, setHistoryReporterFilter] = useState<string>('all');
