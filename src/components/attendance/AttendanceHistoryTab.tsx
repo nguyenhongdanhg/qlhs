@@ -66,6 +66,7 @@ interface AttendanceHistoryTabProps {
   attendanceType: 'boarding' | 'evening_study';
   typeLabel: string;
   classes: Class[];
+  sessions?: SessionInfo[];
   isClassTeacher: boolean;
   teacherClassId: string | null;
   teacherClassName: string | null;
@@ -78,6 +79,7 @@ export function AttendanceHistoryTab({
   attendanceType,
   typeLabel,
   classes,
+  sessions = [],
   isClassTeacher,
   teacherClassId,
   teacherClassName,
