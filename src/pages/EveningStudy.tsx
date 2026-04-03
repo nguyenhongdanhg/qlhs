@@ -600,12 +600,13 @@ export default function EveningStudy() {
       notes: report.notes,
       absentStudents: report.absentStudents,
     };
+    const currentSessionLabel = report.sessionLabel || 'Tự học tối';
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
-      title: 'BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI',
+      title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
       reporterName: profile?.full_name,
       exportTime: new Date(),
-    }, 'evening_study');
+    }, 'evening_study', currentSessionLabel.toUpperCase());
   };
 
   const handleExportRangeReports = () => {
