@@ -605,7 +605,7 @@ export default function Boarding() {
       notes: report.notes,
       absentStudents: report.absentStudents,
     };
-    const currentSessionLabel = report.sessionLabel || typeLabel;
+    const currentSessionLabel = report.sessionLabel || 'Nội trú';
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
       title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
