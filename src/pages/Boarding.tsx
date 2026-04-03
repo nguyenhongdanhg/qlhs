@@ -637,13 +637,14 @@ export default function Boarding() {
         })),
       }));
 
+      const typeLabel = sessions[0]?.label?.toUpperCase() || 'NỘI TRÚ';
       exportAttendanceReport(reportData, {
         schoolName: currentSchool.name,
-        title: 'BÁO CÁO ĐIỂM DANH NỘI TRÚ',
+        title: `BÁO CÁO ĐIỂM DANH ${typeLabel}`,
         dateRange: historyDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
-      }, 'boarding');
+      }, 'boarding', typeLabel);
 
       toast({ title: 'Thành công', description: 'Đã xuất file Excel' });
     } catch (error: any) {
