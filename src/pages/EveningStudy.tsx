@@ -578,7 +578,7 @@ export default function EveningStudy() {
 
       toast({
         title: 'Lưu báo cáo thành công',
-        description: `Báo cáo ngày ${format(date, 'dd/MM/yyyy')} - ${sessionLabel} đã được lưu`,
+        description: `${reportTitle} - ${format(date, 'dd/MM/yyyy')} đã được lưu`,
       });
     } catch (error: any) {
       console.error('Error saving attendance:', error);
