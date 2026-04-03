@@ -358,10 +358,8 @@ export function AttendanceHistoryTab({
     if (!currentSchool) return;
     setIsExporting(true);
     try {
-      const detectLabel = attendanceType === 'boarding' ? detectBoardingSessionLabel : detectStudySessionLabel;
-      
       const exportData: AttendanceReportData[] = historyRecords.map(record => {
-        const sessionLabel = detectLabel(record.reportedAt);
+        const sessionLabel = getSessionLabel(record.reportedAt);
         return {
           date: record.date,
           session: attendanceType,
