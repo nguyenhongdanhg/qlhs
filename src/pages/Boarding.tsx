@@ -627,7 +627,7 @@ export default function Boarding() {
     const currentSessionLabel = report.sessionLabel || 'Nội trú';
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
-      title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
+      title: `ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
       reporterName: profile?.full_name,
       exportTime: new Date(),
     }, 'boarding', currentSessionLabel.toUpperCase());
