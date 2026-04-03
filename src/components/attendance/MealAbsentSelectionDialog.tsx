@@ -115,7 +115,7 @@ export function MealAbsentSelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0">
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-4 pb-2">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Users className="h-5 w-5 text-red-500" />
@@ -181,7 +181,7 @@ export function MealAbsentSelectionDialog({
         </div>
 
         {/* Student list by class */}
-        <ScrollArea className="flex-1 px-4">
+        <ScrollArea className="flex-1 min-h-0 px-4">
           <div className="space-y-3 py-2">
             {Array.from(groupedByClass.entries())
               .sort((a, b) => {
