@@ -190,7 +190,7 @@ export function exportAttendanceReport(
 
   const summaryWs = createProfessionalWorksheet(
     summaryData,
-    { ...config, title: `BÁO CÁO ĐIỂM DANH ${typeLabel}` },
+    { ...config, title: `ĐIỂM DANH ${typeLabel}` },
     [5, 12, 15, 20, 18, 10, 10, 10, 25]
   );
 
