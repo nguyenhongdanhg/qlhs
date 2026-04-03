@@ -181,7 +181,7 @@ export function MealAbsentSelectionDialog({
         </div>
 
         {/* Student list by class */}
-        <ScrollArea className="flex-1 min-h-0 px-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4">
           <div className="space-y-3 py-2">
             {Array.from(groupedByClass.entries())
               .sort((a, b) => {
@@ -253,7 +253,7 @@ export function MealAbsentSelectionDialog({
                 );
               })}
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="p-4 pt-2 border-t gap-2">
           <Button variant="outline" onClick={handleClose} className="flex-1">
