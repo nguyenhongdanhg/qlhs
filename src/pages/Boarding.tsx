@@ -659,7 +659,7 @@ export default function Boarding() {
       const typeLabel = sessions[0]?.label?.toUpperCase() || 'NỘI TRÚ';
       exportAttendanceReport(reportData, {
         schoolName: currentSchool.name,
-        title: `BÁO CÁO ĐIỂM DANH ${typeLabel}`,
+        title: `ĐIỂM DANH ${typeLabel}`,
         dateRange: historyDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
