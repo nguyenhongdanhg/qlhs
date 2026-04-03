@@ -1103,7 +1103,11 @@ export default function Boarding() {
           }}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title={`BÁO CÁO ${(selectedSession ? (sessions.find(s => s.id === selectedSession)?.label || '') : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'ĐIỂM DANH NỘI TRÚ')).toUpperCase()}`}
+          title={buildReportTitle(
+            selectedSession ? (sessions.find(s => s.id === selectedSession)?.label || '') : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Nội trú'),
+            selectedSession || null,
+            sessions
+          )}
         />
       )}
 

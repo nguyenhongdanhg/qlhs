@@ -1099,7 +1099,11 @@ export default function EveningStudy() {
           }}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title={`BÁO CÁO ${(reportToShare.sessionLabel || (sessions.find(s => s.id === (selectedSession || sessions[0]?.id))?.label || 'ĐIỂM DANH TỰ HỌC')).toUpperCase()}`}
+          title={buildReportTitle(
+            reportToShare.sessionLabel || (sessions.find(s => s.id === (selectedSession || sessions[0]?.id))?.label || 'Tự học'),
+            selectedSession || null,
+            sessions
+          )}
         />
       )}
 

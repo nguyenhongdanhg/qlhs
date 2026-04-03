@@ -223,7 +223,7 @@ export function exportAttendanceReport(
   if (absentData.length > 1) {
     const absentWs = createProfessionalWorksheet(
       absentData,
-      { ...config, title: `DANH SÁCH HỌC SINH VẮNG ${typeLabel}` },
+      { ...config, title: `DANH SÁCH HỌC SINH VẮNG - ${typeLabel}` },
       [5, 25, 10, 12, 15, 12, 30]
     );
     applyHeaderStyle(absentWs, 6, 7);
