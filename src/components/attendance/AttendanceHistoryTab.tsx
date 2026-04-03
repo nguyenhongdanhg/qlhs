@@ -676,7 +676,7 @@ export function AttendanceHistoryTab({
             })),
           }}
           schoolName={currentSchool?.name || ''}
-          title={`Điểm danh ${getSessionLabel(reportToShare.reportedAt)}`}
+          title={`BÁO CÁO ${getSessionLabel(reportToShare.reportedAt).toUpperCase()}`}
         />
       )}
     </div>
