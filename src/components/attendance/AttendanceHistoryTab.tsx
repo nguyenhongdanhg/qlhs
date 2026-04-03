@@ -389,7 +389,8 @@ export function AttendanceHistoryTab({
       exportAttendanceReport(
         exportData,
         config,
-        attendanceType
+        attendanceType,
+        typeLabel.toUpperCase()
       );
     } catch (error) {
       console.error('Error exporting:', error);
