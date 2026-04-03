@@ -611,7 +611,7 @@ export default function EveningStudy() {
     const currentSessionLabel = report.sessionLabel || 'Tự học tối';
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
-      title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
+      title: `ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
       reporterName: profile?.full_name,
       exportTime: new Date(),
     }, 'evening_study', currentSessionLabel.toUpperCase());
