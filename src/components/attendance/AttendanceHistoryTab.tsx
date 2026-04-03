@@ -33,7 +33,7 @@ import { DateRangeType, getDateRange, exportAttendanceReport, AttendanceReportDa
 import { Class, AttendanceStatus } from '@/types';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ShareReportDialog } from './ShareReportDialog';
-import { detectSessionLabelByTime } from './SessionSettingsDialog';
+import { detectSessionLabelByTime, buildReportTitle } from './SessionSettingsDialog';
 
 interface SessionInfo {
   id: string;
