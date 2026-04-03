@@ -260,3 +260,34 @@ export function detectSessionLabelByTime(
   }
   return sessions[0]?.label || 'Điểm danh';
 }
+
+// Utility: check if a manually selected session matches the current time window
+export function isSessionMatchingCurrentTime(
+  sessionId: string,
+  sessions: { id: string; start_time?: string | null; end_time?: string | null }[]
+): boolean {
+  const session = sessions.find(s => s.id === sessionId);
+  if (!session?.start_time || !session?.end_time) return true; // no time config = always matches
+  
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const [sh, sm] = session.start_time.split(':').map(Number);
+  const [eh, em] = session.end_time.split(':').map(Number);
+  const start = sh * 60 + sm;
+  const end = eh * 60 + em;
+  return currentMinutes >= start && currentMinutes < end;
+}
+
+// Utility: build report title - "ĐIỂM DANH [session label]" + "(bổ sung)" if out of time
+export function buildReportTitle(
+  sessionLabel: string,
+  selectedSessionId: string | null,
+  sessions: { id: string; start_time?: string | null; end_time?: string | null }[]
+): string {
+  const label = sessionLabel.toUpperCase();
+  // If user manually selected a session that doesn't match current time, mark as "bổ sung"
+  if (selectedSessionId && !isSessionMatchingCurrentTime(selectedSessionId, sessions)) {
+    return `ĐIỂM DANH ${label} (BỔ SUNG)`;
+  }
+  return `ĐIỂM DANH ${label}`;
+}

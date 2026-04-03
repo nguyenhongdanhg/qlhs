@@ -33,7 +33,7 @@ import { DateRangeType, getDateRange, exportAttendanceReport, AttendanceReportDa
 import { Class, AttendanceStatus } from '@/types';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ShareReportDialog } from './ShareReportDialog';
-import { detectSessionLabelByTime } from './SessionSettingsDialog';
+import { detectSessionLabelByTime, buildReportTitle } from './SessionSettingsDialog';
 
 interface SessionInfo {
   id: string;
@@ -381,7 +381,7 @@ export function AttendanceHistoryTab({
 
       const config = {
         schoolName: currentSchool.name,
-        title: `BÁO CÁO ĐIỂM DANH ${typeLabel.toUpperCase()}`,
+        title: `ĐIỂM DANH ${typeLabel.toUpperCase()}`,
         dateRange: historyDateRange,
         exportTime: new Date(),
       };
@@ -676,7 +676,7 @@ export function AttendanceHistoryTab({
             })),
           }}
           schoolName={currentSchool?.name || ''}
-          title={`BÁO CÁO ${getSessionLabel(reportToShare.reportedAt).toUpperCase()}`}
+          title={`ĐIỂM DANH ${getSessionLabel(reportToShare.reportedAt).toUpperCase()}`}
         />
       )}
     </div>

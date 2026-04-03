@@ -74,7 +74,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime } from '@/components/attendance/SessionSettingsDialog';
+import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime, buildReportTitle, isSessionMatchingCurrentTime } from '@/components/attendance/SessionSettingsDialog';
 import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirmationDialog';
 import {
   DateRangeType,
@@ -542,6 +542,8 @@ export default function EveningStudy() {
       const sessionLabel = selectedSession 
         ? (sessions.find(s => s.id === selectedSession)?.label || sessionToUse)
         : (sessions.length === 1 ? sessions[0].label : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Tự học tối'));
+      const isSupplementary = selectedSession ? !isSessionMatchingCurrentTime(selectedSession, sessions) : false;
+      const reportTitle = isSupplementary ? `ĐIỂM DANH ${sessionLabel.toUpperCase()} (BỔ SUNG)` : `ĐIỂM DANH ${sessionLabel.toUpperCase()}`;
 
       const newReport: SavedReport = {
         id: `${dateStr}_${sessionToUse || 'default'}_${Date.now()}`,
@@ -576,7 +578,7 @@ export default function EveningStudy() {
 
       toast({
         title: 'Lưu báo cáo thành công',
-        description: `Báo cáo ngày ${format(date, 'dd/MM/yyyy')} - ${sessionLabel} đã được lưu`,
+        description: `${reportTitle} - ${format(date, 'dd/MM/yyyy')} đã được lưu`,
       });
     } catch (error: any) {
       console.error('Error saving attendance:', error);
@@ -609,7 +611,7 @@ export default function EveningStudy() {
     const currentSessionLabel = report.sessionLabel || 'Tự học tối';
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
-      title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
+      title: `ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
       reporterName: profile?.full_name,
       exportTime: new Date(),
     }, 'evening_study', currentSessionLabel.toUpperCase());
@@ -636,7 +638,7 @@ export default function EveningStudy() {
       const typeLabel = sessions[0]?.label?.toUpperCase() || 'TỰ HỌC TỐI';
       exportAttendanceReport(reportData, {
         schoolName: currentSchool.name,
-        title: `BÁO CÁO ĐIỂM DANH ${typeLabel}`,
+        title: `ĐIỂM DANH ${typeLabel}`,
         dateRange: historyDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
@@ -1097,7 +1099,11 @@ export default function EveningStudy() {
           }}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title={`BÁO CÁO ${(reportToShare.sessionLabel || (sessions.find(s => s.id === (selectedSession || sessions[0]?.id))?.label || 'ĐIỂM DANH TỰ HỌC')).toUpperCase()}`}
+          title={buildReportTitle(
+            reportToShare.sessionLabel || (sessions.find(s => s.id === (selectedSession || sessions[0]?.id))?.label || 'Tự học'),
+            selectedSession || null,
+            sessions
+          )}
         />
       )}
 

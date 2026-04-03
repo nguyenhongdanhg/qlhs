@@ -74,7 +74,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime } from '@/components/attendance/SessionSettingsDialog';
+import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime, buildReportTitle, isSessionMatchingCurrentTime } from '@/components/attendance/SessionSettingsDialog';
 import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirmationDialog';
 import {
   DateRangeType,
@@ -561,7 +561,9 @@ export default function Boarding() {
       // Determine session label: manual selection takes priority, then auto-detect
       const sessionLabel = selectedSession 
         ? (sessions.find(s => s.id === selectedSession)?.label || selectedSession)
-        : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Điểm danh nội trú');
+        : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Nội trú');
+      const isSupplementary = selectedSession ? !isSessionMatchingCurrentTime(selectedSession, sessions) : false;
+      const reportTitle = isSupplementary ? `ĐIỂM DANH ${sessionLabel.toUpperCase()} (BỔ SUNG)` : `ĐIỂM DANH ${sessionLabel.toUpperCase()}`;
 
       // Data is already saved to database, just refresh history
       await fetchHistory();
@@ -592,7 +594,7 @@ export default function Boarding() {
 
       toast({
         title: 'Lưu báo cáo thành công',
-        description: `Báo cáo ngày ${format(date, 'dd/MM/yyyy')} - ${sessionLabel} đã được lưu`,
+        description: `${reportTitle} - ${format(date, 'dd/MM/yyyy')} đã được lưu`,
       });
     } catch (error: any) {
       console.error('Error saving attendance:', error);
@@ -625,7 +627,7 @@ export default function Boarding() {
     const currentSessionLabel = report.sessionLabel || 'Nội trú';
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
-      title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
+      title: `ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
       reporterName: profile?.full_name,
       exportTime: new Date(),
     }, 'boarding', currentSessionLabel.toUpperCase());
@@ -657,7 +659,7 @@ export default function Boarding() {
       const typeLabel = sessions[0]?.label?.toUpperCase() || 'NỘI TRÚ';
       exportAttendanceReport(reportData, {
         schoolName: currentSchool.name,
-        title: `BÁO CÁO ĐIỂM DANH ${typeLabel}`,
+        title: `ĐIỂM DANH ${typeLabel}`,
         dateRange: historyDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
@@ -1101,7 +1103,11 @@ export default function Boarding() {
           }}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title={`BÁO CÁO ${(selectedSession ? (sessions.find(s => s.id === selectedSession)?.label || '') : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'ĐIỂM DANH NỘI TRÚ')).toUpperCase()}`}
+          title={buildReportTitle(
+            selectedSession ? (sessions.find(s => s.id === selectedSession)?.label || '') : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Nội trú'),
+            selectedSession || null,
+            sessions
+          )}
         />
       )}
 

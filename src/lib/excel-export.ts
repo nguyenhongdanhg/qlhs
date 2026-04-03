@@ -190,7 +190,7 @@ export function exportAttendanceReport(
 
   const summaryWs = createProfessionalWorksheet(
     summaryData,
-    { ...config, title: `BÁO CÁO ĐIỂM DANH ${typeLabel}` },
+    { ...config, title: `ĐIỂM DANH ${typeLabel}` },
     [5, 12, 15, 20, 18, 10, 10, 10, 25]
   );
 
@@ -223,7 +223,7 @@ export function exportAttendanceReport(
   if (absentData.length > 1) {
     const absentWs = createProfessionalWorksheet(
       absentData,
-      { ...config, title: `DANH SÁCH HỌC SINH VẮNG ${typeLabel}` },
+      { ...config, title: `DANH SÁCH HỌC SINH VẮNG - ${typeLabel}` },
       [5, 25, 10, 12, 15, 12, 30]
     );
     applyHeaderStyle(absentWs, 6, 7);
@@ -1104,7 +1104,7 @@ export function exportSingleAttendanceReport(
   const wb = XLSX.utils.book_new();
 
   const wsData: any[][] = [
-    [`BÁO CÁO ĐIỂM DANH ${typeLabel}`],
+    [`ĐIỂM DANH ${typeLabel}`],
     [`Trường: ${config.schoolName}`],
     [`Ngày: ${format(new Date(report.date), 'EEEE, dd/MM/yyyy', { locale: vi })}`],
     [`Buổi: ${report.sessionLabel}`],
