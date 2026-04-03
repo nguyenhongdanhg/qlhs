@@ -605,12 +605,13 @@ export default function Boarding() {
       notes: report.notes,
       absentStudents: report.absentStudents,
     };
+    const currentSessionLabel = report.sessionLabel || typeLabel;
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
-      title: 'BÁO CÁO ĐIỂM DANH NỘI TRÚ',
+      title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
       reporterName: profile?.full_name,
       exportTime: new Date(),
-    }, 'boarding');
+    }, 'boarding', currentSessionLabel.toUpperCase());
   };
 
   const handleExportRangeReports = () => {
