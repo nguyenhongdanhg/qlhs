@@ -115,7 +115,7 @@ export function MealAbsentSelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="max-w-md max-h-[85vh] !flex !flex-col p-0 overflow-hidden gap-0">
         <DialogHeader className="p-4 pb-2">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Users className="h-5 w-5 text-red-500" />
