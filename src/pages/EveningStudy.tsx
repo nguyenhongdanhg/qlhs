@@ -600,12 +600,13 @@ export default function EveningStudy() {
       notes: report.notes,
       absentStudents: report.absentStudents,
     };
+    const currentSessionLabel = report.sessionLabel || 'Tự học tối';
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
-      title: 'BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI',
+      title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
       reporterName: profile?.full_name,
       exportTime: new Date(),
-    }, 'evening_study');
+    }, 'evening_study', currentSessionLabel.toUpperCase());
   };
 
   const handleExportRangeReports = () => {
@@ -626,13 +627,14 @@ export default function EveningStudy() {
         absentStudents: report.absentStudents,
       }));
 
+      const typeLabel = sessions[0]?.label?.toUpperCase() || 'TỰ HỌC TỐI';
       exportAttendanceReport(reportData, {
         schoolName: currentSchool.name,
-        title: 'BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI',
+        title: `BÁO CÁO ĐIỂM DANH ${typeLabel}`,
         dateRange: historyDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
-      }, 'evening_study');
+      }, 'evening_study', typeLabel);
 
       toast({ title: 'Thành công', description: 'Đã xuất file Excel' });
     } catch (error: any) {
@@ -1017,6 +1019,7 @@ export default function EveningStudy() {
               attendanceType="evening_study"
               typeLabel="Tự học tối"
               classes={classes}
+              sessions={sessions}
               isClassTeacher={false}
               teacherClassId={null}
               teacherClassName={null}
@@ -1028,7 +1031,7 @@ export default function EveningStudy() {
                   id: `${record.date}_evening_study_${Date.now()}`,
                   date: record.date,
                   session: 'evening_study',
-                  sessionLabel: 'Tự học tối',
+                  sessionLabel: detectSessionLabelByTime(record.reportedAt, sessions) || 'Tự học tối',
                   total: record.total,
                   present: record.present,
                   absent: record.absent,

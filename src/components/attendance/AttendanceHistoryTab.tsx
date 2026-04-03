@@ -33,40 +33,14 @@ import { DateRangeType, getDateRange, exportAttendanceReport, AttendanceReportDa
 import { Class, AttendanceStatus } from '@/types';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ShareReportDialog } from './ShareReportDialog';
+import { detectSessionLabelByTime } from './SessionSettingsDialog';
 
-// Auto-detect boarding session label from report time
-const detectBoardingSessionLabel = (reportedAt: string): string => {
-  const date = new Date(reportedAt);
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const time = hours * 60 + minutes;
-  
-  // 6:00 - 11:00 -> Thể Dục Sáng
-  if (time >= 360 && time < 660) return 'Thể Dục Sáng';
-  // 11:00 - 14:00 -> Giờ Ngủ Trưa
-  if (time >= 660 && time < 840) return 'Giờ Ngủ Trưa';
-  // 18:00 - 23:59 -> Giờ Ngủ Tối
-  if (time >= 1080 && time <= 1439) return 'Giờ Ngủ Tối';
-  // Other -> Kiểm Tra Đột Xuất
-  return 'Kiểm Tra Đột Xuất';
-};
-
-// Auto-detect evening study session label from report time
-const detectStudySessionLabel = (reportedAt: string): string => {
-  const date = new Date(reportedAt);
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const time = hours * 60 + minutes;
-  
-  // 7:00 - 11:00 -> Tự học sáng
-  if (time >= 420 && time < 660) return 'Tự học sáng';
-  // 13:30 - 17:00 -> Tự học chiều
-  if (time >= 810 && time < 1020) return 'Tự học chiều';
-  // 19:00 - 23:00 -> Tự học tối
-  if (time >= 1140 && time <= 1380) return 'Tự học tối';
-  // Default
-  return 'Tự học';
-};
+interface SessionInfo {
+  id: string;
+  label: string;
+  start_time?: string | null;
+  end_time?: string | null;
+}
 
 interface AbsentStudentInfo {
   id: string;
@@ -92,6 +66,7 @@ interface AttendanceHistoryTabProps {
   attendanceType: 'boarding' | 'evening_study';
   typeLabel: string;
   classes: Class[];
+  sessions?: SessionInfo[];
   isClassTeacher: boolean;
   teacherClassId: string | null;
   teacherClassName: string | null;
@@ -104,6 +79,7 @@ export function AttendanceHistoryTab({
   attendanceType,
   typeLabel,
   classes,
+  sessions = [],
   isClassTeacher,
   teacherClassId,
   teacherClassName,
@@ -112,6 +88,14 @@ export function AttendanceHistoryTab({
   onEditReport,
 }: AttendanceHistoryTabProps) {
   const { currentSchool, user, isSuperAdmin, isSchoolAdmin } = useAuth();
+
+  // Helper to detect session label using configured sessions or fallback to typeLabel
+  const getSessionLabel = (reportedAt: string): string => {
+    if (sessions.length > 0) {
+      return detectSessionLabelByTime(reportedAt, sessions);
+    }
+    return typeLabel;
+  };
 
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('week');
@@ -374,10 +358,8 @@ export function AttendanceHistoryTab({
     if (!currentSchool) return;
     setIsExporting(true);
     try {
-      const detectLabel = attendanceType === 'boarding' ? detectBoardingSessionLabel : detectStudySessionLabel;
-      
       const exportData: AttendanceReportData[] = historyRecords.map(record => {
-        const sessionLabel = detectLabel(record.reportedAt);
+        const sessionLabel = getSessionLabel(record.reportedAt);
         return {
           date: record.date,
           session: attendanceType,
@@ -407,7 +389,8 @@ export function AttendanceHistoryTab({
       exportAttendanceReport(
         exportData,
         config,
-        attendanceType
+        attendanceType,
+        typeLabel.toUpperCase()
       );
     } catch (error) {
       console.error('Error exporting:', error);
@@ -592,7 +575,7 @@ export function AttendanceHistoryTab({
                         <span>Người báo cáo: <span className="font-medium text-foreground">{record.reporterName}</span></span>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {attendanceType === 'boarding' ? detectBoardingSessionLabel(record.reportedAt) : detectStudySessionLabel(record.reportedAt)}
+                            {getSessionLabel(record.reportedAt)}
                           </Badge>
                           <span>{format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy', { locale: vi })}</span>
                         </div>
@@ -678,9 +661,7 @@ export function AttendanceHistoryTab({
             id: `${attendanceType}_${reportToShare.date}`,
             date: reportToShare.date,
             session: attendanceType,
-            sessionLabel: attendanceType === 'boarding' 
-              ? detectBoardingSessionLabel(reportToShare.reportedAt) 
-              : detectStudySessionLabel(reportToShare.reportedAt),
+            sessionLabel: getSessionLabel(reportToShare.reportedAt),
             total: reportToShare.total,
             present: reportToShare.present,
             absent: reportToShare.absent,
@@ -695,7 +676,7 @@ export function AttendanceHistoryTab({
             })),
           }}
           schoolName={currentSchool?.name || ''}
-          title={`Điểm danh ${attendanceType === 'boarding' ? detectBoardingSessionLabel(reportToShare.reportedAt) : detectStudySessionLabel(reportToShare.reportedAt)}`}
+          title={`Điểm danh ${getSessionLabel(reportToShare.reportedAt)}`}
         />
       )}
     </div>

@@ -52,7 +52,7 @@ export function ShareReportDialog({
   const { isExporting, exportAndShare } = useImageExport();
   
   // Normalize fields to support both legacy SavedReport and HistoryRecord formats
-  const sessionLabel = report.sessionLabel || 'Nội trú';
+  const sessionLabel = report.sessionLabel || '';
   const reporter = report.reporter || report.reporterName || '';
   const reportTime = report.time || (report.reportedAt ? new Date(report.reportedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '');
   

@@ -605,12 +605,13 @@ export default function Boarding() {
       notes: report.notes,
       absentStudents: report.absentStudents,
     };
+    const currentSessionLabel = report.sessionLabel || 'Nội trú';
     exportSingleAttendanceReport(reportData, {
       schoolName: currentSchool.name,
-      title: 'BÁO CÁO ĐIỂM DANH NỘI TRÚ',
+      title: `BÁO CÁO ĐIỂM DANH ${currentSessionLabel.toUpperCase()}`,
       reporterName: profile?.full_name,
       exportTime: new Date(),
-    }, 'boarding');
+    }, 'boarding', currentSessionLabel.toUpperCase());
   };
 
   const handleExportRangeReports = () => {
@@ -636,13 +637,14 @@ export default function Boarding() {
         })),
       }));
 
+      const typeLabel = sessions[0]?.label?.toUpperCase() || 'NỘI TRÚ';
       exportAttendanceReport(reportData, {
         schoolName: currentSchool.name,
-        title: 'BÁO CÁO ĐIỂM DANH NỘI TRÚ',
+        title: `BÁO CÁO ĐIỂM DANH ${typeLabel}`,
         dateRange: historyDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
-      }, 'boarding');
+      }, 'boarding', typeLabel);
 
       toast({ title: 'Thành công', description: 'Đã xuất file Excel' });
     } catch (error: any) {
@@ -1011,6 +1013,7 @@ export default function Boarding() {
               attendanceType="boarding"
               typeLabel="Nội trú"
               classes={classes}
+              sessions={sessions}
               isClassTeacher={false}
               teacherClassId={null}
               teacherClassName={null}
