@@ -1019,6 +1019,7 @@ export default function EveningStudy() {
               attendanceType="evening_study"
               typeLabel="Tự học tối"
               classes={classes}
+              sessions={sessions}
               isClassTeacher={false}
               teacherClassId={null}
               teacherClassName={null}
