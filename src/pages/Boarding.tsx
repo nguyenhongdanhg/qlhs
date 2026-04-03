@@ -558,12 +558,29 @@ export default function Boarding() {
           reason: excuseInfo[s.id]?.reason || '',
         }));
 
-      const sessionLabel = sessions.find(s => s.id === sessionToUse)?.label || sessionToUse;
+      // Determine session label: manual selection takes priority, then auto-detect
+      const sessionLabel = selectedSession 
+        ? (sessions.find(s => s.id === selectedSession)?.label || selectedSession)
+        : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Điểm danh nội trú');
 
       // Data is already saved to database, just refresh history
       await fetchHistory();
 
-      setActiveTab('history');
+      // Build report for immediate share dialog
+      const savedReport: HistoryRecord = {
+        date: dateStr,
+        reportedAt: new Date().toISOString(),
+        reporterId: reporterId,
+        reporterName: profile?.full_name || 'N/A',
+        total: students.length,
+        present: presentCount,
+        absent: absentCount,
+        notes: reportNotes,
+        absentStudents: absentStudents.map(s => ({ ...s, id: s.name })),
+      };
+      setReportToShare(savedReport);
+      setShareDialogOpen(true);
+
       setReportNotes('');
       
       // Reset attendance to all present for next report
@@ -571,7 +588,7 @@ export default function Boarding() {
       students.forEach(s => freshAttendance[s.id] = 'present');
       setAttendance(freshAttendance);
       setExcuseInfo({});
-      setSelectedSession('');
+      // Keep selectedSession so share dialog uses it
 
       toast({
         title: 'Lưu báo cáo thành công',
@@ -1075,10 +1092,16 @@ export default function Boarding() {
       {reportToShare && currentSchool && (
         <ShareReportDialog
           open={shareDialogOpen}
-          onOpenChange={setShareDialogOpen}
+          onOpenChange={(open) => {
+            setShareDialogOpen(open);
+            if (!open) {
+              setActiveTab('history');
+              setSelectedSession('');
+            }
+          }}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || detectSessionByTimeConfig(sessions)))?.label || 'ĐIỂM DANH NỘI TRÚ').toUpperCase()}`}
+          title={`BÁO CÁO ${(selectedSession ? (sessions.find(s => s.id === selectedSession)?.label || '') : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'ĐIỂM DANH NỘI TRÚ')).toUpperCase()}`}
         />
       )}
 
