@@ -1104,7 +1104,7 @@ export function exportSingleAttendanceReport(
   const wb = XLSX.utils.book_new();
 
   const wsData: any[][] = [
-    [`BÁO CÁO ĐIỂM DANH ${typeLabel}`],
+    [`ĐIỂM DANH ${typeLabel}`],
     [`Trường: ${config.schoolName}`],
     [`Ngày: ${format(new Date(report.date), 'EEEE, dd/MM/yyyy', { locale: vi })}`],
     [`Buổi: ${report.sessionLabel}`],
