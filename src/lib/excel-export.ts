@@ -157,10 +157,11 @@ export interface AttendanceReportData {
 export function exportAttendanceReport(
   reports: AttendanceReportData[],
   config: ExcelExportConfig,
-  type: 'boarding' | 'evening_study'
+  type: 'boarding' | 'evening_study',
+  customTypeLabel?: string
 ): void {
   const wb = XLSX.utils.book_new();
-  const typeLabel = type === 'boarding' ? 'NỘI TRÚ' : 'TỰ HỌC TỐI';
+  const typeLabel = customTypeLabel || (type === 'boarding' ? 'NỘI TRÚ' : 'TỰ HỌC TỐI');
 
   // Summary sheet
   const summaryData: any[][] = [
