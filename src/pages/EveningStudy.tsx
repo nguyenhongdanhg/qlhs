@@ -538,7 +538,10 @@ export default function EveningStudy() {
           reason: excuseInfo[s.id]?.reason || '',
         }));
 
-      const sessionLabel = sessions.find(s => s.id === sessionToUse)?.label || sessionToUse || 'Không có ca';
+      // Determine session label: manual selection takes priority, then auto-detect
+      const sessionLabel = selectedSession 
+        ? (sessions.find(s => s.id === selectedSession)?.label || sessionToUse)
+        : (sessions.length === 1 ? sessions[0].label : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Tự học tối'));
 
       const newReport: SavedReport = {
         id: `${dateStr}_${sessionToUse || 'default'}_${Date.now()}`,
@@ -549,7 +552,7 @@ export default function EveningStudy() {
         present: presentCount,
         absent: absentCount,
         reporter: profile?.full_name || 'Unknown',
-        reporterId: user.id, // Store reporter ID for edit permission check
+        reporterId: user.id,
         time: format(new Date(), 'HH:mm dd/MM/yyyy'),
         notes: reportNotes,
         absentStudents,
@@ -558,7 +561,10 @@ export default function EveningStudy() {
       // History is sourced from database; refresh from DB after saving
       await fetchHistory();
 
-      setActiveTab('history');
+      // Show share dialog immediately after save
+      setReportToShare(newReport);
+      setShareDialogOpen(true);
+
       setReportNotes('');
       
       // Reset attendance to all present for next report
@@ -566,7 +572,7 @@ export default function EveningStudy() {
       students.forEach(s => freshAttendance[s.id] = 'present');
       setAttendance(freshAttendance);
       setExcuseInfo({});
-      setSelectedSession('');
+      // Keep selectedSession so share dialog uses correct label
 
       toast({
         title: 'Lưu báo cáo thành công',

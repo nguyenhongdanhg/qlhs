@@ -1092,10 +1092,16 @@ export default function Boarding() {
       {reportToShare && currentSchool && (
         <ShareReportDialog
           open={shareDialogOpen}
-          onOpenChange={setShareDialogOpen}
+          onOpenChange={(open) => {
+            setShareDialogOpen(open);
+            if (!open) {
+              setActiveTab('history');
+              setSelectedSession('');
+            }
+          }}
           report={reportToShare}
           schoolName={currentSchool.name}
-          title={`BÁO CÁO ${(sessions.find(s => s.id === (selectedSession || detectSessionByTimeConfig(sessions)))?.label || 'ĐIỂM DANH NỘI TRÚ').toUpperCase()}`}
+          title={`BÁO CÁO ${(selectedSession ? (sessions.find(s => s.id === selectedSession)?.label || '') : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'ĐIỂM DANH NỘI TRÚ')).toUpperCase()}`}
         />
       )}
 
