@@ -575,7 +575,7 @@ export function AttendanceHistoryTab({
                         <span>Người báo cáo: <span className="font-medium text-foreground">{record.reporterName}</span></span>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {attendanceType === 'boarding' ? detectBoardingSessionLabel(record.reportedAt) : detectStudySessionLabel(record.reportedAt)}
+                            {getSessionLabel(record.reportedAt)}
                           </Badge>
                           <span>{format(new Date(record.reportedAt), 'HH:mm dd/MM/yyyy', { locale: vi })}</span>
                         </div>
