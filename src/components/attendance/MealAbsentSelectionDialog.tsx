@@ -253,7 +253,7 @@ export function MealAbsentSelectionDialog({
                 );
               })}
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="p-4 pt-2 border-t gap-2">
           <Button variant="outline" onClick={handleClose} className="flex-1">
