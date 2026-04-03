@@ -1013,6 +1013,7 @@ export default function Boarding() {
               attendanceType="boarding"
               typeLabel="Nội trú"
               classes={classes}
+              sessions={sessions}
               isClassTeacher={false}
               teacherClassId={null}
               teacherClassName={null}

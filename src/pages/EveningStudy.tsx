@@ -627,13 +627,14 @@ export default function EveningStudy() {
         absentStudents: report.absentStudents,
       }));
 
+      const typeLabel = sessions[0]?.label?.toUpperCase() || 'TỰ HỌC TỐI';
       exportAttendanceReport(reportData, {
         schoolName: currentSchool.name,
-        title: 'BÁO CÁO ĐIỂM DANH TỰ HỌC TỐI',
+        title: `BÁO CÁO ĐIỂM DANH ${typeLabel}`,
         dateRange: historyDateRange,
         reporterName: profile?.full_name,
         exportTime: new Date(),
-      }, 'evening_study');
+      }, 'evening_study', typeLabel);
 
       toast({ title: 'Thành công', description: 'Đã xuất file Excel' });
     } catch (error: any) {
