@@ -62,7 +62,7 @@ export const ReportImageCard = forwardRef<HTMLDivElement, ReportImageCardProps>(
           <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px', ...baseTextStyle }}>{schoolName}</div>
           <div style={{ fontSize: '16px', fontWeight: 700, color: '#0284c7', ...baseTextStyle }}>{title}</div>
           <div style={{ fontSize: '12px', color: '#374151', marginTop: '4px', ...baseTextStyle }}>
-            {formattedDate}{sessionLabel ? ` • ${sessionLabel}` : ''}
+            {formattedDate}
           </div>
         </div>
 
