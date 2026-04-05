@@ -821,7 +821,14 @@ export default function DormitoryExit() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label className="text-sm">Chọn học sinh</Label>
-                <span className="text-xs font-medium text-primary">{selectedStudents.length} đã chọn</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-primary">{selectedStudents.length} đã chọn</span>
+                  {selectedStudents.length > 0 && (
+                    <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs text-destructive hover:text-destructive" onClick={() => setSelectedStudents([])}>
+                      <X className="h-3 w-3 mr-0.5" />Xoá
+                    </Button>
+                  )}
+                </div>
               </div>
               <Input placeholder="Tìm học sinh..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="mb-2 h-8 text-sm" />
               <div className="border rounded-md max-h-[300px] overflow-y-auto">
