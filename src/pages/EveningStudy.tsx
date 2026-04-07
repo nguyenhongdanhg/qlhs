@@ -74,7 +74,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime, buildReportTitle, isSessionMatchingCurrentTime } from '@/components/attendance/SessionSettingsDialog';
+import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime, buildReportTitle } from '@/components/attendance/SessionSettingsDialog';
 import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirmationDialog';
 import {
   DateRangeType,
