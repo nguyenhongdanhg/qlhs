@@ -278,16 +278,12 @@ export function isSessionMatchingCurrentTime(
   return currentMinutes >= start && currentMinutes < end;
 }
 
-// Utility: build report title - "ĐIỂM DANH [session label]" + "(bổ sung)" if out of time
+// Utility: build report title - "ĐIỂM DANH [session label]"
 export function buildReportTitle(
   sessionLabel: string,
-  selectedSessionId: string | null,
-  sessions: { id: string; start_time?: string | null; end_time?: string | null }[]
+  _selectedSessionId?: string | null,
+  _sessions?: { id: string; start_time?: string | null; end_time?: string | null }[]
 ): string {
   const label = sessionLabel.toUpperCase();
-  // If user manually selected a session that doesn't match current time, mark as "bổ sung"
-  if (selectedSessionId && !isSessionMatchingCurrentTime(selectedSessionId, sessions)) {
-    return `ĐIỂM DANH ${label} (BỔ SUNG)`;
-  }
   return `ĐIỂM DANH ${label}`;
 }

@@ -74,7 +74,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime, buildReportTitle, isSessionMatchingCurrentTime } from '@/components/attendance/SessionSettingsDialog';
+import { SessionSettingsDialog, detectSessionByTimeConfig, detectSessionLabelByTime, buildReportTitle } from '@/components/attendance/SessionSettingsDialog';
 import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirmationDialog';
 import {
   DateRangeType,
@@ -562,8 +562,7 @@ export default function Boarding() {
       const sessionLabel = selectedSession 
         ? (sessions.find(s => s.id === selectedSession)?.label || selectedSession)
         : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Nội trú');
-      const isSupplementary = selectedSession ? !isSessionMatchingCurrentTime(selectedSession, sessions) : false;
-      const reportTitle = isSupplementary ? `ĐIỂM DANH ${sessionLabel.toUpperCase()} (BỔ SUNG)` : `ĐIỂM DANH ${sessionLabel.toUpperCase()}`;
+      const reportTitle = `ĐIỂM DANH ${sessionLabel.toUpperCase()}`;
 
       // Data is already saved to database, just refresh history
       await fetchHistory();
