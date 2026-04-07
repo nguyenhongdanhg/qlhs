@@ -542,8 +542,7 @@ export default function EveningStudy() {
       const sessionLabel = selectedSession 
         ? (sessions.find(s => s.id === selectedSession)?.label || sessionToUse)
         : (sessions.length === 1 ? sessions[0].label : (sessions.find(s => s.id === detectSessionByTimeConfig(sessions))?.label || 'Tự học tối'));
-      const isSupplementary = selectedSession ? !isSessionMatchingCurrentTime(selectedSession, sessions) : false;
-      const reportTitle = isSupplementary ? `ĐIỂM DANH ${sessionLabel.toUpperCase()} (BỔ SUNG)` : `ĐIỂM DANH ${sessionLabel.toUpperCase()}`;
+      const reportTitle = `ĐIỂM DANH ${sessionLabel.toUpperCase()}`;
 
       const newReport: SavedReport = {
         id: `${dateStr}_${sessionToUse || 'default'}_${Date.now()}`,
