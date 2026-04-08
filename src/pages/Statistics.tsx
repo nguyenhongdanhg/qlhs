@@ -119,6 +119,7 @@ export default function Statistics() {
   const [riceCustomEndDate, setRiceCustomEndDate] = useState<Date>(new Date());
   const [riceStats, setRiceStats] = useState<{ date: string; rice: number }[]>([]);
   const [totalRiceInRange, setTotalRiceInRange] = useState(0);
+  const [totalRiceCumulative, setTotalRiceCumulative] = useState(0);
   const [isLoadingRice, setIsLoadingRice] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   
@@ -858,8 +859,7 @@ export default function Statistics() {
       const startDate = format(riceDateRange.start, 'yyyy-MM-dd');
       const endDate = format(riceDateRange.end, 'yyyy-MM-dd');
 
-      // Use server-side function to calculate rice stats
-      // This replaces the old pagination loop that fetched all records to client
+      // Fetch rice stats for the selected range
       const { data, error } = await supabase.rpc('calculate_rice_stats', {
         p_school_id: currentSchool.id,
         p_start_date: startDate,
@@ -877,6 +877,19 @@ export default function Statistics() {
 
       setRiceStats(dailyRice);
       setTotalRiceInRange(totalRice);
+
+      // Fetch cumulative rice consumption from the very beginning up to end of selected range
+      // This ensures "Còn lại" = totalAdded - ALL consumed (not just current range)
+      const { data: cumulativeData, error: cumulativeError } = await supabase.rpc('calculate_rice_stats', {
+        p_school_id: currentSchool.id,
+        p_start_date: '2000-01-01',
+        p_end_date: endDate,
+      });
+
+      if (cumulativeError) throw cumulativeError;
+
+      const cumulativeTotal = (cumulativeData || []).reduce((sum: number, row: any) => sum + Number(row.rice), 0);
+      setTotalRiceCumulative(cumulativeTotal);
     } catch (error) {
       console.error('Error fetching rice stats:', error);
     } finally {
@@ -906,8 +919,8 @@ export default function Statistics() {
   }, [riceInventory]);
 
   const remainingRice = useMemo(() => {
-    return totalRiceAdded - totalRiceInRange;
-  }, [totalRiceAdded, totalRiceInRange]);
+    return totalRiceAdded - totalRiceCumulative;
+  }, [totalRiceAdded, totalRiceCumulative]);
 
   const handleAddRice = async () => {
     if (!currentSchool || !user || !newRiceAmount) return;
@@ -1973,7 +1986,7 @@ export default function Statistics() {
                     <div className="text-xl font-bold text-destructive">{totalRiceInRange.toFixed(2)} kg</div>
                   </div>
                   <div className={`rounded-lg p-3 text-center ${remainingRice >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
-                    <div className="text-xs text-muted-foreground">Còn lại</div>
+                    <div className="text-xs text-muted-foreground">Còn lại (tính đến {format(riceDateRange.end, 'dd/MM')})</div>
                     <div className={`text-xl font-bold ${remainingRice >= 0 ? 'text-primary' : 'text-warning'}`}>
                       {remainingRice.toFixed(2)} kg
                     </div>
