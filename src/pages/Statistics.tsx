@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, setHours, setMinutes, isBefore } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, endOfDay, isBefore, isSameMonth, setHours, setMinutes } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   CalendarIcon,
@@ -97,6 +97,14 @@ interface LatestReport {
   absentStudents: AbsentStudent[];
 }
 
+interface MonthlyRiceSummary {
+  monthKey: string;
+  label: string;
+  imported: number;
+  used: number;
+  remaining: number;
+}
+
 export default function Statistics() {
   const { currentSchool, profile, user, currentMembership, isSuperAdmin, isSchoolAdmin } = useAuth();
   const { toast } = useToast();
@@ -118,6 +126,7 @@ export default function Statistics() {
   const [riceDate, setRiceDate] = useState<Date>(new Date());
   const [riceCustomEndDate, setRiceCustomEndDate] = useState<Date>(new Date());
   const [riceStats, setRiceStats] = useState<{ date: string; rice: number }[]>([]);
+  const [riceCumulativeStats, setRiceCumulativeStats] = useState<{ date: string; rice: number }[]>([]);
   const [totalRiceInRange, setTotalRiceInRange] = useState(0);
   const [totalRiceCumulative, setTotalRiceCumulative] = useState(0);
   const [isLoadingRice, setIsLoadingRice] = useState(false);
@@ -185,6 +194,8 @@ export default function Statistics() {
   });
 
   const riceDateRange = useMemo(() => getDateRange(riceDate, riceRangeType, riceCustomEndDate), [riceDate, riceRangeType, riceCustomEndDate]);
+
+  const riceStatsEndDate = useMemo(() => endOfDay(riceDateRange.end), [riceDateRange.end]);
 
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
@@ -446,12 +457,17 @@ export default function Statistics() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSchool, selectedDate, students.length, classes.length]);
 
-  // Fetch rice statistics and inventory
+  // Fetch rice statistics
   useEffect(() => {
     if (!currentSchool) return;
     fetchRiceStats();
-    fetchRiceInventory();
   }, [currentSchool, riceDateRange, students]);
+
+  // Fetch rice inventory
+  useEffect(() => {
+    if (!currentSchool) return;
+    fetchRiceInventory();
+  }, [currentSchool]);
 
   // Subscribe to realtime updates for attendance_records
   useEffect(() => {
@@ -888,10 +904,20 @@ export default function Statistics() {
 
       if (cumulativeError) throw cumulativeError;
 
-      const cumulativeTotal = (cumulativeData || []).reduce((sum: number, row: any) => sum + Number(row.rice), 0);
+      const cumulativeDailyRice = (cumulativeData || []).map((row: any) => ({
+        date: row.stat_date,
+        rice: Number(row.rice),
+      }));
+
+      const cumulativeTotal = cumulativeDailyRice.reduce((sum: number, row: { rice: number }) => sum + row.rice, 0);
+      setRiceCumulativeStats(cumulativeDailyRice);
       setTotalRiceCumulative(cumulativeTotal);
     } catch (error) {
       console.error('Error fetching rice stats:', error);
+      setRiceStats([]);
+      setRiceCumulativeStats([]);
+      setTotalRiceInRange(0);
+      setTotalRiceCumulative(0);
     } finally {
       setIsLoadingRice(false);
     }
@@ -914,13 +940,74 @@ export default function Statistics() {
     }
   };
 
-  const totalRiceAdded = useMemo(() => {
-    return riceInventory.reduce((sum, item) => sum + Number(item.amount), 0);
-  }, [riceInventory]);
+  const riceInventoryToDate = useMemo(() => {
+    return riceInventory.filter(item => new Date(item.created_at) <= riceStatsEndDate);
+  }, [riceInventory, riceStatsEndDate]);
+
+  const totalRiceAddedToDate = useMemo(() => {
+    return riceInventoryToDate.reduce((sum, item) => sum + Number(item.amount), 0);
+  }, [riceInventoryToDate]);
 
   const remainingRice = useMemo(() => {
-    return totalRiceAdded - totalRiceCumulative;
-  }, [totalRiceAdded, totalRiceCumulative]);
+    return totalRiceAddedToDate - totalRiceCumulative;
+  }, [totalRiceAddedToDate, totalRiceCumulative]);
+
+  const monthlyRiceSummaries = useMemo<MonthlyRiceSummary[]>(() => {
+    const importedByMonth = new Map<string, number>();
+    const usedByMonth = new Map<string, number>();
+
+    riceInventoryToDate.forEach(item => {
+      const createdAt = new Date(item.created_at);
+      const monthKey = format(createdAt, 'yyyy-MM');
+      importedByMonth.set(monthKey, (importedByMonth.get(monthKey) || 0) + Number(item.amount));
+    });
+
+    riceCumulativeStats.forEach(item => {
+      const statDate = new Date(item.date);
+      if (statDate > riceStatsEndDate) return;
+
+      const monthKey = format(statDate, 'yyyy-MM');
+      usedByMonth.set(monthKey, (usedByMonth.get(monthKey) || 0) + item.rice);
+    });
+
+    const monthKeysWithData = Array.from(new Set([
+      ...Array.from(importedByMonth.keys()),
+      ...Array.from(usedByMonth.keys()),
+    ])).sort();
+
+    if (monthKeysWithData.length === 0) return [];
+
+    const firstMonth = new Date(`${monthKeysWithData[0]}-01T00:00:00`);
+    const monthRange = eachMonthOfInterval({
+      start: startOfMonth(firstMonth),
+      end: startOfMonth(riceDateRange.end),
+    });
+
+    let runningImported = 0;
+    let runningUsed = 0;
+
+    return monthRange.map(monthDate => {
+      const monthKey = format(monthDate, 'yyyy-MM');
+      const imported = importedByMonth.get(monthKey) || 0;
+      const used = usedByMonth.get(monthKey) || 0;
+
+      runningImported += imported;
+      runningUsed += used;
+
+      const isCurrentMonth = isSameMonth(monthDate, riceDateRange.end);
+      const isPartialMonth = isCurrentMonth && riceDateRange.end.getTime() !== endOfMonth(riceDateRange.end).getTime();
+
+      return {
+        monthKey,
+        label: isPartialMonth
+          ? `Tháng ${format(monthDate, 'MM/yyyy')} (đến ${format(riceDateRange.end, 'dd/MM')})`
+          : `Tháng ${format(monthDate, 'MM/yyyy')}`,
+        imported,
+        used,
+        remaining: runningImported - runningUsed,
+      };
+    });
+  }, [riceCumulativeStats, riceDateRange.end, riceInventoryToDate, riceStatsEndDate]);
 
   const handleAddRice = async () => {
     if (!currentSchool || !user || !newRiceAmount) return;
@@ -1978,15 +2065,15 @@ export default function Statistics() {
                 {/* Summary stats */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="rounded-lg bg-success/10 p-3 text-center">
-                    <div className="text-xs text-muted-foreground">Tổng nhập</div>
-                    <div className="text-xl font-bold text-success">{totalRiceAdded.toFixed(2)} kg</div>
+                    <div className="text-xs text-muted-foreground">Tổng nhập đến {format(riceDateRange.end, 'dd/MM/yyyy')}</div>
+                    <div className="text-xl font-bold text-success">{totalRiceAddedToDate.toFixed(2)} kg</div>
                   </div>
                   <div className="rounded-lg bg-destructive/10 p-3 text-center">
-                    <div className="text-xs text-muted-foreground">Đã dùng (lũy kế)</div>
+                    <div className="text-xs text-muted-foreground">Đã dùng lũy kế đến {format(riceDateRange.end, 'dd/MM/yyyy')}</div>
                     <div className="text-xl font-bold text-destructive">{totalRiceCumulative.toFixed(2)} kg</div>
                   </div>
                   <div className={`rounded-lg p-3 text-center ${remainingRice >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
-                    <div className="text-xs text-muted-foreground">Còn lại</div>
+                    <div className="text-xs text-muted-foreground">Còn lại đến {format(riceDateRange.end, 'dd/MM/yyyy')}</div>
                     <div className={`text-xl font-bold ${remainingRice >= 0 ? 'text-primary' : 'text-warning'}`}>
                       {remainingRice.toFixed(2)} kg
                     </div>
@@ -1995,6 +2082,10 @@ export default function Statistics() {
                     <div className="text-xs text-muted-foreground">Trong kỳ ({riceDateRange.label.toLowerCase()})</div>
                     <div className="text-xl font-bold text-foreground">{totalRiceInRange.toFixed(2)} kg</div>
                   </div>
+                </div>
+
+                <div className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
+                  Công thức: <span className="font-medium text-foreground">Còn lại = Tổng nhập đến thời điểm chọn - Đã dùng lũy kế đến thời điểm chọn</span>
                 </div>
 
                 {/* Add rice form */}
@@ -2203,6 +2294,36 @@ export default function Statistics() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {!isLoadingRice && monthlyRiceSummaries.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Đối chiếu theo tháng đến {format(riceDateRange.end, 'dd/MM/yyyy')}
+                    </div>
+                    <div className="overflow-x-auto rounded-lg border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr className="border-b">
+                            <th className="p-2 text-left font-medium">Tháng</th>
+                            <th className="p-2 text-right font-medium">Nhập trong tháng</th>
+                            <th className="p-2 text-right font-medium">Dùng trong tháng</th>
+                            <th className="p-2 text-right font-medium">Còn cuối tháng</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {monthlyRiceSummaries.map((item, idx) => (
+                            <tr key={item.monthKey} className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                              <td className="p-2 font-medium">{item.label}</td>
+                              <td className="p-2 text-right text-success">{item.imported.toFixed(2)} kg</td>
+                              <td className="p-2 text-right text-destructive">{item.used.toFixed(2)} kg</td>
+                              <td className="p-2 text-right font-semibold text-primary">{item.remaining.toFixed(2)} kg</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {/* Daily breakdown */}
                 {!isLoadingRice && riceRangeType !== 'day' && riceStats.length > 0 && (
