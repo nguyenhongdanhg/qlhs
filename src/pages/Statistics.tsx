@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, endOfDay, isBefore, isSameMonth, setHours, setMinutes } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachMonthOfInterval, endOfDay, isBefore, isSameMonth, setHours, setMinutes, min as minDate } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   CalendarIcon,
@@ -195,7 +195,8 @@ export default function Statistics() {
 
   const riceDateRange = useMemo(() => getDateRange(riceDate, riceRangeType, riceCustomEndDate), [riceDate, riceRangeType, riceCustomEndDate]);
 
-  const riceStatsEndDate = useMemo(() => endOfDay(riceDateRange.end), [riceDateRange.end]);
+  const riceEffectiveEndDate = useMemo(() => minDate([riceDateRange.end, new Date()]), [riceDateRange.end]);
+  const riceStatsEndDate = useMemo(() => endOfDay(riceEffectiveEndDate), [riceEffectiveEndDate]);
 
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
