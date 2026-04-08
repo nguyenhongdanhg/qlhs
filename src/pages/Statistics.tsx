@@ -2086,15 +2086,15 @@ export default function Statistics() {
                 {/* Summary stats */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="rounded-lg bg-success/10 p-3 text-center">
-                    <div className="text-xs text-muted-foreground">Tổng nhập đến {format(riceDateRange.end, 'dd/MM/yyyy')}</div>
+                    <div className="text-xs text-muted-foreground">Tổng nhập đến {format(riceEffectiveEndDate, 'dd/MM/yyyy')}</div>
                     <div className="text-xl font-bold text-success">{totalRiceAddedToDate.toFixed(2)} kg</div>
                   </div>
                   <div className="rounded-lg bg-destructive/10 p-3 text-center">
-                    <div className="text-xs text-muted-foreground">Đã dùng lũy kế đến {format(riceDateRange.end, 'dd/MM/yyyy')}</div>
+                    <div className="text-xs text-muted-foreground">Đã dùng lũy kế đến {format(riceEffectiveEndDate, 'dd/MM/yyyy')}</div>
                     <div className="text-xl font-bold text-destructive">{totalRiceCumulative.toFixed(2)} kg</div>
                   </div>
                   <div className={`rounded-lg p-3 text-center ${remainingRice >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
-                    <div className="text-xs text-muted-foreground">Còn lại đến {format(riceDateRange.end, 'dd/MM/yyyy')}</div>
+                    <div className="text-xs text-muted-foreground">Còn lại đến {format(riceEffectiveEndDate, 'dd/MM/yyyy')}</div>
                     <div className={`text-xl font-bold ${remainingRice >= 0 ? 'text-primary' : 'text-warning'}`}>
                       {remainingRice.toFixed(2)} kg
                     </div>
