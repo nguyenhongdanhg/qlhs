@@ -1986,7 +1986,7 @@ export default function Statistics() {
                     <div className="text-xl font-bold text-destructive">{totalRiceInRange.toFixed(2)} kg</div>
                   </div>
                   <div className={`rounded-lg p-3 text-center ${remainingRice >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
-                    <div className="text-xs text-muted-foreground">Còn lại</div>
+                    <div className="text-xs text-muted-foreground">Còn lại (tính đến {format(riceDateRange.end, 'dd/MM')})</div>
                     <div className={`text-xl font-bold ${remainingRice >= 0 ? 'text-primary' : 'text-warning'}`}>
                       {remainingRice.toFixed(2)} kg
                     </div>
