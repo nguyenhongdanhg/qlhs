@@ -119,6 +119,7 @@ export default function Statistics() {
   const [riceCustomEndDate, setRiceCustomEndDate] = useState<Date>(new Date());
   const [riceStats, setRiceStats] = useState<{ date: string; rice: number }[]>([]);
   const [totalRiceInRange, setTotalRiceInRange] = useState(0);
+  const [totalRiceCumulative, setTotalRiceCumulative] = useState(0);
   const [isLoadingRice, setIsLoadingRice] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   
