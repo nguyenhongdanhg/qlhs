@@ -1976,20 +1976,24 @@ export default function Statistics() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Summary stats */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="rounded-lg bg-success/10 p-3 text-center">
                     <div className="text-xs text-muted-foreground">Tổng nhập</div>
                     <div className="text-xl font-bold text-success">{totalRiceAdded.toFixed(2)} kg</div>
                   </div>
                   <div className="rounded-lg bg-destructive/10 p-3 text-center">
-                    <div className="text-xs text-muted-foreground">Đã dùng ({riceDateRange.label.toLowerCase()})</div>
-                    <div className="text-xl font-bold text-destructive">{totalRiceInRange.toFixed(2)} kg</div>
+                    <div className="text-xs text-muted-foreground">Đã dùng (lũy kế)</div>
+                    <div className="text-xl font-bold text-destructive">{totalRiceCumulative.toFixed(2)} kg</div>
                   </div>
                   <div className={`rounded-lg p-3 text-center ${remainingRice >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
-                    <div className="text-xs text-muted-foreground">Còn lại (tính đến {format(riceDateRange.end, 'dd/MM')})</div>
+                    <div className="text-xs text-muted-foreground">Còn lại</div>
                     <div className={`text-xl font-bold ${remainingRice >= 0 ? 'text-primary' : 'text-warning'}`}>
                       {remainingRice.toFixed(2)} kg
                     </div>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3 text-center">
+                    <div className="text-xs text-muted-foreground">Trong kỳ ({riceDateRange.label.toLowerCase()})</div>
+                    <div className="text-xl font-bold text-foreground">{totalRiceInRange.toFixed(2)} kg</div>
                   </div>
                 </div>
 
