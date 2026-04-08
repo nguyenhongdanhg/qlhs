@@ -919,8 +919,8 @@ export default function Statistics() {
   }, [riceInventory]);
 
   const remainingRice = useMemo(() => {
-    return totalRiceAdded - totalRiceInRange;
-  }, [totalRiceAdded, totalRiceInRange]);
+    return totalRiceAdded - totalRiceCumulative;
+  }, [totalRiceAdded, totalRiceCumulative]);
 
   const handleAddRice = async () => {
     if (!currentSchool || !user || !newRiceAmount) return;
