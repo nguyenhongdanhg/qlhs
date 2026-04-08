@@ -894,11 +894,20 @@ export default function Statistics() {
       setRiceStats(dailyRice);
       setTotalRiceInRange(totalRice);
 
-      // Fetch cumulative rice consumption from the very beginning up to end of selected range
-      // This ensures "Còn lại" = totalAdded - ALL consumed (not just current range)
+      const earliestRiceInventoryDate = riceInventory.reduce<Date | null>((earliest, item) => {
+        const itemDate = new Date(item.created_at);
+        if (!earliest || itemDate < earliest) return itemDate;
+        return earliest;
+      }, null);
+
+      const cumulativeStartDate = earliestRiceInventoryDate
+        ? format(startOfMonth(earliestRiceInventoryDate), 'yyyy-MM-dd')
+        : endDate;
+
+      // Chỉ tính gạo đã dùng từ tháng có lần nhập gạo đầu tiên
       const { data: cumulativeData, error: cumulativeError } = await supabase.rpc('calculate_rice_stats', {
         p_school_id: currentSchool.id,
-        p_start_date: '2000-01-01',
+        p_start_date: cumulativeStartDate,
         p_end_date: endDate,
       });
 
@@ -943,6 +952,17 @@ export default function Statistics() {
   const riceInventoryToDate = useMemo(() => {
     return riceInventory.filter(item => new Date(item.created_at) <= riceStatsEndDate);
   }, [riceInventory, riceStatsEndDate]);
+
+  const firstRiceInventoryMonthStart = useMemo(() => {
+    if (riceInventory.length === 0) return null;
+
+    const earliestInventoryDate = riceInventory.reduce((earliest, item) => {
+      const itemDate = new Date(item.created_at);
+      return itemDate < earliest ? itemDate : earliest;
+    }, new Date(riceInventory[0].created_at));
+
+    return startOfMonth(earliestInventoryDate);
+  }, [riceInventory]);
 
   const totalRiceAddedToDate = useMemo(() => {
     return riceInventoryToDate.reduce((sum, item) => sum + Number(item.amount), 0);
@@ -1007,7 +1027,7 @@ export default function Statistics() {
         remaining: runningImported - runningUsed,
       };
     });
-  }, [riceCumulativeStats, riceDateRange.end, riceInventoryToDate, riceStatsEndDate]);
+  }, [firstRiceInventoryMonthStart, riceCumulativeStats, riceDateRange.end, riceInventoryToDate, riceStatsEndDate]);
 
   const handleAddRice = async () => {
     if (!currentSchool || !user || !newRiceAmount) return;
