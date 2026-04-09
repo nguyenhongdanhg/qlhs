@@ -70,15 +70,25 @@ export default function DormitoryExit() {
 
   // Create request dialog
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [exitTime, setExitTime] = useState('');
-  const [returnTime, setReturnTime] = useState('');
-  const [reason, setReason] = useState('');
-  const [requestDate, setRequestDate] = useState<Date>(new Date());
-  const [exitDate, setExitDate] = useState<Date>(new Date());
-  const [returnDate, setReturnDate] = useState<Date>(new Date());
   const [isSaving, setIsSaving] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
+
+  // Per-student registration data
+  interface RegisteredStudent {
+    studentId: string;
+    exitDate: Date;
+    exitTime: string;
+    returnDate: Date;
+    returnTime: string;
+    reason: string;
+  }
+  const [registeredStudents, setRegisteredStudents] = useState<RegisteredStudent[]>([]);
+  const [currentEditStudentId, setCurrentEditStudentId] = useState<string | null>(null);
+  const [editExitDate, setEditExitDate] = useState<Date>(new Date());
+  const [editExitTime, setEditExitTime] = useState('');
+  const [editReturnDate, setEditReturnDate] = useState<Date>(new Date());
+  const [editReturnTime, setEditReturnTime] = useState('');
+  const [editReason, setEditReason] = useState('');
 
   // Reject dialog
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -102,15 +112,16 @@ export default function DormitoryExit() {
   // Exit request share dialog
   const [showExitRequestShare, setShowExitRequestShare] = useState(false);
   const exitRequestImageRef = useRef<HTMLDivElement>(null);
-  const [lastCreatedRequest, setLastCreatedRequest] = useState<{
-    students: { name: string; className: string }[];
+  const [lastCreatedStudents, setLastCreatedStudents] = useState<{
+    name: string;
+    className: string;
     exitDate: string;
-    returnDate: string;
     exitTime: string;
+    returnDate: string;
     returnTime: string;
-    reason: string;
-    requesterName: string;
-  } | null>(null);
+    reason?: string;
+  }[]>([]);
+  const [lastRequesterName, setLastRequesterName] = useState('');
 
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
@@ -232,59 +243,85 @@ export default function DormitoryExit() {
     return map;
   }, [approvedRequests]);
 
+  const handleSelectStudent = (studentId: string) => {
+    // If already registered, ignore
+    if (registeredStudents.some(r => r.studentId === studentId)) return;
+    // Set as current edit student with defaults
+    setCurrentEditStudentId(studentId);
+    setEditExitDate(new Date());
+    setEditExitTime('');
+    setEditReturnDate(new Date());
+    setEditReturnTime('');
+    setEditReason('');
+  };
+
+  const handleConfirmStudent = () => {
+    if (!currentEditStudentId || !editExitTime || !editReturnTime) {
+      toast({ title: 'Thiếu thông tin', description: 'Vui lòng nhập giờ ra và giờ vào', variant: 'destructive' });
+      return;
+    }
+    setRegisteredStudents(prev => [...prev, {
+      studentId: currentEditStudentId,
+      exitDate: editExitDate,
+      exitTime: editExitTime,
+      returnDate: editReturnDate,
+      returnTime: editReturnTime,
+      reason: editReason,
+    }]);
+    setCurrentEditStudentId(null);
+  };
+
+  const handleRemoveRegistered = (studentId: string) => {
+    setRegisteredStudents(prev => prev.filter(r => r.studentId !== studentId));
+  };
+
   const handleCreateRequest = async () => {
-    if (!currentSchool || !user || selectedStudents.length === 0 || !exitTime || !returnTime) {
-      toast({ title: 'Thiếu thông tin', description: 'Vui lòng chọn học sinh, giờ ra và giờ về', variant: 'destructive' });
+    if (!currentSchool || !user || registeredStudents.length === 0) {
+      toast({ title: 'Thiếu thông tin', description: 'Vui lòng thêm ít nhất 1 học sinh', variant: 'destructive' });
       return;
     }
     setIsSaving(true);
     try {
-      const records = selectedStudents.map(studentId => {
-        const student = students.find(s => s.id === studentId);
+      const records = registeredStudents.map(reg => {
+        const student = students.find(s => s.id === reg.studentId);
         return {
           school_id: currentSchool.id,
-          student_id: studentId,
+          student_id: reg.studentId,
           class_id: student?.class_id || null,
-          request_date: format(exitDate, 'yyyy-MM-dd'),
-          exit_date: format(exitDate, 'yyyy-MM-dd'),
-          return_date: format(returnDate, 'yyyy-MM-dd'),
-          exit_time: exitTime,
-          expected_return_time: returnTime,
-          reason: reason || null,
+          request_date: format(reg.exitDate, 'yyyy-MM-dd'),
+          exit_date: format(reg.exitDate, 'yyyy-MM-dd'),
+          return_date: format(reg.returnDate, 'yyyy-MM-dd'),
+          exit_time: reg.exitTime,
+          expected_return_time: reg.returnTime,
+          reason: reg.reason || null,
           requester_id: user.id,
         };
       });
       const { error } = await supabase.from('dormitory_exit_requests').insert(records);
       if (error) throw error;
 
-      // Save data for image export before clearing state
-      const createdStudents = selectedStudents.map(sid => {
-        const s = students.find(st => st.id === sid);
+      // Save data for image export
+      const createdStudents = registeredStudents.map(reg => {
+        const s = students.find(st => st.id === reg.studentId);
         return {
           name: s?.full_name || '',
           className: s?.class_id ? (classes.find(c => c.id === s.class_id)?.name || '') : '',
+          exitDate: format(reg.exitDate, 'yyyy-MM-dd'),
+          exitTime: reg.exitTime,
+          returnDate: format(reg.returnDate, 'yyyy-MM-dd'),
+          returnTime: reg.returnTime,
+          reason: reg.reason || undefined,
         };
       });
       const profileRes = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
-      setLastCreatedRequest({
-        students: createdStudents,
-        exitDate: format(exitDate, 'yyyy-MM-dd'),
-        returnDate: format(returnDate, 'yyyy-MM-dd'),
-        exitTime,
-        returnTime,
-        reason: reason || '',
-        requesterName: profileRes.data?.full_name || '',
-      });
+      setLastCreatedStudents(createdStudents);
+      setLastRequesterName(profileRes.data?.full_name || '');
 
-      toast({ title: 'Đã gửi đơn', description: `Đã đăng ký ${selectedStudents.length} học sinh ra ngoài` });
+      toast({ title: 'Đã gửi đơn', description: `Đã đăng ký ${registeredStudents.length} học sinh ra ngoài` });
       setShowCreateDialog(false);
       setShowExitRequestShare(true);
-      setSelectedStudents([]);
-      setExitTime('');
-      setReturnTime('');
-      setExitDate(new Date());
-      setReturnDate(new Date());
-      setReason('');
+      setRegisteredStudents([]);
+      setCurrentEditStudentId(null);
       fetchRequests();
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -776,87 +813,105 @@ export default function DormitoryExit() {
       </Tabs>
 
       {/* Create request dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={showCreateDialog} onOpenChange={(open) => {
+        setShowCreateDialog(open);
+        if (!open) { setRegisteredStudents([]); setCurrentEditStudentId(null); }
+      }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Đăng ký ra ngoài KTX</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            {/* Date/Time inputs */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Ngày ra</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1 h-9 text-sm">
-                      <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                      {format(exitDate, 'dd/MM/yyyy')}
+            {/* Current student edit form */}
+            {currentEditStudentId && (() => {
+              const s = students.find(st => st.id === currentEditStudentId);
+              if (!s) return null;
+              return (
+                <Card className="border-primary">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-semibold text-sm">{s.full_name}</span>
+                        <Badge variant="secondary" className="ml-2 text-[10px]">{getClassName(s.class_id || null)}</Badge>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCurrentEditStudentId(null)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Ngày ra</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal mt-1 h-9 text-sm">
+                              <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                              {format(editExitDate, 'dd/MM/yyyy')}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={editExitDate} onSelect={(d) => { if (d) { setEditExitDate(d); if (d > editReturnDate) setEditReturnDate(d); }}} locale={vi} className="pointer-events-auto" /></PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Giờ ra</Label>
+                        <Input type="time" value={editExitTime} onChange={(e) => setEditExitTime(e.target.value)} className="mt-1 h-9 text-sm" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Ngày vào</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal mt-1 h-9 text-sm">
+                              <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                              {format(editReturnDate, 'dd/MM/yyyy')}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={editReturnDate} onSelect={(d) => d && setEditReturnDate(d)} locale={vi} className="pointer-events-auto" /></PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Giờ vào</Label>
+                        <Input type="time" value={editReturnTime} onChange={(e) => setEditReturnTime(e.target.value)} className="mt-1 h-9 text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Lý do (không bắt buộc)</Label>
+                      <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
+                    </div>
+                    <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime}>
+                      <Check className="h-4 w-4 mr-1" /> Xác nhận
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={exitDate} onSelect={(d) => { if (d) { setExitDate(d); if (d > returnDate) setReturnDate(d); }}} locale={vi} className="pointer-events-auto" /></PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <Label className="text-xs">Giờ ra</Label>
-                <Input type="time" value={exitTime} onChange={(e) => setExitTime(e.target.value)} className="mt-1 h-9 text-sm" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">Ngày vào</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1 h-9 text-sm">
-                      <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                      {format(returnDate, 'dd/MM/yyyy')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={returnDate} onSelect={(d) => d && setReturnDate(d)} locale={vi} className="pointer-events-auto" /></PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <Label className="text-xs">Giờ vào</Label>
-                <Input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="mt-1 h-9 text-sm" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Lý do (không bắt buộc)</Label>
-              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
-            </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
-            {/* Selected students list */}
-            {selectedStudents.length > 0 && (
+            {/* Registered students list */}
+            {registeredStudents.length > 0 && (
               <div className="border rounded-md bg-primary/5 p-2">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-semibold text-primary">Đã chọn ({selectedStudents.length} HS)</span>
-                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs text-destructive hover:text-destructive" onClick={() => setSelectedStudents([])}>
+                  <span className="text-xs font-semibold text-primary">Đã thêm ({registeredStudents.length} HS)</span>
+                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs text-destructive hover:text-destructive" onClick={() => setRegisteredStudents([])}>
                     <X className="h-3 w-3 mr-0.5" />Xoá tất cả
                   </Button>
                 </div>
                 <div className="space-y-1">
-                  {selectedStudents.map(sid => {
-                    const s = students.find(st => st.id === sid);
+                  {registeredStudents.map(reg => {
+                    const s = students.find(st => st.id === reg.studentId);
                     if (!s) return null;
                     const cls = getClassName(s.class_id || null);
                     return (
-                      <div key={sid} className="flex items-center justify-between bg-background rounded px-2 py-1 text-xs">
+                      <div key={reg.studentId} className="flex items-center justify-between bg-background rounded px-2 py-1 text-xs">
                         <div className="flex-1 min-w-0">
                           <span className="font-medium">{s.full_name}</span>
                           {cls && <span className="text-muted-foreground ml-1.5">({cls})</span>}
                           <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
-                            {exitTime && returnTime && (
-                              <span className="flex items-center gap-0.5">
-                                <Clock className="h-2.5 w-2.5" />
-                                {format(exitDate, 'dd/MM')} {exitTime} → {format(returnDate, 'dd/MM')} {returnTime}
-                              </span>
-                            )}
-                            {reason && <span>• {reason}</span>}
+                            <span className="flex items-center gap-0.5">
+                              <Clock className="h-2.5 w-2.5" />
+                              {format(reg.exitDate, 'dd/MM')} {reg.exitTime} → {format(reg.returnDate, 'dd/MM')} {reg.returnTime}
+                            </span>
+                            {reg.reason && <span>• {reg.reason}</span>}
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0"
-                          onClick={() => setSelectedStudents(prev => prev.filter(id => id !== sid))}
-                        >
+                        <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleRemoveRegistered(reg.studentId)}>
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
@@ -866,95 +921,58 @@ export default function DormitoryExit() {
               </div>
             )}
 
-            {/* Student picker */}
-            <div>
-              <Label className="text-xs">Chọn học sinh</Label>
-              <Input placeholder="Tìm học sinh..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="mt-1 mb-1.5 h-8 text-sm" />
-              <div className="border rounded-md max-h-[250px] overflow-y-auto">
-                {(() => {
-                  const grouped = new Map<string, { className: string; students: typeof availableStudents }>();
-                  availableStudents.forEach(s => {
-                    const clsName = getClassName(s.class_id || null) || 'Khác';
-                    if (!grouped.has(clsName)) grouped.set(clsName, { className: clsName, students: [] });
-                    grouped.get(clsName)!.students.push(s);
-                  });
-                  const entries = Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0], 'vi'));
-                  
-                  if (entries.length === 0) return <p className="text-center py-4 text-sm text-muted-foreground">Không tìm thấy</p>;
+            {/* Student picker - only show when not editing a student */}
+            {!currentEditStudentId && (
+              <div>
+                <Label className="text-xs">Chọn học sinh để thêm</Label>
+                <Input placeholder="Tìm học sinh..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="mt-1 mb-1.5 h-8 text-sm" />
+                <div className="border rounded-md max-h-[250px] overflow-y-auto">
+                  {(() => {
+                    const registeredIds = registeredStudents.map(r => r.studentId);
+                    const unregistered = availableStudents.filter(s => !registeredIds.includes(s.id));
+                    const grouped = new Map<string, typeof unregistered>();
+                    unregistered.forEach(s => {
+                      const clsName = getClassName(s.class_id || null) || 'Khác';
+                      if (!grouped.has(clsName)) grouped.set(clsName, []);
+                      grouped.get(clsName)!.push(s);
+                    });
+                    const entries = Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0], 'vi'));
 
-                  return entries.map(([clsName, group]) => {
-                    const allSelected = group.students.every(s => selectedStudents.includes(s.id));
-                    const someSelected = group.students.some(s => selectedStudents.includes(s.id));
-                    const selectedCount = group.students.filter(s => selectedStudents.includes(s.id)).length;
+                    if (entries.length === 0) return <p className="text-center py-4 text-sm text-muted-foreground">Không còn học sinh</p>;
 
-                    const toggleAll = () => {
-                      if (allSelected) {
-                        setSelectedStudents(prev => prev.filter(id => !group.students.some(s => s.id === id)));
-                      } else {
-                        const newIds = group.students.map(s => s.id).filter(id => !selectedStudents.includes(id));
-                        setSelectedStudents(prev => [...prev, ...newIds]);
-                      }
-                    };
-
-                    return (
+                    return entries.map(([clsName, group]) => (
                       <div key={clsName} className="border-b last:border-b-0">
-                        <button
-                          type="button"
-                          onClick={toggleAll}
-                          className="w-full flex items-center justify-between p-2 hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Checkbox checked={allSelected} className={cn(someSelected && !allSelected && "opacity-50")} />
-                            <span className="font-medium text-sm">{clsName}</span>
-                            <Badge variant="secondary" className="text-[10px]">{group.students.length}</Badge>
-                          </div>
-                          {selectedCount > 0 && (
-                            <Badge variant="default" className="text-[10px]">{selectedCount} chọn</Badge>
-                          )}
-                        </button>
+                        <div className="flex items-center gap-2 p-2 bg-muted/30">
+                          <span className="font-medium text-sm">{clsName}</span>
+                          <Badge variant="secondary" className="text-[10px]">{group.length}</Badge>
+                        </div>
                         <div className="px-2 pb-2">
                           <div className="grid grid-cols-3 gap-0.5">
-                            {group.students.map(student => (
+                            {group.map(student => (
                               <button
                                 key={student.id}
                                 type="button"
-                                onClick={() => setSelectedStudents(prev =>
-                                  prev.includes(student.id) ? prev.filter(id => id !== student.id) : [...prev, student.id]
-                                )}
-                                className={cn(
-                                  "flex items-center gap-1 px-1.5 py-1 rounded text-left transition-colors",
-                                  selectedStudents.includes(student.id)
-                                    ? "bg-primary/15 text-primary"
-                                    : "hover:bg-muted/50"
-                                )}
+                                onClick={() => handleSelectStudent(student.id)}
+                                className="flex items-center gap-1 px-1.5 py-1 rounded text-left transition-colors hover:bg-primary/10 hover:text-primary"
                               >
-                                <div className={cn(
-                                  "w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center",
-                                  selectedStudents.includes(student.id)
-                                    ? "border-primary bg-primary"
-                                    : "border-muted-foreground/50"
-                                )}>
-                                  {selectedStudents.includes(student.id) && (
-                                    <span className="text-primary-foreground text-[8px] font-bold">✓</span>
-                                  )}
-                                </div>
+                                <Plus className="h-3 w-3 shrink-0 text-muted-foreground" />
                                 <span className="truncate text-[11px] leading-tight">{student.full_name}</span>
                               </button>
                             ))}
                           </div>
                         </div>
                       </div>
-                    );
-                  });
-                })()}
+                    ));
+                  })()}
+                </div>
               </div>
-            </div>
+            )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Hủy</Button>
-            <Button onClick={handleCreateRequest} disabled={isSaving || selectedStudents.length === 0 || !exitTime || !returnTime}>
+            <Button onClick={handleCreateRequest} disabled={isSaving || registeredStudents.length === 0}>
               {isSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              Gửi đơn ({selectedStudents.length})
+              Kết thúc & Chia sẻ ({registeredStudents.length})
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1010,29 +1028,24 @@ export default function DormitoryExit() {
               Xuất ảnh đơn xin ra ngoài
             </DialogTitle>
           </DialogHeader>
-          {lastCreatedRequest && (
+          {lastCreatedStudents.length > 0 && (
             <>
               <div className="flex justify-center overflow-x-auto py-4">
                 <div className="scale-75 origin-top">
                   <ExitRequestImageCard
                     ref={exitRequestImageRef}
                     schoolName={currentSchool?.name || ''}
-                    requesterName={lastCreatedRequest.requesterName}
-                    exitDate={lastCreatedRequest.exitDate}
-                    returnDate={lastCreatedRequest.returnDate}
-                    exitTime={lastCreatedRequest.exitTime}
-                    returnTime={lastCreatedRequest.returnTime}
-                    reason={lastCreatedRequest.reason}
-                    students={lastCreatedRequest.students}
+                    requesterName={lastRequesterName}
+                    students={lastCreatedStudents}
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai_${lastCreatedRequest.exitDate}`, 'Đơn xin ra ngoài KTX', 'download')} disabled={isExporting}>
+                <Button variant="outline" className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai`, 'Đơn xin ra ngoài KTX', 'download')} disabled={isExporting}>
                   {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
                   Tải ảnh
                 </Button>
-                <Button className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai_${lastCreatedRequest.exitDate}`, 'Đơn xin ra ngoài KTX', 'share')} disabled={isExporting}>
+                <Button className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai`, 'Đơn xin ra ngoài KTX', 'share')} disabled={isExporting}>
                   {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
                   Chia sẻ
                 </Button>
