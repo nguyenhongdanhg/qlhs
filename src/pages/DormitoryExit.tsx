@@ -112,15 +112,16 @@ export default function DormitoryExit() {
   // Exit request share dialog
   const [showExitRequestShare, setShowExitRequestShare] = useState(false);
   const exitRequestImageRef = useRef<HTMLDivElement>(null);
-  const [lastCreatedRequest, setLastCreatedRequest] = useState<{
-    students: { name: string; className: string }[];
+  const [lastCreatedStudents, setLastCreatedStudents] = useState<{
+    name: string;
+    className: string;
     exitDate: string;
-    returnDate: string;
     exitTime: string;
+    returnDate: string;
     returnTime: string;
-    reason: string;
-    requesterName: string;
-  } | null>(null);
+    reason?: string;
+  }[]>([]);
+  const [lastRequesterName, setLastRequesterName] = useState('');
 
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
