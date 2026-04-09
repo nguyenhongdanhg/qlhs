@@ -1028,29 +1028,24 @@ export default function DormitoryExit() {
               Xuất ảnh đơn xin ra ngoài
             </DialogTitle>
           </DialogHeader>
-          {lastCreatedRequest && (
+          {lastCreatedStudents.length > 0 && (
             <>
               <div className="flex justify-center overflow-x-auto py-4">
                 <div className="scale-75 origin-top">
                   <ExitRequestImageCard
                     ref={exitRequestImageRef}
                     schoolName={currentSchool?.name || ''}
-                    requesterName={lastCreatedRequest.requesterName}
-                    exitDate={lastCreatedRequest.exitDate}
-                    returnDate={lastCreatedRequest.returnDate}
-                    exitTime={lastCreatedRequest.exitTime}
-                    returnTime={lastCreatedRequest.returnTime}
-                    reason={lastCreatedRequest.reason}
-                    students={lastCreatedRequest.students}
+                    requesterName={lastRequesterName}
+                    students={lastCreatedStudents}
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai_${lastCreatedRequest.exitDate}`, 'Đơn xin ra ngoài KTX', 'download')} disabled={isExporting}>
+                <Button variant="outline" className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai`, 'Đơn xin ra ngoài KTX', 'download')} disabled={isExporting}>
                   {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-2" />}
                   Tải ảnh
                 </Button>
-                <Button className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai_${lastCreatedRequest.exitDate}`, 'Đơn xin ra ngoài KTX', 'share')} disabled={isExporting}>
+                <Button className="flex-1" onClick={() => exportAndShare(exitRequestImageRef, `Don_xin_ra_ngoai`, 'Đơn xin ra ngoài KTX', 'share')} disabled={isExporting}>
                   {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
                   Chia sẻ
                 </Button>
