@@ -243,59 +243,85 @@ export default function DormitoryExit() {
     return map;
   }, [approvedRequests]);
 
+  const handleSelectStudent = (studentId: string) => {
+    // If already registered, ignore
+    if (registeredStudents.some(r => r.studentId === studentId)) return;
+    // Set as current edit student with defaults
+    setCurrentEditStudentId(studentId);
+    setEditExitDate(new Date());
+    setEditExitTime('');
+    setEditReturnDate(new Date());
+    setEditReturnTime('');
+    setEditReason('');
+  };
+
+  const handleConfirmStudent = () => {
+    if (!currentEditStudentId || !editExitTime || !editReturnTime) {
+      toast({ title: 'Thiếu thông tin', description: 'Vui lòng nhập giờ ra và giờ vào', variant: 'destructive' });
+      return;
+    }
+    setRegisteredStudents(prev => [...prev, {
+      studentId: currentEditStudentId,
+      exitDate: editExitDate,
+      exitTime: editExitTime,
+      returnDate: editReturnDate,
+      returnTime: editReturnTime,
+      reason: editReason,
+    }]);
+    setCurrentEditStudentId(null);
+  };
+
+  const handleRemoveRegistered = (studentId: string) => {
+    setRegisteredStudents(prev => prev.filter(r => r.studentId !== studentId));
+  };
+
   const handleCreateRequest = async () => {
-    if (!currentSchool || !user || selectedStudents.length === 0 || !exitTime || !returnTime) {
-      toast({ title: 'Thiếu thông tin', description: 'Vui lòng chọn học sinh, giờ ra và giờ về', variant: 'destructive' });
+    if (!currentSchool || !user || registeredStudents.length === 0) {
+      toast({ title: 'Thiếu thông tin', description: 'Vui lòng thêm ít nhất 1 học sinh', variant: 'destructive' });
       return;
     }
     setIsSaving(true);
     try {
-      const records = selectedStudents.map(studentId => {
-        const student = students.find(s => s.id === studentId);
+      const records = registeredStudents.map(reg => {
+        const student = students.find(s => s.id === reg.studentId);
         return {
           school_id: currentSchool.id,
-          student_id: studentId,
+          student_id: reg.studentId,
           class_id: student?.class_id || null,
-          request_date: format(exitDate, 'yyyy-MM-dd'),
-          exit_date: format(exitDate, 'yyyy-MM-dd'),
-          return_date: format(returnDate, 'yyyy-MM-dd'),
-          exit_time: exitTime,
-          expected_return_time: returnTime,
-          reason: reason || null,
+          request_date: format(reg.exitDate, 'yyyy-MM-dd'),
+          exit_date: format(reg.exitDate, 'yyyy-MM-dd'),
+          return_date: format(reg.returnDate, 'yyyy-MM-dd'),
+          exit_time: reg.exitTime,
+          expected_return_time: reg.returnTime,
+          reason: reg.reason || null,
           requester_id: user.id,
         };
       });
       const { error } = await supabase.from('dormitory_exit_requests').insert(records);
       if (error) throw error;
 
-      // Save data for image export before clearing state
-      const createdStudents = selectedStudents.map(sid => {
-        const s = students.find(st => st.id === sid);
+      // Save data for image export
+      const createdStudents = registeredStudents.map(reg => {
+        const s = students.find(st => st.id === reg.studentId);
         return {
           name: s?.full_name || '',
           className: s?.class_id ? (classes.find(c => c.id === s.class_id)?.name || '') : '',
+          exitDate: format(reg.exitDate, 'yyyy-MM-dd'),
+          exitTime: reg.exitTime,
+          returnDate: format(reg.returnDate, 'yyyy-MM-dd'),
+          returnTime: reg.returnTime,
+          reason: reg.reason || undefined,
         };
       });
       const profileRes = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
-      setLastCreatedRequest({
-        students: createdStudents,
-        exitDate: format(exitDate, 'yyyy-MM-dd'),
-        returnDate: format(returnDate, 'yyyy-MM-dd'),
-        exitTime,
-        returnTime,
-        reason: reason || '',
-        requesterName: profileRes.data?.full_name || '',
-      });
+      setLastCreatedStudents(createdStudents);
+      setLastRequesterName(profileRes.data?.full_name || '');
 
-      toast({ title: 'Đã gửi đơn', description: `Đã đăng ký ${selectedStudents.length} học sinh ra ngoài` });
+      toast({ title: 'Đã gửi đơn', description: `Đã đăng ký ${registeredStudents.length} học sinh ra ngoài` });
       setShowCreateDialog(false);
       setShowExitRequestShare(true);
-      setSelectedStudents([]);
-      setExitTime('');
-      setReturnTime('');
-      setExitDate(new Date());
-      setReturnDate(new Date());
-      setReason('');
+      setRegisteredStudents([]);
+      setCurrentEditStudentId(null);
       fetchRequests();
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
