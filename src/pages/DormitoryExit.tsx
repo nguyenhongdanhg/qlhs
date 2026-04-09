@@ -494,8 +494,10 @@ export default function DormitoryExit() {
   const imageStudents = approvedRequests.map(r => ({
     name: r.student?.full_name || '',
     className: r.class?.name || '',
-    exitTime: `${r.exit_date ? format(new Date(r.exit_date), 'dd/MM') + ' ' : ''}${r.exit_time?.slice(0, 5) || ''}`,
-    returnTime: `${r.return_date ? format(new Date(r.return_date), 'dd/MM') + ' ' : ''}${r.expected_return_time?.slice(0, 5) || ''}`,
+    exitDate: r.exit_date || r.request_date,
+    exitTime: r.exit_time || '',
+    returnDate: r.return_date || r.exit_date || r.request_date,
+    returnTime: r.expected_return_time || '',
     reason: r.reason || undefined,
   }));
 
