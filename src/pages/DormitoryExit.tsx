@@ -494,8 +494,10 @@ export default function DormitoryExit() {
   const imageStudents = approvedRequests.map(r => ({
     name: r.student?.full_name || '',
     className: r.class?.name || '',
-    exitTime: `${r.exit_date ? format(new Date(r.exit_date), 'dd/MM') + ' ' : ''}${r.exit_time?.slice(0, 5) || ''}`,
-    returnTime: `${r.return_date ? format(new Date(r.return_date), 'dd/MM') + ' ' : ''}${r.expected_return_time?.slice(0, 5) || ''}`,
+    exitDate: r.exit_date || r.request_date,
+    exitTime: r.exit_time || '',
+    returnDate: r.return_date || r.exit_date || r.request_date,
+    returnTime: r.expected_return_time || '',
     reason: r.reason || undefined,
   }));
 
@@ -777,14 +779,15 @@ export default function DormitoryExit() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Đăng ký ra ngoài KTX</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
+            {/* Date/Time inputs */}
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-sm">Ngày ra</Label>
+                <Label className="text-xs">Ngày ra</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1 h-9 text-sm">
+                      <CalendarIcon className="mr-2 h-3.5 w-3.5" />
                       {format(exitDate, 'dd/MM/yyyy')}
                     </Button>
                   </PopoverTrigger>
@@ -792,17 +795,17 @@ export default function DormitoryExit() {
                 </Popover>
               </div>
               <div>
-                <Label className="text-sm">Giờ ra</Label>
-                <Input type="time" value={exitTime} onChange={(e) => setExitTime(e.target.value)} className="mt-1" />
+                <Label className="text-xs">Giờ ra</Label>
+                <Input type="time" value={exitTime} onChange={(e) => setExitTime(e.target.value)} className="mt-1 h-9 text-sm" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-sm">Ngày vào</Label>
+                <Label className="text-xs">Ngày vào</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                    <Button variant="outline" className="w-full justify-start text-left font-normal mt-1 h-9 text-sm">
+                      <CalendarIcon className="mr-2 h-3.5 w-3.5" />
                       {format(returnDate, 'dd/MM/yyyy')}
                     </Button>
                   </PopoverTrigger>
@@ -810,30 +813,65 @@ export default function DormitoryExit() {
                 </Popover>
               </div>
               <div>
-                <Label className="text-sm">Giờ vào</Label>
-                <Input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="mt-1" />
+                <Label className="text-xs">Giờ vào</Label>
+                <Input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="mt-1 h-9 text-sm" />
               </div>
             </div>
             <div>
-              <Label className="text-sm">Lý do (không bắt buộc)</Label>
-              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1" rows={2} />
+              <Label className="text-xs">Lý do (không bắt buộc)</Label>
+              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label className="text-sm">Chọn học sinh</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-primary">{selectedStudents.length} đã chọn</span>
-                  {selectedStudents.length > 0 && (
-                    <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs text-destructive hover:text-destructive" onClick={() => setSelectedStudents([])}>
-                      <X className="h-3 w-3 mr-0.5" />Xoá
-                    </Button>
-                  )}
+
+            {/* Selected students list */}
+            {selectedStudents.length > 0 && (
+              <div className="border rounded-md bg-primary/5 p-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-semibold text-primary">Đã chọn ({selectedStudents.length} HS)</span>
+                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-xs text-destructive hover:text-destructive" onClick={() => setSelectedStudents([])}>
+                    <X className="h-3 w-3 mr-0.5" />Xoá tất cả
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {selectedStudents.map(sid => {
+                    const s = students.find(st => st.id === sid);
+                    if (!s) return null;
+                    const cls = getClassName(s.class_id || null);
+                    return (
+                      <div key={sid} className="flex items-center justify-between bg-background rounded px-2 py-1 text-xs">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium">{s.full_name}</span>
+                          {cls && <span className="text-muted-foreground ml-1.5">({cls})</span>}
+                          <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            {exitTime && returnTime && (
+                              <span className="flex items-center gap-0.5">
+                                <Clock className="h-2.5 w-2.5" />
+                                {format(exitDate, 'dd/MM')} {exitTime} → {format(returnDate, 'dd/MM')} {returnTime}
+                              </span>
+                            )}
+                            {reason && <span>• {reason}</span>}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0"
+                          onClick={() => setSelectedStudents(prev => prev.filter(id => id !== sid))}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              <Input placeholder="Tìm học sinh..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="mb-2 h-8 text-sm" />
-              <div className="border rounded-md max-h-[300px] overflow-y-auto">
+            )}
+
+            {/* Student picker */}
+            <div>
+              <Label className="text-xs">Chọn học sinh</Label>
+              <Input placeholder="Tìm học sinh..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} className="mt-1 mb-1.5 h-8 text-sm" />
+              <div className="border rounded-md max-h-[250px] overflow-y-auto">
                 {(() => {
-                  // Group students by class
                   const grouped = new Map<string, { className: string; students: typeof availableStudents }>();
                   availableStudents.forEach(s => {
                     const clsName = getClassName(s.class_id || null) || 'Khác';
