@@ -70,15 +70,25 @@ export default function DormitoryExit() {
 
   // Create request dialog
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [exitTime, setExitTime] = useState('');
-  const [returnTime, setReturnTime] = useState('');
-  const [reason, setReason] = useState('');
-  const [requestDate, setRequestDate] = useState<Date>(new Date());
-  const [exitDate, setExitDate] = useState<Date>(new Date());
-  const [returnDate, setReturnDate] = useState<Date>(new Date());
   const [isSaving, setIsSaving] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
+
+  // Per-student registration data
+  interface RegisteredStudent {
+    studentId: string;
+    exitDate: Date;
+    exitTime: string;
+    returnDate: Date;
+    returnTime: string;
+    reason: string;
+  }
+  const [registeredStudents, setRegisteredStudents] = useState<RegisteredStudent[]>([]);
+  const [currentEditStudentId, setCurrentEditStudentId] = useState<string | null>(null);
+  const [editExitDate, setEditExitDate] = useState<Date>(new Date());
+  const [editExitTime, setEditExitTime] = useState('');
+  const [editReturnDate, setEditReturnDate] = useState<Date>(new Date());
+  const [editReturnTime, setEditReturnTime] = useState('');
+  const [editReason, setEditReason] = useState('');
 
   // Reject dialog
   const [showRejectDialog, setShowRejectDialog] = useState(false);
