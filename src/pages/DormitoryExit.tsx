@@ -338,46 +338,12 @@ export default function DormitoryExit() {
         .update({ status: 'approved', approver_id: user.id, approved_at: new Date().toISOString() })
         .eq('id', requestId);
       if (error) throw error;
-      const request = requests.find(r => r.id === requestId);
-      if (request) await autoMarkExcused(request);
       toast({ title: 'Đã duyệt', description: 'Đơn ra ngoài đã được phê duyệt' });
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     }
   };
 
-  const autoMarkExcused = async (request: ExitRequest) => {
-    if (!currentSchool || !user) return;
-    const exitMinutes = timeToMinutes(request.exit_time);
-    const returnMinutes = timeToMinutes(request.expected_return_time);
-    const mealTimes: Record<string, [number, number]> = {
-      breakfast: [360, 480], lunch: [660, 780], dinner: [1020, 1140],
-      boarding: [360, 1380], evening_study: [1140, 1320],
-    };
-    const types: Array<'boarding' | 'breakfast' | 'lunch' | 'dinner' | 'evening_study'> = ['boarding', 'breakfast', 'lunch', 'dinner', 'evening_study'];
-    const overlapping = types.filter(type => {
-      const [start, end] = mealTimes[type];
-      return exitMinutes < end && returnMinutes > start;
-    });
-    if (overlapping.length === 0) return;
-    const records = overlapping.map(type => ({
-      school_id: currentSchool.id,
-      student_id: request.student_id,
-      class_id: request.class_id,
-      attendance_date: request.request_date,
-      attendance_type: type,
-      status: 'excused' as const,
-      excused_reason: 'RP',
-      notes: `Ra ngoài KTX: ${request.exit_date || request.request_date} ${request.exit_time?.slice(0,5)} - ${request.return_date || request.request_date} ${request.expected_return_time?.slice(0,5)}${request.reason ? ` (${request.reason})` : ''}`,
-      reporter_id: user.id,
-    }));
-    await supabase.from('attendance_records').insert(records);
-  };
-
-  const timeToMinutes = (time: string): number => {
-    const [h, m] = time.split(':').map(Number);
-    return h * 60 + m;
-  };
 
   const handleReject = async () => {
     if (!rejectingId || !user) return;
@@ -405,7 +371,6 @@ export default function DormitoryExit() {
         .update({ status: 'approved', approver_id: user.id, approved_at: new Date().toISOString() })
         .in('id', ids);
       if (error) throw error;
-      for (const req of pendingRequests) await autoMarkExcused(req);
       toast({ title: 'Đã duyệt tất cả', description: `${ids.length} đơn đã được phê duyệt` });
       setSelectedPending([]);
     } catch (error: any) {
@@ -421,8 +386,6 @@ export default function DormitoryExit() {
         .update({ status: 'approved', approver_id: user.id, approved_at: new Date().toISOString() })
         .in('id', selectedPending);
       if (error) throw error;
-      const selected = pendingRequests.filter(r => selectedPending.includes(r.id));
-      for (const req of selected) await autoMarkExcused(req);
       toast({ title: 'Đã duyệt', description: `${selectedPending.length} đơn đã được phê duyệt` });
       setSelectedPending([]);
     } catch (error: any) {
