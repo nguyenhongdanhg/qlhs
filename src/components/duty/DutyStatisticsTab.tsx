@@ -240,6 +240,7 @@ export default function DutyStatisticsTab({
       periodLabel,
       startDate: start,
       endDate: end,
+      dutyLeaders,
     });
 
     setShowExportDialog(false);
