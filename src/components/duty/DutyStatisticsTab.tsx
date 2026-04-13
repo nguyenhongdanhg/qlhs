@@ -411,10 +411,131 @@ export default function DutyStatisticsTab({
         </CardContent>
       </Card>
 
+      {/* Leader Statistics Table */}
+      {dutyLeaders.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-blue-600" />
+              Thống kê Quản lý trực
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-blue-50/50 dark:bg-blue-950/20">
+                    <TableHead className="w-10 text-center">STT</TableHead>
+                    <TableHead className="min-w-[150px]">Họ tên</TableHead>
+                    <TableHead className="w-24 text-center">Chức vụ</TableHead>
+                    <TableHead className="w-16 text-center">Tổng</TableHead>
+                    <TableHead className="w-16 text-center">Ngày thường</TableHead>
+                    <TableHead className="w-16 text-center">
+                      <span className="text-orange-600">T7</span>
+                    </TableHead>
+                    <TableHead className="w-16 text-center">
+                      <span className="text-orange-600">CN</span>
+                    </TableHead>
+                    <TableHead className="w-20 text-center">
+                      <span className="text-orange-600">Cuối tuần</span>
+                    </TableHead>
+                    <TableHead className="w-24 text-center hidden md:table-cell">Ghi chú</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(() => {
+                    const monthStart = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
+                    const monthEnd = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+                    
+                    const leaderMap = new Map<string, { profile: Profile; dates: { date: string; notes?: string | null }[] }>();
+                    dutyLeaders.forEach(l => {
+                      if (l.duty_date < monthStart || l.duty_date > monthEnd) return;
+                      if (!leaderMap.has(l.user_id)) {
+                        leaderMap.set(l.user_id, { profile: l.profile!, dates: [] });
+                      }
+                      leaderMap.get(l.user_id)!.dates.push({ date: l.duty_date, notes: l.notes });
+                    });
+
+                    const leaderStats = Array.from(leaderMap.entries()).map(([userId, data]) => {
+                      let weekdayCount = 0, satCount = 0, sunCount = 0;
+                      const notesList: string[] = [];
+                      data.dates.forEach(d => {
+                        const dow = getDay(new Date(d.date));
+                        if (dow === 6) satCount++;
+                        else if (dow === 0) sunCount++;
+                        else weekdayCount++;
+                        if (d.notes) notesList.push(d.notes);
+                      });
+                      return {
+                        userId,
+                        profile: data.profile,
+                        total: data.dates.length,
+                        weekdayCount,
+                        satCount,
+                        sunCount,
+                        weekendCount: satCount + sunCount,
+                        notes: [...new Set(notesList)].join(', '),
+                      };
+                    }).sort((a, b) => b.total - a.total);
+
+                    if (leaderStats.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
+                            Chưa có dữ liệu quản lý trực tháng này
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    return leaderStats.map((leader, idx) => (
+                      <TableRow key={leader.userId}>
+                        <TableCell className="text-center font-medium text-muted-foreground">{idx + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarFallback className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                {getInitials(leader.profile?.full_name || '')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium">{leader.profile?.full_name || ''}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">{leader.profile?.position || '-'}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="font-bold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                            {leader.total}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">{leader.weekdayCount}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-orange-600 font-medium">{leader.satCount}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-orange-600 font-medium">{leader.sunCount}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="border-orange-300 text-orange-600 bg-orange-50 dark:bg-orange-950/30">
+                            {leader.weekendCount}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center hidden md:table-cell text-xs text-muted-foreground max-w-[120px] truncate">
+                          {leader.notes || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ));
+                  })()}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Member Statistics Table */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Chi tiết theo người</CardTitle>
+          <CardTitle className="text-base">Chi tiết theo người trực</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
