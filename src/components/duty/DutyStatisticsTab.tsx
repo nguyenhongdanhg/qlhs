@@ -43,12 +43,20 @@ interface DutyMember extends Profile {
   fixedDays: number[];
 }
 
+interface DutyLeaderData {
+  user_id: string;
+  duty_date: string;
+  notes?: string | null;
+  profile?: Profile;
+}
+
 interface DutyStatisticsTabProps {
   schedules: DutyScheduleType[];
   previousMonthSchedules: DutyScheduleType[];
   dutyMembers: DutyMember[];
   currentMonth: Date;
   schoolName?: string;
+  dutyLeaders?: DutyLeaderData[];
 }
 
 export default function DutyStatisticsTab({
@@ -57,6 +65,7 @@ export default function DutyStatisticsTab({
   dutyMembers,
   currentMonth,
   schoolName = '',
+  dutyLeaders = [],
 }: DutyStatisticsTabProps) {
   const { toast } = useToast();
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -231,6 +240,7 @@ export default function DutyStatisticsTab({
       periodLabel,
       startDate: start,
       endDate: end,
+      dutyLeaders,
     });
 
     setShowExportDialog(false);
