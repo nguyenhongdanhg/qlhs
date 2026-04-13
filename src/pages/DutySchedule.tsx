@@ -2625,6 +2625,7 @@ export default function DutySchedule() {
               dutyMembers={dutyMembers}
               currentMonth={currentMonth}
               schoolName={currentSchool?.name || ''}
+              dutyLeaders={dutyLeaders}
             />
           </TabsContent>
         )}
