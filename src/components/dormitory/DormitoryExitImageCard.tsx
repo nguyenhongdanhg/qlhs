@@ -25,14 +25,14 @@ interface DormitoryExitImageCardProps {
 export const DormitoryExitImageCard = forwardRef<HTMLDivElement, DormitoryExitImageCardProps>(
   ({ schoolName, title, date, totalApproved, students, variant = 'approved' }, ref) => {
     const isRejected = variant === 'rejected';
-    const accent = isRejected ? '#dc2626' : '#7c3aed';
-    const accentDark = isRejected ? '#991b1b' : '#5b21b6';
-    const accentBg = isRejected ? '#fef2f2' : '#f5f3ff';
-    const accentBgSoft = isRejected ? '#fff1f2' : '#faf5ff';
-    const accentBorder = isRejected ? '#fecaca' : '#ddd6fe';
-    const accentBorderSoft = isRejected ? '#fee2e2' : '#ede9fe';
-    const statLabel = isRejected ? 'HS bị từ chối' : 'HS ra ngoài';
-    const sectionLabel = isRejected ? 'Danh sách từ chối' : 'Danh sách';
+    const accent = isRejected ? '#dc2626' : '#16a34a';
+    const accentDark = isRejected ? '#991b1b' : '#15803d';
+    const accentBg = isRejected ? '#fef2f2' : '#f0fdf4';
+    const accentBgSoft = isRejected ? '#fff1f2' : '#f7fee7';
+    const accentBorder = isRejected ? '#fecaca' : '#bbf7d0';
+    const accentBorderSoft = isRejected ? '#fee2e2' : '#dcfce7';
+    const statLabel = isRejected ? 'HS bị từ chối' : 'HS được duyệt';
+    const sectionLabel = isRejected ? 'Danh sách từ chối' : 'Danh sách duyệt';
     const emptyMsg = isRejected ? 'Không có đơn bị từ chối' : '✓ Không có học sinh ra ngoài';
     const emptyColor = isRejected ? '#dc2626' : '#16a34a';
     const emptyBg = isRejected ? '#fef2f2' : '#f0fdf4';
