@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
@@ -43,6 +43,7 @@ interface ExitRequest {
   approver_id: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
+  attachment_url: string | null;
   created_at: string;
   student?: { full_name: string; student_code: string; class_id: string | null };
   requester?: { full_name: string };
@@ -81,8 +82,11 @@ export default function DormitoryExit() {
     returnDate: Date;
     returnTime: string;
     reason: string;
+    attachmentFile?: File | null;
   }
   const [registeredStudents, setRegisteredStudents] = useState<RegisteredStudent[]>([]);
+  const [editAttachmentFile, setEditAttachmentFile] = useState<File | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [currentEditStudentId, setCurrentEditStudentId] = useState<string | null>(null);
   const [editExitDate, setEditExitDate] = useState<Date>(new Date());
   const [editExitTime, setEditExitTime] = useState('');
