@@ -676,7 +676,7 @@ export default function DormitoryExit() {
           <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={approvedRequests.length === 0} title="Xuất Excel">
             <FileSpreadsheet className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowShareDialog(true)} disabled={approvedRequests.length === 0} title="Xuất ảnh">
+          <Button variant="outline" size="sm" onClick={() => setShowShareDialog(true)} disabled={approvedRequests.length === 0 && rejectedRequests.length === 0} title="Xuất ảnh">
             <Image className="h-4 w-4" />
           </Button>
         </div>
