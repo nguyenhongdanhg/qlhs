@@ -569,10 +569,29 @@ export default function DormitoryExit() {
           <p className="text-sm text-muted-foreground capitalize">{dateLabel}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild size="sm" variant="outline">
-            <a href="/mau-don-xin-nghi-ve-nha.docx" download>
-              <FileSpreadsheet className="h-4 w-4 mr-1" /> Tải mẫu đơn
-            </a>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const res = await fetch('/mau-don-xin-nghi-ve-nha.docx');
+                if (!res.ok) throw new Error('Không tải được file');
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Mau-don-xin-nghi-ve-nha.docx';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                toast({ title: 'Đã tải xuống', description: 'Mẫu đơn xin nghỉ về nhà đã được lưu vào máy.' });
+              } catch (err: any) {
+                toast({ title: 'Lỗi tải mẫu đơn', description: err.message, variant: 'destructive' });
+              }
+            }}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-1" /> Tải mẫu đơn
           </Button>
           {canCreate && (
             <Button onClick={() => setShowCreateDialog(true)} size="sm">
