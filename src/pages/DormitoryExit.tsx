@@ -571,7 +571,8 @@ export default function DormitoryExit() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all gap-1.5 border border-blue-700/20"
+            variant="outline"
+            className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:text-blue-800 hover:border-blue-400 gap-1.5"
             onClick={async () => {
               try {
                 const res = await fetch('/mau-don-xin-nghi-ve-nha.docx');
@@ -591,12 +592,9 @@ export default function DormitoryExit() {
               }
             }}
           >
-            <FileText className="h-4 w-4" />
+            <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Tải mẫu đơn</span>
             <span className="sm:hidden">Mẫu đơn</span>
-            <span className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-bold leading-none flex items-center gap-0.5">
-              <Download className="h-2.5 w-2.5" />DOCX
-            </span>
           </Button>
           {canCreate && (
             <Button onClick={() => setShowCreateDialog(true)} size="sm">
@@ -956,21 +954,40 @@ export default function DormitoryExit() {
                     <div>
                       <Label className="text-xs">Ảnh đơn (tải lên Google Drive)</Label>
                       <div className="mt-1 flex items-center gap-2">
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => setEditAttachmentFile(e.target.files?.[0] || null)}
-                          className="h-9 text-xs file:text-xs"
-                        />
+                        <label
+                          htmlFor="exit-attachment-input"
+                          className="flex-1 flex items-center gap-2 px-3 py-2 rounded-md border-2 border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors"
+                        >
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                            <Upload className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            {editAttachmentFile ? (
+                              <>
+                                <p className="text-xs font-medium text-blue-700 truncate">📎 {editAttachmentFile.name}</p>
+                                <p className="text-[10px] text-muted-foreground">Bấm để chọn ảnh khác</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs font-medium text-blue-700">Chọn ảnh đơn từ thiết bị</p>
+                                <p className="text-[10px] text-muted-foreground">Hoặc chụp ảnh trực tiếp</p>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            id="exit-attachment-input"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setEditAttachmentFile(e.target.files?.[0] || null)}
+                            className="hidden"
+                          />
+                        </label>
                         {editAttachmentFile && (
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditAttachmentFile(null)}>
-                            <X className="h-3.5 w-3.5" />
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setEditAttachmentFile(null)}>
+                            <X className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
-                      {editAttachmentFile && (
-                        <p className="text-[10px] text-muted-foreground mt-1 truncate">📎 {editAttachmentFile.name}</p>
-                      )}
                     </div>
                     <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime}>
                       <Check className="h-4 w-4 mr-1" /> Xác nhận
