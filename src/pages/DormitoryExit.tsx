@@ -1194,15 +1194,26 @@ export default function DormitoryExit() {
               Xuất ảnh báo cáo
             </DialogTitle>
           </DialogHeader>
+          <Tabs value={imageVariant} onValueChange={(v) => setImageVariant(v as 'approved' | 'rejected')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="approved" className="text-xs">
+                Danh sách duyệt ({approvedRequests.length})
+              </TabsTrigger>
+              <TabsTrigger value="rejected" className="text-xs">
+                Danh sách từ chối ({rejectedRequests.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="flex justify-center overflow-x-auto py-4">
             <div className="scale-75 origin-top">
               <DormitoryExitImageCard
                 ref={imageRef}
                 schoolName={currentSchool?.name || ''}
-                title="RA NGOÀI KÝ TÚC XÁ"
+                title={imageVariant === 'rejected' ? 'ĐƠN XIN RA KTX BỊ TỪ CHỐI' : 'RA NGOÀI KÝ TÚC XÁ'}
                 date={format(selectedDate, 'yyyy-MM-dd')}
-                totalApproved={approvedRequests.length}
-                students={imageStudents}
+                totalApproved={imageVariant === 'rejected' ? rejectedRequests.length : approvedRequests.length}
+                students={imageVariant === 'rejected' ? rejectedImageStudents : imageStudents}
+                variant={imageVariant}
               />
             </div>
           </div>
