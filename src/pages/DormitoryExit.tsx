@@ -947,6 +947,7 @@ export default function DormitoryExit() {
                               {format(reg.exitDate, 'dd/MM')} {reg.exitTime} → {format(reg.returnDate, 'dd/MM')} {reg.returnTime}
                             </span>
                             {reg.reason && <span>• {reg.reason}</span>}
+                            {reg.attachmentFile && <span className="text-primary">📎 {reg.attachmentFile.name}</span>}
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleRemoveRegistered(reg.studentId)}>
