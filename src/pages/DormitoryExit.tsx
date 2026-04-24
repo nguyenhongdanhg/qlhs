@@ -954,21 +954,40 @@ export default function DormitoryExit() {
                     <div>
                       <Label className="text-xs">Ảnh đơn (tải lên Google Drive)</Label>
                       <div className="mt-1 flex items-center gap-2">
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => setEditAttachmentFile(e.target.files?.[0] || null)}
-                          className="h-9 text-xs file:text-xs"
-                        />
+                        <label
+                          htmlFor="exit-attachment-input"
+                          className="flex-1 flex items-center gap-2 px-3 py-2 rounded-md border-2 border-dashed border-blue-300 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-colors"
+                        >
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                            <Upload className="h-4 w-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            {editAttachmentFile ? (
+                              <>
+                                <p className="text-xs font-medium text-blue-700 truncate">📎 {editAttachmentFile.name}</p>
+                                <p className="text-[10px] text-muted-foreground">Bấm để chọn ảnh khác</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs font-medium text-blue-700">Chọn ảnh đơn từ thiết bị</p>
+                                <p className="text-[10px] text-muted-foreground">Hoặc chụp ảnh trực tiếp</p>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            id="exit-attachment-input"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setEditAttachmentFile(e.target.files?.[0] || null)}
+                            className="hidden"
+                          />
+                        </label>
                         {editAttachmentFile && (
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditAttachmentFile(null)}>
-                            <X className="h-3.5 w-3.5" />
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setEditAttachmentFile(null)}>
+                            <X className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
-                      {editAttachmentFile && (
-                        <p className="text-[10px] text-muted-foreground mt-1 truncate">📎 {editAttachmentFile.name}</p>
-                      )}
                     </div>
                     <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime}>
                       <Check className="h-4 w-4 mr-1" /> Xác nhận
