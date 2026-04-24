@@ -95,6 +95,20 @@ export const ExitRequestImageCard = forwardRef<HTMLDivElement, ExitRequestImageC
                     {s.reason && (
                       <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '1px', ...base }}>📝 {s.reason}</div>
                     )}
+                    <div style={{
+                      display: 'inline-block',
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      marginTop: '2px',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      backgroundColor: s.hasAttachment ? '#dcfce7' : '#fee2e2',
+                      color: s.hasAttachment ? '#166534' : '#991b1b',
+                      border: `1px solid ${s.hasAttachment ? '#86efac' : '#fecaca'}`,
+                      ...base,
+                    }}>
+                      {s.hasAttachment ? '📎 Có kèm đơn' : '⚠ Chưa kèm đơn'}
+                    </div>
                   </div>
                 ))}
               </div>
