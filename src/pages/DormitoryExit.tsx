@@ -344,8 +344,17 @@ export default function DormitoryExit() {
           requester_id: user.id,
         };
       });
-      const { error } = await supabase.from('dormitory_exit_requests').insert(records);
+      const { data: inserted, error } = await supabase.from('dormitory_exit_requests').insert(records).select('id');
       if (error) throw error;
+
+      // Upload đính kèm cho từng đơn (nếu có)
+      const withFiles = registeredStudents
+        .map((reg, idx) => ({ reg, id: inserted?.[idx]?.id }))
+        .filter(x => x.reg.attachmentFile && x.id);
+      if (withFiles.length > 0) {
+        toast({ title: 'Đang tải ảnh đơn...', description: `${withFiles.length} ảnh sẽ được lưu lên Google Drive` });
+        await Promise.all(withFiles.map(x => uploadAttachment(x.reg.attachmentFile!, x.id!)));
+      }
 
       // Save data for image export
       const createdStudents = registeredStudents.map(reg => {
