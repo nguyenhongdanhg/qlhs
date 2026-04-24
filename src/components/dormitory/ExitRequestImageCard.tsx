@@ -10,6 +10,7 @@ interface ExitRequestStudent {
   returnDate: string;
   returnTime: string;
   reason?: string;
+  hasAttachment?: boolean;
 }
 
 interface ExitRequestImageCardProps {
