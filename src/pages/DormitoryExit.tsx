@@ -257,6 +257,7 @@ export default function DormitoryExit() {
     setEditReturnDate(new Date());
     setEditReturnTime('');
     setEditReason('');
+    setEditAttachmentFile(null);
   };
 
   const handleConfirmStudent = () => {
@@ -271,12 +272,54 @@ export default function DormitoryExit() {
       returnDate: editReturnDate,
       returnTime: editReturnTime,
       reason: editReason,
+      attachmentFile: editAttachmentFile,
     }]);
     setCurrentEditStudentId(null);
+    setEditAttachmentFile(null);
   };
 
   const handleRemoveRegistered = (studentId: string) => {
     setRegisteredStudents(prev => prev.filter(r => r.studentId !== studentId));
+  };
+
+  // Upload đơn ảnh lên Google Drive
+  const uploadAttachment = async (file: File, requestId?: string): Promise<string | null> => {
+    if (!currentSchool) return null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Chưa đăng nhập');
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('school_id', currentSchool.id);
+      fd.append('school_name', currentSchool.name);
+      if (requestId) fd.append('request_id', requestId);
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/upload-exit-attachment`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: fd,
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Upload thất bại');
+      return json.url as string;
+    } catch (err: any) {
+      toast({ title: 'Lỗi upload', description: err.message, variant: 'destructive' });
+      return null;
+    }
+  };
+
+  const handleUploadForRequest = async (requestId: string, file: File) => {
+    setUploadingId(requestId);
+    const url = await uploadAttachment(file, requestId);
+    if (url) {
+      toast({ title: 'Đã tải lên', description: 'Ảnh đơn đã lưu vào Google Drive' });
+      fetchRequests();
+    }
+    setUploadingId(null);
   };
 
   const handleCreateRequest = async () => {
