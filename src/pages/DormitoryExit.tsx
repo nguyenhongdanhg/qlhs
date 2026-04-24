@@ -718,7 +718,34 @@ export default function DormitoryExit() {
                           <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatExitReturn(req)}</span>
                         </div>
                         {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
-                        <p className="text-[10px] text-muted-foreground mt-1">GVCN: {req.requester?.full_name}</p>
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                          <p className="text-[10px] text-muted-foreground">GVCN: {req.requester?.full_name}</p>
+                          {req.attachment_url && (
+                            <a href={req.attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary inline-flex items-center gap-0.5 hover:underline">
+                              <Paperclip className="h-3 w-3" /> Xem ảnh đơn
+                            </a>
+                          )}
+                          {(canCreate || canApprove) && (
+                            <label className="text-[10px] text-muted-foreground inline-flex items-center gap-0.5 cursor-pointer hover:text-primary">
+                              {uploadingId === req.id ? (
+                                <><Loader2 className="h-3 w-3 animate-spin" /> Đang tải...</>
+                              ) : (
+                                <><Upload className="h-3 w-3" /> {req.attachment_url ? 'Thay ảnh' : 'Tải ảnh đơn'}</>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={uploadingId === req.id}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleUploadForRequest(req.id, f);
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-1 shrink-0">
                         {canApprove && (
