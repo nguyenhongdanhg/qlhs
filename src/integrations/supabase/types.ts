@@ -267,6 +267,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approver_id: string | null
+          attachment_url: string | null
           class_id: string | null
           created_at: string | null
           exit_date: string | null
@@ -286,6 +287,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approver_id?: string | null
+          attachment_url?: string | null
           class_id?: string | null
           created_at?: string | null
           exit_date?: string | null
@@ -305,6 +307,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approver_id?: string | null
+          attachment_url?: string | null
           class_id?: string | null
           created_at?: string | null
           exit_date?: string | null
