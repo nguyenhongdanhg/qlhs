@@ -568,11 +568,18 @@ export default function DormitoryExit() {
           </h1>
           <p className="text-sm text-muted-foreground capitalize">{dateLabel}</p>
         </div>
-        {canCreate && (
-          <Button onClick={() => setShowCreateDialog(true)} size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Đăng ký
+        <div className="flex items-center gap-2">
+          <Button asChild size="sm" variant="outline">
+            <a href="/mau-don-xin-nghi-ve-nha.docx" download>
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> Tải mẫu đơn
+            </a>
           </Button>
-        )}
+          {canCreate && (
+            <Button onClick={() => setShowCreateDialog(true)} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> Đăng ký
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Summary stats */}
