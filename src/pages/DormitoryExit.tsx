@@ -124,6 +124,7 @@ export default function DormitoryExit() {
     returnDate: string;
     returnTime: string;
     reason?: string;
+    hasAttachment?: boolean;
   }[]>([]);
   const [lastRequesterName, setLastRequesterName] = useState('');
 
@@ -367,6 +368,7 @@ export default function DormitoryExit() {
           returnDate: format(reg.returnDate, 'yyyy-MM-dd'),
           returnTime: reg.returnTime,
           reason: reg.reason || undefined,
+          hasAttachment: !!reg.attachmentFile,
         };
       });
       const profileRes = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
