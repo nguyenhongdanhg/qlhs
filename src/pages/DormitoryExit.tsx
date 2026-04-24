@@ -101,6 +101,7 @@ export default function DormitoryExit() {
 
   // Share dialog
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [imageVariant, setImageVariant] = useState<'approved' | 'rejected'>('approved');
 
   // Delete confirm dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
