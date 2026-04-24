@@ -559,6 +559,17 @@ export default function DormitoryExit() {
     reason: r.reason || undefined,
   }));
 
+  const rejectedImageStudents = rejectedRequests.map(r => ({
+    name: r.student?.full_name || '',
+    className: r.class?.name || '',
+    exitDate: r.exit_date || r.request_date,
+    exitTime: r.exit_time || '',
+    returnDate: r.return_date || r.exit_date || r.request_date,
+    returnTime: r.expected_return_time || '',
+    reason: r.reason || undefined,
+    rejectionReason: r.rejection_reason || undefined,
+  }));
+
   return (
     <div className="space-y-4 p-4 pb-24 lg:pb-4">
       {/* Header */}
