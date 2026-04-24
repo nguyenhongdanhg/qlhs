@@ -571,7 +571,8 @@ export default function DormitoryExit() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all gap-1.5 border border-blue-700/20"
+            variant="outline"
+            className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:text-blue-800 hover:border-blue-400 gap-1.5"
             onClick={async () => {
               try {
                 const res = await fetch('/mau-don-xin-nghi-ve-nha.docx');
@@ -591,12 +592,9 @@ export default function DormitoryExit() {
               }
             }}
           >
-            <FileText className="h-4 w-4" />
+            <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Tải mẫu đơn</span>
             <span className="sm:hidden">Mẫu đơn</span>
-            <span className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-bold leading-none flex items-center gap-0.5">
-              <Download className="h-2.5 w-2.5" />DOCX
-            </span>
           </Button>
           {canCreate && (
             <Button onClick={() => setShowCreateDialog(true)} size="sm">
