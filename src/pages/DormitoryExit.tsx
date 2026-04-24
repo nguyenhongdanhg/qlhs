@@ -124,6 +124,7 @@ export default function DormitoryExit() {
     returnDate: string;
     returnTime: string;
     reason?: string;
+    hasAttachment?: boolean;
   }[]>([]);
   const [lastRequesterName, setLastRequesterName] = useState('');
 
