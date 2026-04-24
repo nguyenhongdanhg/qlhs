@@ -1,0 +1,1 @@
+ALTER TABLE public.dormitory_exit_requests ADD COLUMN IF NOT EXISTS attachment_url TEXT;

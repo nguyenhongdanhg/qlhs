@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
@@ -43,6 +43,7 @@ interface ExitRequest {
   approver_id: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
+  attachment_url: string | null;
   created_at: string;
   student?: { full_name: string; student_code: string; class_id: string | null };
   requester?: { full_name: string };
@@ -81,8 +82,11 @@ export default function DormitoryExit() {
     returnDate: Date;
     returnTime: string;
     reason: string;
+    attachmentFile?: File | null;
   }
   const [registeredStudents, setRegisteredStudents] = useState<RegisteredStudent[]>([]);
+  const [editAttachmentFile, setEditAttachmentFile] = useState<File | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [currentEditStudentId, setCurrentEditStudentId] = useState<string | null>(null);
   const [editExitDate, setEditExitDate] = useState<Date>(new Date());
   const [editExitTime, setEditExitTime] = useState('');
@@ -253,6 +257,7 @@ export default function DormitoryExit() {
     setEditReturnDate(new Date());
     setEditReturnTime('');
     setEditReason('');
+    setEditAttachmentFile(null);
   };
 
   const handleConfirmStudent = () => {
@@ -267,12 +272,54 @@ export default function DormitoryExit() {
       returnDate: editReturnDate,
       returnTime: editReturnTime,
       reason: editReason,
+      attachmentFile: editAttachmentFile,
     }]);
     setCurrentEditStudentId(null);
+    setEditAttachmentFile(null);
   };
 
   const handleRemoveRegistered = (studentId: string) => {
     setRegisteredStudents(prev => prev.filter(r => r.studentId !== studentId));
+  };
+
+  // Upload đơn ảnh lên Google Drive
+  const uploadAttachment = async (file: File, requestId?: string): Promise<string | null> => {
+    if (!currentSchool) return null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Chưa đăng nhập');
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('school_id', currentSchool.id);
+      fd.append('school_name', currentSchool.name);
+      if (requestId) fd.append('request_id', requestId);
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/upload-exit-attachment`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: fd,
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Upload thất bại');
+      return json.url as string;
+    } catch (err: any) {
+      toast({ title: 'Lỗi upload', description: err.message, variant: 'destructive' });
+      return null;
+    }
+  };
+
+  const handleUploadForRequest = async (requestId: string, file: File) => {
+    setUploadingId(requestId);
+    const url = await uploadAttachment(file, requestId);
+    if (url) {
+      toast({ title: 'Đã tải lên', description: 'Ảnh đơn đã lưu vào Google Drive' });
+      fetchRequests();
+    }
+    setUploadingId(null);
   };
 
   const handleCreateRequest = async () => {
@@ -297,8 +344,17 @@ export default function DormitoryExit() {
           requester_id: user.id,
         };
       });
-      const { error } = await supabase.from('dormitory_exit_requests').insert(records);
+      const { data: inserted, error } = await supabase.from('dormitory_exit_requests').insert(records).select('id');
       if (error) throw error;
+
+      // Upload đính kèm cho từng đơn (nếu có)
+      const withFiles = registeredStudents
+        .map((reg, idx) => ({ reg, id: inserted?.[idx]?.id }))
+        .filter(x => x.reg.attachmentFile && x.id);
+      if (withFiles.length > 0) {
+        toast({ title: 'Đang tải ảnh đơn...', description: `${withFiles.length} ảnh sẽ được lưu lên Google Drive` });
+        await Promise.all(withFiles.map(x => uploadAttachment(x.reg.attachmentFile!, x.id!)));
+      }
 
       // Save data for image export
       const createdStudents = registeredStudents.map(reg => {
@@ -662,7 +718,34 @@ export default function DormitoryExit() {
                           <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatExitReturn(req)}</span>
                         </div>
                         {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
-                        <p className="text-[10px] text-muted-foreground mt-1">GVCN: {req.requester?.full_name}</p>
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                          <p className="text-[10px] text-muted-foreground">GVCN: {req.requester?.full_name}</p>
+                          {req.attachment_url && (
+                            <a href={req.attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary inline-flex items-center gap-0.5 hover:underline">
+                              <Paperclip className="h-3 w-3" /> Xem ảnh đơn
+                            </a>
+                          )}
+                          {(canCreate || canApprove) && (
+                            <label className="text-[10px] text-muted-foreground inline-flex items-center gap-0.5 cursor-pointer hover:text-primary">
+                              {uploadingId === req.id ? (
+                                <><Loader2 className="h-3 w-3 animate-spin" /> Đang tải...</>
+                              ) : (
+                                <><Upload className="h-3 w-3" /> {req.attachment_url ? 'Thay ảnh' : 'Tải ảnh đơn'}</>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={uploadingId === req.id}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleUploadForRequest(req.id, f);
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-1 shrink-0">
                         {canApprove && (
@@ -839,6 +922,25 @@ export default function DormitoryExit() {
                       <Label className="text-xs">Lý do (không bắt buộc)</Label>
                       <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
                     </div>
+                    <div>
+                      <Label className="text-xs">Ảnh đơn (tải lên Google Drive)</Label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setEditAttachmentFile(e.target.files?.[0] || null)}
+                          className="h-9 text-xs file:text-xs"
+                        />
+                        {editAttachmentFile && (
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditAttachmentFile(null)}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                      {editAttachmentFile && (
+                        <p className="text-[10px] text-muted-foreground mt-1 truncate">📎 {editAttachmentFile.name}</p>
+                      )}
+                    </div>
                     <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime}>
                       <Check className="h-4 w-4 mr-1" /> Xác nhận
                     </Button>
@@ -872,6 +974,7 @@ export default function DormitoryExit() {
                               {format(reg.exitDate, 'dd/MM')} {reg.exitTime} → {format(reg.returnDate, 'dd/MM')} {reg.returnTime}
                             </span>
                             {reg.reason && <span>• {reg.reason}</span>}
+                            {reg.attachmentFile && <span className="text-primary">📎 {reg.attachmentFile.name}</span>}
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleRemoveRegistered(reg.studentId)}>
