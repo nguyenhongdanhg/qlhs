@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
@@ -571,7 +571,7 @@ export default function DormitoryExit() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant="outline"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all gap-1.5 border border-blue-700/20"
             onClick={async () => {
               try {
                 const res = await fetch('/mau-don-xin-nghi-ve-nha.docx');
@@ -591,7 +591,12 @@ export default function DormitoryExit() {
               }
             }}
           >
-            <FileSpreadsheet className="h-4 w-4 mr-1" /> Tải mẫu đơn
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Tải mẫu đơn</span>
+            <span className="sm:hidden">Mẫu đơn</span>
+            <span className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-bold leading-none flex items-center gap-0.5">
+              <Download className="h-2.5 w-2.5" />DOCX
+            </span>
           </Button>
           {canCreate && (
             <Button onClick={() => setShowCreateDialog(true)} size="sm">
