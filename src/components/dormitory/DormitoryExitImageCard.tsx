@@ -10,6 +10,7 @@ interface ExitStudent {
   returnDate: string;
   returnTime: string;
   reason?: string;
+  rejectionReason?: string;
 }
 
 interface DormitoryExitImageCardProps {
@@ -18,10 +19,24 @@ interface DormitoryExitImageCardProps {
   date: string;
   totalApproved: number;
   students: ExitStudent[];
+  variant?: 'approved' | 'rejected';
 }
 
 export const DormitoryExitImageCard = forwardRef<HTMLDivElement, DormitoryExitImageCardProps>(
-  ({ schoolName, title, date, totalApproved, students }, ref) => {
+  ({ schoolName, title, date, totalApproved, students, variant = 'approved' }, ref) => {
+    const isRejected = variant === 'rejected';
+    const accent = isRejected ? '#dc2626' : '#7c3aed';
+    const accentDark = isRejected ? '#991b1b' : '#5b21b6';
+    const accentBg = isRejected ? '#fef2f2' : '#f5f3ff';
+    const accentBgSoft = isRejected ? '#fff1f2' : '#faf5ff';
+    const accentBorder = isRejected ? '#fecaca' : '#ddd6fe';
+    const accentBorderSoft = isRejected ? '#fee2e2' : '#ede9fe';
+    const statLabel = isRejected ? 'HS bị từ chối' : 'HS ra ngoài';
+    const sectionLabel = isRejected ? 'Danh sách từ chối' : 'Danh sách';
+    const emptyMsg = isRejected ? 'Không có đơn bị từ chối' : '✓ Không có học sinh ra ngoài';
+    const emptyColor = isRejected ? '#dc2626' : '#16a34a';
+    const emptyBg = isRejected ? '#fef2f2' : '#f0fdf4';
+
     const groupedByClass = new Map<string, ExitStudent[]>();
     students.forEach(s => {
       if (!groupedByClass.has(s.className)) groupedByClass.set(s.className, []);
@@ -64,22 +79,22 @@ export const DormitoryExitImageCard = forwardRef<HTMLDivElement, DormitoryExitIm
         }}
       >
         {/* Header */}
-        <div style={{ marginBottom: '10px', textAlign: 'center', borderBottom: '2px solid #7c3aed', paddingBottom: '8px' }}>
+        <div style={{ marginBottom: '10px', textAlign: 'center', borderBottom: `2px solid ${accent}`, paddingBottom: '8px' }}>
           <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px', ...base }}>{schoolName}</div>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#7c3aed', ...base }}>{title}</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: accent, ...base }}>{title}</div>
           <div style={{ fontSize: '11px', color: '#374151', marginTop: '2px', ...base }}>{formattedDate}</div>
         </div>
 
         {/* Stats */}
         <div style={{
           display: 'flex', gap: '8px', marginBottom: '10px',
-          backgroundColor: '#f5f3ff', borderRadius: '8px', padding: '8px',
+          backgroundColor: accentBg, borderRadius: '8px', padding: '8px',
         }}>
           <div style={{ flex: 1, textAlign: 'center' }}>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#7c3aed' }}>{totalApproved}</div>
-            <div style={{ fontSize: '9px', color: '#7c3aed', textTransform: 'uppercase', ...base }}>HS ra ngoài</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: accent }}>{totalApproved}</div>
+            <div style={{ fontSize: '9px', color: accent, textTransform: 'uppercase', ...base }}>{statLabel}</div>
           </div>
-          <div style={{ width: '1px', backgroundColor: '#ddd6fe' }} />
+          <div style={{ width: '1px', backgroundColor: accentBorder }} />
           <div style={{ flex: 1, textAlign: 'center' }}>
             <div style={{ fontSize: '22px', fontWeight: 700, color: '#374151' }}>{groupedByClass.size}</div>
             <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', ...base }}>Lớp</div>
@@ -90,11 +105,11 @@ export const DormitoryExitImageCard = forwardRef<HTMLDivElement, DormitoryExitIm
         {totalApproved > 0 && (
           <div style={{ marginBottom: '10px' }}>
             <div style={{
-              fontSize: '10px', fontWeight: 600, color: '#7c3aed', marginBottom: '4px',
+              fontSize: '10px', fontWeight: 600, color: accent, marginBottom: '4px',
               display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', ...base,
             }}>
-              <span style={{ width: '5px', height: '5px', backgroundColor: '#7c3aed', borderRadius: '50%', display: 'inline-block' }} />
-              Danh sách ({totalApproved})
+              <span style={{ width: '5px', height: '5px', backgroundColor: accent, borderRadius: '50%', display: 'inline-block' }} />
+              {sectionLabel} ({totalApproved})
             </div>
 
             {Array.from(groupedByClass.entries())
@@ -102,12 +117,12 @@ export const DormitoryExitImageCard = forwardRef<HTMLDivElement, DormitoryExitIm
               .map(([className, classStudents], classIndex) => (
                 <div key={className} style={{
                   borderRadius: '6px',
-                  border: '1px solid #ddd6fe',
-                  backgroundColor: '#faf5ff',
+                  border: `1px solid ${accentBorder}`,
+                  backgroundColor: accentBgSoft,
                   padding: '6px 8px',
                   marginTop: classIndex > 0 ? '4px' : '0',
                 }}>
-                  <div style={{ fontWeight: 600, color: '#5b21b6', fontSize: '11px', marginBottom: '2px', ...base }}>
+                  <div style={{ fontWeight: 600, color: accentDark, fontSize: '11px', marginBottom: '2px', ...base }}>
                     {className} ({classStudents.length})
                   </div>
                   {classStudents.map((s, idx) => (
@@ -116,13 +131,18 @@ export const DormitoryExitImageCard = forwardRef<HTMLDivElement, DormitoryExitIm
                       justifyContent: 'space-between',
                       alignItems: 'flex-start',
                       paddingTop: idx > 0 ? '2px' : '0',
-                      borderTop: idx > 0 ? '1px solid #ede9fe' : 'none',
+                      borderTop: idx > 0 ? `1px solid ${accentBorderSoft}` : 'none',
                       marginTop: idx > 0 ? '2px' : '0',
                     }}>
                       <div style={{ flex: 1 }}>
                         <span style={{ fontSize: '12px', color: '#374151', ...base }}>{s.name}</span>
                         {s.reason && (
                           <div style={{ fontSize: '10px', color: '#9ca3af', ...base }}>{s.reason}</div>
+                        )}
+                        {isRejected && s.rejectionReason && (
+                          <div style={{ fontSize: '10px', color: '#dc2626', fontStyle: 'italic', ...base }}>
+                            ✗ {s.rejectionReason}
+                          </div>
                         )}
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '8px' }}>
@@ -139,10 +159,10 @@ export const DormitoryExitImageCard = forwardRef<HTMLDivElement, DormitoryExitIm
 
         {totalApproved === 0 && (
           <div style={{
-            marginBottom: '10px', borderRadius: '6px', backgroundColor: '#f0fdf4',
-            padding: '10px', textAlign: 'center', color: '#16a34a', fontWeight: 500, fontSize: '12px', ...base,
+            marginBottom: '10px', borderRadius: '6px', backgroundColor: emptyBg,
+            padding: '10px', textAlign: 'center', color: emptyColor, fontWeight: 500, fontSize: '12px', ...base,
           }}>
-            ✓ Không có học sinh ra ngoài
+            {emptyMsg}
           </div>
         )}
 

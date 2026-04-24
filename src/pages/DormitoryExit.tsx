@@ -101,6 +101,7 @@ export default function DormitoryExit() {
 
   // Share dialog
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [imageVariant, setImageVariant] = useState<'approved' | 'rejected'>('approved');
 
   // Delete confirm dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -522,8 +523,10 @@ export default function DormitoryExit() {
 
   const handleShareDownload = (mode: 'share' | 'download') => {
     if (imageRef.current) {
-      const title = `Ra vào KTX - ${format(selectedDate, 'dd/MM/yyyy')}`;
-      exportAndShare(imageRef, title, 'Danh sách học sinh ra ngoài KTX', mode);
+      const label = imageVariant === 'rejected' ? 'Tu choi ra KTX' : 'Ra vao KTX';
+      const desc = imageVariant === 'rejected' ? 'Danh sách đơn bị từ chối' : 'Danh sách học sinh ra ngoài KTX';
+      const title = `${label} - ${format(selectedDate, 'dd/MM/yyyy')}`;
+      exportAndShare(imageRef, title, desc, mode);
     }
   };
 
@@ -557,6 +560,17 @@ export default function DormitoryExit() {
     returnDate: r.return_date || r.exit_date || r.request_date,
     returnTime: r.expected_return_time || '',
     reason: r.reason || undefined,
+  }));
+
+  const rejectedImageStudents = rejectedRequests.map(r => ({
+    name: r.student?.full_name || '',
+    className: r.class?.name || '',
+    exitDate: r.exit_date || r.request_date,
+    exitTime: r.exit_time || '',
+    returnDate: r.return_date || r.exit_date || r.request_date,
+    returnTime: r.expected_return_time || '',
+    reason: r.reason || undefined,
+    rejectionReason: r.rejection_reason || undefined,
   }));
 
   return (
@@ -664,7 +678,7 @@ export default function DormitoryExit() {
           <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={approvedRequests.length === 0} title="Xuất Excel">
             <FileSpreadsheet className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowShareDialog(true)} disabled={approvedRequests.length === 0} title="Xuất ảnh">
+          <Button variant="outline" size="sm" onClick={() => setShowShareDialog(true)} disabled={approvedRequests.length === 0 && rejectedRequests.length === 0} title="Xuất ảnh">
             <Image className="h-4 w-4" />
           </Button>
         </div>
@@ -1180,15 +1194,26 @@ export default function DormitoryExit() {
               Xuất ảnh báo cáo
             </DialogTitle>
           </DialogHeader>
+          <Tabs value={imageVariant} onValueChange={(v) => setImageVariant(v as 'approved' | 'rejected')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="approved" className="text-xs">
+                Danh sách duyệt ({approvedRequests.length})
+              </TabsTrigger>
+              <TabsTrigger value="rejected" className="text-xs">
+                Danh sách từ chối ({rejectedRequests.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="flex justify-center overflow-x-auto py-4">
             <div className="scale-75 origin-top">
               <DormitoryExitImageCard
                 ref={imageRef}
                 schoolName={currentSchool?.name || ''}
-                title="RA NGOÀI KÝ TÚC XÁ"
+                title={imageVariant === 'rejected' ? 'ĐƠN XIN RA KTX BỊ TỪ CHỐI' : 'RA NGOÀI KÝ TÚC XÁ'}
                 date={format(selectedDate, 'yyyy-MM-dd')}
-                totalApproved={approvedRequests.length}
-                students={imageStudents}
+                totalApproved={imageVariant === 'rejected' ? rejectedRequests.length : approvedRequests.length}
+                students={imageVariant === 'rejected' ? rejectedImageStudents : imageStudents}
+                variant={imageVariant}
               />
             </div>
           </div>
