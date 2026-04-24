@@ -1209,7 +1209,7 @@ export default function DormitoryExit() {
               <DormitoryExitImageCard
                 ref={imageRef}
                 schoolName={currentSchool?.name || ''}
-                title={imageVariant === 'rejected' ? 'ĐƠN XIN RA KTX BỊ TỪ CHỐI' : 'RA NGOÀI KÝ TÚC XÁ'}
+                title={imageVariant === 'rejected' ? 'ĐƠN XIN RA KTX BỊ TỪ CHỐI' : 'DANH SÁCH DUYỆT RA KTX'}
                 date={format(selectedDate, 'yyyy-MM-dd')}
                 totalApproved={imageVariant === 'rejected' ? rejectedRequests.length : approvedRequests.length}
                 students={imageVariant === 'rejected' ? rejectedImageStudents : imageStudents}
