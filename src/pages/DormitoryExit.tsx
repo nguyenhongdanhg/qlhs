@@ -895,6 +895,25 @@ export default function DormitoryExit() {
                       <Label className="text-xs">Lý do (không bắt buộc)</Label>
                       <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
                     </div>
+                    <div>
+                      <Label className="text-xs">Ảnh đơn (tải lên Google Drive)</Label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setEditAttachmentFile(e.target.files?.[0] || null)}
+                          className="h-9 text-xs file:text-xs"
+                        />
+                        {editAttachmentFile && (
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditAttachmentFile(null)}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                      {editAttachmentFile && (
+                        <p className="text-[10px] text-muted-foreground mt-1 truncate">📎 {editAttachmentFile.name}</p>
+                      )}
+                    </div>
                     <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime}>
                       <Check className="h-4 w-4 mr-1" /> Xác nhận
                     </Button>
