@@ -523,8 +523,10 @@ export default function DormitoryExit() {
 
   const handleShareDownload = (mode: 'share' | 'download') => {
     if (imageRef.current) {
-      const title = `Ra vào KTX - ${format(selectedDate, 'dd/MM/yyyy')}`;
-      exportAndShare(imageRef, title, 'Danh sách học sinh ra ngoài KTX', mode);
+      const label = imageVariant === 'rejected' ? 'Tu choi ra KTX' : 'Ra vao KTX';
+      const desc = imageVariant === 'rejected' ? 'Danh sách đơn bị từ chối' : 'Danh sách học sinh ra ngoài KTX';
+      const title = `${label} - ${format(selectedDate, 'dd/MM/yyyy')}`;
+      exportAndShare(imageRef, title, desc, mode);
     }
   };
 
