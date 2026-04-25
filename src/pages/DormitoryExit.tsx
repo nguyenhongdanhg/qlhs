@@ -414,8 +414,58 @@ export default function DormitoryExit() {
     }
   };
 
+  const openEditRejected = (req: ExitRequest) => {
+    setEditingRejected(req);
+    setEditRejExitDate(req.exit_date ? new Date(req.exit_date) : new Date());
+    setEditRejExitTime(req.exit_time?.slice(0, 5) || '');
+    setEditRejReturnDate(req.return_date ? new Date(req.return_date) : new Date());
+    setEditRejReturnTime(req.expected_return_time?.slice(0, 5) || '');
+    setEditRejReason(req.reason || '');
+    setEditRejAttachmentFile(null);
+    setShowEditRejectedDialog(true);
+  };
 
-  const handleReject = async () => {
+  const handleResubmitRejected = async () => {
+    if (!editingRejected || !user) return;
+    if (!editRejExitTime || !editRejReturnTime) {
+      toast({ title: 'Thiếu thông tin', description: 'Vui lòng nhập giờ ra và giờ vào', variant: 'destructive' });
+      return;
+    }
+    setIsResubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('dormitory_exit_requests')
+        .update({
+          status: 'pending',
+          approver_id: null,
+          approved_at: null,
+          rejection_reason: null,
+          exit_date: format(editRejExitDate, 'yyyy-MM-dd'),
+          return_date: format(editRejReturnDate, 'yyyy-MM-dd'),
+          request_date: format(editRejExitDate, 'yyyy-MM-dd'),
+          exit_time: editRejExitTime,
+          expected_return_time: editRejReturnTime,
+          reason: editRejReason || null,
+        })
+        .eq('id', editingRejected.id);
+      if (error) throw error;
+
+      if (editRejAttachmentFile) {
+        await uploadAttachment(editRejAttachmentFile, editingRejected.id);
+      }
+
+      toast({ title: 'Đã gửi lại', description: 'Đơn đã chuyển về trạng thái chờ duyệt' });
+      setShowEditRejectedDialog(false);
+      setEditingRejected(null);
+      fetchRequests();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsResubmitting(false);
+    }
+  };
+
+
     if (!rejectingId || !user) return;
     try {
       const { error } = await supabase
