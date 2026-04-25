@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
@@ -106,6 +106,17 @@ export default function DormitoryExit() {
   // Delete confirm dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Edit & resubmit rejected dialog
+  const [showEditRejectedDialog, setShowEditRejectedDialog] = useState(false);
+  const [editingRejected, setEditingRejected] = useState<ExitRequest | null>(null);
+  const [editRejExitDate, setEditRejExitDate] = useState<Date>(new Date());
+  const [editRejExitTime, setEditRejExitTime] = useState('');
+  const [editRejReturnDate, setEditRejReturnDate] = useState<Date>(new Date());
+  const [editRejReturnTime, setEditRejReturnTime] = useState('');
+  const [editRejReason, setEditRejReason] = useState('');
+  const [editRejAttachmentFile, setEditRejAttachmentFile] = useState<File | null>(null);
+  const [isResubmitting, setIsResubmitting] = useState(false);
 
   // Batch selection for pending requests
   const [selectedPending, setSelectedPending] = useState<string[]>([]);
@@ -403,7 +414,56 @@ export default function DormitoryExit() {
     }
   };
 
+  const openEditRejected = (req: ExitRequest) => {
+    setEditingRejected(req);
+    setEditRejExitDate(req.exit_date ? new Date(req.exit_date) : new Date());
+    setEditRejExitTime(req.exit_time?.slice(0, 5) || '');
+    setEditRejReturnDate(req.return_date ? new Date(req.return_date) : new Date());
+    setEditRejReturnTime(req.expected_return_time?.slice(0, 5) || '');
+    setEditRejReason(req.reason || '');
+    setEditRejAttachmentFile(null);
+    setShowEditRejectedDialog(true);
+  };
 
+  const handleResubmitRejected = async () => {
+    if (!editingRejected || !user) return;
+    if (!editRejExitTime || !editRejReturnTime) {
+      toast({ title: 'Thiếu thông tin', description: 'Vui lòng nhập giờ ra và giờ vào', variant: 'destructive' });
+      return;
+    }
+    setIsResubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('dormitory_exit_requests')
+        .update({
+          status: 'pending',
+          approver_id: null,
+          approved_at: null,
+          rejection_reason: null,
+          exit_date: format(editRejExitDate, 'yyyy-MM-dd'),
+          return_date: format(editRejReturnDate, 'yyyy-MM-dd'),
+          request_date: format(editRejExitDate, 'yyyy-MM-dd'),
+          exit_time: editRejExitTime,
+          expected_return_time: editRejReturnTime,
+          reason: editRejReason || null,
+        })
+        .eq('id', editingRejected.id);
+      if (error) throw error;
+
+      if (editRejAttachmentFile) {
+        await uploadAttachment(editRejAttachmentFile, editingRejected.id);
+      }
+
+      toast({ title: 'Đã gửi lại', description: 'Đơn đã chuyển về trạng thái chờ duyệt' });
+      setShowEditRejectedDialog(false);
+      setEditingRejected(null);
+      fetchRequests();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsResubmitting(false);
+    }
+  };
   const handleReject = async () => {
     if (!rejectingId || !user) return;
     try {
@@ -895,11 +955,23 @@ export default function DormitoryExit() {
                       </p>
                     )}
                   </div>
-                  {canDelete && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {req.requester_id === user?.id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-primary border-primary/40 hover:bg-primary/10"
+                        onClick={() => openEditRejected(req)}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1" /> Sửa & gửi lại
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1138,6 +1210,101 @@ export default function DormitoryExit() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBatchRejectDialog(false)}>Hủy</Button>
             <Button variant="destructive" onClick={handleBatchReject}>Từ chối ({selectedPending.length})</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit & resubmit rejected dialog */}
+      <Dialog open={showEditRejectedDialog} onOpenChange={setShowEditRejectedDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" /> Sửa & gửi lại đơn
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {editingRejected?.student?.full_name} {editingRejected?.class?.name && `(${editingRejected.class.name})`}
+            </DialogDescription>
+          </DialogHeader>
+          {editingRejected?.rejection_reason && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/30 p-2 text-xs text-destructive flex items-start gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span><span className="font-semibold">Lý do từ chối:</span> {editingRejected.rejection_reason}</span>
+            </div>
+          )}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Ngày ra</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start mt-1 h-9 text-xs font-normal">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                      {format(editRejExitDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={editRejExitDate} onSelect={(d) => d && setEditRejExitDate(d)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs">Giờ ra</Label>
+                <Input type="time" value={editRejExitTime} onChange={(e) => setEditRejExitTime(e.target.value)} className="mt-1 h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Ngày về</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start mt-1 h-9 text-xs font-normal">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                      {format(editRejReturnDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={editRejReturnDate} onSelect={(d) => d && setEditRejReturnDate(d)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs">Giờ về</Label>
+                <Input type="time" value={editRejReturnTime} onChange={(e) => setEditRejReturnTime(e.target.value)} className="mt-1 h-9 text-sm" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Lý do</Label>
+              <Textarea value={editRejReason} onChange={(e) => setEditRejReason(e.target.value)} className="mt-1 text-sm" rows={2} />
+            </div>
+            <div>
+              <Label className="text-xs">Ảnh đơn (tùy chọn — thay thế ảnh cũ nếu chọn)</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <label className="flex-1">
+                  <Button type="button" variant="outline" size="sm" className="w-full h-9 text-xs cursor-pointer" asChild>
+                    <span>
+                      <Upload className="h-3.5 w-3.5 mr-1" />
+                      {editRejAttachmentFile ? editRejAttachmentFile.name : 'Chọn ảnh đơn'}
+                    </span>
+                  </Button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setEditRejAttachmentFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+                {editRejAttachmentFile && (
+                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setEditRejAttachmentFile(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditRejectedDialog(false)}>Hủy</Button>
+            <Button onClick={handleResubmitRejected} disabled={isResubmitting}>
+              {isResubmitting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Gửi lại
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
