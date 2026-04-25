@@ -1214,6 +1214,101 @@ export default function DormitoryExit() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit & resubmit rejected dialog */}
+      <Dialog open={showEditRejectedDialog} onOpenChange={setShowEditRejectedDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" /> Sửa & gửi lại đơn
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {editingRejected?.student?.full_name} {editingRejected?.class?.name && `(${editingRejected.class.name})`}
+            </DialogDescription>
+          </DialogHeader>
+          {editingRejected?.rejection_reason && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/30 p-2 text-xs text-destructive flex items-start gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span><span className="font-semibold">Lý do từ chối:</span> {editingRejected.rejection_reason}</span>
+            </div>
+          )}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Ngày ra</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start mt-1 h-9 text-xs font-normal">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                      {format(editRejExitDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={editRejExitDate} onSelect={(d) => d && setEditRejExitDate(d)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs">Giờ ra</Label>
+                <Input type="time" value={editRejExitTime} onChange={(e) => setEditRejExitTime(e.target.value)} className="mt-1 h-9 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Ngày về</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start mt-1 h-9 text-xs font-normal">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                      {format(editRejReturnDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={editRejReturnDate} onSelect={(d) => d && setEditRejReturnDate(d)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs">Giờ về</Label>
+                <Input type="time" value={editRejReturnTime} onChange={(e) => setEditRejReturnTime(e.target.value)} className="mt-1 h-9 text-sm" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Lý do</Label>
+              <Textarea value={editRejReason} onChange={(e) => setEditRejReason(e.target.value)} className="mt-1 text-sm" rows={2} />
+            </div>
+            <div>
+              <Label className="text-xs">Ảnh đơn (tùy chọn — thay thế ảnh cũ nếu chọn)</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <label className="flex-1">
+                  <Button type="button" variant="outline" size="sm" className="w-full h-9 text-xs cursor-pointer" asChild>
+                    <span>
+                      <Upload className="h-3.5 w-3.5 mr-1" />
+                      {editRejAttachmentFile ? editRejAttachmentFile.name : 'Chọn ảnh đơn'}
+                    </span>
+                  </Button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setEditRejAttachmentFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+                {editRejAttachmentFile && (
+                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setEditRejAttachmentFile(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditRejectedDialog(false)}>Hủy</Button>
+            <Button onClick={handleResubmitRejected} disabled={isResubmitting}>
+              {isResubmitting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Gửi lại
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>Xác nhận xóa</DialogTitle></DialogHeader>
