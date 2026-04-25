@@ -803,9 +803,13 @@ export default function DormitoryExit() {
                             </Button>
                           </>
                         )}
-                        {canDelete && (
+                        {canDelete ? (
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }} title="Xóa">
                             <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : req.requester_id === user?.id && (
+                          <Button size="sm" variant="outline" className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }} title="Rút đơn">
+                            <Trash2 className="h-3.5 w-3.5 mr-1" /> Rút đơn
                           </Button>
                         )}
                       </div>
