@@ -464,8 +464,7 @@ export default function DormitoryExit() {
       setIsResubmitting(false);
     }
   };
-
-
+  const handleReject = async () => {
     if (!rejectingId || !user) return;
     try {
       const { error } = await supabase
