@@ -107,6 +107,17 @@ export default function DormitoryExit() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Edit & resubmit rejected dialog
+  const [showEditRejectedDialog, setShowEditRejectedDialog] = useState(false);
+  const [editingRejected, setEditingRejected] = useState<ExitRequest | null>(null);
+  const [editRejExitDate, setEditRejExitDate] = useState<Date>(new Date());
+  const [editRejExitTime, setEditRejExitTime] = useState('');
+  const [editRejReturnDate, setEditRejReturnDate] = useState<Date>(new Date());
+  const [editRejReturnTime, setEditRejReturnTime] = useState('');
+  const [editRejReason, setEditRejReason] = useState('');
+  const [editRejAttachmentFile, setEditRejAttachmentFile] = useState<File | null>(null);
+  const [isResubmitting, setIsResubmitting] = useState(false);
+
   // Batch selection for pending requests
   const [selectedPending, setSelectedPending] = useState<string[]>([]);
 
