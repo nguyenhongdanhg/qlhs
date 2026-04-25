@@ -955,11 +955,23 @@ export default function DormitoryExit() {
                       </p>
                     )}
                   </div>
-                  {canDelete && (
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive shrink-0" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {req.requester_id === user?.id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-primary border-primary/40 hover:bg-primary/10"
+                        onClick={() => openEditRejected(req)}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1" /> Sửa & gửi lại
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
