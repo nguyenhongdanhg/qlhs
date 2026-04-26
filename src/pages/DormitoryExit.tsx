@@ -1166,6 +1166,7 @@ export default function DormitoryExit() {
                             </span>
                             {reg.reason && <span>• {reg.reason}</span>}
                             {reg.attachmentFile && <span className="text-primary">📎 {reg.attachmentFile.name}</span>}
+                            {reg.sameDay && <span className="text-amber-700 font-medium">• Trong ngày</span>}
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleRemoveRegistered(reg.studentId)}>
