@@ -208,6 +208,10 @@ export default function Boarding() {
 
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
+  // Active dormitory exits for the selected date — surfaces students currently
+  // approved to be out of the dorm so the on-duty teacher knows what to expect.
+  const { exits: activeExits } = useActiveDormitoryExits(currentSchool?.id, date);
+
   // Sort classes by grade
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
