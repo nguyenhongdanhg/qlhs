@@ -615,12 +615,17 @@ export default function DormitoryExit() {
     const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     const titleLabel = filterRange === 'day' ? `Ngày ${format(selectedDate, 'dd/MM/yyyy')}` : filterRange === 'week' ? `Tuần ${format(selectedDate, 'dd/MM/yyyy')}` : `Tháng ${format(selectedDate, 'MM/yyyy')}`;
 
-    const headers = ['STT', 'Họ và tên', 'Lớp', 'Trong ngày', 'Ngày ra', 'Giờ ra', 'Ngày vào', 'Giờ vào', 'Trạng thái', 'Lý do', 'GVCN', 'Người duyệt', 'Thẩm quyền'];
+    const headers = ['STT', 'Họ và tên', 'Lớp', 'Trong ngày', 'Ngày ra', 'Giờ ra', 'Ngày vào', 'Giờ vào', 'Trạng thái', 'Đã vào', 'Lý do', 'GVCN', 'Người duyệt', 'Thẩm quyền'];
     const statuses: Array<{ expired: boolean; label: string; minutes: number } | null> = [];
+    const returnedFlags: boolean[] = [];
 
     const rows = approvedRequests.map((r, i) => {
       const rs = getReturnStatus(r);
-      statuses.push(rs);
+      const isReturned = !!r.returned_at;
+      // Hide expired status if student has returned
+      const effectiveStatus = isReturned ? null : rs;
+      statuses.push(effectiveStatus);
+      returnedFlags.push(isReturned);
       return [
         i + 1,
         r.student?.full_name || '',
@@ -630,7 +635,8 @@ export default function DormitoryExit() {
         r.exit_time?.slice(0, 5) || '',
         r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
         r.expected_return_time?.slice(0, 5) || '',
-        rs ? (rs.expired ? `Quá hạn ${rs.label}` : `Còn ${rs.label}`) : '',
+        effectiveStatus ? (effectiveStatus.expired ? `Quá hạn ${effectiveStatus.label}` : `Còn ${effectiveStatus.label}`) : '',
+        isReturned ? `✓ ${format(new Date(r.returned_at!), 'HH:mm dd/MM')}` : '',
         r.reason || '',
         r.requester?.full_name || '',
         r.approver?.full_name || '',
@@ -642,7 +648,7 @@ export default function DormitoryExit() {
     const aoa: any[][] = [
       ['DANH SÁCH HỌC SINH RA NGOÀI KTX'],
       [titleLabel],
-      [`Tổng: ${approvedRequests.length} đơn  •  Xuất lúc: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`],
+      [`Tổng: ${approvedRequests.length} đơn  •  Đã vào: ${returnedFlags.filter(Boolean).length}  •  Xuất lúc: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`],
       [],
       headers,
       ...rows,
@@ -698,7 +704,20 @@ export default function DormitoryExit() {
       };
     });
 
-    fitColumnsToA4(ws, [5, 22, 8, 10, 11, 8, 11, 8, 16, 24, 18, 18, 14]);
+    // Highlight "Đã vào" column (index 9) with green when returned
+    returnedFlags.forEach((isReturned, idx) => {
+      if (!isReturned) return;
+      const cellRef = XLSX.utils.encode_cell({ r: dataStartRow + idx, c: 9 });
+      if (!ws[cellRef]) return;
+      ws[cellRef].s = {
+        fill: { fgColor: { rgb: 'C8E6C9' } },
+        font: { bold: true, sz: 10, color: { rgb: '2E7D32' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: ExcelBorders.thin,
+      };
+    });
+
+    fitColumnsToA4(ws, [5, 22, 8, 10, 11, 8, 11, 8, 16, 14, 22, 16, 16, 14]);
 
     // Set row heights for title and data
     ws['!rows'] = [
