@@ -1592,7 +1592,7 @@ export default function DormitoryExit() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-4 w-4" /> Sửa & gửi lại đơn
+              <Pencil className="h-4 w-4" /> {editingRejected?.status === 'pending' ? 'Sửa đơn' : 'Sửa & gửi lại đơn'}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {editingRejected?.student?.full_name} {editingRejected?.class?.name && `(${editingRejected.class.name})`}
