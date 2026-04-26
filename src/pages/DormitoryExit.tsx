@@ -44,6 +44,9 @@ interface ExitRequest {
   approved_at: string | null;
   rejection_reason: string | null;
   attachment_url: string | null;
+  same_day?: boolean;
+  delegated_to_teacher?: boolean;
+  delegated_to_duty?: boolean;
   created_at: string;
   student?: { full_name: string; student_code: string; class_id: string | null };
   requester?: { full_name: string };
