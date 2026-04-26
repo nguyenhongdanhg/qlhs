@@ -273,16 +273,59 @@ export default function DormitoryExit() {
   const approvedRequests = useMemo(() => filteredRequests.filter(r => r.status === 'approved'), [filteredRequests]);
   const rejectedRequests = useMemo(() => filteredRequests.filter(r => r.status === 'rejected'), [filteredRequests]);
 
-  // Group approved by class for stats display
+  // Filter approved by return-status (uses `now` so updates with the minute timer)
+  const filteredApprovedRequests = useMemo(() => {
+    if (approvedFilter === 'all') return approvedRequests;
+    return approvedRequests.filter(req => {
+      const isReturned = !!req.returned_at;
+      if (approvedFilter === 'returned') return isReturned;
+      if (approvedFilter === 'not_returned') return !isReturned;
+      if (approvedFilter === 'expired') {
+        if (isReturned) return false;
+        if (!req.expected_return_time) return false;
+        const dateStr = req.return_date || req.exit_date || req.request_date;
+        if (!dateStr) return false;
+        try {
+          const [h, m] = req.expected_return_time.split(':').map(Number);
+          const ret = new Date(dateStr);
+          ret.setHours(h || 0, m || 0, 0, 0);
+          return ret.getTime() < now.getTime();
+        } catch { return false; }
+      }
+      return true;
+    });
+  }, [approvedRequests, approvedFilter, now]);
+
+  // Counters for filter chips
+  const approvedCounts = useMemo(() => {
+    let returned = 0, notReturned = 0, expired = 0;
+    approvedRequests.forEach(req => {
+      const isReturned = !!req.returned_at;
+      if (isReturned) { returned++; return; }
+      notReturned++;
+      if (!req.expected_return_time) return;
+      const dateStr = req.return_date || req.exit_date || req.request_date;
+      if (!dateStr) return;
+      try {
+        const [h, m] = req.expected_return_time.split(':').map(Number);
+        const ret = new Date(dateStr);
+        ret.setHours(h || 0, m || 0, 0, 0);
+        if (ret.getTime() < now.getTime()) expired++;
+      } catch {}
+    });
+    return { all: approvedRequests.length, returned, notReturned, expired };
+  }, [approvedRequests, now]);
+
+  // Group approved by class for stats display (using filtered list)
   const approvedByClass = useMemo(() => {
     const map = new Map<string, ExitRequest[]>();
-    approvedRequests.forEach(r => {
+    filteredApprovedRequests.forEach(r => {
       const cls = r.class?.name || 'Không rõ';
       if (!map.has(cls)) map.set(cls, []);
       map.get(cls)!.push(r);
     });
     return map;
-  }, [approvedRequests]);
+  }, [filteredApprovedRequests]);
 
   const handleSelectStudent = (studentId: string) => {
     // If already registered, ignore
