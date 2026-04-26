@@ -582,6 +582,20 @@ export default function DormitoryExit() {
     }
   };
 
+  // Toggle "đã vào" status
+  const handleToggleReturned = async (req: ExitRequest) => {
+    try {
+      const { error } = await supabase
+        .from('dormitory_exit_requests')
+        .update({ returned_at: req.returned_at ? null : new Date().toISOString() } as any)
+        .eq('id', req.id);
+      if (error) throw error;
+      toast({ title: req.returned_at ? 'Đã bỏ đánh dấu' : 'Đã đánh dấu học sinh đã vào' });
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
   // Delete request
   const handleDelete = async () => {
     if (!deletingId) return;
