@@ -597,24 +597,28 @@ export default function DormitoryExit() {
 
   // Export Excel
   const handleExportExcel = () => {
-    const data = approvedRequests.map((r, i) => ({
-      'STT': i + 1,
-      'Họ và tên': r.student?.full_name || '',
-      'Lớp': r.class?.name || '',
-      'Trong ngày': r.same_day ? '✓' : '',
-      'Ngày ra': r.exit_date ? format(new Date(r.exit_date), 'dd/MM/yyyy') : format(new Date(r.request_date), 'dd/MM/yyyy'),
-      'Giờ ra': r.exit_time?.slice(0, 5) || '',
-      'Ngày vào': r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
-      'Giờ vào': r.expected_return_time?.slice(0, 5) || '',
-      'Lý do': r.reason || '',
-      'GVCN': r.requester?.full_name || '',
-      'Người duyệt': r.approver?.full_name || '',
-      'Thẩm quyền': [r.delegated_to_teacher && 'GVCN', r.delegated_to_duty && 'Ca trực'].filter(Boolean).join(', '),
-    }));
+    const data = approvedRequests.map((r, i) => {
+      const rs = getReturnStatus(r);
+      return {
+        'STT': i + 1,
+        'Họ và tên': r.student?.full_name || '',
+        'Lớp': r.class?.name || '',
+        'Trong ngày': r.same_day ? '✓' : '',
+        'Ngày ra': r.exit_date ? format(new Date(r.exit_date), 'dd/MM/yyyy') : format(new Date(r.request_date), 'dd/MM/yyyy'),
+        'Giờ ra': r.exit_time?.slice(0, 5) || '',
+        'Ngày vào': r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
+        'Giờ vào': r.expected_return_time?.slice(0, 5) || '',
+        'Trạng thái': rs ? (rs.expired ? `Quá hạn ${rs.label}` : `Còn ${rs.label}`) : '',
+        'Lý do': r.reason || '',
+        'GVCN': r.requester?.full_name || '',
+        'Người duyệt': r.approver?.full_name || '',
+        'Thẩm quyền': [r.delegated_to_teacher && 'GVCN', r.delegated_to_duty && 'Ca trực'].filter(Boolean).join(', '),
+      };
+    });
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ra vào KTX');
-    fitColumnsToA4(ws, [5, 25, 10, 10, 12, 8, 12, 8, 25, 18, 18, 16]);
+    fitColumnsToA4(ws, [5, 25, 10, 10, 12, 8, 12, 8, 16, 25, 18, 18, 16]);
     const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     XLSX.writeFile(wb, `Ra_vao_KTX_${rangeLabel}.xlsx`);
     toast({ title: 'Đã xuất Excel' });
