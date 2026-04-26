@@ -950,6 +950,9 @@ export default function DormitoryExit() {
                               <span className="text-muted-foreground ml-2">
                                 {formatExitReturn(req)}
                               </span>
+                              {req.same_day && <Badge className="ml-1.5 text-[9px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 px-1 py-0">Trong ngày</Badge>}
+                              {req.delegated_to_teacher && <Badge variant="outline" className="ml-1 text-[9px] border-blue-300 text-blue-700 px-1 py-0">GVCN</Badge>}
+                              {req.delegated_to_duty && <Badge variant="outline" className="ml-1 text-[9px] border-purple-300 text-purple-700 px-1 py-0">Ca trực</Badge>}
                               {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
                             </div>
                             {canDelete && (
