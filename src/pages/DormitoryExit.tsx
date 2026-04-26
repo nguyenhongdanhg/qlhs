@@ -981,6 +981,9 @@ export default function DormitoryExit() {
         </div>
 
         <div className="flex gap-1">
+          <Button variant="outline" size="sm" onClick={() => { setStatsData(null); setShowStatsDialog(true); }} title="Thống kê theo giai đoạn">
+            <BarChart3 className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={approvedRequests.length === 0} title="Xuất Excel">
             <FileSpreadsheet className="h-4 w-4" />
           </Button>
