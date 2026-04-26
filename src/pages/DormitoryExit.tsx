@@ -1183,6 +1183,29 @@ export default function DormitoryExit() {
                     </Button>
                   );
                 })}
+                {(() => {
+                  const classOpts = Array.from(
+                    new Map(
+                      approvedRequests
+                        .filter(r => r.class_id)
+                        .map(r => [r.class_id as string, r.class?.name || '—'])
+                    ).entries()
+                  ).sort((a, b) => a[1].localeCompare(b[1], 'vi'));
+                  if (classOpts.length <= 1) return null;
+                  return (
+                    <Select value={approvedClassFilter} onValueChange={setApprovedClassFilter}>
+                      <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs px-2">
+                        <SelectValue placeholder="Lớp" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả lớp</SelectItem>
+                        {classOpts.map(([id, name]) => (
+                          <SelectItem key={id} value={id}>{name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                })()}
               </div>
               {filteredApprovedRequests.length === 0 && (
                 <Card><CardContent className="py-6 text-center text-muted-foreground text-xs">Không có học sinh phù hợp với bộ lọc</CardContent></Card>
