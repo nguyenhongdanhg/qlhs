@@ -561,7 +561,10 @@ export default function DormitoryExit() {
         await uploadAttachment(editRejAttachmentFile, editingRejected.id);
       }
 
-      toast({ title: 'Đã gửi lại', description: 'Đơn đã chuyển về trạng thái chờ duyệt' });
+      toast({
+        title: editingRejected.status === 'rejected' ? 'Đã gửi lại' : 'Đã cập nhật',
+        description: 'Đơn đã chuyển về trạng thái chờ duyệt',
+      });
       setShowEditRejectedDialog(false);
       setEditingRejected(null);
       fetchRequests();
