@@ -1009,6 +1009,7 @@ export default function EveningStudy() {
                     const status = attendance[student.id];
                     const isAbsent = status === 'absent' || status === 'excused';
                     const excuse = excuseInfo[student.id];
+                    const exitInfo = activeExits[student.id];
                     return (
                       <button
                         key={student.id}
@@ -1016,7 +1017,7 @@ export default function EveningStudy() {
                         disabled={!canCreate}
                         className={cn(
                           'w-full flex items-center gap-2 px-3 py-2 text-left transition-all',
-                          isAbsent ? 'bg-destructive/10' : 'hover:bg-muted/50',
+                          isAbsent ? 'bg-destructive/10' : exitInfo ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-muted/50',
                           !canCreate && 'opacity-60 cursor-not-allowed'
                         )}
                       >
@@ -1027,9 +1028,15 @@ export default function EveningStudy() {
                           {!isAbsent && <CheckCircle2 className="h-3 w-3 text-white" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={cn("font-medium text-sm truncate", isAbsent && "text-destructive")}>{student.full_name}</span>
                             <span className="text-xs text-muted-foreground flex-shrink-0">{student.class?.name}</span>
+                            {exitInfo && (
+                              <Badge variant="outline" className="border-amber-400 bg-amber-100 text-amber-800 text-[10px] px-1 py-0 h-4 gap-0.5">
+                                <LogOut className="h-2.5 w-2.5" />
+                                Ra KTX {formatExitWindow(exitInfo)}
+                              </Badge>
+                            )}
                           </div>
                           {isAbsent && excuse && (
                             <div className="flex items-center gap-1 mt-0.5">
