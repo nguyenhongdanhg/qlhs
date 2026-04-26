@@ -47,6 +47,7 @@ interface ExitRequest {
   same_day?: boolean;
   delegated_to_teacher?: boolean;
   delegated_to_duty?: boolean;
+  returned_at?: string | null;
   created_at: string;
   student?: { full_name: string; student_code: string; class_id: string | null };
   requester?: { full_name: string };
