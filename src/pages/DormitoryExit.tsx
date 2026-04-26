@@ -117,6 +117,13 @@ export default function DormitoryExit() {
   type ApprovedFilter = 'all' | 'not_returned' | 'returned' | 'expired';
   const [approvedFilter, setApprovedFilter] = useState<ApprovedFilter>('all');
 
+  // Live clock — ticks each minute so "đã hết hạn" badge updates
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   // Statistics dialog (period range)
   const [showStatsDialog, setShowStatsDialog] = useState(false);
   const [statsFromDate, setStatsFromDate] = useState<Date>(startOfMonth(new Date()));
