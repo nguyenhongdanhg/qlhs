@@ -25,7 +25,7 @@ import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
 import { ExitRequestImageCard } from '@/components/dormitory/ExitRequestImageCard';
 import * as XLSX from 'xlsx-js-style';
-import { fitColumnsToA4 } from '@/lib/excel-styles';
+import { fitColumnsToA4, applyProfessionalStyle, getColumnAlignments, applyWarningCellStyle, ExcelColors, ExcelFonts, ExcelBorders } from '@/lib/excel-styles';
 
 interface ExitRequest {
   id: string;
