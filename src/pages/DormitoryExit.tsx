@@ -113,6 +113,17 @@ export default function DormitoryExit() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Approved list filter
+  type ApprovedFilter = 'all' | 'not_returned' | 'returned' | 'expired';
+  const [approvedFilter, setApprovedFilter] = useState<ApprovedFilter>('all');
+
+  // Statistics dialog (period range)
+  const [showStatsDialog, setShowStatsDialog] = useState(false);
+  const [statsFromDate, setStatsFromDate] = useState<Date>(startOfMonth(new Date()));
+  const [statsToDate, setStatsToDate] = useState<Date>(new Date());
+  const [statsData, setStatsData] = useState<ExitRequest[] | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
   // Approve dialog (with delegation options)
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [approvingIds, setApprovingIds] = useState<string[]>([]);
