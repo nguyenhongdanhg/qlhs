@@ -291,8 +291,12 @@ export default function DormitoryExit() {
 
   // Filter approved by return-status (uses `now` so updates with the minute timer)
   const filteredApprovedRequests = useMemo(() => {
-    if (approvedFilter === 'all') return approvedRequests;
-    return approvedRequests.filter(req => {
+    let list = approvedRequests;
+    if (approvedClassFilter !== 'all') {
+      list = list.filter(r => (r.class_id || '') === approvedClassFilter);
+    }
+    if (approvedFilter === 'all') return list;
+    return list.filter(req => {
       const isReturned = !!req.returned_at;
       if (approvedFilter === 'returned') return isReturned;
       if (approvedFilter === 'not_returned') return !isReturned;
@@ -310,7 +314,7 @@ export default function DormitoryExit() {
       }
       return true;
     });
-  }, [approvedRequests, approvedFilter, now]);
+  }, [approvedRequests, approvedFilter, approvedClassFilter, now]);
 
   // Counters for filter chips
   const approvedCounts = useMemo(() => {
