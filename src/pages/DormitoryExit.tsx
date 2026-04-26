@@ -1757,6 +1757,153 @@ export default function DormitoryExit() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Statistics by period dialog */}
+      <Dialog open={showStatsDialog} onOpenChange={setShowStatsDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" /> Thống kê ra vào theo giai đoạn</DialogTitle>
+            <DialogDescription>Chọn khoảng thời gian để thống kê đơn đã duyệt.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Từ ngày</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start h-9 text-sm">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(statsFromDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={statsFromDate} onSelect={(d) => d && setStatsFromDate(d)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs">Đến ngày</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start h-9 text-sm">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(statsToDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={statsToDate} onSelect={(d) => d && setStatsToDate(d)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (!currentSchool) return;
+                  setIsLoadingStats(true);
+                  try {
+                    const from = format(statsFromDate, 'yyyy-MM-dd');
+                    const to = format(statsToDate, 'yyyy-MM-dd');
+                    const { data, error } = await supabase
+                      .from('dormitory_exit_requests')
+                      .select('*, student:students(full_name, student_code, class_id), class:classes(name)')
+                      .eq('school_id', currentSchool.id)
+                      .eq('status', 'approved')
+                      .gte('request_date', from)
+                      .lte('request_date', to);
+                    if (error) throw error;
+                    setStatsData((data || []) as any);
+                  } catch (e: any) {
+                    toast({ title: 'Lỗi', description: e.message, variant: 'destructive' });
+                  } finally {
+                    setIsLoadingStats(false);
+                  }
+                }}
+                disabled={isLoadingStats}
+              >
+                {isLoadingStats ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                Thống kê
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                const today = new Date();
+                setStatsFromDate(startOfWeek(today, { weekStartsOn: 1 }));
+                setStatsToDate(endOfWeek(today, { weekStartsOn: 1 }));
+              }}>Tuần này</Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                const today = new Date();
+                setStatsFromDate(startOfMonth(today));
+                setStatsToDate(endOfMonth(today));
+              }}>Tháng này</Button>
+            </div>
+
+            {statsData && (() => {
+              const total = statsData.length;
+              let returned = 0, notReturned = 0, expired = 0;
+              const byClass = new Map<string, { total: number; returned: number; notReturned: number; expired: number }>();
+              statsData.forEach(req => {
+                const isReturned = !!req.returned_at;
+                const cls = req.class?.name || 'Không rõ';
+                if (!byClass.has(cls)) byClass.set(cls, { total: 0, returned: 0, notReturned: 0, expired: 0 });
+                const entry = byClass.get(cls)!;
+                entry.total++;
+                if (isReturned) { returned++; entry.returned++; }
+                else {
+                  notReturned++; entry.notReturned++;
+                  if (req.expected_return_time) {
+                    const dateStr = req.return_date || req.exit_date || req.request_date;
+                    if (dateStr) {
+                      try {
+                        const [h, m] = req.expected_return_time.split(':').map(Number);
+                        const ret = new Date(dateStr);
+                        ret.setHours(h || 0, m || 0, 0, 0);
+                        if (ret.getTime() < now.getTime()) { expired++; entry.expired++; }
+                      } catch {}
+                    }
+                  }
+                }
+              });
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-4 gap-2">
+                    <Card><CardContent className="p-2 text-center"><div className="text-[10px] text-muted-foreground">Tổng đơn</div><div className="text-lg font-bold">{total}</div></CardContent></Card>
+                    <Card><CardContent className="p-2 text-center"><div className="text-[10px] text-muted-foreground">Đã vào</div><div className="text-lg font-bold text-emerald-600">{returned}</div></CardContent></Card>
+                    <Card><CardContent className="p-2 text-center"><div className="text-[10px] text-muted-foreground">Chưa vào</div><div className="text-lg font-bold text-amber-600">{notReturned}</div></CardContent></Card>
+                    <Card><CardContent className="p-2 text-center"><div className="text-[10px] text-muted-foreground">Quá hạn</div><div className="text-lg font-bold text-red-600">{expired}</div></CardContent></Card>
+                  </div>
+                  {byClass.size > 0 && (
+                    <div className="border rounded-md overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Lớp</TableHead>
+                            <TableHead className="text-xs text-center">Tổng</TableHead>
+                            <TableHead className="text-xs text-center">Đã vào</TableHead>
+                            <TableHead className="text-xs text-center">Chưa vào</TableHead>
+                            <TableHead className="text-xs text-center">Quá hạn</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Array.from(byClass.entries()).sort((a, b) => a[0].localeCompare(b[0], 'vi')).map(([cls, s]) => (
+                            <TableRow key={cls}>
+                              <TableCell className="text-xs font-medium py-1.5">{cls}</TableCell>
+                              <TableCell className="text-xs text-center py-1.5">{s.total}</TableCell>
+                              <TableCell className="text-xs text-center py-1.5 text-emerald-700">{s.returned}</TableCell>
+                              <TableCell className="text-xs text-center py-1.5 text-amber-700">{s.notReturned}</TableCell>
+                              <TableCell className="text-xs text-center py-1.5 text-red-700">{s.expired}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  {total === 0 && <div className="text-center text-xs text-muted-foreground py-4">Không có dữ liệu trong khoảng thời gian này</div>}
+                </div>
+              );
+            })()}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
