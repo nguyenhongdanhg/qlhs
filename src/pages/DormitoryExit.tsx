@@ -282,6 +282,7 @@ export default function DormitoryExit() {
     setEditReturnDate(new Date());
     setEditReturnTime('');
     setEditReason('');
+    setEditSameDay(false);
     setEditAttachmentFile(null);
   };
 
@@ -297,9 +298,11 @@ export default function DormitoryExit() {
       returnDate: editReturnDate,
       returnTime: editReturnTime,
       reason: editReason,
+      sameDay: editSameDay,
       attachmentFile: editAttachmentFile,
     }]);
     setCurrentEditStudentId(null);
+    setEditSameDay(false);
     setEditAttachmentFile(null);
   };
 
