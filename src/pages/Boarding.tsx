@@ -83,6 +83,8 @@ import {
   exportSingleAttendanceReport,
   AttendanceReportData,
 } from '@/lib/excel-export';
+import { useActiveDormitoryExits, formatExitWindow } from '@/hooks/useActiveDormitoryExits';
+import { LogOut } from 'lucide-react';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 type ExcuseInfo = { excused: boolean; reason: string };
