@@ -1257,15 +1257,22 @@ export default function DormitoryExit() {
                               {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
                             </div>
                             <div className="flex gap-1 shrink-0 ml-2">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className={`h-6 w-6 ${isReturned ? 'text-emerald-600 bg-emerald-50' : 'text-muted-foreground'}`}
-                                onClick={() => handleToggleReturned(req)}
-                                title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </Button>
+                              {(() => {
+                                const canMark = isSuperAdmin || isSchoolAdmin() || hasPermission('dormitory_exit', 'edit') ||
+                                  (isClassTeacher && currentMembership?.class_id && req.class_id === currentMembership.class_id);
+                                if (!canMark) return null;
+                                return (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className={`h-6 w-6 ${isReturned ? 'text-emerald-600 bg-emerald-50' : 'text-muted-foreground'}`}
+                                    onClick={() => handleToggleReturned(req)}
+                                    title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                );
+                              })()}
                               {canDelete && (
                                 <>
                                   <Button size="icon" variant="ghost" className="h-6 w-6 text-amber-600" onClick={() => handleRevoke(req.id)} title="Thu hồi">
