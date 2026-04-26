@@ -175,6 +175,14 @@ export default function DormitoryExit() {
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
   const canDelete = isSchoolAdmin() || isSuperAdmin;
   const canCreate = isClassTeacher || isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'create');
+  // GVCN có thể sửa đơn pending/rejected của lớp mình; người tạo đơn cũng có thể sửa; admin luôn được sửa.
+  const canEditRequest = (req: ExitRequest) => {
+    if (req.status !== 'pending' && req.status !== 'rejected') return false;
+    if (isSchoolAdmin() || isSuperAdmin) return true;
+    if (req.requester_id === user?.id) return true;
+    if (isClassTeacher && currentMembership?.class_id && req.class_id === currentMembership.class_id) return true;
+    return false;
+  };
 
   useEffect(() => {
     if (!currentSchool) return;
@@ -553,7 +561,10 @@ export default function DormitoryExit() {
         await uploadAttachment(editRejAttachmentFile, editingRejected.id);
       }
 
-      toast({ title: 'Đã gửi lại', description: 'Đơn đã chuyển về trạng thái chờ duyệt' });
+      toast({
+        title: editingRejected.status === 'rejected' ? 'Đã gửi lại' : 'Đã cập nhật',
+        description: 'Đơn đã chuyển về trạng thái chờ duyệt',
+      });
       setShowEditRejectedDialog(false);
       setEditingRejected(null);
       fetchRequests();
@@ -1115,6 +1126,11 @@ export default function DormitoryExit() {
                             </Button>
                           </>
                         )}
+                        {canEditRequest(req) && (
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => openEditRejected(req)} title="Sửa đơn">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                         {canDelete ? (
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }} title="Xóa">
                             <Trash2 className="h-4 w-4" />
@@ -1269,7 +1285,7 @@ export default function DormitoryExit() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {req.requester_id === user?.id && (
+                    {canEditRequest(req) && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1576,7 +1592,7 @@ export default function DormitoryExit() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-4 w-4" /> Sửa & gửi lại đơn
+              <Pencil className="h-4 w-4" /> {editingRejected?.status === 'pending' ? 'Sửa đơn' : 'Sửa & gửi lại đơn'}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {editingRejected?.student?.full_name} {editingRejected?.class?.name && `(${editingRejected.class.name})`}
@@ -1660,7 +1676,7 @@ export default function DormitoryExit() {
             <Button variant="outline" onClick={() => setShowEditRejectedDialog(false)}>Hủy</Button>
             <Button onClick={handleResubmitRejected} disabled={isResubmitting}>
               {isResubmitting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              Gửi lại
+              {editingRejected?.status === 'pending' ? 'Lưu' : 'Gửi lại'}
             </Button>
           </DialogFooter>
         </DialogContent>
