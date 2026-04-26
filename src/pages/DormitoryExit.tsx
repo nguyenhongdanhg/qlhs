@@ -634,6 +634,38 @@ export default function DormitoryExit() {
     return classes.find(c => c.id === classId)?.name || '';
   };
 
+  // Live clock — ticks each minute so "đã hết hạn" badge updates
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Compute return-time status compared to current time
+  const getReturnStatus = (req: ExitRequest): { expired: boolean; label: string; minutes: number } | null => {
+    if (!req.expected_return_time) return null;
+    const dateStr = req.return_date || req.exit_date || req.request_date;
+    if (!dateStr) return null;
+    try {
+      const [h, m] = req.expected_return_time.split(':').map(Number);
+      const ret = new Date(dateStr);
+      ret.setHours(h || 0, m || 0, 0, 0);
+      const diffMin = Math.round((ret.getTime() - now.getTime()) / 60000);
+      const expired = diffMin < 0;
+      const abs = Math.abs(diffMin);
+      const days = Math.floor(abs / 1440);
+      const hours = Math.floor((abs % 1440) / 60);
+      const mins = abs % 60;
+      let label = '';
+      if (days > 0) label = `${days} ngày${hours > 0 ? ` ${hours}g` : ''}`;
+      else if (hours > 0) label = `${hours}g${mins > 0 ? ` ${mins}p` : ''}`;
+      else label = `${mins}p`;
+      return { expired, label, minutes: diffMin };
+    } catch {
+      return null;
+    }
+  };
+
   // Helper to format exit/return date-time display
   const formatExitReturn = (req: ExitRequest) => {
     const eDateStr = req.exit_date ? format(new Date(req.exit_date), 'dd/MM') : format(new Date(req.request_date), 'dd/MM');
@@ -949,13 +981,27 @@ export default function DormitoryExit() {
                     </CardHeader>
                     <CardContent className="px-3 pb-3 pt-1">
                       <div className="space-y-1.5">
-                        {classReqs.map(req => (
+                        {classReqs.map(req => {
+                          const rs = getReturnStatus(req);
+                          return (
                           <div key={req.id} className="flex items-center justify-between text-xs border-b last:border-0 pb-1.5 last:pb-0">
                             <div className="flex-1 min-w-0">
                               <span className="font-medium">{req.student?.full_name}</span>
                               <span className="text-muted-foreground ml-2">
                                 {formatExitReturn(req)}
                               </span>
+                              {rs && (
+                                <Badge
+                                  className={`ml-1.5 text-[9px] px-1 py-0 border ${
+                                    rs.expired
+                                      ? 'bg-red-100 text-red-800 hover:bg-red-100 border-red-200'
+                                      : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200'
+                                  }`}
+                                  title={rs.expired ? 'Đã quá giờ về' : 'Còn lại đến giờ về'}
+                                >
+                                  {rs.expired ? `Quá hạn ${rs.label}` : `Còn ${rs.label}`}
+                                </Badge>
+                              )}
                               {req.same_day && <Badge className="ml-1.5 text-[9px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 px-1 py-0">Trong ngày</Badge>}
                               {req.delegated_to_teacher && <Badge variant="outline" className="ml-1 text-[9px] border-blue-300 text-blue-700 px-1 py-0">GVCN</Badge>}
                               {req.delegated_to_duty && <Badge variant="outline" className="ml-1 text-[9px] border-purple-300 text-purple-700 px-1 py-0">Ca trực</Badge>}
@@ -972,7 +1018,8 @@ export default function DormitoryExit() {
                               </div>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
