@@ -1676,7 +1676,7 @@ export default function DormitoryExit() {
             <Button variant="outline" onClick={() => setShowEditRejectedDialog(false)}>Hủy</Button>
             <Button onClick={handleResubmitRejected} disabled={isResubmitting}>
               {isResubmitting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              Gửi lại
+              {editingRejected?.status === 'pending' ? 'Lưu' : 'Gửi lại'}
             </Button>
           </DialogFooter>
         </DialogContent>
