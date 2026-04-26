@@ -634,6 +634,38 @@ export default function DormitoryExit() {
     return classes.find(c => c.id === classId)?.name || '';
   };
 
+  // Live clock — ticks each minute so "đã hết hạn" badge updates
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Compute return-time status compared to current time
+  const getReturnStatus = (req: ExitRequest): { expired: boolean; label: string; minutes: number } | null => {
+    if (!req.expected_return_time) return null;
+    const dateStr = req.return_date || req.exit_date || req.request_date;
+    if (!dateStr) return null;
+    try {
+      const [h, m] = req.expected_return_time.split(':').map(Number);
+      const ret = new Date(dateStr);
+      ret.setHours(h || 0, m || 0, 0, 0);
+      const diffMin = Math.round((ret.getTime() - now.getTime()) / 60000);
+      const expired = diffMin < 0;
+      const abs = Math.abs(diffMin);
+      const days = Math.floor(abs / 1440);
+      const hours = Math.floor((abs % 1440) / 60);
+      const mins = abs % 60;
+      let label = '';
+      if (days > 0) label = `${days} ngày${hours > 0 ? ` ${hours}g` : ''}`;
+      else if (hours > 0) label = `${hours}g${mins > 0 ? ` ${mins}p` : ''}`;
+      else label = `${mins}p`;
+      return { expired, label, minutes: diffMin };
+    } catch {
+      return null;
+    }
+  };
+
   // Helper to format exit/return date-time display
   const formatExitReturn = (req: ExitRequest) => {
     const eDateStr = req.exit_date ? format(new Date(req.exit_date), 'dd/MM') : format(new Date(req.request_date), 'dd/MM');
