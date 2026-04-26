@@ -636,7 +636,7 @@ export default function DormitoryExit() {
         r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
         r.expected_return_time?.slice(0, 5) || '',
         effectiveStatus ? (effectiveStatus.expired ? `Quá hạn ${effectiveStatus.label}` : `Còn ${effectiveStatus.label}`) : '',
-        isReturned ? `✓ ${format(new Date(r.returned_at!), 'HH:mm dd/MM')}` : '',
+        isReturned ? '✓' : '',
         r.reason || '',
         r.requester?.full_name || '',
         r.approver?.full_name || '',
