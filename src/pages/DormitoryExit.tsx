@@ -803,12 +803,7 @@ export default function DormitoryExit() {
     return classes.find(c => c.id === classId)?.name || '';
   };
 
-  // Live clock — ticks each minute so "đã hết hạn" badge updates
-  const [now, setNow] = useState<Date>(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
-  }, []);
+  // (live `now` clock declared earlier near other state)
 
   // Compute return-time status compared to current time
   const getReturnStatus = (req: ExitRequest): { expired: boolean; label: string; minutes: number } | null => {
