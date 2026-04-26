@@ -1277,7 +1277,7 @@ export default function DormitoryExit() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {req.requester_id === user?.id && (
+                    {canEditRequest(req) && (
                       <Button
                         size="sm"
                         variant="outline"
