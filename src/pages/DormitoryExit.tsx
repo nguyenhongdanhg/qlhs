@@ -597,29 +597,106 @@ export default function DormitoryExit() {
 
   // Export Excel
   const handleExportExcel = () => {
-    const data = approvedRequests.map((r, i) => {
+    const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
+    const titleLabel = filterRange === 'day' ? `Ngày ${format(selectedDate, 'dd/MM/yyyy')}` : filterRange === 'week' ? `Tuần ${format(selectedDate, 'dd/MM/yyyy')}` : `Tháng ${format(selectedDate, 'MM/yyyy')}`;
+
+    const headers = ['STT', 'Họ và tên', 'Lớp', 'Trong ngày', 'Ngày ra', 'Giờ ra', 'Ngày vào', 'Giờ vào', 'Trạng thái', 'Lý do', 'GVCN', 'Người duyệt', 'Thẩm quyền'];
+    const statuses: Array<{ expired: boolean; label: string; minutes: number } | null> = [];
+
+    const rows = approvedRequests.map((r, i) => {
       const rs = getReturnStatus(r);
-      return {
-        'STT': i + 1,
-        'Họ và tên': r.student?.full_name || '',
-        'Lớp': r.class?.name || '',
-        'Trong ngày': r.same_day ? '✓' : '',
-        'Ngày ra': r.exit_date ? format(new Date(r.exit_date), 'dd/MM/yyyy') : format(new Date(r.request_date), 'dd/MM/yyyy'),
-        'Giờ ra': r.exit_time?.slice(0, 5) || '',
-        'Ngày vào': r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
-        'Giờ vào': r.expected_return_time?.slice(0, 5) || '',
-        'Trạng thái': rs ? (rs.expired ? `Quá hạn ${rs.label}` : `Còn ${rs.label}`) : '',
-        'Lý do': r.reason || '',
-        'GVCN': r.requester?.full_name || '',
-        'Người duyệt': r.approver?.full_name || '',
-        'Thẩm quyền': [r.delegated_to_teacher && 'GVCN', r.delegated_to_duty && 'Ca trực'].filter(Boolean).join(', '),
+      statuses.push(rs);
+      return [
+        i + 1,
+        r.student?.full_name || '',
+        r.class?.name || '',
+        r.same_day ? '✓' : '',
+        r.exit_date ? format(new Date(r.exit_date), 'dd/MM/yyyy') : format(new Date(r.request_date), 'dd/MM/yyyy'),
+        r.exit_time?.slice(0, 5) || '',
+        r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
+        r.expected_return_time?.slice(0, 5) || '',
+        rs ? (rs.expired ? `Quá hạn ${rs.label}` : `Còn ${rs.label}`) : '',
+        r.reason || '',
+        r.requester?.full_name || '',
+        r.approver?.full_name || '',
+        [r.delegated_to_teacher && 'GVCN', r.delegated_to_duty && 'Ca trực'].filter(Boolean).join(', '),
+      ];
+    });
+
+    // Build sheet: title rows + header + data
+    const aoa: any[][] = [
+      ['DANH SÁCH HỌC SINH RA NGOÀI KTX'],
+      [titleLabel],
+      [`Tổng: ${approvedRequests.length} đơn  •  Xuất lúc: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`],
+      [],
+      headers,
+      ...rows,
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Merge title rows across all columns
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: headers.length - 1 } },
+    ];
+
+    const headerRowIndex = 4;
+    const dataStartRow = 5;
+
+    applyProfessionalStyle(ws, {
+      headerRowIndex,
+      dataStartRow,
+      dataRowCount: rows.length,
+      numCols: headers.length,
+      columnAlignments: getColumnAlignments(headers),
+      numTitleRows: 3,
+    });
+
+    // Highlight "Trong ngày" column (index 3) with amber when ✓
+    rows.forEach((row, idx) => {
+      if (row[3] === '✓') {
+        const cellRef = XLSX.utils.encode_cell({ r: dataStartRow + idx, c: 3 });
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: 'FFE0B2' } },
+            font: { ...ExcelFonts.cellBold, color: { rgb: 'E65100' } },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: ExcelBorders.thin,
+          };
+        }
+      }
+    });
+
+    // Highlight "Trạng thái" column (index 8): red if expired, green if còn
+    statuses.forEach((rs, idx) => {
+      if (!rs) return;
+      const cellRef = XLSX.utils.encode_cell({ r: dataStartRow + idx, c: 8 });
+      if (!ws[cellRef]) return;
+      const isExpired = rs.expired;
+      ws[cellRef].s = {
+        fill: { fgColor: { rgb: isExpired ? 'FFCDD2' : 'C8E6C9' } },
+        font: { bold: true, sz: 10, color: { rgb: isExpired ? 'C62828' : '2E7D32' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: ExcelBorders.thin,
       };
     });
-    const ws = XLSX.utils.json_to_sheet(data);
+
+    fitColumnsToA4(ws, [5, 22, 8, 10, 11, 8, 11, 8, 16, 24, 18, 18, 14]);
+
+    // Set row heights for title and data
+    ws['!rows'] = [
+      { hpt: 24 }, // Title
+      { hpt: 18 }, // Subtitle
+      { hpt: 16 }, // Info
+      { hpt: 8 },  // Spacer
+      { hpt: 22 }, // Header
+      ...rows.map(() => ({ hpt: 20 })),
+    ];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ra vào KTX');
-    fitColumnsToA4(ws, [5, 25, 10, 10, 12, 8, 12, 8, 16, 25, 18, 18, 16]);
-    const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     XLSX.writeFile(wb, `Ra_vao_KTX_${rangeLabel}.xlsx`);
     toast({ title: 'Đã xuất Excel' });
   };
