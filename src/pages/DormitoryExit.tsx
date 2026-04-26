@@ -369,6 +369,7 @@ export default function DormitoryExit() {
           exit_time: reg.exitTime,
           expected_return_time: reg.returnTime,
           reason: reg.reason || null,
+          same_day: reg.sameDay,
           requester_id: user.id,
         };
       });
