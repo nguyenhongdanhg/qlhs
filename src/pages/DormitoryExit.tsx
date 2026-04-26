@@ -1217,14 +1217,24 @@ export default function DormitoryExit() {
                 <Card><CardContent className="py-6 text-center text-muted-foreground text-xs">Không có học sinh phù hợp với bộ lọc</CardContent></Card>
               )}
               {Array.from(approvedByClass.entries())
-                .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
+                .sort((a, b) => {
+                  // Teacher's homeroom class first
+                  if (teacherClassName) {
+                    if (a[0] === teacherClassName) return -1;
+                    if (b[0] === teacherClassName) return 1;
+                  }
+                  return a[0].localeCompare(b[0], 'vi');
+                })
                 .map(([className, classReqs]) => (
-                  <Card key={className}>
+                  <Card key={className} className={teacherClassName && className === teacherClassName ? 'border-primary/60 bg-primary/5' : ''}>
                     <CardHeader className="pb-1 px-3 pt-3">
                       <CardTitle className="text-xs flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
                           <span className="inline-block w-2 h-2 rounded-full bg-primary" />
                           {className}
+                          {teacherClassName && className === teacherClassName && (
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-primary/15 text-primary border-primary/30">Lớp chủ nhiệm</Badge>
+                          )}
                         </span>
                         <Badge variant="outline" className="text-[10px]">{classReqs.length} HS</Badge>
                       </CardTitle>
