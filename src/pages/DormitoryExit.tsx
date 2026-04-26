@@ -1236,6 +1236,42 @@ export default function DormitoryExit() {
         </DialogContent>
       </Dialog>
 
+      {/* Approve dialog with delegation */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duyệt đơn ra ngoài</DialogTitle>
+            <DialogDescription>
+              Phê duyệt {approvingIds.length} đơn. Có thể chuyển thẩm quyền giám sát cho GVCN và/hoặc Ca trực.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs uppercase text-muted-foreground">Chuyển thẩm quyền (tuỳ chọn)</Label>
+            <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-blue-200 bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors">
+              <Checkbox checked={approveDelegateTeacher} onCheckedChange={(c) => setApproveDelegateTeacher(c as boolean)} />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-blue-900">GVCN</div>
+                <div className="text-[11px] text-blue-700">Giáo viên chủ nhiệm chịu trách nhiệm theo dõi</div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-purple-200 bg-purple-50 cursor-pointer hover:bg-purple-100 transition-colors">
+              <Checkbox checked={approveDelegateDuty} onCheckedChange={(c) => setApproveDelegateDuty(c as boolean)} />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-purple-900">Ca trực</div>
+                <div className="text-[11px] text-purple-700">Người trực ngày đó chịu trách nhiệm theo dõi</div>
+              </div>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApproveDialog(false)} disabled={isApprovingDialog}>Hủy</Button>
+            <Button onClick={handleConfirmApprove} disabled={isApprovingDialog}>
+              {isApprovingDialog && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              <Check className="h-4 w-4 mr-1" /> Duyệt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Reject dialog */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent>
