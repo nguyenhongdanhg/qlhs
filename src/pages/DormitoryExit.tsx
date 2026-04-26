@@ -1139,7 +1139,33 @@ export default function DormitoryExit() {
             <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Không có đơn đã duyệt</CardContent></Card>
           ) : (
             <>
-              {/* Group by class */}
+              {/* Filter chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { key: 'all' as const, label: 'Tất cả', count: approvedCounts.all, cls: 'border-border' },
+                  { key: 'not_returned' as const, label: 'Chưa vào', count: approvedCounts.notReturned, cls: 'border-amber-300 text-amber-800 data-[on=true]:bg-amber-100' },
+                  { key: 'returned' as const, label: 'Đã vào', count: approvedCounts.returned, cls: 'border-emerald-300 text-emerald-800 data-[on=true]:bg-emerald-100' },
+                  { key: 'expired' as const, label: 'Quá hạn', count: approvedCounts.expired, cls: 'border-red-300 text-red-800 data-[on=true]:bg-red-100' },
+                ]).map(opt => {
+                  const on = approvedFilter === opt.key;
+                  return (
+                    <Button
+                      key={opt.key}
+                      type="button"
+                      data-on={on}
+                      variant={on ? 'default' : 'outline'}
+                      size="sm"
+                      className={`h-7 text-xs px-2 ${on ? '' : opt.cls}`}
+                      onClick={() => setApprovedFilter(opt.key)}
+                    >
+                      {opt.label} <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{opt.count}</Badge>
+                    </Button>
+                  );
+                })}
+              </div>
+              {filteredApprovedRequests.length === 0 && (
+                <Card><CardContent className="py-6 text-center text-muted-foreground text-xs">Không có học sinh phù hợp với bộ lọc</CardContent></Card>
+              )}
               {Array.from(approvedByClass.entries())
                 .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
                 .map(([className, classReqs]) => (
