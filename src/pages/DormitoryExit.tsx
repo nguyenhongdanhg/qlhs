@@ -116,6 +116,7 @@ export default function DormitoryExit() {
   // Approved list filter
   type ApprovedFilter = 'all' | 'not_returned' | 'returned' | 'expired';
   const [approvedFilter, setApprovedFilter] = useState<ApprovedFilter>('all');
+  const [approvedClassFilter, setApprovedClassFilter] = useState<string>('all');
 
   // Live clock — ticks each minute so "đã hết hạn" badge updates
   const [now, setNow] = useState<Date>(new Date());
@@ -290,8 +291,12 @@ export default function DormitoryExit() {
 
   // Filter approved by return-status (uses `now` so updates with the minute timer)
   const filteredApprovedRequests = useMemo(() => {
-    if (approvedFilter === 'all') return approvedRequests;
-    return approvedRequests.filter(req => {
+    let list = approvedRequests;
+    if (approvedClassFilter !== 'all') {
+      list = list.filter(r => (r.class_id || '') === approvedClassFilter);
+    }
+    if (approvedFilter === 'all') return list;
+    return list.filter(req => {
       const isReturned = !!req.returned_at;
       if (approvedFilter === 'returned') return isReturned;
       if (approvedFilter === 'not_returned') return !isReturned;
@@ -309,7 +314,7 @@ export default function DormitoryExit() {
       }
       return true;
     });
-  }, [approvedRequests, approvedFilter, now]);
+  }, [approvedRequests, approvedFilter, approvedClassFilter, now]);
 
   // Counters for filter chips
   const approvedCounts = useMemo(() => {
@@ -1178,6 +1183,29 @@ export default function DormitoryExit() {
                     </Button>
                   );
                 })}
+                {(() => {
+                  const classOpts = Array.from(
+                    new Map(
+                      approvedRequests
+                        .filter(r => r.class_id)
+                        .map(r => [r.class_id as string, r.class?.name || '—'])
+                    ).entries()
+                  ).sort((a, b) => a[1].localeCompare(b[1], 'vi'));
+                  if (classOpts.length <= 1) return null;
+                  return (
+                    <Select value={approvedClassFilter} onValueChange={setApprovedClassFilter}>
+                      <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs px-2">
+                        <SelectValue placeholder="Lớp" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả lớp</SelectItem>
+                        {classOpts.map(([id, name]) => (
+                          <SelectItem key={id} value={id}>{name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                })()}
               </div>
               {filteredApprovedRequests.length === 0 && (
                 <Card><CardContent className="py-6 text-center text-muted-foreground text-xs">Không có học sinh phù hợp với bộ lọc</CardContent></Card>
@@ -1229,15 +1257,22 @@ export default function DormitoryExit() {
                               {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
                             </div>
                             <div className="flex gap-1 shrink-0 ml-2">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className={`h-6 w-6 ${isReturned ? 'text-emerald-600 bg-emerald-50' : 'text-muted-foreground'}`}
-                                onClick={() => handleToggleReturned(req)}
-                                title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </Button>
+                              {(() => {
+                                const canMark = isSuperAdmin || isSchoolAdmin() || hasPermission('dormitory_exit', 'edit') ||
+                                  (isClassTeacher && currentMembership?.class_id && req.class_id === currentMembership.class_id);
+                                if (!canMark) return null;
+                                return (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className={`h-6 w-6 ${isReturned ? 'text-emerald-600 bg-emerald-50' : 'text-muted-foreground'}`}
+                                    onClick={() => handleToggleReturned(req)}
+                                    title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                );
+                              })()}
                               {canDelete && (
                                 <>
                                   <Button size="icon" variant="ghost" className="h-6 w-6 text-amber-600" onClick={() => handleRevoke(req.id)} title="Thu hồi">
