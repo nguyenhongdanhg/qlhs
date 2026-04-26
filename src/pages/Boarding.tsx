@@ -83,6 +83,8 @@ import {
   exportSingleAttendanceReport,
   AttendanceReportData,
 } from '@/lib/excel-export';
+import { useActiveDormitoryExits, formatExitWindow } from '@/hooks/useActiveDormitoryExits';
+import { LogOut } from 'lucide-react';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 type ExcuseInfo = { excused: boolean; reason: string };
@@ -205,6 +207,10 @@ export default function Boarding() {
   const [totalBoardingStudents, setTotalBoardingStudents] = useState(0);
 
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
+
+  // Active dormitory exits for the selected date — surfaces students currently
+  // approved to be out of the dorm so the on-duty teacher knows what to expect.
+  const { exits: activeExits } = useActiveDormitoryExits(currentSchool?.id, date);
 
   // Sort classes by grade
   const sortedClasses = useMemo(() => {
@@ -952,6 +958,38 @@ export default function Boarding() {
               </div>
             )}
 
+            {/* Active dormitory exits — heads-up for the on-duty teacher */}
+            {Object.keys(activeExits).length > 0 && (() => {
+              const exitStudents = filteredStudents
+                .filter(s => activeExits[s.id])
+                .map(s => ({ s, info: activeExits[s.id] }));
+              if (exitStudents.length === 0) return null;
+              return (
+                <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                  <LogOut className="h-4 w-4 !text-amber-700" />
+                  <AlertDescription>
+                    <div className="font-semibold mb-1">
+                      Có {exitStudents.length} học sinh đang được phép ra khỏi KTX (đơn đã duyệt, chưa về). Hãy lưu ý khi điểm danh:
+                    </div>
+                    <ul className="space-y-0.5 text-xs">
+                      {exitStudents.map(({ s, info }) => (
+                        <li key={s.id} className="flex flex-wrap gap-1.5 items-center">
+                          <span className="font-medium">{s.full_name}</span>
+                          <span className="text-amber-700">({s.class?.name})</span>
+                          <Badge variant="outline" className="border-amber-400 text-amber-800 text-[10px] px-1 py-0 h-4">
+                            {formatExitWindow(info)}
+                          </Badge>
+                          {info.reason && (
+                            <span className="text-amber-700/80 italic truncate max-w-[200px]">– {info.reason}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
+
             {/* Student Search */}
             <StudentSearchInput
               value={studentSearch}
@@ -977,6 +1015,7 @@ export default function Boarding() {
                     const status = attendance[student.id];
                     const isAbsent = status === 'absent' || status === 'excused';
                     const excuse = excuseInfo[student.id];
+                    const exitInfo = activeExits[student.id];
                     return (
                       <button
                         key={student.id}
@@ -984,7 +1023,7 @@ export default function Boarding() {
                         disabled={!canCreate}
                         className={cn(
                           'w-full flex items-center gap-2 px-3 py-2 text-left transition-all',
-                          isAbsent ? 'bg-destructive/10' : 'hover:bg-muted/50',
+                          isAbsent ? 'bg-destructive/10' : exitInfo ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-muted/50',
                           !canCreate && 'opacity-60 cursor-not-allowed'
                         )}
                       >
@@ -995,9 +1034,15 @@ export default function Boarding() {
                           {!isAbsent && <CheckCircle2 className="h-3 w-3 text-white" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={cn("font-medium text-sm truncate", isAbsent && "text-destructive")}>{student.full_name}</span>
                             <span className="text-xs text-muted-foreground flex-shrink-0">{student.class?.name}</span>
+                            {exitInfo && (
+                              <Badge variant="outline" className="border-amber-400 bg-amber-100 text-amber-800 text-[10px] px-1 py-0 h-4 gap-0.5">
+                                <LogOut className="h-2.5 w-2.5" />
+                                Ra KTX {formatExitWindow(exitInfo)}
+                              </Badge>
+                            )}
                           </div>
                           {isAbsent && excuse && (
                             <div className="flex items-center gap-1 mt-0.5">
