@@ -112,6 +112,13 @@ export default function DormitoryExit() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Approve dialog (with delegation options)
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [approvingIds, setApprovingIds] = useState<string[]>([]);
+  const [approveDelegateTeacher, setApproveDelegateTeacher] = useState(false);
+  const [approveDelegateDuty, setApproveDelegateDuty] = useState(false);
+  const [isApprovingDialog, setIsApprovingDialog] = useState(false);
+
   // Edit & resubmit rejected dialog
   const [showEditRejectedDialog, setShowEditRejectedDialog] = useState(false);
   const [editingRejected, setEditingRejected] = useState<ExitRequest | null>(null);
