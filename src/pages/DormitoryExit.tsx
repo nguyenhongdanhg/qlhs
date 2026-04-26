@@ -1018,7 +1018,8 @@ export default function DormitoryExit() {
                               </div>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
