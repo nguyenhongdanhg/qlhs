@@ -396,6 +396,7 @@ export default function DormitoryExit() {
           returnDate: format(reg.returnDate, 'yyyy-MM-dd'),
           returnTime: reg.returnTime,
           reason: reg.reason || undefined,
+          sameDay: reg.sameDay,
           hasAttachment: !!reg.attachmentFile,
         };
       });
