@@ -281,6 +281,7 @@ export type Database = {
           request_date: string
           requester_id: string
           return_date: string | null
+          returned_at: string | null
           same_day: boolean
           school_id: string
           status: string
@@ -304,6 +305,7 @@ export type Database = {
           request_date?: string
           requester_id: string
           return_date?: string | null
+          returned_at?: string | null
           same_day?: boolean
           school_id: string
           status?: string
@@ -327,6 +329,7 @@ export type Database = {
           request_date?: string
           requester_id?: string
           return_date?: string | null
+          returned_at?: string | null
           same_day?: boolean
           school_id?: string
           status?: string
