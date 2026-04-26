@@ -417,17 +417,37 @@ export default function DormitoryExit() {
     }
   };
 
-  const handleApprove = async (requestId: string) => {
-    if (!user) return;
+  const openApproveDialog = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setApprovingIds(ids);
+    setApproveDelegateTeacher(false);
+    setApproveDelegateDuty(false);
+    setShowApproveDialog(true);
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!user || approvingIds.length === 0) return;
+    setIsApprovingDialog(true);
     try {
       const { error } = await supabase
         .from('dormitory_exit_requests')
-        .update({ status: 'approved', approver_id: user.id, approved_at: new Date().toISOString() })
-        .eq('id', requestId);
+        .update({
+          status: 'approved',
+          approver_id: user.id,
+          approved_at: new Date().toISOString(),
+          delegated_to_teacher: approveDelegateTeacher,
+          delegated_to_duty: approveDelegateDuty,
+        })
+        .in('id', approvingIds);
       if (error) throw error;
-      toast({ title: 'Đã duyệt', description: 'Đơn ra ngoài đã được phê duyệt' });
+      toast({ title: 'Đã duyệt', description: `${approvingIds.length} đơn đã được phê duyệt` });
+      setShowApproveDialog(false);
+      setApprovingIds([]);
+      setSelectedPending([]);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsApprovingDialog(false);
     }
   };
 
