@@ -659,6 +659,9 @@ export default function DormitoryExit() {
     returnDate: r.return_date || r.exit_date || r.request_date,
     returnTime: r.expected_return_time || '',
     reason: r.reason || undefined,
+    sameDay: r.same_day,
+    delegatedToTeacher: r.delegated_to_teacher,
+    delegatedToDuty: r.delegated_to_duty,
   }));
 
   const rejectedImageStudents = rejectedRequests.map(r => ({
@@ -669,6 +672,7 @@ export default function DormitoryExit() {
     returnDate: r.return_date || r.exit_date || r.request_date,
     returnTime: r.expected_return_time || '',
     reason: r.reason || undefined,
+    sameDay: r.same_day,
     rejectionReason: r.rejection_reason || undefined,
   }));
 
