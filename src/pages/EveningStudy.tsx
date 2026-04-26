@@ -952,6 +952,38 @@ export default function EveningStudy() {
               </div>
             )}
 
+            {/* Active dormitory exits — heads-up for the on-duty teacher */}
+            {Object.keys(activeExits).length > 0 && (() => {
+              const exitStudents = filteredStudents
+                .filter(s => activeExits[s.id])
+                .map(s => ({ s, info: activeExits[s.id] }));
+              if (exitStudents.length === 0) return null;
+              return (
+                <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                  <LogOut className="h-4 w-4 !text-amber-700" />
+                  <AlertDescription>
+                    <div className="font-semibold mb-1">
+                      Có {exitStudents.length} học sinh đang được phép ra khỏi KTX (đơn đã duyệt, chưa về). Hãy lưu ý khi điểm danh:
+                    </div>
+                    <ul className="space-y-0.5 text-xs">
+                      {exitStudents.map(({ s, info }) => (
+                        <li key={s.id} className="flex flex-wrap gap-1.5 items-center">
+                          <span className="font-medium">{s.full_name}</span>
+                          <span className="text-amber-700">({s.class?.name})</span>
+                          <Badge variant="outline" className="border-amber-400 text-amber-800 text-[10px] px-1 py-0 h-4">
+                            {formatExitWindow(info)}
+                          </Badge>
+                          {info.reason && (
+                            <span className="text-amber-700/80 italic truncate max-w-[200px]">– {info.reason}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
+
             {/* Student Search */}
             <StudentSearchInput
               value={studentSearch}
