@@ -855,6 +855,9 @@ export default function DormitoryExit() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm">{req.student?.full_name}</span>
                           <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
+                          {req.same_day && <Badge className="text-[10px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">Trong ngày</Badge>}
+                          {req.delegated_to_teacher && <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700">GVCN</Badge>}
+                          {req.delegated_to_duty && <Badge variant="outline" className="text-[10px] border-purple-300 text-purple-700">Ca trực</Badge>}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatExitReturn(req)}</span>
