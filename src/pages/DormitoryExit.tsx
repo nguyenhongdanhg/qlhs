@@ -336,6 +336,12 @@ export default function DormitoryExit() {
     return { all: approvedRequests.length, returned, notReturned, expired };
   }, [approvedRequests, now]);
 
+  // Teacher's homeroom class name (for "Lớp chủ nhiệm" label & sort priority)
+  const teacherClassName = useMemo(() => {
+    if (!isClassTeacher || !teacherClassId) return '';
+    return classes.find(c => c.id === teacherClassId)?.name || '';
+  }, [isClassTeacher, teacherClassId, classes]);
+
   // Group approved by class for stats display (using filtered list)
   const approvedByClass = useMemo(() => {
     const map = new Map<string, ExitRequest[]>();
