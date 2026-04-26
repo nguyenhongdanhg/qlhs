@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil, BarChart3 } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil, BarChart3, Square, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
@@ -1278,16 +1278,16 @@ export default function DormitoryExit() {
                                   (isClassTeacher && currentMembership?.class_id && req.class_id === currentMembership.class_id);
                                 if (!canMark) return null;
                                 return (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className={`h-6 px-1.5 text-[10px] gap-0.5 ${isReturned ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-muted-foreground'}`}
-                                    onClick={() => handleToggleReturned(req)}
-                                    title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
-                                  >
-                                    <Check className="h-3 w-3" />
-                                    <span>Đã vào</span>
-                                  </Button>
+                                   <Button
+                                     size="sm"
+                                     variant="ghost"
+                                     className={`h-6 px-1.5 text-[10px] gap-1 font-semibold border ${isReturned ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-300' : 'text-destructive hover:text-destructive bg-destructive/5 hover:bg-destructive/10 border-destructive/30'}`}
+                                     onClick={() => handleToggleReturned(req)}
+                                     title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
+                                   >
+                                     {isReturned ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                                     <span>{isReturned ? 'Đã vào' : 'Chưa vào'}</span>
+                                   </Button>
                                 );
                               })()}
                               {canDelete && (
