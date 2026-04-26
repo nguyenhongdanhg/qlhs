@@ -892,7 +892,7 @@ export default function DormitoryExit() {
                       <div className="flex gap-1 shrink-0">
                         {canApprove && (
                           <>
-                            <Button size="icon" variant="default" className="h-8 w-8" onClick={() => handleApprove(req.id)} title="Duyệt">
+                            <Button size="icon" variant="default" className="h-8 w-8" onClick={() => openApproveDialog([req.id])} title="Duyệt">
                               <Check className="h-4 w-4" />
                             </Button>
                             <Button size="icon" variant="outline" className="h-8 w-8 text-destructive" onClick={() => { setRejectingId(req.id); setShowRejectDialog(true); }} title="Từ chối">
