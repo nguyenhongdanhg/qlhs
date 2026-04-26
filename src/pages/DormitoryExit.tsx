@@ -1083,6 +1083,13 @@ export default function DormitoryExit() {
                         <Input type="time" value={editReturnTime} onChange={(e) => setEditReturnTime(e.target.value)} className="mt-1 h-9 text-sm" />
                       </div>
                     </div>
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-50 border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">
+                      <Checkbox
+                        checked={editSameDay}
+                        onCheckedChange={(c) => setEditSameDay(c as boolean)}
+                      />
+                      <span className="text-xs font-medium text-amber-900">Xin ra trong ngày</span>
+                    </label>
                     <div>
                       <Label className="text-xs">Lý do (không bắt buộc)</Label>
                       <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
