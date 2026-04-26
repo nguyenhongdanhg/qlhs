@@ -85,6 +85,7 @@ export default function DormitoryExit() {
     returnDate: Date;
     returnTime: string;
     reason: string;
+    sameDay: boolean;
     attachmentFile?: File | null;
   }
   const [registeredStudents, setRegisteredStudents] = useState<RegisteredStudent[]>([]);
@@ -96,6 +97,7 @@ export default function DormitoryExit() {
   const [editReturnDate, setEditReturnDate] = useState<Date>(new Date());
   const [editReturnTime, setEditReturnTime] = useState('');
   const [editReason, setEditReason] = useState('');
+  const [editSameDay, setEditSameDay] = useState(false);
 
   // Reject dialog
   const [showRejectDialog, setShowRejectDialog] = useState(false);
