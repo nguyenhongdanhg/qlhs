@@ -1279,13 +1279,14 @@ export default function DormitoryExit() {
                                 if (!canMark) return null;
                                 return (
                                   <Button
-                                    size="icon"
+                                    size="sm"
                                     variant="ghost"
-                                    className={`h-6 w-6 ${isReturned ? 'text-emerald-600 bg-emerald-50' : 'text-muted-foreground'}`}
+                                    className={`h-6 px-1.5 text-[10px] gap-0.5 ${isReturned ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-muted-foreground'}`}
                                     onClick={() => handleToggleReturned(req)}
                                     title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
                                   >
-                                    <Check className="h-3.5 w-3.5" />
+                                    <Check className="h-3 w-3" />
+                                    <span>Đã vào</span>
                                   </Button>
                                 );
                               })()}
