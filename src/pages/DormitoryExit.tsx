@@ -1079,14 +1079,19 @@ export default function DormitoryExit() {
                       <div className="space-y-1.5">
                         {classReqs.map(req => {
                           const rs = getReturnStatus(req);
+                          const isReturned = !!req.returned_at;
                           return (
-                          <div key={req.id} className="flex items-center justify-between text-xs border-b last:border-0 pb-1.5 last:pb-0">
+                          <div key={req.id} className={`flex items-center justify-between text-xs border-b last:border-0 pb-1.5 last:pb-0 ${isReturned ? 'opacity-70' : ''}`}>
                             <div className="flex-1 min-w-0">
-                              <span className="font-medium">{req.student?.full_name}</span>
+                              <span className={`font-medium ${isReturned ? 'line-through' : ''}`}>{req.student?.full_name}</span>
                               <span className="text-muted-foreground ml-2">
                                 {formatExitReturn(req)}
                               </span>
-                              {rs && (
+                              {isReturned ? (
+                                <Badge className="ml-1.5 text-[9px] px-1 py-0 border bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200" title={`Đã vào lúc ${format(new Date(req.returned_at!), 'HH:mm dd/MM')}`}>
+                                  ✓ Đã vào
+                                </Badge>
+                              ) : rs && (
                                 <Badge
                                   className={`ml-1.5 text-[9px] px-1 py-0 border ${
                                     rs.expired
@@ -1103,16 +1108,27 @@ export default function DormitoryExit() {
                               {req.delegated_to_duty && <Badge variant="outline" className="ml-1 text-[9px] border-purple-300 text-purple-700 px-1 py-0">Ca trực</Badge>}
                               {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
                             </div>
-                            {canDelete && (
-                              <div className="flex gap-1 shrink-0 ml-2">
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-amber-600" onClick={() => handleRevoke(req.id)} title="Thu hồi">
-                                  <Undo2 className="h-3 w-3" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }} title="Xóa">
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
+                            <div className="flex gap-1 shrink-0 ml-2">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className={`h-6 w-6 ${isReturned ? 'text-emerald-600 bg-emerald-50' : 'text-muted-foreground'}`}
+                                onClick={() => handleToggleReturned(req)}
+                                title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
+                              {canDelete && (
+                                <>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-amber-600" onClick={() => handleRevoke(req.id)} title="Thu hồi">
+                                    <Undo2 className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }} title="Xóa">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
                           );
                         })}
