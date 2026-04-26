@@ -270,6 +270,8 @@ export type Database = {
           attachment_url: string | null
           class_id: string | null
           created_at: string | null
+          delegated_to_duty: boolean
+          delegated_to_teacher: boolean
           exit_date: string | null
           exit_time: string
           expected_return_time: string
@@ -279,6 +281,7 @@ export type Database = {
           request_date: string
           requester_id: string
           return_date: string | null
+          same_day: boolean
           school_id: string
           status: string
           student_id: string
@@ -290,6 +293,8 @@ export type Database = {
           attachment_url?: string | null
           class_id?: string | null
           created_at?: string | null
+          delegated_to_duty?: boolean
+          delegated_to_teacher?: boolean
           exit_date?: string | null
           exit_time: string
           expected_return_time: string
@@ -299,6 +304,7 @@ export type Database = {
           request_date?: string
           requester_id: string
           return_date?: string | null
+          same_day?: boolean
           school_id: string
           status?: string
           student_id: string
@@ -310,6 +316,8 @@ export type Database = {
           attachment_url?: string | null
           class_id?: string | null
           created_at?: string | null
+          delegated_to_duty?: boolean
+          delegated_to_teacher?: boolean
           exit_date?: string | null
           exit_time?: string
           expected_return_time?: string
@@ -319,6 +327,7 @@ export type Database = {
           request_date?: string
           requester_id?: string
           return_date?: string | null
+          same_day?: boolean
           school_id?: string
           status?: string
           student_id?: string

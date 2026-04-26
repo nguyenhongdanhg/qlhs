@@ -11,6 +11,9 @@ interface ExitStudent {
   returnTime: string;
   reason?: string;
   rejectionReason?: string;
+  sameDay?: boolean;
+  delegatedToTeacher?: boolean;
+  delegatedToDuty?: boolean;
 }
 
 interface DormitoryExitImageCardProps {
@@ -136,6 +139,15 @@ export const DormitoryExitImageCard = forwardRef<HTMLDivElement, DormitoryExitIm
                     }}>
                       <div style={{ flex: 1 }}>
                         <span style={{ fontSize: '12px', color: '#374151', ...base }}>{s.name}</span>
+                        {s.sameDay && (
+                          <span style={{ fontSize: '9px', color: '#92400e', backgroundColor: '#fef3c7', padding: '1px 4px', borderRadius: '3px', marginLeft: '4px', fontWeight: 600 }}>Trong ngày</span>
+                        )}
+                        {s.delegatedToTeacher && (
+                          <span style={{ fontSize: '9px', color: '#1e40af', backgroundColor: '#dbeafe', padding: '1px 4px', borderRadius: '3px', marginLeft: '3px', fontWeight: 600 }}>GVCN</span>
+                        )}
+                        {s.delegatedToDuty && (
+                          <span style={{ fontSize: '9px', color: '#6b21a8', backgroundColor: '#f3e8ff', padding: '1px 4px', borderRadius: '3px', marginLeft: '3px', fontWeight: 600 }}>Ca trực</span>
+                        )}
                         {s.reason && (
                           <div style={{ fontSize: '10px', color: '#9ca3af', ...base }}>{s.reason}</div>
                         )}

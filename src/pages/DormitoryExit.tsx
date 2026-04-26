@@ -44,6 +44,9 @@ interface ExitRequest {
   approved_at: string | null;
   rejection_reason: string | null;
   attachment_url: string | null;
+  same_day?: boolean;
+  delegated_to_teacher?: boolean;
+  delegated_to_duty?: boolean;
   created_at: string;
   student?: { full_name: string; student_code: string; class_id: string | null };
   requester?: { full_name: string };
@@ -82,6 +85,7 @@ export default function DormitoryExit() {
     returnDate: Date;
     returnTime: string;
     reason: string;
+    sameDay: boolean;
     attachmentFile?: File | null;
   }
   const [registeredStudents, setRegisteredStudents] = useState<RegisteredStudent[]>([]);
@@ -93,6 +97,7 @@ export default function DormitoryExit() {
   const [editReturnDate, setEditReturnDate] = useState<Date>(new Date());
   const [editReturnTime, setEditReturnTime] = useState('');
   const [editReason, setEditReason] = useState('');
+  const [editSameDay, setEditSameDay] = useState(false);
 
   // Reject dialog
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -106,6 +111,13 @@ export default function DormitoryExit() {
   // Delete confirm dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Approve dialog (with delegation options)
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [approvingIds, setApprovingIds] = useState<string[]>([]);
+  const [approveDelegateTeacher, setApproveDelegateTeacher] = useState(false);
+  const [approveDelegateDuty, setApproveDelegateDuty] = useState(false);
+  const [isApprovingDialog, setIsApprovingDialog] = useState(false);
 
   // Edit & resubmit rejected dialog
   const [showEditRejectedDialog, setShowEditRejectedDialog] = useState(false);
@@ -270,6 +282,7 @@ export default function DormitoryExit() {
     setEditReturnDate(new Date());
     setEditReturnTime('');
     setEditReason('');
+    setEditSameDay(false);
     setEditAttachmentFile(null);
   };
 
@@ -285,9 +298,11 @@ export default function DormitoryExit() {
       returnDate: editReturnDate,
       returnTime: editReturnTime,
       reason: editReason,
+      sameDay: editSameDay,
       attachmentFile: editAttachmentFile,
     }]);
     setCurrentEditStudentId(null);
+    setEditSameDay(false);
     setEditAttachmentFile(null);
   };
 
@@ -354,6 +369,7 @@ export default function DormitoryExit() {
           exit_time: reg.exitTime,
           expected_return_time: reg.returnTime,
           reason: reg.reason || null,
+          same_day: reg.sameDay,
           requester_id: user.id,
         };
       });
@@ -380,6 +396,7 @@ export default function DormitoryExit() {
           returnDate: format(reg.returnDate, 'yyyy-MM-dd'),
           returnTime: reg.returnTime,
           reason: reg.reason || undefined,
+          sameDay: reg.sameDay,
           hasAttachment: !!reg.attachmentFile,
         };
       });
@@ -400,17 +417,37 @@ export default function DormitoryExit() {
     }
   };
 
-  const handleApprove = async (requestId: string) => {
-    if (!user) return;
+  const openApproveDialog = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setApprovingIds(ids);
+    setApproveDelegateTeacher(false);
+    setApproveDelegateDuty(false);
+    setShowApproveDialog(true);
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!user || approvingIds.length === 0) return;
+    setIsApprovingDialog(true);
     try {
       const { error } = await supabase
         .from('dormitory_exit_requests')
-        .update({ status: 'approved', approver_id: user.id, approved_at: new Date().toISOString() })
-        .eq('id', requestId);
+        .update({
+          status: 'approved',
+          approver_id: user.id,
+          approved_at: new Date().toISOString(),
+          delegated_to_teacher: approveDelegateTeacher,
+          delegated_to_duty: approveDelegateDuty,
+        })
+        .in('id', approvingIds);
       if (error) throw error;
-      toast({ title: 'Đã duyệt', description: 'Đơn ra ngoài đã được phê duyệt' });
+      toast({ title: 'Đã duyệt', description: `${approvingIds.length} đơn đã được phê duyệt` });
+      setShowApproveDialog(false);
+      setApprovingIds([]);
+      setSelectedPending([]);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsApprovingDialog(false);
     }
   };
 
@@ -564,6 +601,7 @@ export default function DormitoryExit() {
       'STT': i + 1,
       'Họ và tên': r.student?.full_name || '',
       'Lớp': r.class?.name || '',
+      'Trong ngày': r.same_day ? '✓' : '',
       'Ngày ra': r.exit_date ? format(new Date(r.exit_date), 'dd/MM/yyyy') : format(new Date(r.request_date), 'dd/MM/yyyy'),
       'Giờ ra': r.exit_time?.slice(0, 5) || '',
       'Ngày vào': r.return_date ? format(new Date(r.return_date), 'dd/MM/yyyy') : '',
@@ -571,11 +609,12 @@ export default function DormitoryExit() {
       'Lý do': r.reason || '',
       'GVCN': r.requester?.full_name || '',
       'Người duyệt': r.approver?.full_name || '',
+      'Thẩm quyền': [r.delegated_to_teacher && 'GVCN', r.delegated_to_duty && 'Ca trực'].filter(Boolean).join(', '),
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ra vào KTX');
-    fitColumnsToA4(ws, [5, 25, 10, 12, 8, 12, 8, 30, 20, 20]);
+    fitColumnsToA4(ws, [5, 25, 10, 10, 12, 8, 12, 8, 25, 18, 18, 16]);
     const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     XLSX.writeFile(wb, `Ra_vao_KTX_${rangeLabel}.xlsx`);
     toast({ title: 'Đã xuất Excel' });
@@ -620,6 +659,9 @@ export default function DormitoryExit() {
     returnDate: r.return_date || r.exit_date || r.request_date,
     returnTime: r.expected_return_time || '',
     reason: r.reason || undefined,
+    sameDay: r.same_day,
+    delegatedToTeacher: r.delegated_to_teacher,
+    delegatedToDuty: r.delegated_to_duty,
   }));
 
   const rejectedImageStudents = rejectedRequests.map(r => ({
@@ -630,6 +672,7 @@ export default function DormitoryExit() {
     returnDate: r.return_date || r.exit_date || r.request_date,
     returnTime: r.expected_return_time || '',
     reason: r.reason || undefined,
+    sameDay: r.same_day,
     rejectionReason: r.rejection_reason || undefined,
   }));
 
@@ -776,7 +819,7 @@ export default function DormitoryExit() {
               <div className="flex gap-1">
                 {selectedPending.length > 0 ? (
                   <>
-                    <Button size="sm" onClick={handleBatchApprove}>
+                    <Button size="sm" onClick={() => openApproveDialog(selectedPending)}>
                       <Check className="h-4 w-4 mr-1" /> Duyệt ({selectedPending.length})
                     </Button>
                     <Button size="sm" variant="outline" className="text-destructive" onClick={() => setShowBatchRejectDialog(true)}>
@@ -784,7 +827,7 @@ export default function DormitoryExit() {
                     </Button>
                   </>
                 ) : (
-                  <Button size="sm" onClick={handleApproveAll}>
+                  <Button size="sm" onClick={() => openApproveDialog(pendingRequests.map(r => r.id))}>
                     <Check className="h-4 w-4 mr-1" /> Duyệt tất cả ({pendingRequests.length})
                   </Button>
                 )}
@@ -818,6 +861,9 @@ export default function DormitoryExit() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm">{req.student?.full_name}</span>
                           <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
+                          {req.same_day && <Badge className="text-[10px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">Trong ngày</Badge>}
+                          {req.delegated_to_teacher && <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700">GVCN</Badge>}
+                          {req.delegated_to_duty && <Badge variant="outline" className="text-[10px] border-purple-300 text-purple-700">Ca trực</Badge>}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatExitReturn(req)}</span>
@@ -855,7 +901,7 @@ export default function DormitoryExit() {
                       <div className="flex gap-1 shrink-0">
                         {canApprove && (
                           <>
-                            <Button size="icon" variant="default" className="h-8 w-8" onClick={() => handleApprove(req.id)} title="Duyệt">
+                            <Button size="icon" variant="default" className="h-8 w-8" onClick={() => openApproveDialog([req.id])} title="Duyệt">
                               <Check className="h-4 w-4" />
                             </Button>
                             <Button size="icon" variant="outline" className="h-8 w-8 text-destructive" onClick={() => { setRejectingId(req.id); setShowRejectDialog(true); }} title="Từ chối">
@@ -910,6 +956,9 @@ export default function DormitoryExit() {
                               <span className="text-muted-foreground ml-2">
                                 {formatExitReturn(req)}
                               </span>
+                              {req.same_day && <Badge className="ml-1.5 text-[9px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200 px-1 py-0">Trong ngày</Badge>}
+                              {req.delegated_to_teacher && <Badge variant="outline" className="ml-1 text-[9px] border-blue-300 text-blue-700 px-1 py-0">GVCN</Badge>}
+                              {req.delegated_to_duty && <Badge variant="outline" className="ml-1 text-[9px] border-purple-300 text-purple-700 px-1 py-0">Ca trực</Badge>}
                               {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
                             </div>
                             {canDelete && (
@@ -944,6 +993,7 @@ export default function DormitoryExit() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{req.student?.full_name}</span>
                       <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
+                      {req.same_day && <Badge className="text-[10px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">Trong ngày</Badge>}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span>{formatExitReturn(req)}</span>
@@ -1039,6 +1089,13 @@ export default function DormitoryExit() {
                         <Input type="time" value={editReturnTime} onChange={(e) => setEditReturnTime(e.target.value)} className="mt-1 h-9 text-sm" />
                       </div>
                     </div>
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-50 border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">
+                      <Checkbox
+                        checked={editSameDay}
+                        onCheckedChange={(c) => setEditSameDay(c as boolean)}
+                      />
+                      <span className="text-xs font-medium text-amber-900">Xin ra trong ngày</span>
+                    </label>
                     <div>
                       <Label className="text-xs">Lý do (không bắt buộc)</Label>
                       <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
@@ -1115,6 +1172,7 @@ export default function DormitoryExit() {
                             </span>
                             {reg.reason && <span>• {reg.reason}</span>}
                             {reg.attachmentFile && <span className="text-primary">📎 {reg.attachmentFile.name}</span>}
+                            {reg.sameDay && <span className="text-amber-700 font-medium">• Trong ngày</span>}
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0" onClick={() => handleRemoveRegistered(reg.studentId)}>
@@ -1179,6 +1237,42 @@ export default function DormitoryExit() {
             <Button onClick={handleCreateRequest} disabled={isSaving || registeredStudents.length === 0}>
               {isSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               Kết thúc & Chia sẻ ({registeredStudents.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve dialog with delegation */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duyệt đơn ra ngoài</DialogTitle>
+            <DialogDescription>
+              Phê duyệt {approvingIds.length} đơn. Có thể chuyển thẩm quyền giám sát cho GVCN và/hoặc Ca trực.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs uppercase text-muted-foreground">Chuyển thẩm quyền (tuỳ chọn)</Label>
+            <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-blue-200 bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors">
+              <Checkbox checked={approveDelegateTeacher} onCheckedChange={(c) => setApproveDelegateTeacher(c as boolean)} />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-blue-900">GVCN</div>
+                <div className="text-[11px] text-blue-700">Giáo viên chủ nhiệm chịu trách nhiệm theo dõi</div>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-purple-200 bg-purple-50 cursor-pointer hover:bg-purple-100 transition-colors">
+              <Checkbox checked={approveDelegateDuty} onCheckedChange={(c) => setApproveDelegateDuty(c as boolean)} />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-purple-900">Ca trực</div>
+                <div className="text-[11px] text-purple-700">Người trực ngày đó chịu trách nhiệm theo dõi</div>
+              </div>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApproveDialog(false)} disabled={isApprovingDialog}>Hủy</Button>
+            <Button onClick={handleConfirmApprove} disabled={isApprovingDialog}>
+              {isApprovingDialog && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              <Check className="h-4 w-4 mr-1" /> Duyệt
             </Button>
           </DialogFooter>
         </DialogContent>
