@@ -175,6 +175,14 @@ export default function DormitoryExit() {
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
   const canDelete = isSchoolAdmin() || isSuperAdmin;
   const canCreate = isClassTeacher || isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'create');
+  // GVCN có thể sửa đơn pending/rejected của lớp mình; người tạo đơn cũng có thể sửa; admin luôn được sửa.
+  const canEditRequest = (req: ExitRequest) => {
+    if (req.status !== 'pending' && req.status !== 'rejected') return false;
+    if (isSchoolAdmin() || isSuperAdmin) return true;
+    if (req.requester_id === user?.id) return true;
+    if (isClassTeacher && currentMembership?.class_id && req.class_id === currentMembership.class_id) return true;
+    return false;
+  };
 
   useEffect(() => {
     if (!currentSchool) return;
