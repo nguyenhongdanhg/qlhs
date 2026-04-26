@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
@@ -112,6 +112,24 @@ export default function DormitoryExit() {
   // Delete confirm dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Approved list filter
+  type ApprovedFilter = 'all' | 'not_returned' | 'returned' | 'expired';
+  const [approvedFilter, setApprovedFilter] = useState<ApprovedFilter>('all');
+
+  // Live clock — ticks each minute so "đã hết hạn" badge updates
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Statistics dialog (period range)
+  const [showStatsDialog, setShowStatsDialog] = useState(false);
+  const [statsFromDate, setStatsFromDate] = useState<Date>(startOfMonth(new Date()));
+  const [statsToDate, setStatsToDate] = useState<Date>(new Date());
+  const [statsData, setStatsData] = useState<ExitRequest[] | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // Approve dialog (with delegation options)
   const [showApproveDialog, setShowApproveDialog] = useState(false);
@@ -262,16 +280,59 @@ export default function DormitoryExit() {
   const approvedRequests = useMemo(() => filteredRequests.filter(r => r.status === 'approved'), [filteredRequests]);
   const rejectedRequests = useMemo(() => filteredRequests.filter(r => r.status === 'rejected'), [filteredRequests]);
 
-  // Group approved by class for stats display
+  // Filter approved by return-status (uses `now` so updates with the minute timer)
+  const filteredApprovedRequests = useMemo(() => {
+    if (approvedFilter === 'all') return approvedRequests;
+    return approvedRequests.filter(req => {
+      const isReturned = !!req.returned_at;
+      if (approvedFilter === 'returned') return isReturned;
+      if (approvedFilter === 'not_returned') return !isReturned;
+      if (approvedFilter === 'expired') {
+        if (isReturned) return false;
+        if (!req.expected_return_time) return false;
+        const dateStr = req.return_date || req.exit_date || req.request_date;
+        if (!dateStr) return false;
+        try {
+          const [h, m] = req.expected_return_time.split(':').map(Number);
+          const ret = new Date(dateStr);
+          ret.setHours(h || 0, m || 0, 0, 0);
+          return ret.getTime() < now.getTime();
+        } catch { return false; }
+      }
+      return true;
+    });
+  }, [approvedRequests, approvedFilter, now]);
+
+  // Counters for filter chips
+  const approvedCounts = useMemo(() => {
+    let returned = 0, notReturned = 0, expired = 0;
+    approvedRequests.forEach(req => {
+      const isReturned = !!req.returned_at;
+      if (isReturned) { returned++; return; }
+      notReturned++;
+      if (!req.expected_return_time) return;
+      const dateStr = req.return_date || req.exit_date || req.request_date;
+      if (!dateStr) return;
+      try {
+        const [h, m] = req.expected_return_time.split(':').map(Number);
+        const ret = new Date(dateStr);
+        ret.setHours(h || 0, m || 0, 0, 0);
+        if (ret.getTime() < now.getTime()) expired++;
+      } catch {}
+    });
+    return { all: approvedRequests.length, returned, notReturned, expired };
+  }, [approvedRequests, now]);
+
+  // Group approved by class for stats display (using filtered list)
   const approvedByClass = useMemo(() => {
     const map = new Map<string, ExitRequest[]>();
-    approvedRequests.forEach(r => {
+    filteredApprovedRequests.forEach(r => {
       const cls = r.class?.name || 'Không rõ';
       if (!map.has(cls)) map.set(cls, []);
       map.get(cls)!.push(r);
     });
     return map;
-  }, [approvedRequests]);
+  }, [filteredApprovedRequests]);
 
   const handleSelectStudent = (studentId: string) => {
     // If already registered, ignore
@@ -749,12 +810,7 @@ export default function DormitoryExit() {
     return classes.find(c => c.id === classId)?.name || '';
   };
 
-  // Live clock — ticks each minute so "đã hết hạn" badge updates
-  const [now, setNow] = useState<Date>(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
-  }, []);
+  // (live `now` clock declared earlier near other state)
 
   // Compute return-time status compared to current time
   const getReturnStatus = (req: ExitRequest): { expired: boolean; label: string; minutes: number } | null => {
@@ -925,6 +981,9 @@ export default function DormitoryExit() {
         </div>
 
         <div className="flex gap-1">
+          <Button variant="outline" size="sm" onClick={() => { setStatsData(null); setShowStatsDialog(true); }} title="Thống kê theo giai đoạn">
+            <BarChart3 className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={approvedRequests.length === 0} title="Xuất Excel">
             <FileSpreadsheet className="h-4 w-4" />
           </Button>
@@ -1080,7 +1139,33 @@ export default function DormitoryExit() {
             <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Không có đơn đã duyệt</CardContent></Card>
           ) : (
             <>
-              {/* Group by class */}
+              {/* Filter chips */}
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { key: 'all' as const, label: 'Tất cả', count: approvedCounts.all, cls: 'border-border' },
+                  { key: 'not_returned' as const, label: 'Chưa vào', count: approvedCounts.notReturned, cls: 'border-amber-300 text-amber-800 data-[on=true]:bg-amber-100' },
+                  { key: 'returned' as const, label: 'Đã vào', count: approvedCounts.returned, cls: 'border-emerald-300 text-emerald-800 data-[on=true]:bg-emerald-100' },
+                  { key: 'expired' as const, label: 'Quá hạn', count: approvedCounts.expired, cls: 'border-red-300 text-red-800 data-[on=true]:bg-red-100' },
+                ]).map(opt => {
+                  const on = approvedFilter === opt.key;
+                  return (
+                    <Button
+                      key={opt.key}
+                      type="button"
+                      data-on={on}
+                      variant={on ? 'default' : 'outline'}
+                      size="sm"
+                      className={`h-7 text-xs px-2 ${on ? '' : opt.cls}`}
+                      onClick={() => setApprovedFilter(opt.key)}
+                    >
+                      {opt.label} <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{opt.count}</Badge>
+                    </Button>
+                  );
+                })}
+              </div>
+              {filteredApprovedRequests.length === 0 && (
+                <Card><CardContent className="py-6 text-center text-muted-foreground text-xs">Không có học sinh phù hợp với bộ lọc</CardContent></Card>
+              )}
               {Array.from(approvedByClass.entries())
                 .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
                 .map(([className, classReqs]) => (
@@ -1669,6 +1754,153 @@ export default function DormitoryExit() {
               {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
               Chia sẻ
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Statistics by period dialog */}
+      <Dialog open={showStatsDialog} onOpenChange={setShowStatsDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" /> Thống kê ra vào theo giai đoạn</DialogTitle>
+            <DialogDescription>Chọn khoảng thời gian để thống kê đơn đã duyệt.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Từ ngày</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start h-9 text-sm">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(statsFromDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={statsFromDate} onSelect={(d) => d && setStatsFromDate(d)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="text-xs">Đến ngày</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start h-9 text-sm">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(statsToDate, 'dd/MM/yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={statsToDate} onSelect={(d) => d && setStatsToDate(d)} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (!currentSchool) return;
+                  setIsLoadingStats(true);
+                  try {
+                    const from = format(statsFromDate, 'yyyy-MM-dd');
+                    const to = format(statsToDate, 'yyyy-MM-dd');
+                    const { data, error } = await supabase
+                      .from('dormitory_exit_requests')
+                      .select('*, student:students(full_name, student_code, class_id), class:classes(name)')
+                      .eq('school_id', currentSchool.id)
+                      .eq('status', 'approved')
+                      .gte('request_date', from)
+                      .lte('request_date', to);
+                    if (error) throw error;
+                    setStatsData((data || []) as any);
+                  } catch (e: any) {
+                    toast({ title: 'Lỗi', description: e.message, variant: 'destructive' });
+                  } finally {
+                    setIsLoadingStats(false);
+                  }
+                }}
+                disabled={isLoadingStats}
+              >
+                {isLoadingStats ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Search className="h-4 w-4 mr-2" />}
+                Thống kê
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                const today = new Date();
+                setStatsFromDate(startOfWeek(today, { weekStartsOn: 1 }));
+                setStatsToDate(endOfWeek(today, { weekStartsOn: 1 }));
+              }}>Tuần này</Button>
+              <Button size="sm" variant="outline" onClick={() => {
+                const today = new Date();
+                setStatsFromDate(startOfMonth(today));
+                setStatsToDate(endOfMonth(today));
+              }}>Tháng này</Button>
+            </div>
+
+            {statsData && (() => {
+              const total = statsData.length;
+              let returned = 0, notReturned = 0, expired = 0;
+              const byClass = new Map<string, { total: number; returned: number; notReturned: number; expired: number }>();
+              statsData.forEach(req => {
+                const isReturned = !!req.returned_at;
+                const cls = req.class?.name || 'Không rõ';
+                if (!byClass.has(cls)) byClass.set(cls, { total: 0, returned: 0, notReturned: 0, expired: 0 });
+                const entry = byClass.get(cls)!;
+                entry.total++;
+                if (isReturned) { returned++; entry.returned++; }
+                else {
+                  notReturned++; entry.notReturned++;
+                  if (req.expected_return_time) {
+                    const dateStr = req.return_date || req.exit_date || req.request_date;
+                    if (dateStr) {
+                      try {
+                        const [h, m] = req.expected_return_time.split(':').map(Number);
+                        const ret = new Date(dateStr);
+                        ret.setHours(h || 0, m || 0, 0, 0);
+                        if (ret.getTime() < now.getTime()) { expired++; entry.expired++; }
+                      } catch {}
+                    }
+                  }
+                }
+              });
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-4 gap-2">
+                    <Card><CardContent className="p-2 text-center"><div className="text-[10px] text-muted-foreground">Tổng đơn</div><div className="text-lg font-bold">{total}</div></CardContent></Card>
+                    <Card><CardContent className="p-2 text-center"><div className="text-[10px] text-muted-foreground">Đã vào</div><div className="text-lg font-bold text-emerald-600">{returned}</div></CardContent></Card>
+                    <Card><CardContent className="p-2 text-center"><div className="text-[10px] text-muted-foreground">Chưa vào</div><div className="text-lg font-bold text-amber-600">{notReturned}</div></CardContent></Card>
+                    <Card><CardContent className="p-2 text-center"><div className="text-[10px] text-muted-foreground">Quá hạn</div><div className="text-lg font-bold text-red-600">{expired}</div></CardContent></Card>
+                  </div>
+                  {byClass.size > 0 && (
+                    <div className="border rounded-md overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Lớp</TableHead>
+                            <TableHead className="text-xs text-center">Tổng</TableHead>
+                            <TableHead className="text-xs text-center">Đã vào</TableHead>
+                            <TableHead className="text-xs text-center">Chưa vào</TableHead>
+                            <TableHead className="text-xs text-center">Quá hạn</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Array.from(byClass.entries()).sort((a, b) => a[0].localeCompare(b[0], 'vi')).map(([cls, s]) => (
+                            <TableRow key={cls}>
+                              <TableCell className="text-xs font-medium py-1.5">{cls}</TableCell>
+                              <TableCell className="text-xs text-center py-1.5">{s.total}</TableCell>
+                              <TableCell className="text-xs text-center py-1.5 text-emerald-700">{s.returned}</TableCell>
+                              <TableCell className="text-xs text-center py-1.5 text-amber-700">{s.notReturned}</TableCell>
+                              <TableCell className="text-xs text-center py-1.5 text-red-700">{s.expired}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  {total === 0 && <div className="text-center text-xs text-muted-foreground py-4">Không có dữ liệu trong khoảng thời gian này</div>}
+                </div>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
