@@ -169,6 +169,9 @@ export default function EveningStudy() {
 
   const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
 
+  // Active dormitory exits — heads-up for the on-duty teacher.
+  const { exits: activeExits } = useActiveDormitoryExits(currentSchool?.id, date);
+
   // Sort classes by grade
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
