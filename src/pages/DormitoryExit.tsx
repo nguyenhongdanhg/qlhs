@@ -813,7 +813,7 @@ export default function DormitoryExit() {
               <div className="flex gap-1">
                 {selectedPending.length > 0 ? (
                   <>
-                    <Button size="sm" onClick={handleBatchApprove}>
+                    <Button size="sm" onClick={() => openApproveDialog(selectedPending)}>
                       <Check className="h-4 w-4 mr-1" /> Duyệt ({selectedPending.length})
                     </Button>
                     <Button size="sm" variant="outline" className="text-destructive" onClick={() => setShowBatchRejectDialog(true)}>
@@ -821,7 +821,7 @@ export default function DormitoryExit() {
                     </Button>
                   </>
                 ) : (
-                  <Button size="sm" onClick={handleApproveAll}>
+                  <Button size="sm" onClick={() => openApproveDialog(pendingRequests.map(r => r.id))}>
                     <Check className="h-4 w-4 mr-1" /> Duyệt tất cả ({pendingRequests.length})
                   </Button>
                 )}
