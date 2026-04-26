@@ -116,6 +116,7 @@ export default function DormitoryExit() {
   // Approved list filter
   type ApprovedFilter = 'all' | 'not_returned' | 'returned' | 'expired';
   const [approvedFilter, setApprovedFilter] = useState<ApprovedFilter>('all');
+  const [approvedClassFilter, setApprovedClassFilter] = useState<string>('all');
 
   // Live clock — ticks each minute so "đã hết hạn" badge updates
   const [now, setNow] = useState<Date>(new Date());
