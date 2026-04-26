@@ -336,6 +336,12 @@ export default function DormitoryExit() {
     return { all: approvedRequests.length, returned, notReturned, expired };
   }, [approvedRequests, now]);
 
+  // Teacher's homeroom class name (for "Lớp chủ nhiệm" label & sort priority)
+  const teacherClassName = useMemo(() => {
+    if (!isClassTeacher || !teacherClassId) return '';
+    return classes.find(c => c.id === teacherClassId)?.name || '';
+  }, [isClassTeacher, teacherClassId, classes]);
+
   // Group approved by class for stats display (using filtered list)
   const approvedByClass = useMemo(() => {
     const map = new Map<string, ExitRequest[]>();
@@ -1211,14 +1217,24 @@ export default function DormitoryExit() {
                 <Card><CardContent className="py-6 text-center text-muted-foreground text-xs">Không có học sinh phù hợp với bộ lọc</CardContent></Card>
               )}
               {Array.from(approvedByClass.entries())
-                .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
+                .sort((a, b) => {
+                  // Teacher's homeroom class first
+                  if (teacherClassName) {
+                    if (a[0] === teacherClassName) return -1;
+                    if (b[0] === teacherClassName) return 1;
+                  }
+                  return a[0].localeCompare(b[0], 'vi');
+                })
                 .map(([className, classReqs]) => (
-                  <Card key={className}>
+                  <Card key={className} className={teacherClassName && className === teacherClassName ? 'border-primary/60 bg-primary/5' : ''}>
                     <CardHeader className="pb-1 px-3 pt-3">
                       <CardTitle className="text-xs flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
                           <span className="inline-block w-2 h-2 rounded-full bg-primary" />
                           {className}
+                          {teacherClassName && className === teacherClassName && (
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-primary/15 text-primary border-primary/30">Lớp chủ nhiệm</Badge>
+                          )}
                         </span>
                         <Badge variant="outline" className="text-[10px]">{classReqs.length} HS</Badge>
                       </CardTitle>
@@ -1263,13 +1279,14 @@ export default function DormitoryExit() {
                                 if (!canMark) return null;
                                 return (
                                   <Button
-                                    size="icon"
+                                    size="sm"
                                     variant="ghost"
-                                    className={`h-6 w-6 ${isReturned ? 'text-emerald-600 bg-emerald-50' : 'text-muted-foreground'}`}
+                                    className={`h-6 px-1.5 text-[10px] gap-0.5 ${isReturned ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-muted-foreground'}`}
                                     onClick={() => handleToggleReturned(req)}
                                     title={isReturned ? 'Bỏ đánh dấu đã vào' : 'Đánh dấu đã vào'}
                                   >
-                                    <Check className="h-3.5 w-3.5" />
+                                    <Check className="h-3 w-3" />
+                                    <span>Đã vào</span>
                                   </Button>
                                 );
                               })()}
