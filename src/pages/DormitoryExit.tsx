@@ -1123,6 +1123,11 @@ export default function DormitoryExit() {
                             </Button>
                           </>
                         )}
+                        {canEditRequest(req) && (
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => openEditRejected(req)} title="Sửa đơn">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                         {canDelete ? (
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }} title="Xóa">
                             <Trash2 className="h-4 w-4" />
