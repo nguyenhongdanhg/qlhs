@@ -11,6 +11,9 @@ interface ExitStudent {
   returnTime: string;
   reason?: string;
   rejectionReason?: string;
+  sameDay?: boolean;
+  delegatedToTeacher?: boolean;
+  delegatedToDuty?: boolean;
 }
 
 interface DormitoryExitImageCardProps {
