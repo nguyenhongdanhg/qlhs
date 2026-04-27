@@ -200,7 +200,7 @@ export default function DormitoryExit() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchRequests();
-  }, [currentSchool, selectedDate, filterRange]);
+  }, [currentSchool, selectedDate, filterRange, periodFrom, periodTo]);
 
   useEffect(() => {
     if (!currentSchool) return;
@@ -209,7 +209,7 @@ export default function DormitoryExit() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dormitory_exit_requests', filter: `school_id=eq.${currentSchool.id}` }, () => fetchRequests())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [currentSchool, selectedDate, filterRange]);
+  }, [currentSchool, selectedDate, filterRange, periodFrom, periodTo]);
 
   const fetchData = async () => {
     if (!currentSchool) return;
@@ -231,6 +231,11 @@ export default function DormitoryExit() {
     } else if (filterRange === 'week') {
       startDate = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
       endDate = format(endOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    } else if (filterRange === 'period') {
+      const a = periodFrom <= periodTo ? periodFrom : periodTo;
+      const b = periodFrom <= periodTo ? periodTo : periodFrom;
+      startDate = format(a, 'yyyy-MM-dd');
+      endDate = format(b, 'yyyy-MM-dd');
     } else {
       startDate = format(startOfMonth(d), 'yyyy-MM-dd');
       endDate = format(endOfMonth(d), 'yyyy-MM-dd');
