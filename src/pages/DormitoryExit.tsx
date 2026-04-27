@@ -55,7 +55,7 @@ interface ExitRequest {
   class?: { name: string };
 }
 
-type FilterRange = 'day' | 'week' | 'month';
+type FilterRange = 'day' | 'week' | 'month' | 'period';
 
 export default function DormitoryExit() {
   const { user, currentSchool, currentMembership, isSchoolAdmin, isSuperAdmin } = useAuth();
