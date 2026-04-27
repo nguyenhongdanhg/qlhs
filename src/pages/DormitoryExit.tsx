@@ -691,7 +691,51 @@ export default function DormitoryExit() {
     }
   };
 
-  // Delete request
+  // Batch mark "đã vào" / bỏ đánh dấu
+  const handleBatchMarkReturned = async (mark: boolean) => {
+    if (selectedApproved.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('dormitory_exit_requests')
+        .update({ returned_at: mark ? new Date().toISOString() : null } as any)
+        .in('id', selectedApproved);
+      if (error) throw error;
+      toast({ title: mark ? 'Đã đánh dấu đã vào' : 'Đã bỏ đánh dấu', description: `${selectedApproved.length} học sinh` });
+      setSelectedApproved([]);
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  // Batch revoke approved → pending
+  const handleBatchRevoke = async () => {
+    if (selectedApproved.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('dormitory_exit_requests')
+        .update({ status: 'pending', approver_id: null, approved_at: null })
+        .in('id', selectedApproved);
+      if (error) throw error;
+      toast({ title: 'Đã thu hồi', description: `${selectedApproved.length} đơn về chờ duyệt` });
+      setSelectedApproved([]);
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  // Batch delete (approved or rejected)
+  const handleBatchDelete = async (ids: string[], onDone: () => void) => {
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase.from('dormitory_exit_requests').delete().in('id', ids);
+      if (error) throw error;
+      toast({ title: 'Đã xóa', description: `${ids.length} đơn` });
+      onDone();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleDelete = async () => {
     if (!deletingId) return;
     try {
