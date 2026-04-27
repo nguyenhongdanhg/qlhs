@@ -1300,6 +1300,55 @@ export default function DormitoryExit() {
                   );
                 })()}
               </div>
+
+              {/* Batch action toolbar for approved */}
+              {(() => {
+                const canMarkAny = isSuperAdmin || isSchoolAdmin() || hasPermission('dormitory_exit', 'edit') || isClassTeacher;
+                if (!canMarkAny) return null;
+                const visibleIds = filteredApprovedRequests
+                  .filter(r => isSuperAdmin || isSchoolAdmin() || hasPermission('dormitory_exit', 'edit') ||
+                    (isClassTeacher && currentMembership?.class_id && r.class_id === currentMembership.class_id))
+                  .map(r => r.id);
+                if (visibleIds.length === 0) return null;
+                const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedApproved.includes(id));
+                return (
+                  <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/40 rounded-md border">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedApproved(Array.from(new Set([...selectedApproved, ...visibleIds])));
+                          else setSelectedApproved(selectedApproved.filter(id => !visibleIds.includes(id)));
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {selectedApproved.length > 0 ? `Đã chọn ${selectedApproved.length}/${visibleIds.length}` : 'Chọn tất cả'}
+                      </span>
+                    </div>
+                    {selectedApproved.length > 0 && (
+                      <div className="flex items-center gap-1 ml-auto flex-wrap">
+                        <Button size="sm" variant="outline" className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => handleBatchMarkReturned(true)}>
+                          <CheckSquare className="h-3.5 w-3.5 mr-1" /> Đã vào ({selectedApproved.length})
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleBatchMarkReturned(false)}>
+                          <Square className="h-3.5 w-3.5 mr-1" /> Bỏ tích
+                        </Button>
+                        {canDelete && (
+                          <>
+                            <Button size="sm" variant="outline" className="h-7 text-xs text-amber-700 border-amber-300 hover:bg-amber-50" onClick={handleBatchRevoke}>
+                              <Undo2 className="h-3.5 w-3.5 mr-1" /> Thu hồi
+                            </Button>
+                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleBatchDelete(selectedApproved, () => setSelectedApproved([]))}>
+                              <Trash2 className="h-3.5 w-3.5 mr-1" /> Xóa
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {filteredApprovedRequests.length === 0 && (
                 <Card><CardContent className="py-6 text-center text-muted-foreground text-xs">Không có học sinh phù hợp với bộ lọc</CardContent></Card>
               )}
