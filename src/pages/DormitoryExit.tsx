@@ -751,8 +751,8 @@ export default function DormitoryExit() {
 
   // Export Excel
   const handleExportExcel = () => {
-    const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
-    const titleLabel = filterRange === 'day' ? `Ngày ${format(selectedDate, 'dd/MM/yyyy')}` : filterRange === 'week' ? `Tuần ${format(selectedDate, 'dd/MM/yyyy')}` : `Tháng ${format(selectedDate, 'MM/yyyy')}`;
+    const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : filterRange === 'period' ? `${format(periodFrom, 'dd-MM-yyyy')}_den_${format(periodTo, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
+    const titleLabel = filterRange === 'day' ? `Ngày ${format(selectedDate, 'dd/MM/yyyy')}` : filterRange === 'week' ? `Tuần ${format(selectedDate, 'dd/MM/yyyy')}` : filterRange === 'period' ? `Giai đoạn ${format(periodFrom, 'dd/MM/yyyy')} - ${format(periodTo, 'dd/MM/yyyy')}` : `Tháng ${format(selectedDate, 'MM/yyyy')}`;
 
     const headers = ['STT', 'Họ và tên', 'Lớp', 'Trong ngày', 'Ngày ra', 'Giờ ra', 'Ngày vào', 'Giờ vào', 'Trạng thái', 'Đã vào', 'Lý do', 'GVCN', 'Người duyệt', 'Thẩm quyền'];
     const statuses: Array<{ expired: boolean; label: string; minutes: number } | null> = [];
