@@ -1420,6 +1420,7 @@ export default function DormitoryExit() {
                               {req.delegated_to_teacher && <Badge variant="outline" className="ml-1 text-[9px] border-blue-300 text-blue-700 px-1 py-0">GVCN</Badge>}
                               {req.delegated_to_duty && <Badge variant="outline" className="ml-1 text-[9px] border-purple-300 text-purple-700 px-1 py-0">Ca trực</Badge>}
                               {req.reason && <span className="text-muted-foreground"> • {req.reason}</span>}
+                              </div>
                             </div>
                             <div className="flex gap-1 shrink-0 ml-2">
                               {(() => {
