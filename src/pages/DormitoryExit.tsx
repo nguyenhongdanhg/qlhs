@@ -1380,9 +1380,22 @@ export default function DormitoryExit() {
                         {classReqs.map(req => {
                           const rs = getReturnStatus(req);
                           const isReturned = !!req.returned_at;
+                          const canMark = isSuperAdmin || isSchoolAdmin() || hasPermission('dormitory_exit', 'edit') ||
+                            (isClassTeacher && currentMembership?.class_id && req.class_id === currentMembership.class_id);
                           return (
-                          <div key={req.id} className={`flex items-center justify-between text-xs border-b last:border-0 pb-1.5 last:pb-0 ${isReturned ? 'opacity-70' : ''}`}>
-                            <div className="flex-1 min-w-0">
+                          <div key={req.id} className={`flex items-center justify-between text-xs border-b last:border-0 pb-1.5 last:pb-0 ${isReturned ? 'opacity-70' : ''} ${selectedApproved.includes(req.id) ? 'bg-primary/5' : ''}`}>
+                            <div className="flex-1 min-w-0 flex items-start gap-2">
+                              {canMark && (
+                                <Checkbox
+                                  className="mt-0.5"
+                                  checked={selectedApproved.includes(req.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) setSelectedApproved([...selectedApproved, req.id]);
+                                    else setSelectedApproved(selectedApproved.filter(id => id !== req.id));
+                                  }}
+                                />
+                              )}
+                              <div className="min-w-0 flex-1">
                               <span className={`font-medium ${isReturned ? 'line-through' : ''}`}>{req.student?.full_name}</span>
                               <span className="text-muted-foreground ml-2">
                                 {formatExitReturn(req)}
