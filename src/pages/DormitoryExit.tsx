@@ -1466,47 +1466,80 @@ export default function DormitoryExit() {
         <TabsContent value="rejected" className="mt-2 space-y-2">
           {rejectedRequests.length === 0 ? (
             <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">Không có đơn bị từ chối</CardContent></Card>
-          ) : rejectedRequests.map(req => (
-            <Card key={req.id}>
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{req.student?.full_name}</span>
-                      <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
-                      {req.same_day && <Badge className="text-[10px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">Trong ngày</Badge>}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span>{formatExitReturn(req)}</span>
-                    </div>
-                    {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
-                    {req.rejection_reason && (
-                      <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" /> {req.rejection_reason}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {canEditRequest(req) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-primary border-primary/40 hover:bg-primary/10"
-                        onClick={() => openEditRejected(req)}
-                      >
-                        <Pencil className="h-3.5 w-3.5 mr-1" /> Sửa & gửi lại
-                      </Button>
-                    )}
-                    {canDelete && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+          ) : (
+            <>
+              {canDelete && (
+                <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/40 rounded-md border">
+                  <Checkbox
+                    checked={selectedRejected.length === rejectedRequests.length && rejectedRequests.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) setSelectedRejected(rejectedRequests.map(r => r.id));
+                      else setSelectedRejected([]);
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {selectedRejected.length > 0 ? `Đã chọn ${selectedRejected.length}/${rejectedRequests.length}` : 'Chọn tất cả'}
+                  </span>
+                  {selectedRejected.length > 0 && (
+                    <Button size="sm" variant="destructive" className="h-7 text-xs ml-auto" onClick={() => handleBatchDelete(selectedRejected, () => setSelectedRejected([]))}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Xóa ({selectedRejected.length})
+                    </Button>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              )}
+              {rejectedRequests.map(req => (
+                <Card key={req.id} className={cn(selectedRejected.includes(req.id) && "ring-1 ring-primary")}>
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      {canDelete && (
+                        <Checkbox
+                          className="mt-1"
+                          checked={selectedRejected.includes(req.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) setSelectedRejected([...selectedRejected, req.id]);
+                            else setSelectedRejected(selectedRejected.filter(id => id !== req.id));
+                          }}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{req.student?.full_name}</span>
+                          <Badge variant="secondary" className="text-[10px]">{req.class?.name}</Badge>
+                          {req.same_day && <Badge className="text-[10px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">Trong ngày</Badge>}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span>{formatExitReturn(req)}</span>
+                        </div>
+                        {req.reason && <p className="text-xs text-muted-foreground mt-1">Lý do: {req.reason}</p>}
+                        {req.rejection_reason && (
+                          <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" /> {req.rejection_reason}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {canEditRequest(req) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-primary border-primary/40 hover:bg-primary/10"
+                            onClick={() => openEditRejected(req)}
+                          >
+                            <Pencil className="h-3.5 w-3.5 mr-1" /> Sửa & gửi lại
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => { setDeletingId(req.id); setShowDeleteDialog(true); }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
