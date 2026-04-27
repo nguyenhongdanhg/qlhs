@@ -152,6 +152,13 @@ export default function DormitoryExit() {
 
   // Batch selection for pending requests
   const [selectedPending, setSelectedPending] = useState<string[]>([]);
+  // Batch selection for approved & rejected
+  const [selectedApproved, setSelectedApproved] = useState<string[]>([]);
+  const [selectedRejected, setSelectedRejected] = useState<string[]>([]);
+
+  // Period (giai đoạn) range filter
+  const [periodFrom, setPeriodFrom] = useState<Date>(startOfMonth(new Date()));
+  const [periodTo, setPeriodTo] = useState<Date>(new Date());
 
   // Batch reject dialog
   const [showBatchRejectDialog, setShowBatchRejectDialog] = useState(false);
