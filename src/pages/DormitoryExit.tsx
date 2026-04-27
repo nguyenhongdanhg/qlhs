@@ -279,10 +279,10 @@ export default function DormitoryExit() {
   const filteredRequests = useMemo(() => {
     let filtered = requests;
     
-    // GVCN only sees pending/rejected for their own class, but ALL accounts see approved
+    // GVCN sees approved & rejected school-wide; pending restricted to their own class or their own requests
     if (teacherClassId) {
       filtered = filtered.filter(r => 
-        r.status === 'approved' || r.class_id === teacherClassId || r.requester_id === user?.id
+        r.status !== 'pending' || r.class_id === teacherClassId || r.requester_id === user?.id
       );
     }
     
