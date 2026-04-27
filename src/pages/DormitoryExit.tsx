@@ -930,7 +930,9 @@ export default function DormitoryExit() {
     ? format(selectedDate, 'EEEE, dd/MM/yyyy', { locale: vi })
     : filterRange === 'week'
       ? `${format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd/MM')} - ${format(endOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}`
-      : `Tháng ${format(selectedDate, 'MM/yyyy')}`;
+      : filterRange === 'period'
+        ? `${format(periodFrom, 'dd/MM/yyyy')} - ${format(periodTo, 'dd/MM/yyyy')}`
+        : `Tháng ${format(selectedDate, 'MM/yyyy')}`;
 
   const imageStudents = approvedRequests.map(r => ({
     name: r.student?.full_name || '',
