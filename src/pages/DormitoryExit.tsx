@@ -1030,26 +1030,55 @@ export default function DormitoryExit() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1">
-              <CalendarIcon className="h-4 w-4" />
-              {format(selectedDate, 'dd/MM/yyyy')}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={vi} />
-          </PopoverContent>
-        </Popover>
+        {filterRange !== 'period' ? (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1">
+                <CalendarIcon className="h-4 w-4" />
+                {format(selectedDate, 'dd/MM/yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} locale={vi} className={cn("p-3 pointer-events-auto")} />
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <div className="flex items-center gap-1">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <CalendarIcon className="h-4 w-4" />
+                  {format(periodFrom, 'dd/MM/yyyy')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={periodFrom} onSelect={(d) => d && setPeriodFrom(d)} locale={vi} className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
+            <span className="text-muted-foreground text-xs">→</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <CalendarIcon className="h-4 w-4" />
+                  {format(periodTo, 'dd/MM/yyyy')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={periodTo} onSelect={(d) => d && setPeriodTo(d)} locale={vi} className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
 
         <Select value={filterRange} onValueChange={(v) => setFilterRange(v as FilterRange)}>
-          <SelectTrigger className="w-[100px] h-8 text-sm">
+          <SelectTrigger className="w-[110px] h-8 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="day">Ngày</SelectItem>
             <SelectItem value="week">Tuần</SelectItem>
             <SelectItem value="month">Tháng</SelectItem>
+            <SelectItem value="period">Giai đoạn</SelectItem>
           </SelectContent>
         </Select>
 
