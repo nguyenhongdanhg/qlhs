@@ -285,6 +285,17 @@ function createMealStatsSheet(
   // Determine month/year from date range
   const monthNum = format(config.dateRange.start, 'M');
   const yearNum = format(config.dateRange.start, 'yyyy');
+  const schoolYearStr = config.schoolYear || (() => {
+    const y = config.dateRange.start.getFullYear();
+    const m = config.dateRange.start.getMonth() + 1;
+    // Năm học bắt đầu từ tháng 8
+    return m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+  })();
+
+  // GVCN name lookup
+  const gvcnName = config.classTeachers?.get(className) || '';
+  const principalName = config.principalName || '';
+  const locationStr = config.schoolLocation || '';
 
   // Build title based on filter
   let mealTypeTitle = 'BỮA SÁNG, BỮA TRƯA, BỮA TỐI';
@@ -301,12 +312,15 @@ function createMealStatsSheet(
   // Columns: TT | Họ và tên | day1..dayN | Tổng | Ký nhận
   const numCols = 2 + numDays + 1 + 1;
 
-  // Row 0: School name (left) + "CỘNG HÒA..." (right area)
+  // Row 0: School name (left) + "CỘNG HÒA..." (center) + "Mẫu số: 04" (right)
   const row0: any[] = new Array(numCols).fill('');
   row0[0] = config.schoolName;
-  // Place "CỘNG HÒA..." roughly in the middle-right
   const midCol = Math.max(2, Math.floor(numCols * 0.4));
   row0[midCol] = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM';
+  const lastCol = numCols - 1;
+  // Mẫu số: 04 ở góc phải - sẽ được merge vào ô cuối cùng (riêng)
+  // Để đơn giản, đặt ở dòng đầu tiên cột cuối
+  row0[lastCol] = 'Mẫu số: 04';
 
   // Row 1: Class (left) + "Độc lập..." (center)
   const row1: any[] = new Array(numCols).fill('');
@@ -320,14 +334,15 @@ function createMealStatsSheet(
   const row3: any[] = new Array(numCols).fill('');
   row3[0] = `BẢNG THEO DÕI HỌC SINH NỘI TRÚ ĂN TẬP TRUNG (${mealTypeTitle}) TẠI TRƯỜNG`;
 
-  // Row 4: Subtitle
+  // Row 4: TTLT subtitle
   const row4: any[] = new Array(numCols).fill('');
-  row4[0] = `Tháng ${monthNum}    Năm    ${yearNum}`;
+  row4[0] = `THEO TTLT 109/2009/TTLT/BTC-BGDĐT NH ${schoolYearStr}`;
 
-  // Row 5: Empty
+  // Row 5: Tháng / Năm
   const row5: any[] = new Array(numCols).fill('');
+  row5[0] = `Tháng    ${monthNum}    Năm    ${yearNum}`;
 
-  // Row 6: Sub-header "Số ngày ăn tại trường trong tháng (Ngày trên, thứ dưới)"
+  // Row 6: Sub-header label
   const row6: any[] = new Array(numCols).fill('');
   row6[2] = 'Số ngày ăn tại trường trong tháng (Ngày trên, thứ dưới)';
 
