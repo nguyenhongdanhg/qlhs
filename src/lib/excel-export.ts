@@ -679,13 +679,17 @@ function createMealStatsSheet(
     };
   }
 
-  // Note row styling
-  setCell(noteRowIdx, 0, { font: { italic: true, sz: 9, color: { rgb: '616161' } }, alignment: { horizontal: 'left', vertical: 'center' } });
+  // Note + date row styling
+  setCell(noteAndDateRowIdx, 0, { font: { italic: true, sz: 9, color: { rgb: '616161' } }, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } });
+  setCell(noteAndDateRowIdx, sigDateCol, { font: { italic: true, sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
-  // Signature styling
-  setCell(sigDateRowIdx, sigDateCol, { font: { italic: true, sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  // Signature title styling
   setCell(sigTitleRowIdx, 0, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
   setCell(sigTitleRowIdx, sigDateCol, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
+
+  // Signature name styling (bold + italic for personal name)
+  setCell(sigNameRowIdx, 0, { font: { bold: true, italic: true, sz: 11, color: { rgb: '000000' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(sigNameRowIdx, sigDateCol, { font: { bold: true, italic: true, sz: 11, color: { rgb: '000000' } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   return ws;
 }
