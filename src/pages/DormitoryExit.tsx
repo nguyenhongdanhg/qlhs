@@ -19,7 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil, BarChart3, Square, CheckSquare } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil, BarChart3, Square, CheckSquare, Lock, Unlock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
