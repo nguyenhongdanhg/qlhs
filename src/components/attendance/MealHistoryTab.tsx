@@ -501,12 +501,24 @@ export function MealHistoryTab({
         .maybeSingle();
 
       // Fetch GVCN cho từng lớp + Hiệu trưởng (admin) của trường
-      const { data: membershipsData } = await supabase
-        .from('school_memberships')
-        .select('role, class_id, user:profiles(full_name)')
-        .eq('school_id', currentSchool.id)
-        .eq('status', 'active')
-        .in('role', ['class_teacher', 'admin']);
+      const [{ data: membershipsData }, { data: classesData }] = await Promise.all([
+        supabase
+          .from('school_memberships')
+          .select('role, class_id, user:profiles(full_name)')
+          .eq('school_id', currentSchool.id)
+          .eq('status', 'active')
+          .in('role', ['class_teacher', 'admin']),
+        supabase
+          .from('classes')
+          .select('id, name')
+          .eq('school_id', currentSchool.id),
+      ]);
+
+      // Map class_id (uuid) -> class name từ bảng classes (không phụ thuộc allStudents)
+      const classIdToName = new Map<string, string>();
+      (classesData || []).forEach((c: any) => {
+        if (c.id && c.name) classIdToName.set(c.id, c.name);
+      });
 
       const classTeachers = new Map<string, string>();
       let principalName = '';
@@ -515,9 +527,8 @@ export function MealHistoryTab({
         if (m.role === 'admin' && fullName && !principalName) {
           principalName = fullName;
         } else if (m.role === 'class_teacher' && m.class_id && fullName) {
-          // class_id is text - resolve to class name
-          const cls = allStudents.find(s => s.class_id === m.class_id)?.class;
-          if (cls?.name) classTeachers.set(cls.name, fullName);
+          const className = classIdToName.get(m.class_id);
+          if (className) classTeachers.set(className, fullName);
         }
       });
 
