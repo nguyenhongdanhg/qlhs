@@ -95,6 +95,14 @@ export interface ExcelExportConfig {
   exportTime: Date;
   ricePerStudent?: number;
   mealFilter?: MealExportFilter;
+  /** Map: className -> GVCN full name */
+  classTeachers?: Map<string, string>;
+  /** Hiệu trưởng / Thủ trưởng đơn vị */
+  principalName?: string;
+  /** Địa danh để ghi vào dòng ký tên (vd: "Pà Vầy Sủ") */
+  schoolLocation?: string;
+  /** Năm học để hiển thị trong tiêu đề (vd: "2025-2026") */
+  schoolYear?: string;
 }
 
 // Create worksheet with professional formatting
@@ -277,6 +285,17 @@ function createMealStatsSheet(
   // Determine month/year from date range
   const monthNum = format(config.dateRange.start, 'M');
   const yearNum = format(config.dateRange.start, 'yyyy');
+  const schoolYearStr = config.schoolYear || (() => {
+    const y = config.dateRange.start.getFullYear();
+    const m = config.dateRange.start.getMonth() + 1;
+    // Năm học bắt đầu từ tháng 8
+    return m >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+  })();
+
+  // GVCN name lookup
+  const gvcnName = config.classTeachers?.get(className) || '';
+  const principalName = config.principalName || '';
+  const locationStr = config.schoolLocation || '';
 
   // Build title based on filter
   let mealTypeTitle = 'BỮA SÁNG, BỮA TRƯA, BỮA TỐI';
@@ -293,12 +312,15 @@ function createMealStatsSheet(
   // Columns: TT | Họ và tên | day1..dayN | Tổng | Ký nhận
   const numCols = 2 + numDays + 1 + 1;
 
-  // Row 0: School name (left) + "CỘNG HÒA..." (right area)
+  // Row 0: School name (left) + "CỘNG HÒA..." (center) + "Mẫu số: 04" (right)
   const row0: any[] = new Array(numCols).fill('');
   row0[0] = config.schoolName;
-  // Place "CỘNG HÒA..." roughly in the middle-right
   const midCol = Math.max(2, Math.floor(numCols * 0.4));
   row0[midCol] = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM';
+  const lastCol = numCols - 1;
+  // Mẫu số: 04 ở góc phải - sẽ được merge vào ô cuối cùng (riêng)
+  // Để đơn giản, đặt ở dòng đầu tiên cột cuối
+  row0[lastCol] = 'Mẫu số: 04';
 
   // Row 1: Class (left) + "Độc lập..." (center)
   const row1: any[] = new Array(numCols).fill('');
@@ -312,14 +334,15 @@ function createMealStatsSheet(
   const row3: any[] = new Array(numCols).fill('');
   row3[0] = `BẢNG THEO DÕI HỌC SINH NỘI TRÚ ĂN TẬP TRUNG (${mealTypeTitle}) TẠI TRƯỜNG`;
 
-  // Row 4: Subtitle
+  // Row 4: TTLT subtitle
   const row4: any[] = new Array(numCols).fill('');
-  row4[0] = `Tháng ${monthNum}    Năm    ${yearNum}`;
+  row4[0] = `THEO TTLT 109/2009/TTLT/BTC-BGDĐT NH ${schoolYearStr}`;
 
-  // Row 5: Empty
+  // Row 5: Tháng / Năm
   const row5: any[] = new Array(numCols).fill('');
+  row5[0] = `Tháng    ${monthNum}    Năm    ${yearNum}`;
 
-  // Row 6: Sub-header "Số ngày ăn tại trường trong tháng (Ngày trên, thứ dưới)"
+  // Row 6: Sub-header label
   const row6: any[] = new Array(numCols).fill('');
   row6[2] = 'Số ngày ăn tại trường trong tháng (Ngày trên, thứ dưới)';
 
@@ -457,32 +480,42 @@ function createMealStatsSheet(
 
   // Signature rows
   const emptyRow: any[] = new Array(numCols).fill('');
+  const emptyRow2: any[] = new Array(numCols).fill('');
+  const emptyRow3: any[] = new Array(numCols).fill('');
 
-  const sigDateRow: any[] = new Array(numCols).fill('');
   const sigDateCol = Math.max(2 + numDays - 5, Math.floor(numCols * 0.6));
-  sigDateRow[sigDateCol] = `......, ngày ..... tháng ..... năm ${yearNum}`;
+  // Note + date trên cùng 1 dòng
+  const noteAndDateRow: any[] = [...noteRow];
+  noteAndDateRow[sigDateCol] = `${locationStr ? locationStr + ', ' : ''}ngày ..... tháng ..... năm ${yearNum}`;
 
   const sigTitleRow: any[] = new Array(numCols).fill('');
   sigTitleRow[1] = 'Giáo viên chủ nhiệm';
   sigTitleRow[sigDateCol] = 'Thủ trưởng đơn vị';
 
+  // Tên người ký (sau 2 dòng trống dành chỗ ký)
+  const sigNameRow: any[] = new Array(numCols).fill('');
+  sigNameRow[1] = gvcnName;
+  sigNameRow[sigDateCol] = principalName;
+
   // Assemble all rows
   const wsData: any[][] = [
-    row0,       // 0: school name + quốc hiệu
-    row1,       // 1: class + motto
-    row2,       // 2: empty
-    row3,       // 3: main title
-    row4,       // 4: tháng/năm
-    row5,       // 5: empty
-    row6,       // 6: sub-header label
-    headerRow1, // 7: date numbers + TT/name
-    headerRow2, // 8: day-of-week
-    ...dataRows,// 9..9+N-1: student data
-    totalsRow,  // 9+N: Cộng
-    emptyRow,   // blank
-    noteRow,    // notes
-    sigDateRow, // date line
-    sigTitleRow,// signature titles
+    row0,         // 0: school name + quốc hiệu + Mẫu số 04
+    row1,         // 1: class + motto
+    row2,         // 2: empty
+    row3,         // 3: main title
+    row4,         // 4: TTLT subtitle
+    row5,         // 5: tháng/năm
+    row6,         // 6: sub-header label
+    headerRow1,   // 7: date numbers + TT/name
+    headerRow2,   // 8: day-of-week
+    ...dataRows,  // 9..9+N-1: student data
+    totalsRow,    // 9+N: Cộng
+    emptyRow,     // blank
+    noteAndDateRow, // notes (left) + date (right)
+    sigTitleRow,  // signature titles
+    emptyRow2,    // blank for signature
+    emptyRow3,    // blank for signature
+    sigNameRow,   // GVCN name + Principal name
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -498,19 +531,23 @@ function createMealStatsSheet(
   // --- Merges ---
   if (!ws['!merges']) ws['!merges'] = [];
 
-  // Row 0: school name merge (cols 0 to midCol-1), quốc hiệu merge (midCol to end)
+  // Row 0: school name (left), quốc hiệu (giữa, không gồm cột cuối "Mẫu số: 04")
   ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: midCol - 1 } });
-  ws['!merges'].push({ s: { r: 0, c: midCol }, e: { r: 0, c: numCols - 1 } });
+  ws['!merges'].push({ s: { r: 0, c: midCol }, e: { r: 0, c: numCols - 2 } });
+  // (cột cuối là "Mẫu số: 04", không merge)
 
-  // Row 1: class merge, motto merge
+  // Row 1: class merge, motto merge (full to end)
   ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: midCol - 1 } });
   ws['!merges'].push({ s: { r: 1, c: midCol }, e: { r: 1, c: numCols - 1 } });
 
   // Row 3: main title (full width)
   ws['!merges'].push({ s: { r: 3, c: 0 }, e: { r: 3, c: numCols - 1 } });
 
-  // Row 4: tháng/năm (full width)
+  // Row 4: TTLT subtitle (full width)
   ws['!merges'].push({ s: { r: 4, c: 0 }, e: { r: 4, c: numCols - 1 } });
+
+  // Row 5: tháng/năm (full width)
+  ws['!merges'].push({ s: { r: 5, c: 0 }, e: { r: 5, c: numCols - 1 } });
 
   // Row 6: sub-header label (across date columns)
   ws['!merges'].push({ s: { r: 6, c: 2 }, e: { r: 6, c: 2 + numDays - 1 } });
@@ -521,16 +558,20 @@ function createMealStatsSheet(
   ws['!merges'].push({ s: { r: 7, c: 2 + numDays }, e: { r: 8, c: 2 + numDays } }); // Tổng
   ws['!merges'].push({ s: { r: 7, c: 2 + numDays + 1 }, e: { r: 8, c: 2 + numDays + 1 } }); // Ký nhận
 
-  // Notes row merge
-  const noteRowIdx = 9 + dataRows.length + 2; // after totals + empty
-  ws['!merges'].push({ s: { r: noteRowIdx, c: 0 }, e: { r: noteRowIdx, c: Math.min(2 + numDays - 1, numCols - 1) } });
+  // Note + date row (merged: note left half, date right half)
+  const noteAndDateRowIdx = 9 + dataRows.length + 2; // after totals + empty
+  ws['!merges'].push({ s: { r: noteAndDateRowIdx, c: 0 }, e: { r: noteAndDateRowIdx, c: sigDateCol - 1 } });
+  ws['!merges'].push({ s: { r: noteAndDateRowIdx, c: sigDateCol }, e: { r: noteAndDateRowIdx, c: numCols - 1 } });
 
-  // Signature merges
-  const sigDateRowIdx = noteRowIdx + 1;
-  const sigTitleRowIdx = noteRowIdx + 2;
-  ws['!merges'].push({ s: { r: sigDateRowIdx, c: sigDateCol }, e: { r: sigDateRowIdx, c: numCols - 1 } });
-  ws['!merges'].push({ s: { r: sigTitleRowIdx, c: 0 }, e: { r: sigTitleRowIdx, c: midCol - 1 } });
+  // Signature title row
+  const sigTitleRowIdx = noteAndDateRowIdx + 1;
+  ws['!merges'].push({ s: { r: sigTitleRowIdx, c: 0 }, e: { r: sigTitleRowIdx, c: sigDateCol - 1 } });
   ws['!merges'].push({ s: { r: sigTitleRowIdx, c: sigDateCol }, e: { r: sigTitleRowIdx, c: numCols - 1 } });
+
+  // Signature name row (sau 2 dòng trống)
+  const sigNameRowIdx = sigTitleRowIdx + 3;
+  ws['!merges'].push({ s: { r: sigNameRowIdx, c: 0 }, e: { r: sigNameRowIdx, c: sigDateCol - 1 } });
+  ws['!merges'].push({ s: { r: sigNameRowIdx, c: sigDateCol }, e: { r: sigNameRowIdx, c: numCols - 1 } });
 
   // --- Styling ---
   const thinBorder = ExcelBorders.thin;
@@ -562,12 +603,14 @@ function createMealStatsSheet(
 
   setCell(0, 0, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
   setCell(0, midCol, { font: { bold: true, sz: 12, color: { rgb: 'C62828' } }, alignment: { horizontal: 'center', vertical: 'center' } });
-  setCell(1, 0, { font: { sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(0, numCols - 1, { font: { italic: true, sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'right', vertical: 'center' } });
+  setCell(1, 0, { font: { bold: true, sz: 11, color: { rgb: '000000' } }, alignment: { horizontal: 'left', vertical: 'center' }, });
   setCell(1, midCol, { font: { bold: true, sz: 11, underline: true, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   // Title rows
   setCell(3, 0, { font: { bold: true, sz: 13, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true } });
   setCell(4, 0, { font: { bold: true, sz: 11, color: { rgb: '37474F' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(5, 0, { font: { bold: true, sz: 11, color: { rgb: '37474F' } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   // Sub-header row 6
   setCell(6, 2, { font: { italic: true, sz: 9, color: { rgb: '616161' } }, alignment: { horizontal: 'center', vertical: 'center' } });
@@ -638,13 +681,17 @@ function createMealStatsSheet(
     };
   }
 
-  // Note row styling
-  setCell(noteRowIdx, 0, { font: { italic: true, sz: 9, color: { rgb: '616161' } }, alignment: { horizontal: 'left', vertical: 'center' } });
+  // Note + date row styling
+  setCell(noteAndDateRowIdx, 0, { font: { italic: true, sz: 9, color: { rgb: '616161' } }, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } });
+  setCell(noteAndDateRowIdx, sigDateCol, { font: { italic: true, sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
-  // Signature styling
-  setCell(sigDateRowIdx, sigDateCol, { font: { italic: true, sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  // Signature title styling
   setCell(sigTitleRowIdx, 0, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
   setCell(sigTitleRowIdx, sigDateCol, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
+
+  // Signature name styling (bold + italic for personal name)
+  setCell(sigNameRowIdx, 0, { font: { bold: true, italic: true, sz: 11, color: { rgb: '000000' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(sigNameRowIdx, sigDateCol, { font: { bold: true, italic: true, sz: 11, color: { rgb: '000000' } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   return ws;
 }

@@ -500,6 +500,35 @@ export function MealHistoryTab({
         .eq('school_id', currentSchool.id)
         .maybeSingle();
 
+      // Fetch GVCN cho từng lớp + Hiệu trưởng (admin) của trường
+      const { data: membershipsData } = await supabase
+        .from('school_memberships')
+        .select('role, class_id, user:profiles(full_name)')
+        .eq('school_id', currentSchool.id)
+        .eq('status', 'active')
+        .in('role', ['class_teacher', 'admin']);
+
+      const classTeachers = new Map<string, string>();
+      let principalName = '';
+      (membershipsData || []).forEach((m: any) => {
+        const fullName = m.user?.full_name || '';
+        if (m.role === 'admin' && fullName && !principalName) {
+          principalName = fullName;
+        } else if (m.role === 'class_teacher' && m.class_id && fullName) {
+          // class_id is text - resolve to class name
+          const cls = allStudents.find(s => s.class_id === m.class_id)?.class;
+          if (cls?.name) classTeachers.set(cls.name, fullName);
+        }
+      });
+
+      // Lấy năm học hiện tại từ classes
+      const schoolYear = allStudents[0]?.class?.school_year || undefined;
+
+      // Lấy địa danh từ address (lấy phần đầu trước dấu phẩy nếu có)
+      const schoolLocation = currentSchool.address
+        ? currentSchool.address.split(',')[0].trim()
+        : '';
+
       exportMealStatistics(mealStudents, {
         schoolName: currentSchool.name,
         title: `THỐNG KÊ BỮA ĂN${titleSuffix ? titleSuffix : ' HỌC SINH NỘI TRÚ'}`,
@@ -508,6 +537,10 @@ export function MealHistoryTab({
         exportTime: new Date(),
         ricePerStudent: mealSettingsData?.rice_per_student ? Number(mealSettingsData.rice_per_student) : undefined,
         mealFilter: mealFilter || 'all',
+        classTeachers,
+        principalName,
+        schoolLocation,
+        schoolYear,
       });
 
       toast({
