@@ -603,12 +603,14 @@ function createMealStatsSheet(
 
   setCell(0, 0, { font: { bold: true, sz: 11, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
   setCell(0, midCol, { font: { bold: true, sz: 12, color: { rgb: 'C62828' } }, alignment: { horizontal: 'center', vertical: 'center' } });
-  setCell(1, 0, { font: { sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(0, numCols - 1, { font: { italic: true, sz: 10, color: { rgb: '424242' } }, alignment: { horizontal: 'right', vertical: 'center' } });
+  setCell(1, 0, { font: { bold: true, sz: 11, color: { rgb: '000000' } }, alignment: { horizontal: 'left', vertical: 'center' }, });
   setCell(1, midCol, { font: { bold: true, sz: 11, underline: true, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   // Title rows
   setCell(3, 0, { font: { bold: true, sz: 13, color: { rgb: titleColor } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true } });
   setCell(4, 0, { font: { bold: true, sz: 11, color: { rgb: '37474F' } }, alignment: { horizontal: 'center', vertical: 'center' } });
+  setCell(5, 0, { font: { bold: true, sz: 11, color: { rgb: '37474F' } }, alignment: { horizontal: 'center', vertical: 'center' } });
 
   // Sub-header row 6
   setCell(6, 2, { font: { italic: true, sz: 9, color: { rgb: '616161' } }, alignment: { horizontal: 'center', vertical: 'center' } });
