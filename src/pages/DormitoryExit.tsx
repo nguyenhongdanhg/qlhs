@@ -179,6 +179,15 @@ export default function DormitoryExit() {
   }[]>([]);
   const [lastRequesterName, setLastRequesterName] = useState('');
 
+  // Khoá đăng ký (admin)
+  const [registrationLocked, setRegistrationLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState('Chức năng đăng ký ra KTX hiện đang tạm khoá. Vui lòng liên hệ quản trị.');
+  const [showLockSettingsDialog, setShowLockSettingsDialog] = useState(false);
+  const [lockDraftEnabled, setLockDraftEnabled] = useState(false);
+  const [lockDraftMessage, setLockDraftMessage] = useState('');
+  const [isSavingLock, setIsSavingLock] = useState(false);
+  const [showLockedAlertDialog, setShowLockedAlertDialog] = useState(false);
+
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
   const canDelete = isSchoolAdmin() || isSuperAdmin;
