@@ -1025,8 +1025,32 @@ export default function DormitoryExit() {
             <span className="hidden sm:inline">Tải mẫu đơn</span>
             <span className="sm:hidden">Mẫu đơn</span>
           </Button>
+          {(isSchoolAdmin() || isSuperAdmin) && (
+            <Button
+              variant={registrationLocked ? 'destructive' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setLockDraftEnabled(registrationLocked);
+                setLockDraftMessage(lockMessage);
+                setShowLockSettingsDialog(true);
+              }}
+              title={registrationLocked ? 'Đang khoá đăng ký' : 'Khoá / mở chức năng đăng ký'}
+            >
+              {registrationLocked ? <Lock className="h-4 w-4 mr-1" /> : <Unlock className="h-4 w-4 mr-1" />}
+              <span className="hidden sm:inline">{registrationLocked ? 'Đang khoá' : 'Khoá ĐK'}</span>
+            </Button>
+          )}
           {canCreate && (
-            <Button onClick={() => setShowCreateDialog(true)} size="sm">
+            <Button
+              onClick={() => {
+                if (registrationLocked && !(isSchoolAdmin() || isSuperAdmin)) {
+                  setShowLockedAlertDialog(true);
+                  return;
+                }
+                setShowCreateDialog(true);
+              }}
+              size="sm"
+            >
               <Plus className="h-4 w-4 mr-1" /> Đăng ký
             </Button>
           )}
