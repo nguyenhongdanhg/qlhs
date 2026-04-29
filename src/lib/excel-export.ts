@@ -480,32 +480,42 @@ function createMealStatsSheet(
 
   // Signature rows
   const emptyRow: any[] = new Array(numCols).fill('');
+  const emptyRow2: any[] = new Array(numCols).fill('');
+  const emptyRow3: any[] = new Array(numCols).fill('');
 
-  const sigDateRow: any[] = new Array(numCols).fill('');
   const sigDateCol = Math.max(2 + numDays - 5, Math.floor(numCols * 0.6));
-  sigDateRow[sigDateCol] = `......, ngày ..... tháng ..... năm ${yearNum}`;
+  // Note + date trên cùng 1 dòng
+  const noteAndDateRow: any[] = [...noteRow];
+  noteAndDateRow[sigDateCol] = `${locationStr ? locationStr + ', ' : ''}ngày ..... tháng ..... năm ${yearNum}`;
 
   const sigTitleRow: any[] = new Array(numCols).fill('');
   sigTitleRow[1] = 'Giáo viên chủ nhiệm';
   sigTitleRow[sigDateCol] = 'Thủ trưởng đơn vị';
 
+  // Tên người ký (sau 2 dòng trống dành chỗ ký)
+  const sigNameRow: any[] = new Array(numCols).fill('');
+  sigNameRow[1] = gvcnName;
+  sigNameRow[sigDateCol] = principalName;
+
   // Assemble all rows
   const wsData: any[][] = [
-    row0,       // 0: school name + quốc hiệu
-    row1,       // 1: class + motto
-    row2,       // 2: empty
-    row3,       // 3: main title
-    row4,       // 4: tháng/năm
-    row5,       // 5: empty
-    row6,       // 6: sub-header label
-    headerRow1, // 7: date numbers + TT/name
-    headerRow2, // 8: day-of-week
-    ...dataRows,// 9..9+N-1: student data
-    totalsRow,  // 9+N: Cộng
-    emptyRow,   // blank
-    noteRow,    // notes
-    sigDateRow, // date line
-    sigTitleRow,// signature titles
+    row0,         // 0: school name + quốc hiệu + Mẫu số 04
+    row1,         // 1: class + motto
+    row2,         // 2: empty
+    row3,         // 3: main title
+    row4,         // 4: TTLT subtitle
+    row5,         // 5: tháng/năm
+    row6,         // 6: sub-header label
+    headerRow1,   // 7: date numbers + TT/name
+    headerRow2,   // 8: day-of-week
+    ...dataRows,  // 9..9+N-1: student data
+    totalsRow,    // 9+N: Cộng
+    emptyRow,     // blank
+    noteAndDateRow, // notes (left) + date (right)
+    sigTitleRow,  // signature titles
+    emptyRow2,    // blank for signature
+    emptyRow3,    // blank for signature
+    sigNameRow,   // GVCN name + Principal name
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
