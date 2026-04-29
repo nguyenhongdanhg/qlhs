@@ -216,12 +216,29 @@ export default function DormitoryExit() {
     const channel = supabase
       .channel('dormitory-exit-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dormitory_exit_requests', filter: `school_id=eq.${currentSchool.id}` }, () => fetchRequests())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dormitory_exit_settings', filter: `school_id=eq.${currentSchool.id}` }, () => fetchLockSettings())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [currentSchool, selectedDate, filterRange, periodFrom, periodTo]);
 
+  const fetchLockSettings = async () => {
+    if (!currentSchool) return;
+    const { data } = await supabase
+      .from('dormitory_exit_settings')
+      .select('registration_locked, lock_message')
+      .eq('school_id', currentSchool.id)
+      .maybeSingle();
+    if (data) {
+      setRegistrationLocked(!!data.registration_locked);
+      if (data.lock_message) setLockMessage(data.lock_message);
+    } else {
+      setRegistrationLocked(false);
+    }
+  };
+
   const fetchData = async () => {
     if (!currentSchool) return;
+    await fetchLockSettings();
     const [classRes, studentRes] = await Promise.all([
       supabase.from('classes').select('*').eq('school_id', currentSchool.id).eq('is_active', true).order('name'),
       supabase.from('students').select('*').eq('school_id', currentSchool.id).eq('is_active', true).eq('is_boarding', true).order('full_name'),
