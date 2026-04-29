@@ -19,7 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil, BarChart3, Square, CheckSquare } from 'lucide-react';
+import { Loader2, Plus, CalendarIcon, Check, X, Search, Share2, FileSpreadsheet, Clock, DoorOpen, AlertCircle, Trash2, Undo2, Image, Upload, Paperclip, ExternalLink, Download, FileText, Pencil, BarChart3, Square, CheckSquare, Lock, Unlock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
@@ -179,6 +180,15 @@ export default function DormitoryExit() {
   }[]>([]);
   const [lastRequesterName, setLastRequesterName] = useState('');
 
+  // Khoá đăng ký (admin)
+  const [registrationLocked, setRegistrationLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState('Chức năng đăng ký ra KTX hiện đang tạm khoá. Vui lòng liên hệ quản trị.');
+  const [showLockSettingsDialog, setShowLockSettingsDialog] = useState(false);
+  const [lockDraftEnabled, setLockDraftEnabled] = useState(false);
+  const [lockDraftMessage, setLockDraftMessage] = useState('');
+  const [isSavingLock, setIsSavingLock] = useState(false);
+  const [showLockedAlertDialog, setShowLockedAlertDialog] = useState(false);
+
   const isClassTeacher = currentMembership?.role === 'class_teacher';
   const canApprove = isSchoolAdmin() || isSuperAdmin || hasPermission('dormitory_exit', 'edit');
   const canDelete = isSchoolAdmin() || isSuperAdmin;
@@ -207,12 +217,29 @@ export default function DormitoryExit() {
     const channel = supabase
       .channel('dormitory-exit-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dormitory_exit_requests', filter: `school_id=eq.${currentSchool.id}` }, () => fetchRequests())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dormitory_exit_settings', filter: `school_id=eq.${currentSchool.id}` }, () => fetchLockSettings())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [currentSchool, selectedDate, filterRange, periodFrom, periodTo]);
 
+  const fetchLockSettings = async () => {
+    if (!currentSchool) return;
+    const { data } = await supabase
+      .from('dormitory_exit_settings')
+      .select('registration_locked, lock_message')
+      .eq('school_id', currentSchool.id)
+      .maybeSingle();
+    if (data) {
+      setRegistrationLocked(!!data.registration_locked);
+      if (data.lock_message) setLockMessage(data.lock_message);
+    } else {
+      setRegistrationLocked(false);
+    }
+  };
+
   const fetchData = async () => {
     if (!currentSchool) return;
+    await fetchLockSettings();
     const [classRes, studentRes] = await Promise.all([
       supabase.from('classes').select('*').eq('school_id', currentSchool.id).eq('is_active', true).order('name'),
       supabase.from('students').select('*').eq('school_id', currentSchool.id).eq('is_active', true).eq('is_boarding', true).order('full_name'),
@@ -998,8 +1025,32 @@ export default function DormitoryExit() {
             <span className="hidden sm:inline">Tải mẫu đơn</span>
             <span className="sm:hidden">Mẫu đơn</span>
           </Button>
+          {(isSchoolAdmin() || isSuperAdmin) && (
+            <Button
+              variant={registrationLocked ? 'destructive' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setLockDraftEnabled(registrationLocked);
+                setLockDraftMessage(lockMessage);
+                setShowLockSettingsDialog(true);
+              }}
+              title={registrationLocked ? 'Đang khoá đăng ký' : 'Khoá / mở chức năng đăng ký'}
+            >
+              {registrationLocked ? <Lock className="h-4 w-4 mr-1" /> : <Unlock className="h-4 w-4 mr-1" />}
+              <span className="hidden sm:inline">{registrationLocked ? 'Đang khoá' : 'Khoá ĐK'}</span>
+            </Button>
+          )}
           {canCreate && (
-            <Button onClick={() => setShowCreateDialog(true)} size="sm">
+            <Button
+              onClick={() => {
+                if (registrationLocked && !(isSchoolAdmin() || isSuperAdmin)) {
+                  setShowLockedAlertDialog(true);
+                  return;
+                }
+                setShowCreateDialog(true);
+              }}
+              size="sm"
+            >
               <Plus className="h-4 w-4 mr-1" /> Đăng ký
             </Button>
           )}
@@ -2153,6 +2204,84 @@ export default function DormitoryExit() {
               );
             })()}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lock settings dialog (admin) */}
+      <Dialog open={showLockSettingsDialog} onOpenChange={setShowLockSettingsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-4 w-4" /> Khoá chức năng đăng ký ra KTX
+            </DialogTitle>
+            <DialogDescription>
+              Khi bật khoá, giáo viên sẽ không đăng ký mới được và sẽ thấy thông báo cảnh báo bạn nhập bên dưới.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <Label className="text-sm font-medium">Khoá đăng ký</Label>
+                <div className="text-xs text-muted-foreground">Tạm dừng nhận đơn mới từ giáo viên</div>
+              </div>
+              <Switch checked={lockDraftEnabled} onCheckedChange={setLockDraftEnabled} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Nội dung cảnh báo hiển thị</Label>
+              <Textarea
+                value={lockDraftMessage}
+                onChange={(e) => setLockDraftMessage(e.target.value)}
+                rows={4}
+                placeholder="Ví dụ: Tạm dừng đăng ký từ 17h-21h để điểm danh..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLockSettingsDialog(false)}>Huỷ</Button>
+            <Button
+              disabled={isSavingLock}
+              onClick={async () => {
+                if (!currentSchool) return;
+                setIsSavingLock(true);
+                const { error } = await supabase
+                  .from('dormitory_exit_settings')
+                  .upsert({
+                    school_id: currentSchool.id,
+                    registration_locked: lockDraftEnabled,
+                    lock_message: lockDraftMessage.trim() || 'Chức năng đăng ký ra KTX hiện đang tạm khoá.',
+                  }, { onConflict: 'school_id' });
+                setIsSavingLock(false);
+                if (error) {
+                  toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+                  return;
+                }
+                setRegistrationLocked(lockDraftEnabled);
+                setLockMessage(lockDraftMessage.trim() || lockMessage);
+                setShowLockSettingsDialog(false);
+                toast({ title: 'Đã lưu', description: lockDraftEnabled ? 'Đã khoá chức năng đăng ký' : 'Đã mở chức năng đăng ký' });
+              }}
+            >
+              {isSavingLock && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Locked alert for non-admins */}
+      <Dialog open={showLockedAlertDialog} onOpenChange={setShowLockedAlertDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Lock className="h-5 w-5" /> Chức năng đang bị khoá
+            </DialogTitle>
+          </DialogHeader>
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm whitespace-pre-wrap">
+            {lockMessage}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowLockedAlertDialog(false)}>Đã hiểu</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
