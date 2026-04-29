@@ -95,6 +95,14 @@ export interface ExcelExportConfig {
   exportTime: Date;
   ricePerStudent?: number;
   mealFilter?: MealExportFilter;
+  /** Map: className -> GVCN full name */
+  classTeachers?: Map<string, string>;
+  /** Hiệu trưởng / Thủ trưởng đơn vị */
+  principalName?: string;
+  /** Địa danh để ghi vào dòng ký tên (vd: "Pà Vầy Sủ") */
+  schoolLocation?: string;
+  /** Năm học để hiển thị trong tiêu đề (vd: "2025-2026") */
+  schoolYear?: string;
 }
 
 // Create worksheet with professional formatting
