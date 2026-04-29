@@ -374,6 +374,41 @@ export type Database = {
           },
         ]
       }
+      dormitory_exit_settings: {
+        Row: {
+          created_at: string
+          id: string
+          lock_message: string
+          registration_locked: boolean
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lock_message?: string
+          registration_locked?: boolean
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lock_message?: string
+          registration_locked?: boolean
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dormitory_exit_settings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: true
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       duty_group_members: {
         Row: {
           created_at: string
