@@ -531,19 +531,23 @@ function createMealStatsSheet(
   // --- Merges ---
   if (!ws['!merges']) ws['!merges'] = [];
 
-  // Row 0: school name merge (cols 0 to midCol-1), quốc hiệu merge (midCol to end)
+  // Row 0: school name (left), quốc hiệu (giữa, không gồm cột cuối "Mẫu số: 04")
   ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: midCol - 1 } });
-  ws['!merges'].push({ s: { r: 0, c: midCol }, e: { r: 0, c: numCols - 1 } });
+  ws['!merges'].push({ s: { r: 0, c: midCol }, e: { r: 0, c: numCols - 2 } });
+  // (cột cuối là "Mẫu số: 04", không merge)
 
-  // Row 1: class merge, motto merge
+  // Row 1: class merge, motto merge (full to end)
   ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: midCol - 1 } });
   ws['!merges'].push({ s: { r: 1, c: midCol }, e: { r: 1, c: numCols - 1 } });
 
   // Row 3: main title (full width)
   ws['!merges'].push({ s: { r: 3, c: 0 }, e: { r: 3, c: numCols - 1 } });
 
-  // Row 4: tháng/năm (full width)
+  // Row 4: TTLT subtitle (full width)
   ws['!merges'].push({ s: { r: 4, c: 0 }, e: { r: 4, c: numCols - 1 } });
+
+  // Row 5: tháng/năm (full width)
+  ws['!merges'].push({ s: { r: 5, c: 0 }, e: { r: 5, c: numCols - 1 } });
 
   // Row 6: sub-header label (across date columns)
   ws['!merges'].push({ s: { r: 6, c: 2 }, e: { r: 6, c: 2 + numDays - 1 } });
@@ -554,16 +558,20 @@ function createMealStatsSheet(
   ws['!merges'].push({ s: { r: 7, c: 2 + numDays }, e: { r: 8, c: 2 + numDays } }); // Tổng
   ws['!merges'].push({ s: { r: 7, c: 2 + numDays + 1 }, e: { r: 8, c: 2 + numDays + 1 } }); // Ký nhận
 
-  // Notes row merge
-  const noteRowIdx = 9 + dataRows.length + 2; // after totals + empty
-  ws['!merges'].push({ s: { r: noteRowIdx, c: 0 }, e: { r: noteRowIdx, c: Math.min(2 + numDays - 1, numCols - 1) } });
+  // Note + date row (merged: note left half, date right half)
+  const noteAndDateRowIdx = 9 + dataRows.length + 2; // after totals + empty
+  ws['!merges'].push({ s: { r: noteAndDateRowIdx, c: 0 }, e: { r: noteAndDateRowIdx, c: sigDateCol - 1 } });
+  ws['!merges'].push({ s: { r: noteAndDateRowIdx, c: sigDateCol }, e: { r: noteAndDateRowIdx, c: numCols - 1 } });
 
-  // Signature merges
-  const sigDateRowIdx = noteRowIdx + 1;
-  const sigTitleRowIdx = noteRowIdx + 2;
-  ws['!merges'].push({ s: { r: sigDateRowIdx, c: sigDateCol }, e: { r: sigDateRowIdx, c: numCols - 1 } });
-  ws['!merges'].push({ s: { r: sigTitleRowIdx, c: 0 }, e: { r: sigTitleRowIdx, c: midCol - 1 } });
+  // Signature title row
+  const sigTitleRowIdx = noteAndDateRowIdx + 1;
+  ws['!merges'].push({ s: { r: sigTitleRowIdx, c: 0 }, e: { r: sigTitleRowIdx, c: sigDateCol - 1 } });
   ws['!merges'].push({ s: { r: sigTitleRowIdx, c: sigDateCol }, e: { r: sigTitleRowIdx, c: numCols - 1 } });
+
+  // Signature name row (sau 2 dòng trống)
+  const sigNameRowIdx = sigTitleRowIdx + 3;
+  ws['!merges'].push({ s: { r: sigNameRowIdx, c: 0 }, e: { r: sigNameRowIdx, c: sigDateCol - 1 } });
+  ws['!merges'].push({ s: { r: sigNameRowIdx, c: sigDateCol }, e: { r: sigNameRowIdx, c: numCols - 1 } });
 
   // --- Styling ---
   const thinBorder = ExcelBorders.thin;
