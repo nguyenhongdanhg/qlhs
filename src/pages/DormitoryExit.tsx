@@ -2206,6 +2206,84 @@ export default function DormitoryExit() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Lock settings dialog (admin) */}
+      <Dialog open={showLockSettingsDialog} onOpenChange={setShowLockSettingsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-4 w-4" /> Khoá chức năng đăng ký ra KTX
+            </DialogTitle>
+            <DialogDescription>
+              Khi bật khoá, giáo viên sẽ không đăng ký mới được và sẽ thấy thông báo cảnh báo bạn nhập bên dưới.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <Label className="text-sm font-medium">Khoá đăng ký</Label>
+                <div className="text-xs text-muted-foreground">Tạm dừng nhận đơn mới từ giáo viên</div>
+              </div>
+              <Switch checked={lockDraftEnabled} onCheckedChange={setLockDraftEnabled} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Nội dung cảnh báo hiển thị</Label>
+              <Textarea
+                value={lockDraftMessage}
+                onChange={(e) => setLockDraftMessage(e.target.value)}
+                rows={4}
+                placeholder="Ví dụ: Tạm dừng đăng ký từ 17h-21h để điểm danh..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLockSettingsDialog(false)}>Huỷ</Button>
+            <Button
+              disabled={isSavingLock}
+              onClick={async () => {
+                if (!currentSchool) return;
+                setIsSavingLock(true);
+                const { error } = await supabase
+                  .from('dormitory_exit_settings')
+                  .upsert({
+                    school_id: currentSchool.id,
+                    registration_locked: lockDraftEnabled,
+                    lock_message: lockDraftMessage.trim() || 'Chức năng đăng ký ra KTX hiện đang tạm khoá.',
+                  }, { onConflict: 'school_id' });
+                setIsSavingLock(false);
+                if (error) {
+                  toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+                  return;
+                }
+                setRegistrationLocked(lockDraftEnabled);
+                setLockMessage(lockDraftMessage.trim() || lockMessage);
+                setShowLockSettingsDialog(false);
+                toast({ title: 'Đã lưu', description: lockDraftEnabled ? 'Đã khoá chức năng đăng ký' : 'Đã mở chức năng đăng ký' });
+              }}
+            >
+              {isSavingLock && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Locked alert for non-admins */}
+      <Dialog open={showLockedAlertDialog} onOpenChange={setShowLockedAlertDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Lock className="h-5 w-5" /> Chức năng đang bị khoá
+            </DialogTitle>
+          </DialogHeader>
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm whitespace-pre-wrap">
+            {lockMessage}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowLockedAlertDialog(false)}>Đã hiểu</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
