@@ -411,6 +411,39 @@ export default function DormitoryExit() {
       toast({ title: 'Thiếu thông tin', description: 'Vui lòng nhập giờ ra và giờ vào', variant: 'destructive' });
       return;
     }
+    if (!editReason.trim()) {
+      toast({ title: 'Thiếu lý do', description: 'Vui lòng nhập lý do xin ra/vào KTX', variant: 'destructive' });
+      return;
+    }
+    // Build full datetimes for validation
+    const [eh, em] = editExitTime.split(':').map(Number);
+    const [rh, rm] = editReturnTime.split(':').map(Number);
+    const exitDT = new Date(editExitDate); exitDT.setHours(eh, em, 0, 0);
+    const returnDT = new Date(editReturnDate); returnDT.setHours(rh, rm, 0, 0);
+
+    if (editSameDay) {
+      const sameDate = editExitDate.toDateString() === editReturnDate.toDateString();
+      if (!sameDate) {
+        toast({ title: 'Thời gian không hợp lý', description: 'Xin ra trong ngày: ngày ra và ngày vào phải cùng một ngày', variant: 'destructive' });
+        return;
+      }
+    }
+    if (returnDT.getTime() <= exitDT.getTime()) {
+      toast({ title: 'Thời gian không hợp lý', description: 'Giờ vào phải sau giờ ra', variant: 'destructive' });
+      return;
+    }
+
+    // Warning if same-day duration < 3 hours
+    if (editSameDay) {
+      const diffHours = (returnDT.getTime() - exitDT.getTime()) / 3600000;
+      if (diffHours < 3) {
+        toast({
+          title: 'Thẩm quyền giáo viên trực và GVCN',
+          description: `Thời gian ra dưới 3 giờ (${diffHours.toFixed(1)}h) thuộc thẩm quyền của giáo viên trực và GVCN.`,
+        });
+      }
+    }
+
     setRegisteredStudents(prev => [...prev, {
       studentId: currentEditStudentId,
       exitDate: editExitDate,
@@ -423,6 +456,7 @@ export default function DormitoryExit() {
     }]);
     setCurrentEditStudentId(null);
     setEditSameDay(false);
+    setEditReason('');
     setEditAttachmentFile(null);
   };
 
@@ -1662,8 +1696,8 @@ export default function DormitoryExit() {
                       <span className="text-xs font-medium text-amber-900">Xin ra trong ngày</span>
                     </label>
                     <div>
-                      <Label className="text-xs">Lý do (không bắt buộc)</Label>
-                      <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
+                      <Label className="text-xs">Lý do <span className="text-destructive">*</span></Label>
+                      <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do (bắt buộc)..." className="mt-1 text-sm" rows={2} required />
                     </div>
                     <div>
                       <Label className="text-xs">Ảnh đơn (tải lên Google Drive)</Label>
@@ -1703,7 +1737,7 @@ export default function DormitoryExit() {
                         )}
                       </div>
                     </div>
-                    <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime}>
+                    <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime || !editReason.trim()}>
                       <Check className="h-4 w-4 mr-1" /> Xác nhận
                     </Button>
                   </CardContent>
