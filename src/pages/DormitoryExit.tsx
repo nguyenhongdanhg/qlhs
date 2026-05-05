@@ -1696,8 +1696,8 @@ export default function DormitoryExit() {
                       <span className="text-xs font-medium text-amber-900">Xin ra trong ngày</span>
                     </label>
                     <div>
-                      <Label className="text-xs">Lý do (không bắt buộc)</Label>
-                      <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do..." className="mt-1 text-sm" rows={2} />
+                      <Label className="text-xs">Lý do <span className="text-destructive">*</span></Label>
+                      <Textarea value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="Nhập lý do (bắt buộc)..." className="mt-1 text-sm" rows={2} required />
                     </div>
                     <div>
                       <Label className="text-xs">Ảnh đơn (tải lên Google Drive)</Label>
