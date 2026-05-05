@@ -1737,7 +1737,7 @@ export default function DormitoryExit() {
                         )}
                       </div>
                     </div>
-                    <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime}>
+                    <Button size="sm" className="w-full" onClick={handleConfirmStudent} disabled={!editExitTime || !editReturnTime || !editReason.trim()}>
                       <Check className="h-4 w-4 mr-1" /> Xác nhận
                     </Button>
                   </CardContent>
