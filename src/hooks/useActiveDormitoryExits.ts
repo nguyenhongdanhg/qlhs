@@ -35,6 +35,11 @@ export function useActiveDormitoryExits(schoolId: string | undefined, date: Date
       setIsLoading(true);
       try {
         const dateStr = format(date, 'yyyy-MM-dd');
+        const now = new Date();
+        const todayStr = format(now, 'yyyy-MM-dd');
+        const currentTimeStr = format(now, 'HH:mm:ss');
+        const isToday = dateStr === todayStr;
+
         const { data, error } = await supabase
           .from('dormitory_exit_requests')
           .select('student_id, exit_date, exit_time, return_date, expected_return_time, same_day, reason, returned_at, request_date, status')
@@ -50,6 +55,13 @@ export function useActiveDormitoryExits(schoolId: string | undefined, date: Date
           const end = r.same_day ? start : (r.return_date || start);
           if (!start) return;
           if (dateStr >= start && dateStr <= end) {
+            // Skip if past expected return time on the current day
+            if (isToday && r.expected_return_time) {
+              const isReturnDay = dateStr === (r.same_day ? start : (r.return_date || start));
+              if (isReturnDay && currentTimeStr > r.expected_return_time) {
+                return;
+              }
+            }
             map[r.student_id] = {
               student_id: r.student_id,
               exit_date: start,
