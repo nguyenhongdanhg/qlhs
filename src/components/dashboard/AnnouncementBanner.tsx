@@ -244,6 +244,16 @@ export function AnnouncementBanner() {
                             </div>
                             {/* Actions */}
                             <div className="flex sm:flex-col items-center sm:items-stretch gap-1">
+                              {canManage && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-[11px] px-2 flex-1"
+                                  onClick={() => { setEditItem(a); setFormOpen(true); }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5 mr-1" /> Sửa
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant={done ? 'default' : 'outline'}
