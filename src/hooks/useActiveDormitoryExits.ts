@@ -34,6 +34,13 @@ export function useActiveDormitoryExits(
       setExits({});
       return;
     }
+
+    // Only apply for evening_study and boarding attendance types
+    if (attendanceType !== 'evening_study' && attendanceType !== 'boarding') {
+      setExits({});
+      return;
+    }
+
     let cancelled = false;
     const fetchExits = async () => {
       setIsLoading(true);
