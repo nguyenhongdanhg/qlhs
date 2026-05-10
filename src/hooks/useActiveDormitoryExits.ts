@@ -21,7 +21,11 @@ export interface ActiveExitInfo {
  * "Active" = approved, not yet returned, and the date falls within
  * [exit_date, return_date or exit_date if same_day].
  */
-export function useActiveDormitoryExits(schoolId: string | undefined, date: Date) {
+export function useActiveDormitoryExits(
+  schoolId: string | undefined,
+  date: Date,
+  attendanceType: 'evening_study' | 'boarding' | 'breakfast' | 'lunch' | 'dinner'
+) {
   const [exits, setExits] = useState<Record<string, ActiveExitInfo>>({});
   const [isLoading, setIsLoading] = useState(false);
 
