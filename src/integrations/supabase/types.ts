@@ -16,36 +16,51 @@ export type Database = {
     Tables: {
       announcements: {
         Row: {
+          assignee: string | null
+          completed_at: string | null
+          completed_by: string | null
           content: string
           created_at: string
           created_by: string | null
+          event_time: string | null
           expire_at: string | null
           id: string
           is_active: boolean
+          priority: boolean
           school_id: string
           start_at: string
           title: string
           updated_at: string
         }
         Insert: {
+          assignee?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
           content?: string
           created_at?: string
           created_by?: string | null
+          event_time?: string | null
           expire_at?: string | null
           id?: string
           is_active?: boolean
+          priority?: boolean
           school_id: string
           start_at?: string
           title: string
           updated_at?: string
         }
         Update: {
+          assignee?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
           content?: string
           created_at?: string
           created_by?: string | null
+          event_time?: string | null
           expire_at?: string | null
           id?: string
           is_active?: boolean
+          priority?: boolean
           school_id?: string
           start_at?: string
           title?: string
