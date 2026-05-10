@@ -210,7 +210,7 @@ export default function Boarding() {
 
   // Active dormitory exits for the selected date — surfaces students currently
   // approved to be out of the dorm so the on-duty teacher knows what to expect.
-  const { exits: activeExits } = useActiveDormitoryExits(currentSchool?.id, date);
+  const { exits: activeExits } = useActiveDormitoryExits(currentSchool?.id, date, 'boarding');
 
   // Sort classes by grade
   const sortedClasses = useMemo(() => {
