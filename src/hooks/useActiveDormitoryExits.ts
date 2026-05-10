@@ -98,7 +98,7 @@ export function useActiveDormitoryExits(
     return () => {
       cancelled = true;
     };
-  }, [schoolId, date]);
+  }, [schoolId, date, attendanceType]);
 
   return { exits, isLoading };
 }
