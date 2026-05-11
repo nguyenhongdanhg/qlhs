@@ -160,7 +160,24 @@ export function AnnouncementBanner() {
                   {visible.length} mục · Sắp xếp theo ưu tiên & thời gian
                 </p>
               </div>
-              {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+              <div className="flex flex-col items-center gap-0.5">
+                <div
+                  className={cn(
+                    'flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-200',
+                    collapsed
+                      ? 'bg-primary text-primary-foreground border-primary shadow-md animate-bounce'
+                      : 'bg-muted text-muted-foreground border-transparent'
+                  )}
+                  title={collapsed ? 'Nhấn để xem bảng tin' : 'Thu nhỏ bảng tin'}
+                >
+                  {collapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+                </div>
+                {collapsed && (
+                  <span className="text-[9px] font-semibold text-primary uppercase tracking-wide">
+                    Mở
+                  </span>
+                )}
+              </div>
             </button>
             <div className="flex items-center gap-1">
               {visible.length > 0 && unseenCount > 0 && (
