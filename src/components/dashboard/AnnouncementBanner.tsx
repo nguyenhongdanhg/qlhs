@@ -68,12 +68,11 @@ export function AnnouncementBanner() {
       const list = ((data || []) as any[]).filter(
         (a) => !a.expire_at || !isPast(parseISO(a.expire_at))
       ) as Announcement[];
-      // Sort: priority first, then by event_time (or start_at) desc
+      // Sort by event_time ascending (nearest upcoming first)
       return list.sort((a, b) => {
-        if (a.priority !== b.priority) return a.priority ? -1 : 1;
         const ta = new Date(a.event_time || a.start_at).getTime();
         const tb = new Date(b.event_time || b.start_at).getTime();
-        return tb - ta;
+        return ta - tb;
       });
     },
     enabled: !!currentSchool,
