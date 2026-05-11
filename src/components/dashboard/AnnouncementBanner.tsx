@@ -214,7 +214,7 @@ export function AnnouncementBanner() {
                     <div>Người thực hiện</div>
                     <div className="text-center">Trạng thái</div>
                   </div>
-                  <ScrollArea className="max-h-[360px]">
+                  <ScrollArea className="h-[420px] max-sm:h-[300px]">
                     <div>
                       {(() => {
                         const groups = new Map<string, Announcement[]>();
