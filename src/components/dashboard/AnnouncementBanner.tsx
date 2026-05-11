@@ -192,98 +192,118 @@ export function AnnouncementBanner() {
               ) : (
                 <>
                   {/* Column headers */}
-                  <div className="hidden sm:grid grid-cols-[140px_1fr_140px_120px] gap-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30 border-b">
-                    <div>Thời gian</div>
+                  <div className="hidden sm:grid grid-cols-[110px_1fr_140px_120px] gap-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30 border-b">
+                    <div>Giờ</div>
                     <div>Nội dung</div>
                     <div>Người thực hiện</div>
                     <div className="text-center">Trạng thái</div>
                   </div>
                   <ScrollArea className="max-h-[360px]">
-                    <div className="divide-y">
-                      {visible.map(a => {
-                        const seen = seenIds.has(a.id);
-                        const done = !!a.completed_at;
-                        const t = a.event_time || a.start_at;
-                        return (
-                          <div
-                            key={a.id}
-                            className={cn(
-                              'grid sm:grid-cols-[140px_1fr_140px_120px] gap-2 px-3 py-2.5 transition-colors hover:bg-muted/40',
-                              !seen && !done && 'bg-primary/5',
-                              done && 'opacity-60',
-                            )}
-                          >
-                            {/* Time */}
-                            <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                              <Clock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                              <div>
-                                <div className="font-medium text-foreground">{format(parseISO(t), 'HH:mm')}</div>
-                                <div className="text-[10px]">{format(parseISO(t), 'dd/MM/yy')}</div>
+                    <div>
+                      {(() => {
+                        const groups = new Map<string, Announcement[]>();
+                        visible.forEach(a => {
+                          const t = a.event_time || a.start_at;
+                          const key = format(parseISO(t), 'yyyy-MM-dd');
+                          if (!groups.has(key)) groups.set(key, []);
+                          groups.get(key)!.push(a);
+                        });
+                        return Array.from(groups.entries()).map(([dateKey, items]) => {
+                          const d = parseISO(dateKey);
+                          return (
+                            <div key={dateKey}>
+                              <div className="px-3 py-1.5 bg-accent/30 border-b text-xs font-semibold text-foreground flex items-center gap-2 sticky top-0 z-10 backdrop-blur-sm">
+                                <span className="text-primary">{getWeekdayVi(d)}</span>
+                                <span>·</span>
+                                <span>{format(d, 'dd/MM/yyyy')}</span>
+                                <Badge variant="outline" className="ml-auto h-5 text-[10px]">{items.length} mục</Badge>
+                              </div>
+                              <div className="divide-y">
+                                {items.map(a => {
+                                  const seen = seenIds.has(a.id);
+                                  const done = !!a.completed_at;
+                                  const t = a.event_time || a.start_at;
+                                  return (
+                                    <div
+                                      key={a.id}
+                                      className={cn(
+                                        'grid sm:grid-cols-[110px_1fr_140px_120px] gap-2 px-3 py-2.5 transition-colors hover:bg-muted/40',
+                                        !seen && !done && 'bg-primary/5',
+                                        done && 'opacity-60',
+                                      )}
+                                    >
+                                      <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                        <Clock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                                        <div>
+                                          <div className="font-bold text-foreground text-sm">{format(parseISO(t), 'HH:mm')}</div>
+                                          <div className="text-[10px] sm:hidden">{getWeekdayVi(parseISO(t))}, {format(parseISO(t), 'dd/MM')}</div>
+                                        </div>
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                                          {a.priority && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500 flex-shrink-0" />}
+                                          <span className={cn('font-semibold text-sm text-foreground', done && 'line-through')}>
+                                            {a.title}
+                                          </span>
+                                          {!seen && !done && (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-destructive flex-shrink-0" />
+                                          )}
+                                        </div>
+                                        {a.content && (
+                                          <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{a.content}</p>
+                                        )}
+                                        <div className="flex flex-wrap gap-1.5 mt-1.5 sm:hidden">
+                                          {a.assignee && (
+                                            <Badge variant="outline" className="text-[10px] h-5">{a.assignee}</Badge>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="hidden sm:flex items-start text-xs text-foreground">
+                                        {a.assignee || <span className="text-muted-foreground italic">—</span>}
+                                      </div>
+                                      <div className="flex sm:flex-col items-center sm:items-stretch gap-1">
+                                        {canManage && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 text-[11px] px-2 flex-1"
+                                            onClick={() => { setEditItem(a); setFormOpen(true); }}
+                                          >
+                                            <Pencil className="h-3.5 w-3.5 mr-1" /> Sửa
+                                          </Button>
+                                        )}
+                                        <Button
+                                          size="sm"
+                                          variant={done ? 'default' : 'outline'}
+                                          className="h-7 text-[11px] px-2 flex-1"
+                                          onClick={() => toggleDone.mutate(a)}
+                                          disabled={toggleDone.isPending}
+                                        >
+                                          {done ? (
+                                            <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Đã làm</>
+                                          ) : (
+                                            <><Circle className="h-3.5 w-3.5 mr-1" /> Chưa làm</>
+                                          )}
+                                        </Button>
+                                        {!seen && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-7 text-[11px] px-2 flex-1"
+                                            onClick={() => markAsSeen(a.id)}
+                                          >
+                                            <CheckCheck className="h-3.5 w-3.5 mr-1" /> Đã xem
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
-                            {/* Content */}
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                {a.priority && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500 flex-shrink-0" />}
-                                <span className={cn('font-semibold text-sm text-foreground', done && 'line-through')}>
-                                  {a.title}
-                                </span>
-                                {!seen && !done && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-destructive flex-shrink-0" />
-                                )}
-                              </div>
-                              {a.content && (
-                                <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{a.content}</p>
-                              )}
-                              <div className="flex flex-wrap gap-1.5 mt-1.5 sm:hidden">
-                                {a.assignee && (
-                                  <Badge variant="outline" className="text-[10px] h-5">{a.assignee}</Badge>
-                                )}
-                              </div>
-                            </div>
-                            {/* Assignee */}
-                            <div className="hidden sm:flex items-start text-xs text-foreground">
-                              {a.assignee || <span className="text-muted-foreground italic">—</span>}
-                            </div>
-                            {/* Actions */}
-                            <div className="flex sm:flex-col items-center sm:items-stretch gap-1">
-                              {canManage && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 text-[11px] px-2 flex-1"
-                                  onClick={() => { setEditItem(a); setFormOpen(true); }}
-                                >
-                                  <Pencil className="h-3.5 w-3.5 mr-1" /> Sửa
-                                </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                variant={done ? 'default' : 'outline'}
-                                className="h-7 text-[11px] px-2 flex-1"
-                                onClick={() => toggleDone.mutate(a)}
-                                disabled={toggleDone.isPending}
-                              >
-                                {done ? (
-                                  <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Đã làm</>
-                                ) : (
-                                  <><Circle className="h-3.5 w-3.5 mr-1" /> Chưa làm</>
-                                )}
-                              </Button>
-                              {!seen && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 text-[11px] px-2 flex-1"
-                                  onClick={() => markAsSeen(a.id)}
-                                >
-                                  <CheckCheck className="h-3.5 w-3.5 mr-1" /> Đã xem
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   </ScrollArea>
                 </>
