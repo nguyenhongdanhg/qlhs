@@ -17,7 +17,6 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { format, parseISO, isPast, isFuture } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 const WEEKDAYS_VI = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
