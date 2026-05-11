@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -455,25 +455,23 @@ function AnnouncementFormDialog({
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const handleOpenChange = (v: boolean) => {
-    if (v) {
-      if (item) {
-        setTitle(item.title);
-        setContent(item.content);
-        setEventTime(item.event_time ? format(parseISO(item.event_time), "yyyy-MM-dd'T'HH:mm") : format(parseISO(item.start_at), "yyyy-MM-dd'T'HH:mm"));
-        setAssignee(item.assignee || '');
-        setPriority(item.priority);
-        setStartAt(format(parseISO(item.start_at), "yyyy-MM-dd'T'HH:mm"));
-        setExpireAt(item.expire_at ? format(parseISO(item.expire_at), "yyyy-MM-dd'T'HH:mm") : '');
-        setIsActive(item.is_active);
-      } else {
-        const now = format(new Date(), "yyyy-MM-dd'T'HH:mm");
-        setTitle(''); setContent(''); setEventTime(now); setAssignee(''); setPriority(false);
-        setStartAt(now); setExpireAt(''); setIsActive(true);
-      }
+  useEffect(() => {
+    if (!open) return;
+    if (item) {
+      setTitle(item.title);
+      setContent(item.content);
+      setEventTime(item.event_time ? format(parseISO(item.event_time), "yyyy-MM-dd'T'HH:mm") : format(parseISO(item.start_at), "yyyy-MM-dd'T'HH:mm"));
+      setAssignee(item.assignee || '');
+      setPriority(item.priority);
+      setStartAt(format(parseISO(item.start_at), "yyyy-MM-dd'T'HH:mm"));
+      setExpireAt(item.expire_at ? format(parseISO(item.expire_at), "yyyy-MM-dd'T'HH:mm") : '');
+      setIsActive(item.is_active);
+    } else {
+      const now = format(new Date(), "yyyy-MM-dd'T'HH:mm");
+      setTitle(''); setContent(''); setEventTime(now); setAssignee(''); setPriority(false);
+      setStartAt(now); setExpireAt(''); setIsActive(true);
     }
-    onOpenChange(v);
-  };
+  }, [open, item]);
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -512,7 +510,7 @@ function AnnouncementFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{item ? 'Sửa mục bảng tin' : 'Thêm mục bảng tin'}</DialogTitle>
