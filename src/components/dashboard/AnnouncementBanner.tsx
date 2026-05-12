@@ -48,7 +48,8 @@ export function AnnouncementBanner() {
   const [manageOpen, setManageOpen] = useState(false);
   const [editItem, setEditItem] = useState<Announcement | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const [expiredOpen, setExpiredOpen] = useState(false);
 
   const canManage = isSuperAdmin || isSchoolAdmin();
 
