@@ -158,7 +158,7 @@ export function AnnouncementBanner() {
                   )}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  {visible.length} mục · Sắp xếp theo ưu tiên & thời gian
+                  {visible.length} mục
                 </p>
               </div>
               <div className="flex flex-col items-center gap-0.5">
