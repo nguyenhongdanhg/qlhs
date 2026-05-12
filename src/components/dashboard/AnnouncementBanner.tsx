@@ -48,7 +48,8 @@ export function AnnouncementBanner() {
   const [manageOpen, setManageOpen] = useState(false);
   const [editItem, setEditItem] = useState<Announcement | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const [expiredOpen, setExpiredOpen] = useState(false);
 
   const canManage = isSuperAdmin || isSchoolAdmin();
 
@@ -157,7 +158,7 @@ export function AnnouncementBanner() {
                   )}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  {visible.length} mục · Sắp xếp theo ưu tiên & thời gian
+                  {visible.length} mục
                 </p>
               </div>
               <div className="flex flex-col items-center gap-0.5">
@@ -185,6 +186,9 @@ export function AnnouncementBanner() {
                   <CheckCheck className="h-3.5 w-3.5 mr-1" /> Đã xem hết
                 </Button>
               )}
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setExpiredOpen(true)}>
+                <Clock className="h-3.5 w-3.5 mr-1" /> Đã hết hạn
+              </Button>
               {canManage && (
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setManageOpen(true)}>
                   <Pencil className="h-3.5 w-3.5 mr-1" /> Quản lý
@@ -352,7 +356,83 @@ export function AnnouncementBanner() {
           }}
         />
       )}
+      <ExpiredAnnouncementsDialog
+        open={expiredOpen}
+        onOpenChange={setExpiredOpen}
+        schoolId={currentSchool?.id || ''}
+      />
     </>
+  );
+}
+
+function ExpiredAnnouncementsDialog({
+  open, onOpenChange, schoolId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  schoolId: string;
+}) {
+  const { data: expired = [], isLoading } = useQuery({
+    queryKey: ['bulletin-expired', schoolId],
+    queryFn: async () => {
+      if (!schoolId) return [];
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('announcements' as any)
+        .select('*')
+        .eq('school_id', schoolId)
+        .not('expire_at', 'is', null)
+        .lt('expire_at', now)
+        .order('expire_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data || []) as unknown as Announcement[];
+    },
+    enabled: !!schoolId && open,
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-muted-foreground" /> Bảng tin đã hết hạn
+          </DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="flex-1 max-h-[65vh] -mx-6 px-6">
+          {isLoading ? (
+            <p className="text-center text-sm text-muted-foreground py-6">Đang tải...</p>
+          ) : expired.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">Chưa có tin đã hết hạn</p>
+          ) : (
+            <div className="space-y-2">
+              {expired.map(a => {
+                const t = a.event_time || a.start_at;
+                return (
+                  <div key={a.id} className="p-3 rounded-lg border bg-muted/30">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      {a.priority && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
+                      <span className="font-semibold text-sm">{a.title}</span>
+                      {a.completed_at && (
+                        <Badge variant="outline" className="h-5 text-[10px] text-green-700 border-green-300">Đã làm</Badge>
+                      )}
+                    </div>
+                    {a.content && (
+                      <p className="text-xs text-muted-foreground whitespace-pre-line mb-1">{a.content}</p>
+                    )}
+                    <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+                      <span>🕐 {getWeekdayVi(parseISO(t))}, {format(parseISO(t), 'dd/MM/yyyy HH:mm')}</span>
+                      {a.assignee && <span>👤 {a.assignee}</span>}
+                      {a.expire_at && <span>Hết hạn: {format(parseISO(a.expire_at), 'dd/MM/yyyy HH:mm')}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 }
 
