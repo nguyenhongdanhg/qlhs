@@ -142,29 +142,29 @@ export function AnnouncementBanner() {
       <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-background to-accent/5 shadow-md overflow-hidden">
         <CardContent className="p-0">
           {/* Header */}
-          <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 border-b bg-primary/5">
-            <button
-              onClick={() => setCollapsed(c => !c)}
-              className="flex items-center gap-2 flex-1 min-w-0 text-left"
-            >
-              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
-                <Megaphone className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-sm sm:text-base text-foreground">Bảng tin</h3>
-                  {unseenCount > 0 && (
-                    <Badge className="h-5 px-1.5 text-[10px] bg-destructive">{unseenCount} mới</Badge>
-                  )}
+          <div className="px-3 sm:px-4 py-2.5 border-b bg-primary/5">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCollapsed(c => !c)}
+                className="flex items-center gap-2 flex-1 min-w-0 text-left"
+              >
+                <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                  <Megaphone className="h-4 w-4 text-primary" />
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {visible.length} mục
-                </p>
-              </div>
-              <div className="flex flex-col items-center gap-0.5">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight">Bảng tin</h3>
+                    {unseenCount > 0 && (
+                      <Badge className="h-4 px-1.5 text-[10px] bg-destructive">{unseenCount} mới</Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                    {visible.length} mục
+                  </p>
+                </div>
                 <div
                   className={cn(
-                    'flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-200',
+                    'flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-200 flex-shrink-0',
                     collapsed
                       ? 'bg-primary text-primary-foreground border-primary shadow-md animate-bounce'
                       : 'bg-muted text-muted-foreground border-transparent'
@@ -173,24 +173,21 @@ export function AnnouncementBanner() {
                 >
                   {collapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
                 </div>
-                {collapsed && (
-                  <span className="text-[9px] font-semibold text-primary uppercase tracking-wide">
-                    Mở
-                  </span>
-                )}
-              </div>
-            </button>
-            <div className="flex items-center gap-1">
+              </button>
+            </div>
+            <div className="flex items-center gap-1 mt-2 flex-wrap">
               {visible.length > 0 && unseenCount > 0 && (
-                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={markAllSeen}>
-                  <CheckCheck className="h-3.5 w-3.5 mr-1" /> Đã xem hết
+                <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={markAllSeen}>
+                  <CheckCheck className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Đã xem hết</span>
+                  <span className="sm:hidden ml-1">Xem hết</span>
                 </Button>
               )}
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setExpiredOpen(true)}>
-                <Clock className="h-3.5 w-3.5 mr-1" /> Đã hết hạn
+              <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => setExpiredOpen(true)}>
+                <Clock className="h-3.5 w-3.5 mr-1" /> Hết hạn
               </Button>
               {canManage && (
-                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setManageOpen(true)}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => setManageOpen(true)}>
                   <Pencil className="h-3.5 w-3.5 mr-1" /> Quản lý
                 </Button>
               )}
