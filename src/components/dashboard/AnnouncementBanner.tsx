@@ -186,6 +186,9 @@ export function AnnouncementBanner() {
                   <CheckCheck className="h-3.5 w-3.5 mr-1" /> Đã xem hết
                 </Button>
               )}
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setExpiredOpen(true)}>
+                <Clock className="h-3.5 w-3.5 mr-1" /> Đã hết hạn
+              </Button>
               {canManage && (
                 <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setManageOpen(true)}>
                   <Pencil className="h-3.5 w-3.5 mr-1" /> Quản lý
