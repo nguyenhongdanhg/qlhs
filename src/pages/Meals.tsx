@@ -1048,6 +1048,18 @@ export default function Meals() {
                   <UserMinus className="h-3.5 w-3.5 mr-1" />3 bữa (chọn vắng)
                 </Button>
               </div>
+
+              {/* Row 3: Multi-day leave */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setMultiDayLeaveDialogOpen(true)}
+                disabled={!canReportMeals}
+                className="w-full h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+              >
+                <CalendarOff className="h-3.5 w-3.5 mr-1" />
+                Nghỉ ăn nhiều ngày (đăng ký trước)
+              </Button>
               
               {/* Summary */}
               <div className="flex items-center justify-between text-xs px-1">
