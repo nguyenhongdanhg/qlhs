@@ -413,7 +413,7 @@ export default function Meals() {
       }
 
       const validMeals = mealTypesToSave.filter(meal => !expiredMeals.includes(meal));
-      const absentSet = new Set(absentStudentIds);
+      const absentSet = new Set([...absentStudentIds, ...leaveStudentIds]);
       
       // Use filteredStudents (class-specific for GVCN, all for admin)
       const studentsToReport = filteredStudents;
