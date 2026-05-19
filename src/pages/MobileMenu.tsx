@@ -70,7 +70,7 @@ function MenuSection({ title, items, isFeatureEnabled, isAdmin }: {
   isAdmin: boolean;
 }) {
   const filtered = items.filter((item) => {
-    if (item.code === 'settings' || item.code === 'guide') return true;
+    if (item.code === 'settings' || item.code === 'guide' || item.code === 'teachers') return true;
     if (item.adminOnly && !isAdmin) return false;
     return isFeatureEnabled(item.code);
   });
