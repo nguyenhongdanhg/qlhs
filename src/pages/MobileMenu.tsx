@@ -21,6 +21,7 @@ import {
   Home,
   BookOpen,
   UtensilsCrossed,
+  GraduationCap,
 } from 'lucide-react';
 
 interface MenuItem {
