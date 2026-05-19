@@ -80,21 +80,98 @@ export function MultiDayMealLeaveDialog({ open, onOpenChange, students, schoolId
       toast({ title: 'Thiếu thông tin', description: 'Chọn học sinh và ít nhất 1 ngày nghỉ', variant: 'destructive' });
       return;
     }
+    if (!selectedStudent?.class_id) {
+      toast({ title: 'Lỗi', description: 'Học sinh chưa có lớp, không thể tạo báo ăn tự động', variant: 'destructive' });
+      return;
+    }
     setIsSaving(true);
     try {
-      const rows = selectedDates.map(d => ({
+      const dateStrs = selectedDates.map(d => format(d, 'yyyy-MM-dd'));
+
+      // 1. Save leave records
+      const leaveRows = dateStrs.map(ds => ({
         school_id: schoolId,
         student_id: selectedStudentId,
-        leave_date: format(d, 'yyyy-MM-dd'),
+        leave_date: ds,
         notes: notes || null,
         created_by: user.id,
       }));
-      const { error } = await supabase
+      const { error: leaveErr } = await supabase
         .from('student_meal_leaves')
-        .upsert(rows, { onConflict: 'school_id,student_id,leave_date' });
-      if (error) throw error;
-      toast({ title: 'Đã lưu', description: `Đã đăng ký nghỉ ăn ${rows.length} ngày cho ${selectedStudent?.full_name}` });
+        .upsert(leaveRows, { onConflict: 'school_id,student_id,leave_date' });
+      if (leaveErr) throw leaveErr;
+
+      // 2. Auto-create meal attendance for the whole class on those dates
+      const classId = selectedStudent.class_id;
+      const classmates = students.filter(s => s.class_id === classId);
+      const meals: ('breakfast' | 'lunch' | 'dinner')[] = ['breakfast', 'lunch', 'dinner'];
+
+      let autoCreated = 0;
+      let forcedAbsent = 0;
+
+      for (const ds of dateStrs) {
+        for (const meal of meals) {
+          // Check existing records for this class/date/meal
+          const { data: existing } = await supabase
+            .from('attendance_records')
+            .select('id, student_id, status')
+            .eq('school_id', schoolId)
+            .eq('class_id', classId)
+            .eq('attendance_date', ds)
+            .eq('attendance_type', meal);
+
+          if (!existing || existing.length === 0) {
+            // No report yet → auto report whole class
+            const records = classmates.map(s => ({
+              school_id: schoolId,
+              student_id: s.id,
+              class_id: classId,
+              attendance_date: ds,
+              attendance_type: meal,
+              status: (s.id === selectedStudentId ? 'absent' : 'present') as 'absent' | 'present',
+              reporter_id: user.id,
+              notes: s.id === selectedStudentId ? 'Nghỉ ăn đăng ký trước' : null,
+            }));
+            if (records.length > 0) {
+              const { error: insErr } = await supabase.from('attendance_records').insert(records);
+              if (insErr) throw insErr;
+              autoCreated++;
+            }
+          } else {
+            // Already reported → ensure student A is absent
+            const existingForStudent = existing.find(r => r.student_id === selectedStudentId);
+            if (existingForStudent) {
+              if (existingForStudent.status !== 'absent') {
+                await supabase
+                  .from('attendance_records')
+                  .update({ status: 'absent', notes: 'Nghỉ ăn đăng ký trước' })
+                  .eq('id', existingForStudent.id);
+                forcedAbsent++;
+              }
+            } else {
+              await supabase.from('attendance_records').insert({
+                school_id: schoolId,
+                student_id: selectedStudentId,
+                class_id: classId,
+                attendance_date: ds,
+                attendance_type: meal,
+                status: 'absent',
+                reporter_id: user.id,
+                notes: 'Nghỉ ăn đăng ký trước',
+              });
+              forcedAbsent++;
+            }
+          }
+        }
+      }
+
+      toast({
+        title: 'Đã lưu',
+        description: `Đăng ký nghỉ ${dateStrs.length} ngày cho ${selectedStudent?.full_name}. Tự động báo cơm ${autoCreated} bữa, cập nhật ${forcedAbsent} bữa đã báo.`,
+      });
       qc.invalidateQueries({ queryKey: ['meal-leaves'] });
+      qc.invalidateQueries({ queryKey: ['attendance'] });
+      qc.invalidateQueries({ queryKey: ['meal-stats'] });
       setSelectedDates([]);
       setNotes('');
     } catch (e: any) {
@@ -124,7 +201,7 @@ export function MultiDayMealLeaveDialog({ open, onOpenChange, students, schoolId
             Đăng ký nghỉ ăn nhiều ngày
           </DialogTitle>
           <DialogDescription>
-            Chọn học sinh và các ngày nghỉ. Học sinh sẽ tự động được tính vắng (cả 3 bữa) trong các ngày đó mà không cần báo thủ công.
+            Chọn học sinh và các ngày nghỉ. Hệ thống sẽ tự động báo cơm cả lớp cho các ngày đó (em này vắng cả 3 bữa) và đồng bộ vào thống kê, gạo, Excel. Nếu lớp báo lại sau, em này vẫn được giữ trạng thái vắng.
           </DialogDescription>
         </DialogHeader>
 
