@@ -1925,6 +1925,39 @@ export type Database = {
           },
         ]
       }
+      student_meal_leaves: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          leave_date: string
+          notes: string | null
+          school_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          leave_date: string
+          notes?: string | null
+          school_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          leave_date?: string
+          notes?: string | null
+          school_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           address: string | null
