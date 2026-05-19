@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { SuperAdminGuard } from "@/components/guards/SuperAdminGuard";
 import { FeatureGuard } from "@/components/guards/FeatureGuard";
+import { ChunkErrorBoundary } from "@/components/ChunkErrorBoundary";
 import { Loader2 } from "lucide-react";
 
 // Core page - load immediately
