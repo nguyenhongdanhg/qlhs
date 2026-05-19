@@ -461,7 +461,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = leaveStudentIds.has(s.id) ? 'absent' : 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -517,7 +517,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = leaveStudentIds.has(s.id) ? 'absent' : 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -598,7 +598,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = leaveStudentIds.has(s.id) ? 'absent' : 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -662,7 +662,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = leaveStudentIds.has(s.id) ? 'absent' : 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
