@@ -1113,6 +1113,9 @@ export default function Meals() {
                       </div>
                       <div className="flex-1 min-w-0 flex items-center gap-1.5">
                         <span className="truncate text-xs font-medium">{student.full_name}</span>
+                        {leaveStudentIds.has(student.id) && (
+                          <CalendarOff className="h-3 w-3 text-destructive shrink-0" aria-label="Đã đăng ký nghỉ" />
+                        )}
                         <span className="text-[10px] text-muted-foreground shrink-0">{student.class?.name}</span>
                       </div>
                     </button>
