@@ -55,6 +55,8 @@ import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirma
 import { MealHistoryTab } from '@/components/attendance/MealHistoryTab';
 import { StudentSearchInput } from '@/components/attendance/StudentSearchInput';
 import { AdminReportOptions } from '@/components/attendance/AdminReportOptions';
+import { MultiDayMealLeaveDialog } from '@/components/attendance/MultiDayMealLeaveDialog';
+import { CalendarOff } from 'lucide-react';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
