@@ -2042,6 +2042,184 @@ export type Database = {
           },
         ]
       }
+      teacher_absences: {
+        Row: {
+          absence_date: string
+          absence_type: string
+          created_at: string
+          id: string
+          reason: string | null
+          reporter_id: string | null
+          school_id: string
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          absence_date: string
+          absence_type?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reporter_id?: string | null
+          school_id: string
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          absence_date?: string
+          absence_type?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reporter_id?: string | null
+          school_id?: string
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_absences_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_achievements: {
+        Row: {
+          attachment_url: string | null
+          award_date: string | null
+          category: string | null
+          created_at: string
+          id: string
+          level: string | null
+          notes: string | null
+          school_id: string
+          school_year: string | null
+          teacher_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          award_date?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          level?: string | null
+          notes?: string | null
+          school_id: string
+          school_year?: string | null
+          teacher_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          attachment_url?: string | null
+          award_date?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          level?: string | null
+          notes?: string | null
+          school_id?: string
+          school_year?: string | null
+          teacher_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_achievements_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teachers: {
+        Row: {
+          address: string | null
+          birthday: string | null
+          created_at: string
+          education_level: string | null
+          email: string | null
+          ethnicity: string | null
+          full_name: string
+          gender: string | null
+          hometown: string | null
+          id: string
+          is_active: boolean
+          joined_at: string | null
+          notes: string | null
+          phone: string | null
+          position: string | null
+          salary_class: string | null
+          salary_coefficient: number | null
+          salary_effective_date: string | null
+          salary_level: string | null
+          salary_rank: string | null
+          school_id: string
+          subject: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          birthday?: string | null
+          created_at?: string
+          education_level?: string | null
+          email?: string | null
+          ethnicity?: string | null
+          full_name: string
+          gender?: string | null
+          hometown?: string | null
+          id?: string
+          is_active?: boolean
+          joined_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          salary_class?: string | null
+          salary_coefficient?: number | null
+          salary_effective_date?: string | null
+          salary_level?: string | null
+          salary_rank?: string | null
+          school_id: string
+          subject?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          birthday?: string | null
+          created_at?: string
+          education_level?: string | null
+          email?: string | null
+          ethnicity?: string | null
+          full_name?: string
+          gender?: string | null
+          hometown?: string | null
+          id?: string
+          is_active?: boolean
+          joined_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          position?: string | null
+          salary_class?: string | null
+          salary_coefficient?: number | null
+          salary_effective_date?: string | null
+          salary_level?: string | null
+          salary_rank?: string | null
+          school_id?: string
+          subject?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_permission_groups: {
         Row: {
           created_at: string | null
