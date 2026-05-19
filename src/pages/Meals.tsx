@@ -331,12 +331,22 @@ export default function Meals() {
       setStudents(typedStudents);
 
       const dateStr = format(date, 'yyyy-MM-dd');
-      const { data: recordsData } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_date', dateStr)
-        .eq('attendance_type', selectedMeal);
+      const [{ data: recordsData }, { data: leavesData }] = await Promise.all([
+        supabase
+          .from('attendance_records')
+          .select('*')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', selectedMeal),
+        supabase
+          .from('student_meal_leaves')
+          .select('student_id')
+          .eq('school_id', currentSchool.id)
+          .eq('leave_date', dateStr),
+      ]);
+
+      const leaveSet = new Set<string>((leavesData || []).map((l: any) => l.student_id));
+      setLeaveStudentIds(leaveSet);
 
       const attendanceMap: AttendanceMap = {};
       (recordsData || []).forEach((record: any) => {
@@ -345,7 +355,7 @@ export default function Meals() {
       
       typedStudents.forEach((student) => {
         if (!attendanceMap[student.id]) {
-          attendanceMap[student.id] = 'present';
+          attendanceMap[student.id] = leaveSet.has(student.id) ? 'absent' : 'present';
         }
       });
       setAttendance(attendanceMap);
