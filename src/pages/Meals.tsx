@@ -55,6 +55,8 @@ import { AbsentConfirmationDialog } from '@/components/attendance/AbsentConfirma
 import { MealHistoryTab } from '@/components/attendance/MealHistoryTab';
 import { StudentSearchInput } from '@/components/attendance/StudentSearchInput';
 import { AdminReportOptions } from '@/components/attendance/AdminReportOptions';
+import { MultiDayMealLeaveDialog } from '@/components/attendance/MultiDayMealLeaveDialog';
+import { CalendarOff } from 'lucide-react';
 
 type AttendanceMap = Record<string, AttendanceStatus>;
 
@@ -134,6 +136,8 @@ export default function Meals() {
   // Dialog for selecting absent students for 3 meals
   const [absent3MealsDialogOpen, setAbsent3MealsDialogOpen] = useState(false);
   const [absentSingleMealDialogOpen, setAbsentSingleMealDialogOpen] = useState(false);
+  const [multiDayLeaveDialogOpen, setMultiDayLeaveDialogOpen] = useState(false);
+  const [leaveStudentIds, setLeaveStudentIds] = useState<Set<string>>(new Set());
 
   // Edit mode tracking for editing existing reports
   const [isEditMode, setIsEditMode] = useState(false);
@@ -327,12 +331,22 @@ export default function Meals() {
       setStudents(typedStudents);
 
       const dateStr = format(date, 'yyyy-MM-dd');
-      const { data: recordsData } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .eq('school_id', currentSchool.id)
-        .eq('attendance_date', dateStr)
-        .eq('attendance_type', selectedMeal);
+      const [{ data: recordsData }, { data: leavesData }] = await Promise.all([
+        supabase
+          .from('attendance_records')
+          .select('*')
+          .eq('school_id', currentSchool.id)
+          .eq('attendance_date', dateStr)
+          .eq('attendance_type', selectedMeal),
+        supabase
+          .from('student_meal_leaves')
+          .select('student_id')
+          .eq('school_id', currentSchool.id)
+          .eq('leave_date', dateStr),
+      ]);
+
+      const leaveSet = new Set<string>((leavesData || []).map((l: any) => l.student_id));
+      setLeaveStudentIds(leaveSet);
 
       const attendanceMap: AttendanceMap = {};
       (recordsData || []).forEach((record: any) => {
@@ -341,7 +355,7 @@ export default function Meals() {
       
       typedStudents.forEach((student) => {
         if (!attendanceMap[student.id]) {
-          attendanceMap[student.id] = 'present';
+          attendanceMap[student.id] = leaveSet.has(student.id) ? 'absent' : 'present';
         }
       });
       setAttendance(attendanceMap);
@@ -399,7 +413,7 @@ export default function Meals() {
       }
 
       const validMeals = mealTypesToSave.filter(meal => !expiredMeals.includes(meal));
-      const absentSet = new Set(absentStudentIds);
+      const absentSet = new Set([...absentStudentIds, ...leaveStudentIds]);
       
       // Use filteredStudents (class-specific for GVCN, all for admin)
       const studentsToReport = filteredStudents;
@@ -447,7 +461,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = leaveStudentIds.has(s.id) ? 'absent' : 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -466,7 +480,7 @@ export default function Meals() {
     
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
-      const absentSet = new Set(absentStudentIds);
+      const absentSet = new Set([...absentStudentIds, ...leaveStudentIds]);
       
       // Use filteredStudents (class-specific for GVCN, all for admin)
       const studentsToReport = filteredStudents;
@@ -503,7 +517,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = leaveStudentIds.has(s.id) ? 'absent' : 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -560,7 +574,7 @@ export default function Meals() {
           class_id: student.class_id,
           attendance_date: dateStr,
           attendance_type: meal,
-          status: (markPresent ? 'present' : 'absent') as AttendanceStatus,
+          status: ((markPresent && !leaveStudentIds.has(student.id)) ? 'present' : 'absent') as AttendanceStatus,
           reporter_id: reporterId,
         }));
 
@@ -584,7 +598,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = leaveStudentIds.has(s.id) ? 'absent' : 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -637,7 +651,7 @@ export default function Meals() {
         class_id: student.class_id,
         attendance_date: dateStr,
         attendance_type: selectedMeal,
-        status: attendance[student.id] || 'present',
+        status: (leaveStudentIds.has(student.id) ? 'absent' : (attendance[student.id] || 'present')) as AttendanceStatus,
         reporter_id: reporterId,
       }));
 
@@ -648,7 +662,7 @@ export default function Meals() {
       
       // Reset attendance to all present for next report
       const freshAttendance: AttendanceMap = {};
-      filteredStudents.forEach(s => freshAttendance[s.id] = 'present');
+      filteredStudents.forEach(s => freshAttendance[s.id] = leaveStudentIds.has(s.id) ? 'absent' : 'present');
       setAttendance(freshAttendance);
     } catch (error: any) {
       toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
@@ -1034,6 +1048,18 @@ export default function Meals() {
                   <UserMinus className="h-3.5 w-3.5 mr-1" />3 bữa (chọn vắng)
                 </Button>
               </div>
+
+              {/* Row 3: Multi-day leave */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setMultiDayLeaveDialogOpen(true)}
+                disabled={!canReportMeals}
+                className="w-full h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+              >
+                <CalendarOff className="h-3.5 w-3.5 mr-1" />
+                Nghỉ ăn nhiều ngày (đăng ký trước)
+              </Button>
               
               {/* Summary */}
               <div className="flex items-center justify-between text-xs px-1">
@@ -1087,6 +1113,9 @@ export default function Meals() {
                       </div>
                       <div className="flex-1 min-w-0 flex items-center gap-1.5">
                         <span className="truncate text-xs font-medium">{student.full_name}</span>
+                        {leaveStudentIds.has(student.id) && (
+                          <CalendarOff className="h-3 w-3 text-destructive shrink-0" aria-label="Đã đăng ký nghỉ" />
+                        )}
                         <span className="text-[10px] text-muted-foreground shrink-0">{student.class?.name}</span>
                       </div>
                     </button>
@@ -1172,6 +1201,17 @@ export default function Meals() {
         description={`Ngày ${format(date, 'dd/MM/yyyy')} - Kiểm tra danh sách vắng trước khi lưu`}
         absentStudents={mealAbsentStudentsForConfirm}
         totalStudents={filteredStudents.length}
+      />
+
+      {/* Multi-day meal leave dialog */}
+      <MultiDayMealLeaveDialog
+        open={multiDayLeaveDialogOpen}
+        onOpenChange={(o) => {
+          setMultiDayLeaveDialogOpen(o);
+          if (!o) fetchStudentsAndAttendance();
+        }}
+        students={filteredStudents}
+        schoolId={currentSchool.id}
       />
     </div>
   );
