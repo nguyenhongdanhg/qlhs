@@ -651,7 +651,7 @@ export default function Meals() {
         class_id: student.class_id,
         attendance_date: dateStr,
         attendance_type: selectedMeal,
-        status: attendance[student.id] || 'present',
+        status: (leaveStudentIds.has(student.id) ? 'absent' : (attendance[student.id] || 'present')) as AttendanceStatus,
         reporter_id: reporterId,
       }));
 
