@@ -480,7 +480,7 @@ export default function Meals() {
     
     try {
       const dateStr = format(date, 'yyyy-MM-dd');
-      const absentSet = new Set(absentStudentIds);
+      const absentSet = new Set([...absentStudentIds, ...leaveStudentIds]);
       
       // Use filteredStudents (class-specific for GVCN, all for admin)
       const studentsToReport = filteredStudents;
