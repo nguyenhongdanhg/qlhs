@@ -213,6 +213,7 @@ const App = () => (
                   }
                 />
                 
+                <Route path="/teachers" element={<Teachers />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/menu" element={<MobileMenu />} />
                 <Route path="/install" element={<Install />} />
