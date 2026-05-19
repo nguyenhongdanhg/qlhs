@@ -201,7 +201,7 @@ export function MultiDayMealLeaveDialog({ open, onOpenChange, students, schoolId
             Đăng ký nghỉ ăn nhiều ngày
           </DialogTitle>
           <DialogDescription>
-            Chọn học sinh và các ngày nghỉ. Học sinh sẽ tự động được tính vắng (cả 3 bữa) trong các ngày đó mà không cần báo thủ công.
+            Chọn học sinh và các ngày nghỉ. Hệ thống sẽ tự động báo cơm cả lớp cho các ngày đó (em này vắng cả 3 bữa) và đồng bộ vào thống kê, gạo, Excel. Nếu lớp báo lại sau, em này vẫn được giữ trạng thái vắng.
           </DialogDescription>
         </DialogHeader>
 
