@@ -136,6 +136,8 @@ export default function Meals() {
   // Dialog for selecting absent students for 3 meals
   const [absent3MealsDialogOpen, setAbsent3MealsDialogOpen] = useState(false);
   const [absentSingleMealDialogOpen, setAbsentSingleMealDialogOpen] = useState(false);
+  const [multiDayLeaveDialogOpen, setMultiDayLeaveDialogOpen] = useState(false);
+  const [leaveStudentIds, setLeaveStudentIds] = useState<Set<string>>(new Set());
 
   // Edit mode tracking for editing existing reports
   const [isEditMode, setIsEditMode] = useState(false);
