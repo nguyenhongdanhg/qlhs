@@ -21,6 +21,7 @@ import {
   Home,
   BookOpen,
   UtensilsCrossed,
+  GraduationCap,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -57,6 +58,7 @@ const standaloneItems: MenuItem[] = [
 // Group: Cài đặt
 const settingsItems: MenuItem[] = [
   { code: 'user_management', label: 'Quản lý người dùng', description: 'Thêm, sửa, xóa người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
+  { code: 'teachers', label: 'Giáo viên', description: 'Hồ sơ, chấm công, thành tích GV', icon: GraduationCap, path: '/teachers', adminOnly: true },
   { code: 'settings', label: 'Thiết lập', description: 'Tài khoản & thiết lập', icon: Settings, path: '/settings' },
   { code: 'guide', label: 'Hướng dẫn sử dụng', description: 'Tài liệu hướng dẫn', icon: HelpCircle, path: '/docs' },
 ];
