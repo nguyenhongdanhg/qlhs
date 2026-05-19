@@ -1202,6 +1202,17 @@ export default function Meals() {
         absentStudents={mealAbsentStudentsForConfirm}
         totalStudents={filteredStudents.length}
       />
+
+      {/* Multi-day meal leave dialog */}
+      <MultiDayMealLeaveDialog
+        open={multiDayLeaveDialogOpen}
+        onOpenChange={(o) => {
+          setMultiDayLeaveDialogOpen(o);
+          if (!o) fetchStudentsAndAttendance();
+        }}
+        students={filteredStudents}
+        schoolId={currentSchool.id}
+      />
     </div>
   );
 }
