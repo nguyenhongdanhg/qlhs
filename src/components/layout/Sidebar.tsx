@@ -161,7 +161,7 @@ export const Sidebar = memo(function Sidebar() {
     if (group.code === 'dashboard' || group.code === 'settings_group') return true;
     if (group.children) {
       return group.children.some(child => {
-        if (child.code === 'settings' || child.code === 'guide') return true;
+        if (child.code === 'settings' || child.code === 'guide' || child.code === 'teachers') return true;
         if (child.adminOnly && !isSchoolAdmin()) return false;
         return isFeatureEnabled(child.code);
       });
@@ -170,7 +170,7 @@ export const Sidebar = memo(function Sidebar() {
   }, [isFeatureEnabled, isSchoolAdmin]);
 
   const isChildVisible = useCallback((child: NavSubItem) => {
-    if (child.code === 'settings' || child.code === 'guide') return true;
+    if (child.code === 'settings' || child.code === 'guide' || child.code === 'teachers') return true;
     if (child.adminOnly && !isSchoolAdmin()) return false;
     return isFeatureEnabled(child.code);
   }, [isFeatureEnabled, isSchoolAdmin]);
