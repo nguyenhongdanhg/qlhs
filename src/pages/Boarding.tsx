@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, vietnameseNameSortCompare } from '@/lib/utils';
+import { getHiddenStudentIds } from '@/lib/hidden-students';
 import {
   Table,
   TableBody,
