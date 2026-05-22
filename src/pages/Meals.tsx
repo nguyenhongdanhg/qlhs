@@ -336,7 +336,6 @@ export default function Meals() {
       typedStudents.sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
       setStudents(typedStudents);
 
-      const dateStr = format(date, 'yyyy-MM-dd');
       const [{ data: recordsData }, { data: leavesData }] = await Promise.all([
         supabase
           .from('attendance_records')
