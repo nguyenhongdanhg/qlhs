@@ -76,6 +76,7 @@ export default function Students() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isSupplementOpen, setIsSupplementOpen] = useState(false);
+  const [isHiddenOpen, setIsHiddenOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
