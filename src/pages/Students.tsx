@@ -871,6 +871,10 @@ export default function Students() {
                   <Image className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Cập nhật ảnh</span>
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsHiddenOpen(true)}>
+                  <EyeOff className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Ẩn theo ngày</span>
+                </Button>
                 {selectedIds.size > 0 ? (
                   <Button variant="destructive" size="sm" onClick={handleDeleteSelected}>
                     <Trash2 className="h-4 w-4 mr-1" />
