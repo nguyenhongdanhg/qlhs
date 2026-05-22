@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, vietnameseNameSortCompare } from '@/lib/utils';
+import { getHiddenStudentIds } from '@/lib/hidden-students';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
