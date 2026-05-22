@@ -2178,6 +2178,9 @@ export default function Students() {
         onComplete={fetchData}
       />
 
+      <HiddenStudentsDialog open={isHiddenOpen} onOpenChange={setIsHiddenOpen} />
+
+
       {/* Batch Update Dialog */}
       <Dialog open={isBatchUpdateOpen} onOpenChange={setIsBatchUpdateOpen}>
         <DialogContent className="max-w-sm">
