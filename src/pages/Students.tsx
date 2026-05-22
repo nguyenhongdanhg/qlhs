@@ -59,6 +59,8 @@ import {
 import { cn, naturalSort, vietnameseNameSortCompare } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
 import { SupplementInfoDialog } from '@/components/students/SupplementInfoDialog';
+import HiddenStudentsDialog from '@/components/students/HiddenStudentsDialog';
+import { EyeOff } from 'lucide-react';
 import { exportStudentsToExcel, StudentImportRow } from '@/lib/excel-utils';
 
 export default function Students() {
@@ -74,6 +76,7 @@ export default function Students() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isSupplementOpen, setIsSupplementOpen] = useState(false);
+  const [isHiddenOpen, setIsHiddenOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -867,6 +870,10 @@ export default function Students() {
                 <Button variant="outline" size="sm" onClick={() => setIsBulkAvatarOpen(true)}>
                   <Image className="h-4 w-4 mr-1" />
                   <span className="hidden sm:inline">Cập nhật ảnh</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsHiddenOpen(true)}>
+                  <EyeOff className="h-4 w-4 mr-1" />
+                  <span className="hidden sm:inline">Ẩn theo ngày</span>
                 </Button>
                 {selectedIds.size > 0 ? (
                   <Button variant="destructive" size="sm" onClick={handleDeleteSelected}>
@@ -2170,6 +2177,9 @@ export default function Students() {
         classes={classes}
         onComplete={fetchData}
       />
+
+      <HiddenStudentsDialog open={isHiddenOpen} onOpenChange={setIsHiddenOpen} />
+
 
       {/* Batch Update Dialog */}
       <Dialog open={isBatchUpdateOpen} onOpenChange={setIsBatchUpdateOpen}>

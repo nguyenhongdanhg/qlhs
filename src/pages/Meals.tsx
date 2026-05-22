@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, vietnameseNameSortCompare } from '@/lib/utils';
+import { getHiddenStudentIds } from '@/lib/hidden-students';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -323,14 +324,18 @@ export default function Meals() {
         .eq('is_boarding', true)
         .order('full_name');
 
-      const typedStudents = (studentsData || []).map(s => ({
-        ...s,
-        class: s.class as unknown as Class
-      })) as Student[];
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const hiddenIds = await getHiddenStudentIds(currentSchool.id, dateStr);
+
+      const typedStudents = (studentsData || [])
+        .filter((s: any) => !hiddenIds.has(s.id))
+        .map((s) => ({
+          ...s,
+          class: s.class as unknown as Class
+        })) as Student[];
       typedStudents.sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
       setStudents(typedStudents);
 
-      const dateStr = format(date, 'yyyy-MM-dd');
       const [{ data: recordsData }, { data: leavesData }] = await Promise.all([
         supabase
           .from('attendance_records')
