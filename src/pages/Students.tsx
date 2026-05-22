@@ -59,6 +59,8 @@ import {
 import { cn, naturalSort, vietnameseNameSortCompare } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
 import { SupplementInfoDialog } from '@/components/students/SupplementInfoDialog';
+import HiddenStudentsDialog from '@/components/students/HiddenStudentsDialog';
+import { EyeOff } from 'lucide-react';
 import { exportStudentsToExcel, StudentImportRow } from '@/lib/excel-utils';
 
 export default function Students() {
