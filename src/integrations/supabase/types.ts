@@ -1925,6 +1925,42 @@ export type Database = {
           },
         ]
       }
+      student_attendance_hidden: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          reason: string | null
+          school_id: string
+          start_date: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          reason?: string | null
+          school_id: string
+          start_date: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          reason?: string | null
+          school_id?: string
+          start_date?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       student_meal_leaves: {
         Row: {
           created_at: string
