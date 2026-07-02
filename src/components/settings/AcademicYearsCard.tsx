@@ -21,7 +21,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarRange, Loader2, Plus, Check, Lock, Unlock, Archive, Trash2, Pencil, ArrowUpCircle } from 'lucide-react';
+import { CalendarRange, Loader2, Plus, Check, Lock, Unlock, Archive, Trash2, Pencil } from 'lucide-react';
 
 const CLONE_GROUPS = [
   { key: 'classes_students', label: 'Danh sách lớp + học sinh (giữ nguyên lớp cũ)' },
@@ -68,11 +68,6 @@ export function AcademicYearsCard() {
   const [editStart, setEditStart] = useState('');
   const [editEnd, setEditEnd] = useState('');
   const [editNotes, setEditNotes] = useState('');
-
-  // Promote dialog state
-  const [promoteOpen, setPromoteOpen] = useState(false);
-  const [gradGrades, setGradGrades] = useState<string>('9,12');
-  const [promoting, setPromoting] = useState(false);
 
   if (!currentSchool || !isAdmin) return null;
 
@@ -202,35 +197,6 @@ export function AcademicYearsCard() {
     }
   };
 
-  const handlePromote = async () => {
-    const grades = gradGrades
-      .split(',')
-      .map(s => parseInt(s.trim(), 10))
-      .filter(n => Number.isFinite(n) && n > 0);
-    if (grades.length === 0) {
-      toast({ title: 'Lỗi', description: 'Nhập ít nhất 1 khối tốt nghiệp (VD: 9,12)', variant: 'destructive' });
-      return;
-    }
-    setPromoting(true);
-    try {
-      const { data, error } = await supabase.rpc('promote_classes' as any, {
-        sid: currentSchool.id,
-        graduating_grades: grades,
-      });
-      if (error) throw error;
-      const d: any = data ?? {};
-      toast({
-        title: 'Đã nâng lớp',
-        description: `Nâng ${d.promoted_classes ?? 0} lớp · Tốt nghiệp ${d.graduated_classes ?? 0} lớp (${d.graduated_students ?? 0} HS)`,
-      });
-      setPromoteOpen(false);
-    } catch (e: any) {
-      toast({ title: 'Lỗi', description: e.message, variant: 'destructive' });
-    } finally {
-      setPromoting(false);
-    }
-  };
-
   const statusBadge = (s: AcademicYearStatus) => {
     const map: Record<AcademicYearStatus, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
       open: { label: 'Đang mở', variant: 'default' },
@@ -253,9 +219,6 @@ export function AcademicYearsCard() {
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setPromoteOpen(true)}>
-            <ArrowUpCircle className="h-4 w-4 mr-1" /> Nâng lớp
-          </Button>
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
             <DialogTrigger asChild>
               <Button size="sm">
@@ -315,7 +278,7 @@ export function AcademicYearsCard() {
                       </label>
                     ))}
                     <div className="text-xs text-muted-foreground pt-1">
-                      Việc nâng lớp (6A→7A, 10A→11A) thực hiện riêng bằng nút "Nâng lớp".
+                      Việc lên lớp/ra trường thực hiện ở mục Học sinh bằng cách tích chọn học sinh rồi chọn lớp đích.
                     </div>
                   </div>
                 )}
@@ -453,42 +416,6 @@ export function AcademicYearsCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Promote dialog */}
-      <AlertDialog open={promoteOpen} onOpenChange={setPromoteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Nâng lớp cuối năm học</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 text-sm">
-                <div>
-                  Toàn bộ lớp <b>đang hoạt động</b> sẽ được nâng khối lên 1 (VD: <b>6A→7A</b>, <b>10A→11A</b>).
-                  Các khối bên dưới sẽ được đánh dấu <b>tốt nghiệp</b> (lớp và học sinh ngừng hoạt động, vẫn xem lại được).
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="grad-grades">Khối tốt nghiệp (ngăn cách bởi dấu phẩy)</Label>
-                  <Input
-                    id="grad-grades"
-                    value={gradGrades}
-                    onChange={(e) => setGradGrades(e.target.value)}
-                    placeholder="9,12"
-                  />
-                  <div className="text-xs text-muted-foreground">
-                    Mặc định là 9 và 12. Nên chạy sau khi đã tạo và đặt mặc định năm học mới.
-                  </div>
-                </div>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={promoting}>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); handlePromote(); }} disabled={promoting}>
-              {promoting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              Nâng lớp
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
