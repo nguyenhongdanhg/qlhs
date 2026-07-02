@@ -209,7 +209,11 @@ export default function Boarding() {
   // Total boarding students count for accurate stats
   const [totalBoardingStudents, setTotalBoardingStudents] = useState(0);
 
-  const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
+  const { clampDate: clampToYear, startDate: yearStart, endDate: yearEnd } = useSelectedYear();
+  const historyDateRange = useMemo(() => {
+    const raw = getDateRange(historyDate, historyRangeType);
+    return { start: clampToYear(raw.start), end: clampToYear(raw.end) };
+  }, [historyDate, historyRangeType, yearStart, yearEnd]);
 
   // Active dormitory exits for the selected date — surfaces students currently
   // approved to be out of the dorm so the on-duty teacher knows what to expect.
