@@ -169,10 +169,13 @@ export default function MobileMenu() {
           </Link>
         )}
 
+        <MenuSection title="Công việc & tiến độ" items={tasksItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
         <MenuSection title="Quản lý nội trú" items={boardingItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
-        <MenuSection title="Bữa ăn" items={mealItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
-        <MenuSection title="Khác" items={standaloneItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
+        <MenuSection title="Thi đua - Sức khoẻ" items={emulationHealthItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
+        <MenuSection title="Thực phẩm" items={foodItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
+        <MenuSection title="Thống kê & Báo cáo" items={statisticsItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
         <MenuSection title="Cài đặt" items={settingsItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
+
 
         {/* Logout */}
         <button
