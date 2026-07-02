@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
+import { useSelectedYear } from '@/contexts/SelectedYearContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +70,7 @@ export function HealthHistoryTab({
   const [showTrash, setShowTrash] = useState(false);
 
   // Calculate date range
+  const { clampDate: clampToYear, startDate: yearStart, endDate: yearEnd } = useSelectedYear();
   const { startDate, endDate } = useMemo(() => {
     let start: Date, end: Date;
     if (dateRange === 'day') {
@@ -81,8 +83,9 @@ export function HealthHistoryTab({
       start = startOfMonth(selectedDate);
       end = endOfMonth(selectedDate);
     }
-    return { startDate: start, endDate: end };
-  }, [dateRange, selectedDate]);
+    return { startDate: clampToYear(start), endDate: clampToYear(end) };
+  }, [dateRange, selectedDate, yearStart, yearEnd]);
+
 
   // Fetch health records
   const { data: records = [], isLoading } = useQuery({
