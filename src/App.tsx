@@ -40,6 +40,7 @@ const Guide = lazy(() => import("@/pages/Guide"));
 const Documentation = lazy(() => import("@/pages/Documentation"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Teachers = lazy(() => import("@/pages/Teachers"));
+const Tasks = lazy(() => import("@/pages/Tasks"));
 
 // Optimized QueryClient with better caching
 const queryClient = new QueryClient({
