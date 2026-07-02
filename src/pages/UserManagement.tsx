@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { SchoolMembership, Profile, AppRole, Class } from '@/types';
@@ -62,7 +62,7 @@ import {
 import { cn } from '@/lib/utils';
 import ResetPasswordDialog from '@/components/users/ResetPasswordDialog';
 import PermissionGroupsManager from '@/components/users/PermissionGroupsManager';
-import UserImportDialog from '@/components/users/UserImportDialog';
+const UserImportDialog = lazy(() => import('@/components/users/UserImportDialog'));
 import AssignPermissionGroupDialog from '@/components/users/AssignPermissionGroupDialog';
 import CreateUserDialog from '@/components/users/CreateUserDialog';
 import LoginHistoryDialog from '@/components/users/LoginHistoryDialog';
@@ -777,12 +777,16 @@ export default function UserManagement() {
         onCreateComplete={fetchMemberships}
       />
 
-      {/* Import Dialog */}
-      <UserImportDialog
-        open={isImportDialogOpen}
-        onOpenChange={setIsImportDialogOpen}
-        onImportComplete={fetchMemberships}
-      />
+      {/* Import Dialog - lazy loaded */}
+      {isImportDialogOpen && (
+        <Suspense fallback={null}>
+          <UserImportDialog
+            open={isImportDialogOpen}
+            onOpenChange={setIsImportDialogOpen}
+            onImportComplete={fetchMemberships}
+          />
+        </Suspense>
+      )}
 
       {/* Assign Permission Group Dialog */}
       <AssignPermissionGroupDialog

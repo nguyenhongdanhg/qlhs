@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -48,7 +48,7 @@ import type { Student, Class, Medicine, HealthRecord, MedicineTransaction, Healt
 import { HealthRecordForm } from '@/components/health/HealthRecordForm';
 import { HealthHistoryTab } from '@/components/health/HealthHistoryTab';
 import { MedicineInventoryTab } from '@/components/health/MedicineInventoryTab';
-import { HealthExportDialog } from '@/components/health/HealthExportDialog';
+const HealthExportDialog = lazy(() => import('@/components/health/HealthExportDialog').then(m => ({ default: m.HealthExportDialog })));
 
 export default function Health() {
   const { user, isSchoolAdmin, isSuperAdmin, currentSchool } = useAuth();
@@ -194,13 +194,17 @@ export default function Health() {
         )}
       </Tabs>
 
-      {/* Export Dialog */}
-      <HealthExportDialog
-        open={showExportDialog}
-        onOpenChange={setShowExportDialog}
-        schoolId={currentSchool?.id || ''}
-        schoolName={currentSchool?.name || ''}
-      />
+      {/* Export Dialog - lazy loaded, chỉ tải khi mở */}
+      {showExportDialog && (
+        <Suspense fallback={null}>
+          <HealthExportDialog
+            open={showExportDialog}
+            onOpenChange={setShowExportDialog}
+            schoolId={currentSchool?.id || ''}
+            schoolName={currentSchool?.name || ''}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

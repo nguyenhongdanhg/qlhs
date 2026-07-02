@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Student, Class } from '@/types';
@@ -59,7 +59,7 @@ import {
   UserMinus,
 } from 'lucide-react';
 import { cn, naturalSort, vietnameseNameSortCompare } from '@/lib/utils';
-import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
+const ExcelImportDialog = lazy(() => import('@/components/students/ExcelImportDialog').then(m => ({ default: m.ExcelImportDialog })));
 import { SupplementInfoDialog } from '@/components/students/SupplementInfoDialog';
 import HiddenStudentsDialog from '@/components/students/HiddenStudentsDialog';
 import { EyeOff } from 'lucide-react';
@@ -2240,12 +2240,16 @@ export default function Students() {
         </DialogContent>
       </Dialog>
 
-      {/* Excel Import Dialog */}
-      <ExcelImportDialog
-        open={isImportOpen}
-        onOpenChange={setIsImportOpen}
-        onImport={handleExcelImport}
-      />
+      {/* Excel Import Dialog - lazy loaded */}
+      {isImportOpen && (
+        <Suspense fallback={null}>
+          <ExcelImportDialog
+            open={isImportOpen}
+            onOpenChange={setIsImportOpen}
+            onImport={handleExcelImport}
+          />
+        </Suspense>
+      )}
 
       {/* Supplement Info Dialog */}
       <SupplementInfoDialog

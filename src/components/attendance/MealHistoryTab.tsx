@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useSelectedYear } from '@/contexts/SelectedYearContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,8 +38,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DateRangeType, getDateRange, exportMealStatistics, MealStudentData, MealExportFilter } from '@/lib/excel-export';
-import { MealDiagnosticDialog } from '@/components/attendance/MealDiagnosticDialog';
-import { MealExportDialog } from '@/components/attendance/MealExportDialog';
+const MealDiagnosticDialog = lazy(() => import('@/components/attendance/MealDiagnosticDialog').then(m => ({ default: m.MealDiagnosticDialog })));
+const MealExportDialog = lazy(() => import('@/components/attendance/MealExportDialog').then(m => ({ default: m.MealExportDialog })));
 import { Student, Class, AttendanceType, AttendanceStatus } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -933,25 +933,31 @@ export function MealHistoryTab({
         </div>
       )}
 
-      {/* Dialogs */}
-      {currentSchool && (
-        <MealDiagnosticDialog
-          open={diagnosticDialogOpen}
-          onOpenChange={setDiagnosticDialogOpen}
-          schoolId={currentSchool.id}
-          students={students}
-          classes={classes}
-          startDate={historyDateRange.start}
-          endDate={historyDateRange.end}
-        />
+      {/* Dialogs - lazy loaded, chỉ tải khi mở */}
+      {currentSchool && diagnosticDialogOpen && (
+        <Suspense fallback={null}>
+          <MealDiagnosticDialog
+            open={diagnosticDialogOpen}
+            onOpenChange={setDiagnosticDialogOpen}
+            schoolId={currentSchool.id}
+            students={students}
+            classes={classes}
+            startDate={historyDateRange.start}
+            endDate={historyDateRange.end}
+          />
+        </Suspense>
       )}
 
-      <MealExportDialog
-        open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        onExport={handleExportExcel}
-        isExporting={isExporting}
-      />
+      {exportDialogOpen && (
+        <Suspense fallback={null}>
+          <MealExportDialog
+            open={exportDialogOpen}
+            onOpenChange={setExportDialogOpen}
+            onExport={handleExportExcel}
+            isExporting={isExporting}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
