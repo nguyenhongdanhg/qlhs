@@ -83,7 +83,7 @@ export const MobileNav = memo(function MobileNav() {
   }, [openGroup]);
 
   const filteredNavItems = useMemo(() => navItems.filter((item) => {
-    if (item.code === 'dashboard' || item.code === 'menu') return true;
+    if (item.code === 'dashboard' || item.code === 'menu' || item.code === 'tasks' || item.code === 'statistics') return true;
     const featureCodes = groupFeatureCodes[item.code];
     if (featureCodes) {
       return featureCodes.some(code => isFeatureEnabled(code));
