@@ -64,6 +64,24 @@ export function SelectedYearProvider({ children }: { children: React.ReactNode }
 
   const value = useMemo<SelectedYearContextType>(() => {
     const selectedYear = years.find(y => y.id === selectedYearId) ?? activeYear ?? null;
+    const startStr = selectedYear?.start_date ?? null;
+    const endStr = selectedYear?.end_date ?? null;
+    const startD = startStr ? new Date(startStr + 'T00:00:00') : null;
+    const endD = endStr ? new Date(endStr + 'T23:59:59') : null;
+
+    const clampDate = (d: Date): Date => {
+      if (startD && d < startD) return new Date(startD);
+      if (endD && d > endD) return new Date(endD);
+      return d;
+    };
+    const isDateInYear = (d: Date): boolean => {
+      if (startD && d < startD) return false;
+      if (endD && d > endD) return false;
+      return true;
+    };
+    const today = new Date();
+    const workingDate = clampDate(today);
+
     return {
       years,
       activeYear,
@@ -72,8 +90,11 @@ export function SelectedYearProvider({ children }: { children: React.ReactNode }
       setSelectedYearId,
       isLoading,
       isViewingOtherYear: !!selectedYear && !!activeYear && selectedYear.id !== activeYear.id,
-      startDate: selectedYear?.start_date ?? null,
-      endDate: selectedYear?.end_date ?? null,
+      startDate: startStr,
+      endDate: endStr,
+      clampDate,
+      workingDate,
+      isDateInYear,
     };
   }, [years, activeYear, selectedYearId, isLoading]);
 
@@ -96,6 +117,9 @@ export function useSelectedYear() {
       isViewingOtherYear: false,
       startDate: null,
       endDate: null,
+      clampDate: (d: Date) => d,
+      workingDate: new Date(),
+      isDateInYear: () => true,
     } as SelectedYearContextType;
   }
   return ctx;
