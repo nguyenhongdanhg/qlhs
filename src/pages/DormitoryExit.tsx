@@ -214,7 +214,7 @@ export default function DormitoryExit() {
   useEffect(() => {
     if (!currentSchool) return;
     fetchRequests();
-  }, [currentSchool, selectedDate, filterRange, periodFrom, periodTo]);
+  }, [currentSchool, selectedDate, filterRange, periodFrom, periodTo, yearStart, yearEnd]);
 
   useEffect(() => {
     if (!currentSchool) return;
