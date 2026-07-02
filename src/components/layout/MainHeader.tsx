@@ -1,8 +1,7 @@
 import { memo } from 'react';
-import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { NotificationDropdown } from './NotificationDropdown';
+import { AcademicYearSwitcher } from './AcademicYearSwitcher';
 
 export const MainHeader = memo(function MainHeader() {
   const { currentSchool } = useAuth();
@@ -18,15 +17,8 @@ export const MainHeader = memo(function MainHeader() {
         </p>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Tìm kiếm..."
-            className="w-[280px] pl-9 bg-muted/50 border-0 focus-visible:ring-1"
-          />
-        </div>
-        
+      <div className="flex items-center gap-3">
+        <AcademicYearSwitcher />
         <NotificationDropdown />
       </div>
     </header>

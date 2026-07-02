@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { SelectedYearProvider } from "@/contexts/SelectedYearContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthGuard } from "@/components/guards/AuthGuard";
 import { SuperAdminGuard } from "@/components/guards/SuperAdminGuard";
@@ -79,6 +80,7 @@ function RootRedirect() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <SelectedYearProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -229,6 +231,7 @@ const App = () => (
           </ChunkErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
+      </SelectedYearProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
