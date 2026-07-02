@@ -1,6 +1,17 @@
 import { useCallback, useState } from 'react';
-import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
+
+// html2canvas (~50KB gzip) is dynamically imported on first use so pages that
+// simply mount the hook (Boarding, Meals, EveningStudy…) don't pay the cost
+// until the user actually presses "Xuất ảnh" / "Chia sẻ".
+type Html2Canvas = typeof import('html2canvas').default;
+let html2canvasPromise: Promise<Html2Canvas> | null = null;
+const loadHtml2Canvas = (): Promise<Html2Canvas> => {
+  if (!html2canvasPromise) {
+    html2canvasPromise = import('html2canvas').then(m => m.default);
+  }
+  return html2canvasPromise;
+};
 
 export function useImageExport() {
   const { toast } = useToast();
@@ -18,6 +29,7 @@ export function useImageExport() {
       // Wait for fonts and layout to settle
       await new Promise(resolve => setTimeout(resolve, 100));
       
+      const html2canvas = await loadHtml2Canvas();
       const canvas = await html2canvas(clone, {
         backgroundColor: '#ffffff',
         scale: 3, // Higher scale for better quality
