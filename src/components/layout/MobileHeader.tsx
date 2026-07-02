@@ -2,6 +2,7 @@ import { memo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { GraduationCap, ChevronDown, Building2, LogOut, Settings } from 'lucide-react';
 import { NotificationDropdown } from './NotificationDropdown';
+import { AcademicYearSwitcher } from './AcademicYearSwitcher';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -67,7 +68,8 @@ export const MobileHeader = memo(function MobileHeader() {
       </div>
 
       {/* Right Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
+        <AcademicYearSwitcher compact />
         <NotificationDropdown />
 
         <DropdownMenu>
