@@ -165,6 +165,7 @@ export type Database = {
       }
       attendance_records: {
         Row: {
+          academic_year_id: string | null
           attendance_date: string
           attendance_type: Database["public"]["Enums"]["attendance_type"]
           class_id: string | null
@@ -179,6 +180,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          academic_year_id?: string | null
           attendance_date: string
           attendance_type: Database["public"]["Enums"]["attendance_type"]
           class_id?: string | null
@@ -193,6 +195,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          academic_year_id?: string | null
           attendance_date?: string
           attendance_type?: Database["public"]["Enums"]["attendance_type"]
           class_id?: string | null
@@ -207,6 +210,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "attendance_records_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "attendance_records_class_id_fkey"
             columns: ["class_id"]
@@ -330,6 +340,7 @@ export type Database = {
       }
       dormitory_exit_requests: {
         Row: {
+          academic_year_id: string | null
           approved_at: string | null
           approver_id: string | null
           attachment_url: string | null
@@ -354,6 +365,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          academic_year_id?: string | null
           approved_at?: string | null
           approver_id?: string | null
           attachment_url?: string | null
@@ -378,6 +390,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          academic_year_id?: string | null
           approved_at?: string | null
           approver_id?: string | null
           attachment_url?: string | null
@@ -402,6 +415,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "dormitory_exit_requests_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dormitory_exit_requests_approver_id_fkey"
             columns: ["approver_id"]
@@ -638,6 +658,7 @@ export type Database = {
       }
       duty_schedules: {
         Row: {
+          academic_year_id: string | null
           created_at: string | null
           duty_date: string
           group_id: string | null
@@ -651,6 +672,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          academic_year_id?: string | null
           created_at?: string | null
           duty_date: string
           group_id?: string | null
@@ -664,6 +686,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          academic_year_id?: string | null
           created_at?: string | null
           duty_date?: string
           group_id?: string | null
@@ -677,6 +700,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "duty_schedules_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "duty_schedules_group_id_fkey"
             columns: ["group_id"]
@@ -862,6 +892,7 @@ export type Database = {
       emulation_scores: {
         Row: {
           academic_score: number | null
+          academic_year_id: string | null
           boarding_score: number | null
           class_id: string
           created_at: string
@@ -877,6 +908,7 @@ export type Database = {
         }
         Insert: {
           academic_score?: number | null
+          academic_year_id?: string | null
           boarding_score?: number | null
           class_id: string
           created_at?: string
@@ -892,6 +924,7 @@ export type Database = {
         }
         Update: {
           academic_score?: number | null
+          academic_year_id?: string | null
           boarding_score?: number | null
           class_id?: string
           created_at?: string
@@ -906,6 +939,13 @@ export type Database = {
           week_number?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "emulation_scores_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "emulation_scores_class_id_fkey"
             columns: ["class_id"]
@@ -1068,6 +1108,7 @@ export type Database = {
       }
       health_records: {
         Row: {
+          academic_year_id: string | null
           created_at: string | null
           deleted_at: string | null
           diagnosis: string
@@ -1087,6 +1128,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          academic_year_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
           diagnosis: string
@@ -1106,6 +1148,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          academic_year_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
           diagnosis?: string
@@ -1125,6 +1168,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "health_records_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "health_records_reporter_id_fkey"
             columns: ["reporter_id"]
@@ -1194,6 +1244,7 @@ export type Database = {
       }
       kitchen_transactions: {
         Row: {
+          academic_year_id: string | null
           created_at: string | null
           created_by: string | null
           id: string
@@ -1210,6 +1261,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          academic_year_id?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -1226,6 +1278,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          academic_year_id?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -1242,6 +1295,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "kitchen_transactions_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "kitchen_transactions_created_by_fkey"
             columns: ["created_by"]
@@ -1348,6 +1408,7 @@ export type Database = {
       }
       medicine_transactions: {
         Row: {
+          academic_year_id: string | null
           created_at: string | null
           created_by: string | null
           id: string
@@ -1358,6 +1419,7 @@ export type Database = {
           transaction_type: string
         }
         Insert: {
+          academic_year_id?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -1368,6 +1430,7 @@ export type Database = {
           transaction_type: string
         }
         Update: {
+          academic_year_id?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -1378,6 +1441,13 @@ export type Database = {
           transaction_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "medicine_transactions_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "medicine_transactions_created_by_fkey"
             columns: ["created_by"]
@@ -1742,6 +1812,7 @@ export type Database = {
       }
       rice_inventory: {
         Row: {
+          academic_year_id: string | null
           amount: number
           created_at: string
           created_by: string | null
@@ -1751,6 +1822,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          academic_year_id?: string | null
           amount?: number
           created_at?: string
           created_by?: string | null
@@ -1760,6 +1832,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          academic_year_id?: string | null
           amount?: number
           created_at?: string
           created_by?: string | null
@@ -1769,6 +1842,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "rice_inventory_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rice_inventory_created_by_fkey"
             columns: ["created_by"]
@@ -2013,6 +2093,7 @@ export type Database = {
       }
       student_meal_leaves: {
         Row: {
+          academic_year_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -2023,6 +2104,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          academic_year_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2033,6 +2115,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          academic_year_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2042,7 +2125,15 @@ export type Database = {
           student_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "student_meal_leaves_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {
@@ -2132,6 +2223,7 @@ export type Database = {
         Row: {
           absence_date: string
           absence_type: string
+          academic_year_id: string | null
           created_at: string
           id: string
           reason: string | null
@@ -2143,6 +2235,7 @@ export type Database = {
         Insert: {
           absence_date: string
           absence_type?: string
+          academic_year_id?: string | null
           created_at?: string
           id?: string
           reason?: string | null
@@ -2154,6 +2247,7 @@ export type Database = {
         Update: {
           absence_date?: string
           absence_type?: string
+          academic_year_id?: string | null
           created_at?: string
           id?: string
           reason?: string | null
@@ -2163,6 +2257,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "teacher_absences_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "teacher_absences_teacher_id_fkey"
             columns: ["teacher_id"]
@@ -2174,6 +2275,7 @@ export type Database = {
       }
       teacher_achievements: {
         Row: {
+          academic_year_id: string | null
           attachment_url: string | null
           award_date: string | null
           category: string | null
@@ -2188,6 +2290,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          academic_year_id?: string | null
           attachment_url?: string | null
           award_date?: string | null
           category?: string | null
@@ -2202,6 +2305,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          academic_year_id?: string | null
           attachment_url?: string | null
           award_date?: string | null
           category?: string | null
@@ -2216,6 +2320,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "teacher_achievements_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "teacher_achievements_teacher_id_fkey"
             columns: ["teacher_id"]
