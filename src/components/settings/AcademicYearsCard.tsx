@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAcademicYears, AcademicYearStatus } from '@/hooks/useAcademicYears';
+import { useAcademicYears, AcademicYear, AcademicYearStatus } from '@/hooks/useAcademicYears';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,16 +21,28 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarRange, Loader2, Plus, Check, Lock, Unlock, Archive, Trash2 } from 'lucide-react';
+import { CalendarRange, Loader2, Plus, Check, Lock, Unlock, Archive, Trash2, Pencil, ArrowUpCircle } from 'lucide-react';
 
 const CLONE_GROUPS = [
   { key: 'classes_students', label: 'Danh sách lớp + học sinh (giữ nguyên lớp cũ)' },
+  { key: 'teachers', label: 'Giáo viên (danh sách + thông tin)' },
+  { key: 'permissions', label: 'Nhóm quyền + phân quyền người dùng' },
   { key: 'menu_kitchen', label: 'Thực đơn + nhà cung cấp bếp' },
   { key: 'emulation_duty', label: 'Cấu hình thi đua + trực ban' },
-  { key: 'catalogs', label: 'Danh mục thuốc + nhóm quyền + cấu hình chung' },
+  { key: 'catalogs', label: 'Danh mục thuốc + cấu hình chung' },
 ] as const;
 
 type CloneKey = typeof CLONE_GROUPS[number]['key'];
+type CloneOpts = Record<CloneKey, boolean>;
+
+const DEFAULT_CLONE: CloneOpts = {
+  classes_students: true,
+  teachers: true,
+  permissions: true,
+  menu_kitchen: false,
+  emulation_duty: false,
+  catalogs: false,
+};
 
 export function AcademicYearsCard() {
   const { currentSchool, isSuperAdmin, currentMembership, user } = useAuth();
@@ -46,21 +58,28 @@ export function AcademicYearsCard() {
   const [endDate, setEndDate] = useState('');
   const [notes, setNotes] = useState('');
   const [sourceYearId, setSourceYearId] = useState<string>('none');
-  const [cloneOpts, setCloneOpts] = useState<Record<CloneKey, boolean>>({
-    classes_students: true,
-    menu_kitchen: false,
-    emulation_duty: false,
-    catalogs: false,
-  });
+  const [cloneOpts, setCloneOpts] = useState<CloneOpts>(DEFAULT_CLONE);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // Edit dialog state
+  const [editTarget, setEditTarget] = useState<AcademicYear | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
+  // Promote dialog state
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [gradGrades, setGradGrades] = useState<string>('9,12');
+  const [promoting, setPromoting] = useState(false);
 
   if (!currentSchool || !isAdmin) return null;
 
   const reset = () => {
     setName(''); setStartDate(''); setEndDate(''); setNotes('');
     setSourceYearId('none');
-    setCloneOpts({ classes_students: true, menu_kitchen: false, emulation_duty: false, catalogs: false });
+    setCloneOpts(DEFAULT_CLONE);
   };
 
   const handleCreate = async () => {
@@ -97,6 +116,42 @@ export function AcademicYearsCard() {
       toast({ title: 'Lỗi', description: e.message, variant: 'destructive' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openEdit = (y: AcademicYear) => {
+    setEditTarget(y);
+    setEditName(y.name);
+    setEditStart(y.start_date ?? '');
+    setEditEnd(y.end_date ?? '');
+    setEditNotes(y.notes ?? '');
+  };
+
+  const handleEditSave = async () => {
+    if (!editTarget) return;
+    if (!editName.trim()) {
+      toast({ title: 'Lỗi', description: 'Tên năm học không được trống', variant: 'destructive' });
+      return;
+    }
+    setBusyId(editTarget.id);
+    try {
+      const { error } = await supabase
+        .from('academic_years')
+        .update({
+          name: editName.trim(),
+          start_date: editStart || null,
+          end_date: editEnd || null,
+          notes: editNotes.trim() || null,
+        })
+        .eq('id', editTarget.id);
+      if (error) throw error;
+      toast({ title: 'Đã cập nhật năm học' });
+      setEditTarget(null);
+      await refresh();
+    } catch (e: any) {
+      toast({ title: 'Lỗi', description: e.message, variant: 'destructive' });
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -147,6 +202,35 @@ export function AcademicYearsCard() {
     }
   };
 
+  const handlePromote = async () => {
+    const grades = gradGrades
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => Number.isFinite(n) && n > 0);
+    if (grades.length === 0) {
+      toast({ title: 'Lỗi', description: 'Nhập ít nhất 1 khối tốt nghiệp (VD: 9,12)', variant: 'destructive' });
+      return;
+    }
+    setPromoting(true);
+    try {
+      const { data, error } = await supabase.rpc('promote_classes' as any, {
+        sid: currentSchool.id,
+        graduating_grades: grades,
+      });
+      if (error) throw error;
+      const d: any = data ?? {};
+      toast({
+        title: 'Đã nâng lớp',
+        description: `Nâng ${d.promoted_classes ?? 0} lớp · Tốt nghiệp ${d.graduated_classes ?? 0} lớp (${d.graduated_students ?? 0} HS)`,
+      });
+      setPromoteOpen(false);
+    } catch (e: any) {
+      toast({ title: 'Lỗi', description: e.message, variant: 'destructive' });
+    } finally {
+      setPromoting(false);
+    }
+  };
+
   const statusBadge = (s: AcademicYearStatus) => {
     const map: Record<AcademicYearStatus, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
       open: { label: 'Đang mở', variant: 'default' },
@@ -168,84 +252,89 @@ export function AcademicYearsCard() {
             Quản lý các năm học của trường. Chỉ 1 năm được đặt mặc định.
           </CardDescription>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Thêm
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Tạo năm học mới</DialogTitle>
-              <DialogDescription>
-                Có thể sao chép dữ liệu từ một năm đã có. Sau khi tạo, bấm "Đặt mặc định" để dùng năm này.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="grid gap-2">
-                <Label>Tên năm học *</Label>
-                <Input placeholder="2026-2027" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setPromoteOpen(true)}>
+            <ArrowUpCircle className="h-4 w-4 mr-1" /> Nâng lớp
+          </Button>
+          <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" /> Thêm
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Tạo năm học mới</DialogTitle>
+                <DialogDescription>
+                  Có thể sao chép cấu hình từ một năm đã có. Sau khi tạo, bấm "Đặt mặc định" để dùng năm này.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
                 <div className="grid gap-2">
-                  <Label>Ngày bắt đầu</Label>
-                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  <Label>Tên năm học *</Label>
+                  <Input placeholder="2026-2027" value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
-                <div className="grid gap-2">
-                  <Label>Ngày kết thúc</Label>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="grid gap-2 pt-2 border-t">
-                <Label>Sao chép dữ liệu từ năm</Label>
-                <Select value={sourceYearId} onValueChange={setSourceYearId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Không sao chép" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Không sao chép (bắt đầu trắng)</SelectItem>
-                    {years.map(y => (
-                      <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {sourceYearId !== 'none' && (
-                <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
-                  <div className="text-sm font-medium">Chọn nhóm dữ liệu sao chép</div>
-                  {CLONE_GROUPS.map(g => (
-                    <label key={g.key} className="flex items-start gap-2 text-sm cursor-pointer">
-                      <Checkbox
-                        checked={cloneOpts[g.key]}
-                        onCheckedChange={(v) =>
-                          setCloneOpts(prev => ({ ...prev, [g.key]: v === true }))
-                        }
-                      />
-                      <span>{g.label}</span>
-                    </label>
-                  ))}
-                  <div className="text-xs text-muted-foreground pt-1">
-                    Các nhóm không chọn sẽ vẫn giữ ở năm cũ, không sao sang năm mới.
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-2">
+                    <Label>Ngày bắt đầu</Label>
+                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Ngày kết thúc</Label>
+                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                   </div>
                 </div>
-              )}
 
-              <div className="grid gap-2">
-                <Label>Ghi chú</Label>
-                <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <div className="grid gap-2 pt-2 border-t">
+                  <Label>Sao chép dữ liệu từ năm</Label>
+                  <Select value={sourceYearId} onValueChange={setSourceYearId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Không sao chép" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Không sao chép (bắt đầu trắng)</SelectItem>
+                      {years.map(y => (
+                        <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {sourceYearId !== 'none' && (
+                  <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                    <div className="text-sm font-medium">Chọn nhóm dữ liệu sao chép</div>
+                    {CLONE_GROUPS.map(g => (
+                      <label key={g.key} className="flex items-start gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={cloneOpts[g.key]}
+                          onCheckedChange={(v) =>
+                            setCloneOpts(prev => ({ ...prev, [g.key]: v === true }))
+                          }
+                        />
+                        <span>{g.label}</span>
+                      </label>
+                    ))}
+                    <div className="text-xs text-muted-foreground pt-1">
+                      Việc nâng lớp (6A→7A, 10A→11A) thực hiện riêng bằng nút "Nâng lớp".
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  <Label>Ghi chú</Label>
+                  <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Hủy</Button>
-              <Button onClick={handleCreate} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                Tạo
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Hủy</Button>
+                <Button onClick={handleCreate} disabled={saving}>
+                  {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  Tạo
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -285,6 +374,9 @@ export function AcademicYearsCard() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(y)} disabled={isBusy}>
+                      <Pencil className="h-4 w-4 mr-1" /> Sửa
+                    </Button>
                     {!y.is_active && (
                       <Button size="sm" variant="outline" onClick={() => setActive(y.id)} disabled={isBusy}>
                         {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
@@ -324,6 +416,79 @@ export function AcademicYearsCard() {
           </div>
         )}
       </CardContent>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(v) => !v && setEditTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sửa năm học</DialogTitle>
+            <DialogDescription>Cập nhật tên, thời gian và ghi chú.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid gap-2">
+              <Label>Tên năm học *</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2">
+                <Label>Ngày bắt đầu</Label>
+                <Input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Ngày kết thúc</Label>
+                <Input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Ghi chú</Label>
+              <Textarea rows={2} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Hủy</Button>
+            <Button onClick={handleEditSave} disabled={busyId === editTarget?.id}>
+              {busyId === editTarget?.id && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Promote dialog */}
+      <AlertDialog open={promoteOpen} onOpenChange={setPromoteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Nâng lớp cuối năm học</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <div>
+                  Toàn bộ lớp <b>đang hoạt động</b> sẽ được nâng khối lên 1 (VD: <b>6A→7A</b>, <b>10A→11A</b>).
+                  Các khối bên dưới sẽ được đánh dấu <b>tốt nghiệp</b> (lớp và học sinh ngừng hoạt động, vẫn xem lại được).
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="grad-grades">Khối tốt nghiệp (ngăn cách bởi dấu phẩy)</Label>
+                  <Input
+                    id="grad-grades"
+                    value={gradGrades}
+                    onChange={(e) => setGradGrades(e.target.value)}
+                    placeholder="9,12"
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Mặc định là 9 và 12. Nên chạy sau khi đã tạo và đặt mặc định năm học mới.
+                  </div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={promoting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); handlePromote(); }} disabled={promoting}>
+              {promoting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Nâng lớp
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>

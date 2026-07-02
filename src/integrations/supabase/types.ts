@@ -2648,6 +2648,10 @@ export type Database = {
       is_school_admin: { Args: { sid: string; uid: string }; Returns: boolean }
       is_school_member: { Args: { sid: string; uid: string }; Returns: boolean }
       is_super_admin: { Args: { uid: string }; Returns: boolean }
+      promote_classes: {
+        Args: { graduating_grades?: number[]; sid: string }
+        Returns: Json
+      }
       set_active_academic_year: {
         Args: { year_id: string }
         Returns: undefined
