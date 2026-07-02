@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
+import { useSelectedYear } from '@/contexts/SelectedYearContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -253,6 +254,7 @@ export default function DormitoryExit() {
   const fetchRequests = async () => {
     if (!currentSchool) return;
     setIsLoading(true);
+    const { startDate: yearStart, endDate: yearEnd } = { startDate: yearStartRef.current, endDate: yearEndRef.current };
     let startDate: string, endDate: string;
     const d = selectedDate;
     if (filterRange === 'day') {
@@ -269,6 +271,11 @@ export default function DormitoryExit() {
       startDate = format(startOfMonth(d), 'yyyy-MM-dd');
       endDate = format(endOfMonth(d), 'yyyy-MM-dd');
     }
+
+    // Clamp về khoảng năm học đang chọn để không load dữ liệu ngoài năm
+    if (yearStart && startDate < yearStart) startDate = yearStart;
+    if (yearEnd && endDate > yearEnd) endDate = yearEnd;
+    if (startDate > endDate) { setRequests([]); setIsLoading(false); return; }
 
     const { data, error } = await supabase
       .from('dormitory_exit_requests')
