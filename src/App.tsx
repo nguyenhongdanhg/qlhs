@@ -219,6 +219,7 @@ const App = () => (
                 />
                 
                 <Route path="/teachers" element={<Teachers />} />
+                <Route path="/tasks" element={<Tasks />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/menu" element={<MobileMenu />} />
                 <Route path="/install" element={<Install />} />
