@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,7 +45,7 @@ import { ShareMealReportDialog } from '@/components/attendance/ShareMealReportDi
 import { ShareAbsentByMealGroupDialog } from '@/components/attendance/ShareAbsentByMealGroupDialog';
 import { SupplementMealReportDialog } from '@/components/attendance/SupplementMealReportDialog';
 import { ShareSingleMealDialog } from '@/components/attendance/ShareSingleMealDialog';
-import { MealExportDialog } from '@/components/attendance/MealExportDialog';
+const MealExportDialog = lazy(() => import('@/components/attendance/MealExportDialog').then(m => ({ default: m.MealExportDialog })));
 import { MealDayOffDialog } from '@/components/attendance/MealDayOffDialog';
 import { useToast } from '@/hooks/use-toast';
 import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
@@ -2454,13 +2454,17 @@ export default function Statistics() {
         />
       )}
 
-      {/* Meal Export Dialog (like Meals page) */}
-      <MealExportDialog
-        open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        onExport={handleExportFromDialog}
-        isExporting={isExporting}
-      />
+      {/* Meal Export Dialog - lazy loaded */}
+      {exportDialogOpen && (
+        <Suspense fallback={null}>
+          <MealExportDialog
+            open={exportDialogOpen}
+            onOpenChange={setExportDialogOpen}
+            onExport={handleExportFromDialog}
+            isExporting={isExporting}
+          />
+        </Suspense>
+      )}
 
       {/* Day Off Dialog */}
       <MealDayOffDialog

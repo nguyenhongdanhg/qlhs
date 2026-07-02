@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -33,7 +33,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { MedicineExcelImportDialog } from './MedicineExcelImportDialog';
+const MedicineExcelImportDialog = lazy(() => import('./MedicineExcelImportDialog').then(m => ({ default: m.MedicineExcelImportDialog })));
 import type { Medicine, MedicineTransaction } from '@/types';
 
 interface MedicineInventoryTabProps {
@@ -1010,13 +1010,17 @@ export function MedicineInventoryTab({ schoolId, isAdmin, userId, canDelete = fa
         </DialogContent>
       </Dialog>
 
-      {/* Excel Import Dialog */}
-      <MedicineExcelImportDialog
-        open={showExcelImportDialog}
-        onOpenChange={setShowExcelImportDialog}
-        schoolId={schoolId}
-        userId={userId}
-      />
+      {/* Excel Import Dialog - lazy loaded */}
+      {showExcelImportDialog && (
+        <Suspense fallback={null}>
+          <MedicineExcelImportDialog
+            open={showExcelImportDialog}
+            onOpenChange={setShowExcelImportDialog}
+            schoolId={schoolId}
+            userId={userId}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
