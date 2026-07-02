@@ -25,8 +25,8 @@ import { cn } from '@/lib/utils';
 import { Student, Class } from '@/types';
 import { DormitoryExitImageCard } from '@/components/dormitory/DormitoryExitImageCard';
 import { ExitRequestImageCard } from '@/components/dormitory/ExitRequestImageCard';
-import * as XLSX from 'xlsx-js-style';
-import { fitColumnsToA4, applyProfessionalStyle, getColumnAlignments, applyWarningCellStyle, ExcelColors, ExcelFonts, ExcelBorders } from '@/lib/excel-styles';
+// XLSX & excel-styles are dynamically imported inside handleExportExcel to keep
+// the daily-use page lightweight. Do NOT change the export logic itself.
 
 interface ExitRequest {
   id: string;
@@ -811,7 +811,14 @@ export default function DormitoryExit() {
   };
 
   // Export Excel
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    // Dynamic import: xlsx-js-style (~300KB gzip) + excel-styles helpers
+    // are only loaded when the user actually clicks "Xuất Excel".
+    const [{ default: XLSX }, styles] = await Promise.all([
+      import('xlsx-js-style'),
+      import('@/lib/excel-styles'),
+    ]);
+    const { fitColumnsToA4, applyProfessionalStyle, getColumnAlignments, ExcelFonts, ExcelBorders } = styles;
     const rangeLabel = filterRange === 'day' ? format(selectedDate, 'dd-MM-yyyy') : filterRange === 'week' ? `Tuan_${format(selectedDate, 'dd-MM-yyyy')}` : filterRange === 'period' ? `${format(periodFrom, 'dd-MM-yyyy')}_den_${format(periodTo, 'dd-MM-yyyy')}` : format(selectedDate, 'MM-yyyy');
     const titleLabel = filterRange === 'day' ? `Ngày ${format(selectedDate, 'dd/MM/yyyy')}` : filterRange === 'week' ? `Tuần ${format(selectedDate, 'dd/MM/yyyy')}` : filterRange === 'period' ? `Giai đoạn ${format(periodFrom, 'dd/MM/yyyy')} - ${format(periodTo, 'dd/MM/yyyy')}` : `Tháng ${format(selectedDate, 'MM/yyyy')}`;
 
