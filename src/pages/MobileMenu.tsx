@@ -43,7 +43,7 @@ const tasksItems: MenuItem[] = [
 const boardingItems: MenuItem[] = [
   { code: 'duty_schedule', label: 'Lịch trực', description: 'Quản lý lịch trực', icon: CalendarDays, path: '/duty-schedule' },
   { code: 'boarding', label: 'Điểm danh nội trú', description: 'Điểm danh nội trú', icon: Home, path: '/boarding' },
-  { code: 'evening_study', label: 'Điểm danh tự học', description: 'Điểm danh giờ tự học', icon: BookOpen, path: '/evening-study' },
+  
   { code: 'meals', label: 'Báo ăn', description: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals' },
   { code: 'dormitory_exit', label: 'Ra vào KTX', description: 'Đăng ký & duyệt ra ngoài', icon: DoorOpen, path: '/dormitory-exit' },
 ];
