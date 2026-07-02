@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -98,6 +99,7 @@ export function AttendanceHistoryTab({
   };
 
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
+  useSyncDateToSelectedYear(setHistoryDate);
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('week');
   const [historyReporterFilter, setHistoryReporterFilter] = useState<string>('all');
   const [reporters, setReporters] = useState<{ id: string; name: string }[]>([]);

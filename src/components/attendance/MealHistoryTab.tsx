@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -97,6 +98,7 @@ export function MealHistoryTab({
   const { toast } = useToast();
 
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
+  useSyncDateToSelectedYear(setHistoryDate);
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('week');
   const [historyClassFilter, setHistoryClassFilter] = useState<string>('all');
   const [historyReporterFilter, setHistoryReporterFilter] = useState<string>('all');

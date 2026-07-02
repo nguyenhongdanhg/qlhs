@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -125,6 +126,7 @@ export default function Statistics() {
   const [riceRangeType, setRiceRangeType] = useState<DateRangeType>('month');
   const [riceDate, setRiceDate] = useState<Date>(new Date());
   const [riceCustomEndDate, setRiceCustomEndDate] = useState<Date>(new Date());
+  useSyncDateToSelectedYear(setSelectedDate, [setRiceDate, setRiceCustomEndDate]);
   const [riceStats, setRiceStats] = useState<{ date: string; rice: number }[]>([]);
   const [riceCumulativeStats, setRiceCumulativeStats] = useState<{ date: string; rice: number }[]>([]);
   const [totalRiceInRange, setTotalRiceInRange] = useState(0);
