@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       academic_years: {
         Row: {
+          clone_options: Json | null
+          cloned_from_year_id: string | null
           created_at: string
           created_by: string | null
           end_date: string | null
@@ -29,6 +31,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          clone_options?: Json | null
+          cloned_from_year_id?: string | null
           created_at?: string
           created_by?: string | null
           end_date?: string | null
@@ -42,6 +46,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          clone_options?: Json | null
+          cloned_from_year_id?: string | null
           created_at?: string
           created_by?: string | null
           end_date?: string | null
@@ -55,6 +61,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "academic_years_cloned_from_year_id_fkey"
+            columns: ["cloned_from_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "academic_years_school_id_fkey"
             columns: ["school_id"]
