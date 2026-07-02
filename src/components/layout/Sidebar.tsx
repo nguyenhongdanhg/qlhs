@@ -165,7 +165,7 @@ export const Sidebar = memo(function Sidebar() {
   }, [isSuperAdmin, isSchoolAdmin]);
 
   const isGroupFeatureEnabled = useCallback((group: NavGroup) => {
-    if (group.code === 'dashboard' || group.code === 'settings_group') return true;
+    if (group.code === 'dashboard' || group.code === 'settings_group' || group.code === 'tasks') return true;
     if (group.children) {
       return group.children.some(child => {
         if (child.code === 'settings' || child.code === 'guide' || child.code === 'teachers') return true;
