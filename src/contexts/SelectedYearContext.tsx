@@ -14,6 +14,12 @@ interface SelectedYearContextType {
   /** Ngày bắt đầu / kết thúc của năm được chọn (nullable) */
   startDate: string | null;
   endDate: string | null;
+  /** Clamp một ngày về trong khoảng năm học đang chọn (nếu có bounds) */
+  clampDate: (d: Date) => Date;
+  /** Ngày làm việc mặc định: hôm nay nếu nằm trong năm, ngược lại là endDate */
+  workingDate: Date;
+  /** True nếu ngày nằm trong khoảng năm học đang chọn */
+  isDateInYear: (d: Date) => boolean;
 }
 
 const SelectedYearContext = createContext<SelectedYearContextType | undefined>(undefined);
