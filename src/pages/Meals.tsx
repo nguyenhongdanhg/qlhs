@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeaturePermission } from '@/components/guards/FeatureGuard';
 import { supabase } from '@/integrations/supabase/client';
@@ -125,6 +126,7 @@ export default function Meals() {
 
   const [activeTab, setActiveTab] = useState<'register' | 'history'>('register');
   const [date, setDate] = useState<Date>(new Date());
+  useSyncDateToSelectedYear(setDate);
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedMeal, setSelectedMeal] = useState<AttendanceType>('breakfast');
   const [classes, setClasses] = useState<Class[]>([]);

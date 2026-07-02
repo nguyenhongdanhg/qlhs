@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeaturePermission } from '@/components/guards/FeatureGuard';
 import { supabase } from '@/integrations/supabase/client';
@@ -150,6 +151,7 @@ export default function EveningStudy() {
 
   // History filter
   const [historyDate, setHistoryDate] = useState<Date>(new Date());
+  useSyncDateToSelectedYear(setDate, [setHistoryDate]);
   const [historyRangeType, setHistoryRangeType] = useState<DateRangeType>('week');
   const [isExporting, setIsExporting] = useState(false);
 

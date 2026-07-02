@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -59,6 +60,7 @@ export function HealthHistoryTab({
 
   const [dateRange, setDateRange] = useState<'day' | 'week' | 'month'>('month');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  useSyncDateToSelectedYear(setSelectedDate);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | HealthTreatmentType>('all');
   const [viewRecord, setViewRecord] = useState<HealthRecord | null>(null);

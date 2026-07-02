@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -71,6 +72,7 @@ export default function DormitoryExit() {
   const [requests, setRequests] = useState<ExitRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  useSyncDateToSelectedYear(setSelectedDate);
   const [filterRange, setFilterRange] = useState<FilterRange>('week');
   const [searchQuery, setSearchQuery] = useState('');
 
