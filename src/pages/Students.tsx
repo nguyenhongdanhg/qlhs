@@ -55,6 +55,8 @@ import {
   Link,
   BarChart3,
   Filter,
+  ArrowUpRight,
+  UserMinus,
 } from 'lucide-react';
 import { cn, naturalSort, vietnameseNameSortCompare } from '@/lib/utils';
 import { ExcelImportDialog } from '@/components/students/ExcelImportDialog';
@@ -95,6 +97,10 @@ export default function Students() {
   const [isBatchUpdateOpen, setIsBatchUpdateOpen] = useState(false);
   const [batchUpdateType, setBatchUpdateType] = useState<'class' | 'room' | 'meal' | 'ethnicity'>('class');
   const [batchUpdateValue, setBatchUpdateValue] = useState('');
+  const [isPromoteDialogOpen, setIsPromoteDialogOpen] = useState(false);
+  const [promoteClassId, setPromoteClassId] = useState('');
+  const [isGraduateDialogOpen, setIsGraduateDialogOpen] = useState(false);
+  const [bulkActionSaving, setBulkActionSaving] = useState<'promote' | 'graduate' | null>(null);
   
   // Filter state for room and meal (used when clicking from tabs)
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string | null>(null);
@@ -215,6 +221,11 @@ export default function Students() {
     });
     return filtered.sort((a, b) => vietnameseNameSortCompare(a.full_name, b.full_name));
   }, [students, searchQuery, selectedClassFilter, selectedRoomFilter, selectedMealFilter]);
+
+  const selectedStudents = useMemo(
+    () => students.filter((student) => selectedIds.has(student.id)),
+    [students, selectedIds]
+  );
 
   const handleOpenDialog = (student?: Student) => {
     if (student) {
@@ -724,6 +735,67 @@ export default function Students() {
     setIsBatchUpdateOpen(true);
   };
 
+  const openPromoteSelected = () => {
+    setPromoteClassId('');
+    setIsPromoteDialogOpen(true);
+  };
+
+  const handlePromoteSelected = async () => {
+    if (!currentSchool || selectedIds.size === 0 || !promoteClassId) return;
+
+    const targetClass = classes.find((cls) => cls.id === promoteClassId);
+    setBulkActionSaving('promote');
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ class_id: promoteClassId, is_active: true })
+        .eq('school_id', currentSchool.id)
+        .in('id', Array.from(selectedIds));
+
+      if (error) throw error;
+
+      toast({
+        title: 'Đã chuyển lớp',
+        description: `Đã chuyển ${selectedIds.size} học sinh sang ${targetClass?.name || 'lớp đã chọn'}`,
+      });
+      setIsPromoteDialogOpen(false);
+      setPromoteClassId('');
+      setSelectedIds(new Set());
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setBulkActionSaving(null);
+    }
+  };
+
+  const handleGraduateSelected = async () => {
+    if (!currentSchool || selectedIds.size === 0) return;
+
+    setBulkActionSaving('graduate');
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ is_active: false })
+        .eq('school_id', currentSchool.id)
+        .in('id', Array.from(selectedIds));
+
+      if (error) throw error;
+
+      toast({
+        title: 'Đã cho ra trường',
+        description: `${selectedIds.size} học sinh đã được ẩn khỏi danh sách đang học`,
+      });
+      setIsGraduateDialogOpen(false);
+      setSelectedIds(new Set());
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
+    } finally {
+      setBulkActionSaving(null);
+    }
+  };
+
   const handleBulkAvatarUpdate = async () => {
     if (!bulkAvatarText.trim()) return;
     
@@ -1143,6 +1215,12 @@ export default function Students() {
                       <Badge variant="secondary" className="px-2">{selectedIds.size} đã chọn</Badge>
                       <Button variant="outline" size="sm" onClick={() => openBatchUpdate('class')}>
                         <GraduationCap className="h-4 w-4 mr-1" /> Đổi lớp
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={openPromoteSelected}>
+                        <ArrowUpRight className="h-4 w-4 mr-1" /> Lên lớp
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setIsGraduateDialogOpen(true)}>
+                        <UserMinus className="h-4 w-4 mr-1" /> Ra trường
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => openBatchUpdate('room')}>
                         <Building className="h-4 w-4 mr-1" /> Đổi phòng
@@ -2246,6 +2324,79 @@ export default function Students() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBatchUpdateOpen(false)}>Hủy</Button>
             <Button onClick={handleBatchUpdate}>Cập nhật</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Promote Selected Students Dialog */}
+      <Dialog open={isPromoteDialogOpen} onOpenChange={setIsPromoteDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Chuyển học sinh lên lớp</DialogTitle>
+            <DialogDescription>
+              Chọn lớp đích cho {selectedIds.size} học sinh đã tích chọn.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <Select value={promoteClassId} onValueChange={setPromoteClassId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn lớp lên" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map((cls) => (
+                  <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+              Ví dụ: lọc lớp 11A, tích học sinh, chọn <b>Lên lớp</b> rồi chọn lớp 12A. Sau đó làm tiếp lớp 10A → 11A; lớp 10 để trống để nhập mới.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPromoteDialogOpen(false)} disabled={bulkActionSaving === 'promote'}>
+              Hủy
+            </Button>
+            <Button onClick={handlePromoteSelected} disabled={!promoteClassId || bulkActionSaving === 'promote'}>
+              {bulkActionSaving === 'promote' && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Chuyển lớp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Graduate Selected Students Dialog */}
+      <Dialog open={isGraduateDialogOpen} onOpenChange={setIsGraduateDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cho học sinh ra trường?</DialogTitle>
+            <DialogDescription>
+              {selectedIds.size} học sinh đã chọn sẽ ngừng hoạt động và không còn hiện trong danh sách đang học.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-3 text-sm">
+            <div className="rounded-lg border p-3 max-h-40 overflow-y-auto">
+              {selectedStudents.slice(0, 8).map((student) => (
+                <div key={student.id} className="flex justify-between gap-2 text-xs py-1">
+                  <span className="truncate">{student.full_name}</span>
+                  <span className="text-muted-foreground">{student.class?.name || 'Chưa xếp'}</span>
+                </div>
+              ))}
+              {selectedStudents.length > 8 && (
+                <div className="text-xs text-muted-foreground pt-1">+{selectedStudents.length - 8} học sinh khác</div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Thao tác này không xoá hồ sơ nên không bị lỗi dữ liệu điểm danh, y tế hoặc ra/vào nội trú.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsGraduateDialogOpen(false)} disabled={bulkActionSaving === 'graduate'}>
+              Hủy
+            </Button>
+            <Button variant="destructive" onClick={handleGraduateSelected} disabled={bulkActionSaving === 'graduate'}>
+              {bulkActionSaving === 'graduate' && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Ra trường
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
