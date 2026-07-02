@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      academic_years: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          school_id: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["academic_year_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          school_id: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["academic_year_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          school_id?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["academic_year_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academic_years_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           assignee: string | null
@@ -2441,6 +2491,7 @@ export type Database = {
           stat_date: string
         }[]
       }
+      current_academic_year_id: { Args: { sid: string }; Returns: string }
       get_teacher_class: { Args: { sid: string; uid: string }; Returns: string }
       has_dormitory_exit_permission: {
         Args: { sid: string; uid: string }
@@ -2473,8 +2524,13 @@ export type Database = {
       is_school_admin: { Args: { sid: string; uid: string }; Returns: boolean }
       is_school_member: { Args: { sid: string; uid: string }; Returns: boolean }
       is_super_admin: { Args: { uid: string }; Returns: boolean }
+      set_active_academic_year: {
+        Args: { year_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
+      academic_year_status: "open" | "closed" | "archived"
       app_role:
         | "super_admin"
         | "admin"
@@ -2625,6 +2681,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      academic_year_status: ["open", "closed", "archived"],
       app_role: [
         "super_admin",
         "admin",

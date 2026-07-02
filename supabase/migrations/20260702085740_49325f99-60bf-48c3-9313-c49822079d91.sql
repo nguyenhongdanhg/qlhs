@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.current_academic_year_id(UUID) FROM anon;
