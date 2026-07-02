@@ -8,12 +8,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarRange, Loader2, Plus, Check, Lock, Unlock, Archive } from 'lucide-react';
+import { CalendarRange, Loader2, Plus, Check, Lock, Unlock, Archive, Trash2 } from 'lucide-react';
+
+const CLONE_GROUPS = [
+  { key: 'classes_students', label: 'Danh sách lớp + học sinh (giữ nguyên lớp cũ)' },
+  { key: 'menu_kitchen', label: 'Thực đơn + nhà cung cấp bếp' },
+  { key: 'emulation_duty', label: 'Cấu hình thi đua + trực ban' },
+  { key: 'catalogs', label: 'Danh mục thuốc + nhóm quyền + cấu hình chung' },
+] as const;
+
+type CloneKey = typeof CLONE_GROUPS[number]['key'];
 
 export function AcademicYearsCard() {
   const { currentSchool, isSuperAdmin, currentMembership, user } = useAuth();
@@ -28,12 +45,22 @@ export function AcademicYearsCard() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [sourceYearId, setSourceYearId] = useState<string>('none');
+  const [cloneOpts, setCloneOpts] = useState<Record<CloneKey, boolean>>({
+    classes_students: true,
+    menu_kitchen: false,
+    emulation_duty: false,
+    catalogs: false,
+  });
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   if (!currentSchool || !isAdmin) return null;
 
   const reset = () => {
     setName(''); setStartDate(''); setEndDate(''); setNotes('');
+    setSourceYearId('none');
+    setCloneOpts({ classes_students: true, menu_kitchen: false, emulation_duty: false, catalogs: false });
   };
 
   const handleCreate = async () => {
@@ -43,7 +70,7 @@ export function AcademicYearsCard() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from('academic_years').insert({
+      const payload: any = {
         school_id: currentSchool.id,
         name: name.trim(),
         start_date: startDate || null,
@@ -52,9 +79,17 @@ export function AcademicYearsCard() {
         status: 'open',
         is_active: false,
         created_by: user?.id ?? null,
-      });
+        cloned_from_year_id: sourceYearId !== 'none' ? sourceYearId : null,
+        clone_options: sourceYearId !== 'none' ? cloneOpts : {},
+      };
+      const { error } = await (supabase.from('academic_years') as any).insert(payload);
       if (error) throw error;
-      toast({ title: 'Đã tạo năm học', description: name.trim() });
+      toast({
+        title: 'Đã tạo năm học',
+        description: sourceYearId !== 'none'
+          ? `${name.trim()} · đã ghi nhận tuỳ chọn sao chép`
+          : name.trim(),
+      });
       reset();
       setOpen(false);
       await refresh();
@@ -96,6 +131,22 @@ export function AcademicYearsCard() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setBusyId(deleteTarget.id);
+    try {
+      const { error } = await supabase.from('academic_years').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
+      toast({ title: 'Đã xoá năm học', description: deleteTarget.name });
+      setDeleteTarget(null);
+      await refresh();
+    } catch (e: any) {
+      toast({ title: 'Không thể xoá', description: e.message, variant: 'destructive' });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const statusBadge = (s: AcademicYearStatus) => {
     const map: Record<AcademicYearStatus, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
       open: { label: 'Đang mở', variant: 'default' },
@@ -117,17 +168,17 @@ export function AcademicYearsCard() {
             Quản lý các năm học của trường. Chỉ 1 năm được đặt mặc định.
           </CardDescription>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" /> Thêm
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Tạo năm học mới</DialogTitle>
               <DialogDescription>
-                Sau khi tạo, bấm "Đặt mặc định" để hệ thống dùng năm này cho dữ liệu mới.
+                Có thể sao chép dữ liệu từ một năm đã có. Sau khi tạo, bấm "Đặt mặc định" để dùng năm này.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -145,6 +196,42 @@ export function AcademicYearsCard() {
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
+
+              <div className="grid gap-2 pt-2 border-t">
+                <Label>Sao chép dữ liệu từ năm</Label>
+                <Select value={sourceYearId} onValueChange={setSourceYearId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Không sao chép" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Không sao chép (bắt đầu trắng)</SelectItem>
+                    {years.map(y => (
+                      <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {sourceYearId !== 'none' && (
+                <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                  <div className="text-sm font-medium">Chọn nhóm dữ liệu sao chép</div>
+                  {CLONE_GROUPS.map(g => (
+                    <label key={g.key} className="flex items-start gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={cloneOpts[g.key]}
+                        onCheckedChange={(v) =>
+                          setCloneOpts(prev => ({ ...prev, [g.key]: v === true }))
+                        }
+                      />
+                      <span>{g.label}</span>
+                    </label>
+                  ))}
+                  <div className="text-xs text-muted-foreground pt-1">
+                    Các nhóm không chọn sẽ vẫn giữ ở năm cũ, không sao sang năm mới.
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-2">
                 <Label>Ghi chú</Label>
                 <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -174,6 +261,7 @@ export function AcademicYearsCard() {
             {years.map((y) => {
               const badge = statusBadge(y.status);
               const isBusy = busyId === y.id;
+              const canDelete = y.status === 'closed' && !y.is_active;
               return (
                 <div
                   key={y.id}
@@ -196,7 +284,7 @@ export function AcademicYearsCard() {
                       <div className="text-xs text-muted-foreground mt-0.5 truncate">{y.notes}</div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {!y.is_active && (
                       <Button size="sm" variant="outline" onClick={() => setActive(y.id)} disabled={isBusy}>
                         {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
@@ -218,6 +306,17 @@ export function AcademicYearsCard() {
                         <Archive className="h-4 w-4 mr-1" /> Lưu trữ
                       </Button>
                     )}
+                    {canDelete && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget({ id: y.id, name: y.name })}
+                        disabled={isBusy}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Xoá
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -225,6 +324,29 @@ export function AcademicYearsCard() {
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xoá năm học "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Chỉ xoá được khi năm học đã đóng và chưa phát sinh dữ liệu ở các phân hệ
+              (điểm danh, thi đua, thuốc, y tế, kho bếp, kho gạo, trực ban, ra vào nội trú,
+              vắng ăn, vắng GV, thành tích GV). Nếu còn dữ liệu, hệ thống sẽ từ chối và bạn
+              nên dùng "Lưu trữ" thay vì xoá.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Xoá
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
