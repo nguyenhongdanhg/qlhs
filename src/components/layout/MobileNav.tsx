@@ -6,12 +6,12 @@ import {
   LayoutDashboard,
   Home,
   UtensilsCrossed,
-  Users,
   Menu,
   CalendarDays,
   BookOpen,
   DoorOpen,
-  ChefHat,
+  ClipboardList,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -33,32 +33,26 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
-  { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
+  { code: 'tasks', label: 'Công việc', icon: ClipboardList, path: '/tasks' },
   {
     code: 'boarding_group', label: 'Nội trú', icon: Home,
     children: [
       { code: 'duty_schedule', label: 'Lịch trực', icon: CalendarDays, path: '/duty-schedule' },
       { code: 'boarding', label: 'Điểm danh nội trú', icon: Home, path: '/boarding' },
       { code: 'evening_study', label: 'Điểm danh tự học', icon: BookOpen, path: '/evening-study' },
+      { code: 'meals', label: 'Báo ăn', icon: UtensilsCrossed, path: '/meals' },
       { code: 'dormitory_exit', label: 'Ra vào KTX', icon: DoorOpen, path: '/dormitory-exit' },
     ],
   },
-  {
-    code: 'meal_group', label: 'Bữa ăn', icon: UtensilsCrossed,
-    children: [
-      { code: 'meals', label: 'Báo ăn', icon: UtensilsCrossed, path: '/meals' },
-      { code: 'meal_menu', label: 'Thực đơn & Kho', icon: ChefHat, path: '/meal-menu' },
-    ],
-  },
+  { code: 'statistics', label: 'Thống kê', icon: BarChart3, path: '/statistics' },
   { code: 'menu', label: 'Thêm', icon: Menu, path: '/menu' },
 ];
 
 const groupFeatureCodes: Record<string, string[]> = {
-  boarding_group: ['boarding', 'evening_study', 'duty_schedule', 'dormitory_exit'],
-  meal_group: ['meals', 'meal_menu'],
+  boarding_group: ['boarding', 'evening_study', 'duty_schedule', 'dormitory_exit', 'meals'],
 };
 
-export const bottomNavCodes = ['dashboard', 'students', 'boarding', 'meals'];
+export const bottomNavCodes = ['dashboard', 'tasks', 'boarding', 'statistics'];
 
 export const MobileNav = memo(function MobileNav() {
   const location = useLocation();
@@ -89,7 +83,7 @@ export const MobileNav = memo(function MobileNav() {
   }, [openGroup]);
 
   const filteredNavItems = useMemo(() => navItems.filter((item) => {
-    if (item.code === 'dashboard' || item.code === 'menu') return true;
+    if (item.code === 'dashboard' || item.code === 'menu' || item.code === 'tasks' || item.code === 'statistics') return true;
     const featureCodes = groupFeatureCodes[item.code];
     if (featureCodes) {
       return featureCodes.some(code => isFeatureEnabled(code));

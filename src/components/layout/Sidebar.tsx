@@ -12,7 +12,6 @@ import {
   LogOut,
   ChevronLeft,
   ChevronDown,
-  ChevronRight,
   Building2,
   Trophy,
   HelpCircle,
@@ -22,6 +21,8 @@ import {
   BookOpen,
   Users,
   GraduationCap,
+  ClipboardList,
+  Apple,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -47,32 +48,38 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
-  { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
-  { code: 'emulation', label: 'Thi đua', icon: Trophy, path: '/emulation' },
+  { code: 'tasks', label: 'Công việc & tiến độ', icon: ClipboardList, path: '/tasks' },
   {
     code: 'boarding_group', label: 'Quản lý nội trú', icon: Home,
     children: [
       { code: 'duty_schedule', label: 'Lịch trực', icon: CalendarDays, path: '/duty-schedule' },
       { code: 'boarding', label: 'Điểm danh nội trú', icon: Home, path: '/boarding' },
       { code: 'evening_study', label: 'Điểm danh tự học', icon: BookOpen, path: '/evening-study' },
+      { code: 'meals', label: 'Báo ăn', icon: UtensilsCrossed, path: '/meals' },
       { code: 'dormitory_exit', label: 'Ra vào KTX', icon: DoorOpen, path: '/dormitory-exit' },
     ],
   },
   {
-    code: 'meal_group', label: 'Bữa ăn', icon: UtensilsCrossed,
+    code: 'emulation_health_group', label: 'Thi đua - Sức khoẻ', icon: Trophy,
     children: [
-      { code: 'meals', label: 'Báo ăn', icon: UtensilsCrossed, path: '/meals' },
+      { code: 'emulation', label: 'Thi đua', icon: Trophy, path: '/emulation' },
+      { code: 'health', label: 'Sức khoẻ', icon: Heart, path: '/health' },
+    ],
+  },
+  {
+    code: 'food_group', label: 'Thực phẩm', icon: Apple,
+    children: [
       { code: 'meal_menu', label: 'Thực đơn & Kho bếp', icon: ChefHat, path: '/meal-menu' },
     ],
   },
-  { code: 'health', label: 'Sức khỏe', icon: Heart, path: '/health' },
-  { code: 'statistics', label: 'Thống kê', icon: BarChart3, path: '/statistics' },
+  { code: 'statistics', label: 'Thống kê & Báo cáo', icon: BarChart3, path: '/statistics' },
   {
     code: 'settings_group', label: 'Cài đặt', icon: Settings,
     children: [
-      { code: 'user_management', label: 'Quản lý người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
+      { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
       { code: 'teachers', label: 'Giáo viên', icon: GraduationCap, path: '/teachers', adminOnly: true },
-      { code: 'settings', label: 'Thiết lập', icon: Settings, path: '/settings' },
+      { code: 'user_management', label: 'Quản lý người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
+      { code: 'settings', label: 'Thông tin tài khoản', icon: Settings, path: '/settings' },
       { code: 'guide', label: 'Hướng dẫn sử dụng', icon: HelpCircle, path: '/docs' },
     ],
   },
@@ -158,7 +165,7 @@ export const Sidebar = memo(function Sidebar() {
   }, [isSuperAdmin, isSchoolAdmin]);
 
   const isGroupFeatureEnabled = useCallback((group: NavGroup) => {
-    if (group.code === 'dashboard' || group.code === 'settings_group') return true;
+    if (group.code === 'dashboard' || group.code === 'settings_group' || group.code === 'tasks') return true;
     if (group.children) {
       return group.children.some(child => {
         if (child.code === 'settings' || child.code === 'guide' || child.code === 'teachers') return true;

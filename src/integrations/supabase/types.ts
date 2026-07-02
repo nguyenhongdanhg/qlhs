@@ -2232,6 +2232,145 @@ export type Database = {
           },
         ]
       }
+      task_attachments: {
+        Row: {
+          created_at: string
+          drive_file_id: string | null
+          drive_url: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          task_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          drive_file_id?: string | null
+          drive_url: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          task_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          drive_file_id?: string | null
+          drive_url?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          task_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_responses: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_responses_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          academic_year_id: string | null
+          assignee_id: string | null
+          category: Database["public"]["Enums"]["task_category"]
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          deadline: string | null
+          description: string | null
+          id: string
+          school_id: string
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year_id?: string | null
+          assignee_id?: string | null
+          category: Database["public"]["Enums"]["task_category"]
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          school_id: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year_id?: string | null
+          assignee_id?: string | null
+          category?: Database["public"]["Enums"]["task_category"]
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deadline?: string | null
+          description?: string | null
+          id?: string
+          school_id?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_absences: {
         Row: {
           absence_date: string
@@ -2682,6 +2821,8 @@ export type Database = {
         | "hospital"
         | "family_pickup"
       membership_status: "active" | "suspended"
+      task_category: "dang" | "chuyen_mon" | "noi_tru" | "doan_doi"
+      task_status: "pending" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2836,6 +2977,8 @@ export const Constants = {
         "family_pickup",
       ],
       membership_status: ["active", "suspended"],
+      task_category: ["dang", "chuyen_mon", "noi_tru", "doan_doi"],
+      task_status: ["pending", "done"],
     },
   },
 } as const
