@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
+import { useSelectedYear } from '@/contexts/SelectedYearContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -117,7 +118,11 @@ export function AttendanceHistoryTab({
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [reportToShare, setReportToShare] = useState<HistoryRecord | null>(null);
 
-  const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
+  const { clampDate: clampToYear, startDate: yearStart, endDate: yearEnd } = useSelectedYear();
+  const historyDateRange = useMemo(() => {
+    const raw = getDateRange(historyDate, historyRangeType);
+    return { ...raw, start: clampToYear(raw.start), end: clampToYear(raw.end) };
+  }, [historyDate, historyRangeType, yearStart, yearEnd]);
 
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {

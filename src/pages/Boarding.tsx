@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
+import { useSelectedYear } from '@/contexts/SelectedYearContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeaturePermission } from '@/components/guards/FeatureGuard';
 import { supabase } from '@/integrations/supabase/client';
@@ -209,7 +210,11 @@ export default function Boarding() {
   // Total boarding students count for accurate stats
   const [totalBoardingStudents, setTotalBoardingStudents] = useState(0);
 
-  const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
+  const { clampDate: clampToYear, startDate: yearStart, endDate: yearEnd } = useSelectedYear();
+  const historyDateRange = useMemo(() => {
+    const raw = getDateRange(historyDate, historyRangeType);
+    return { ...raw, start: clampToYear(raw.start), end: clampToYear(raw.end) };
+  }, [historyDate, historyRangeType, yearStart, yearEnd]);
 
   // Active dormitory exits for the selected date — surfaces students currently
   // approved to be out of the dorm so the on-duty teacher knows what to expect.
