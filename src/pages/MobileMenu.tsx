@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSchool } from '@/contexts/SchoolContext';
-import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,7 +11,6 @@ import {
   Building2,
   ChevronRight,
   LogOut,
-  Menu,
   Trophy,
   HelpCircle,
   Heart,
@@ -22,6 +20,8 @@ import {
   BookOpen,
   UtensilsCrossed,
   GraduationCap,
+  ClipboardList,
+  Users,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -34,32 +34,42 @@ interface MenuItem {
   superAdminOnly?: boolean;
 }
 
-// Group: Quản lý nội trú
+// 1. Công việc & tiến độ (single item - shown as standalone)
+const tasksItems: MenuItem[] = [
+  { code: 'tasks', label: 'Công việc & tiến độ', description: 'Giao việc, hạn hoàn thành, tài liệu', icon: ClipboardList, path: '/tasks' },
+];
+
+// 2. Quản lý nội trú
 const boardingItems: MenuItem[] = [
   { code: 'duty_schedule', label: 'Lịch trực', description: 'Quản lý lịch trực', icon: CalendarDays, path: '/duty-schedule' },
   { code: 'boarding', label: 'Điểm danh nội trú', description: 'Điểm danh nội trú', icon: Home, path: '/boarding' },
   { code: 'evening_study', label: 'Điểm danh tự học', description: 'Điểm danh giờ tự học', icon: BookOpen, path: '/evening-study' },
+  { code: 'meals', label: 'Báo ăn', description: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals' },
   { code: 'dormitory_exit', label: 'Ra vào KTX', description: 'Đăng ký & duyệt ra ngoài', icon: DoorOpen, path: '/dormitory-exit' },
 ];
 
-// Group: Bữa ăn
-const mealItems: MenuItem[] = [
-  { code: 'meals', label: 'Báo ăn', description: 'Báo cáo bữa ăn', icon: UtensilsCrossed, path: '/meals' },
+// 3. Thi đua - Sức khoẻ
+const emulationHealthItems: MenuItem[] = [
+  { code: 'emulation', label: 'Thi đua', description: 'Quản lý thi đua các lớp', icon: Trophy, path: '/emulation' },
+  { code: 'health', label: 'Sức khoẻ', description: 'Quản lý sức khỏe học sinh', icon: Heart, path: '/health' },
+];
+
+// 4. Thực phẩm
+const foodItems: MenuItem[] = [
   { code: 'meal_menu', label: 'Thực đơn & Kho bếp', description: 'Quản lý thực đơn và kho', icon: ChefHat, path: '/meal-menu' },
 ];
 
-// Standalone items
-const standaloneItems: MenuItem[] = [
-  { code: 'emulation', label: 'Thi đua', description: 'Quản lý thi đua các lớp', icon: Trophy, path: '/emulation' },
-  { code: 'health', label: 'Sức khỏe', description: 'Quản lý sức khỏe học sinh', icon: Heart, path: '/health' },
-  { code: 'statistics', label: 'Thống kê', description: 'Xem báo cáo thống kê', icon: BarChart3, path: '/statistics' },
+// 5. Thống kê & Báo cáo
+const statisticsItems: MenuItem[] = [
+  { code: 'statistics', label: 'Thống kê & Báo cáo', description: 'Báo cáo & xuất Excel', icon: BarChart3, path: '/statistics' },
 ];
 
-// Group: Cài đặt
+// 6. Cài đặt
 const settingsItems: MenuItem[] = [
-  { code: 'user_management', label: 'Quản lý người dùng', description: 'Thêm, sửa, xóa người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
+  { code: 'students', label: 'Học sinh', description: 'Danh sách học sinh', icon: Users, path: '/students' },
   { code: 'teachers', label: 'Giáo viên', description: 'Hồ sơ, chấm công, thành tích GV', icon: GraduationCap, path: '/teachers', adminOnly: true },
-  { code: 'settings', label: 'Thiết lập', description: 'Tài khoản & thiết lập', icon: Settings, path: '/settings' },
+  { code: 'user_management', label: 'Quản lý người dùng', description: 'Thêm, sửa, xóa người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
+  { code: 'settings', label: 'Thông tin tài khoản', description: 'Tài khoản & thiết lập', icon: Settings, path: '/settings' },
   { code: 'guide', label: 'Hướng dẫn sử dụng', description: 'Tài liệu hướng dẫn', icon: HelpCircle, path: '/docs' },
 ];
 
