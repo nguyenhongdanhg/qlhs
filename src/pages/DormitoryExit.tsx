@@ -74,6 +74,7 @@ export default function DormitoryExit() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   useSyncDateToSelectedYear(setSelectedDate);
+  const { startDate: yearStart, endDate: yearEnd } = useSelectedYear();
   const [filterRange, setFilterRange] = useState<FilterRange>('week');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -254,7 +255,7 @@ export default function DormitoryExit() {
   const fetchRequests = async () => {
     if (!currentSchool) return;
     setIsLoading(true);
-    const { startDate: yearStart, endDate: yearEnd } = { startDate: yearStartRef.current, endDate: yearEndRef.current };
+    
     let startDate: string, endDate: string;
     const d = selectedDate;
     if (filterRange === 'day') {
