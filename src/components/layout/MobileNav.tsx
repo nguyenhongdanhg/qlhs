@@ -38,7 +38,7 @@ const navItems: NavItem[] = [
     code: 'boarding_group', label: 'Nội trú', icon: Home,
     children: [
       { code: 'duty_schedule', label: 'Lịch trực', icon: CalendarDays, path: '/duty-schedule' },
-      { code: 'boarding', label: 'Điểm danh nội trú', icon: Home, path: '/boarding' },
+      { code: 'boarding', label: 'Điểm danh', icon: Home, path: '/boarding' },
       
       { code: 'meals', label: 'Báo ăn', icon: UtensilsCrossed, path: '/meals' },
       { code: 'dormitory_exit', label: 'Ra vào KTX', icon: DoorOpen, path: '/dormitory-exit' },
