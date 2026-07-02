@@ -21,6 +21,7 @@ import { MealSettingsCard } from '@/components/settings/MealSettingsCard';
 import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
 import { GoogleSheetsSettingsCard } from '@/components/settings/GoogleSheetsSettingsCard';
 import { ReportSyncSettingsCard } from '@/components/settings/ReportSyncSettingsCard';
+import { AcademicYearsCard } from '@/components/settings/AcademicYearsCard';
 
 export default function Settings() {
   const { profile, currentMembership, user, refreshProfile, isSuperAdmin, currentSchool } = useAuth();
@@ -284,6 +285,11 @@ export default function Settings() {
 
         {/* Notification Settings */}
         <NotificationSettingsCard />
+
+        {/* Academic Years - Only for admin/super_admin */}
+        {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (
+          <AcademicYearsCard />
+        )}
 
         {/* Meal Settings - Only for admin/super_admin */}
         {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (
