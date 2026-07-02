@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
+import { useSelectedYear } from '@/contexts/SelectedYearContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -117,7 +118,11 @@ export function MealHistoryTab({
   const [diagnosticDialogOpen, setDiagnosticDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
-  const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
+  const { clampDate: clampToYear, startDate: yearStart, endDate: yearEnd } = useSelectedYear();
+  const historyDateRange = useMemo(() => {
+    const raw = getDateRange(historyDate, historyRangeType);
+    return { ...raw, start: clampToYear(raw.start), end: clampToYear(raw.end) };
+  }, [historyDate, historyRangeType, yearStart, yearEnd]);
 
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {

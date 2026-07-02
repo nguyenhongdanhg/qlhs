@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
+import { useSelectedYear } from '@/contexts/SelectedYearContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeaturePermission } from '@/components/guards/FeatureGuard';
 import { supabase } from '@/integrations/supabase/client';
@@ -170,7 +171,11 @@ export default function EveningStudy() {
   // Confirmation dialog
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  const historyDateRange = useMemo(() => getDateRange(historyDate, historyRangeType), [historyDate, historyRangeType]);
+  const { clampDate: clampToYear, startDate: yearStart, endDate: yearEnd } = useSelectedYear();
+  const historyDateRange = useMemo(() => {
+    const raw = getDateRange(historyDate, historyRangeType);
+    return { ...raw, start: clampToYear(raw.start), end: clampToYear(raw.end) };
+  }, [historyDate, historyRangeType, yearStart, yearEnd]);
 
   // Active dormitory exits — heads-up for the on-duty teacher.
   const { exits: activeExits } = useActiveDormitoryExits(currentSchool?.id, date, 'evening_study');
