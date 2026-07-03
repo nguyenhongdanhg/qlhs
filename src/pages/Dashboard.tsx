@@ -23,6 +23,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { AnnouncementBanner } from '@/components/dashboard/AnnouncementBanner';
+import { DashboardAlerts } from '@/components/dashboard/DashboardAlerts';
 import { Link } from 'react-router-dom';
 import { format, isWithinInterval, parseISO, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -507,6 +508,10 @@ export default function Dashboard() {
 
       {/* Announcements */}
       <AnnouncementBanner />
+
+      {/* Bảng tin theo ngày: công việc gần hạn, xét nâng lương, sinh nhật */}
+      <DashboardAlerts />
+
 
       {/* Class Teacher Info */}
       {isClassTeacher && stats?.className && (
