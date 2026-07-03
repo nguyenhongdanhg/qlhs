@@ -48,7 +48,14 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
-  { code: 'tasks', label: 'Công việc & tiến độ', icon: ClipboardList, path: '/tasks' },
+  {
+    code: 'info_schedule_group', label: 'Thông tin & Lịch trình', icon: ClipboardList,
+    children: [
+      { code: 'tasks', label: 'Công việc & tiến độ', icon: ClipboardList, path: '/tasks' },
+      { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
+      { code: 'teachers', label: 'Giáo viên', icon: GraduationCap, path: '/teachers', adminOnly: true },
+    ],
+  },
   {
     code: 'boarding_group', label: 'Quản lý nội trú', icon: Home,
     children: [
@@ -76,8 +83,6 @@ const navGroups: NavGroup[] = [
   {
     code: 'settings_group', label: 'Cài đặt', icon: Settings,
     children: [
-      { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
-      { code: 'teachers', label: 'Giáo viên', icon: GraduationCap, path: '/teachers', adminOnly: true },
       { code: 'user_management', label: 'Quản lý người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
       { code: 'settings', label: 'Thông tin tài khoản', icon: Settings, path: '/settings' },
       { code: 'guide', label: 'Hướng dẫn sử dụng', icon: HelpCircle, path: '/docs' },
@@ -165,10 +170,10 @@ export const Sidebar = memo(function Sidebar() {
   }, [isSuperAdmin, isSchoolAdmin]);
 
   const isGroupFeatureEnabled = useCallback((group: NavGroup) => {
-    if (group.code === 'dashboard' || group.code === 'settings_group' || group.code === 'tasks') return true;
+    if (group.code === 'dashboard' || group.code === 'settings_group' || group.code === 'info_schedule_group') return true;
     if (group.children) {
       return group.children.some(child => {
-        if (child.code === 'settings' || child.code === 'guide' || child.code === 'teachers') return true;
+        if (['settings', 'guide', 'teachers', 'tasks', 'students'].includes(child.code)) return true;
         if (child.adminOnly && !isSchoolAdmin()) return false;
         return isFeatureEnabled(child.code);
       });
@@ -177,7 +182,7 @@ export const Sidebar = memo(function Sidebar() {
   }, [isFeatureEnabled, isSchoolAdmin]);
 
   const isChildVisible = useCallback((child: NavSubItem) => {
-    if (child.code === 'settings' || child.code === 'guide' || child.code === 'teachers') return true;
+    if (['settings', 'guide', 'teachers', 'tasks', 'students'].includes(child.code)) return true;
     if (child.adminOnly && !isSchoolAdmin()) return false;
     return isFeatureEnabled(child.code);
   }, [isFeatureEnabled, isSchoolAdmin]);

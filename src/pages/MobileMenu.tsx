@@ -34,9 +34,11 @@ interface MenuItem {
   superAdminOnly?: boolean;
 }
 
-// 1. Công việc & tiến độ (single item - shown as standalone)
+// 1. Thông tin & Lịch trình
 const tasksItems: MenuItem[] = [
   { code: 'tasks', label: 'Công việc & tiến độ', description: 'Giao việc, hạn hoàn thành, tài liệu', icon: ClipboardList, path: '/tasks' },
+  { code: 'students', label: 'Học sinh', description: 'Danh sách học sinh', icon: Users, path: '/students' },
+  { code: 'teachers', label: 'Giáo viên', description: 'Hồ sơ, chấm công, thành tích GV', icon: GraduationCap, path: '/teachers', adminOnly: true },
 ];
 
 // 2. Quản lý nội trú
@@ -66,8 +68,6 @@ const statisticsItems: MenuItem[] = [
 
 // 6. Cài đặt
 const settingsItems: MenuItem[] = [
-  { code: 'students', label: 'Học sinh', description: 'Danh sách học sinh', icon: Users, path: '/students' },
-  { code: 'teachers', label: 'Giáo viên', description: 'Hồ sơ, chấm công, thành tích GV', icon: GraduationCap, path: '/teachers', adminOnly: true },
   { code: 'user_management', label: 'Quản lý người dùng', description: 'Thêm, sửa, xóa người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
   { code: 'settings', label: 'Thông tin tài khoản', description: 'Tài khoản & thiết lập', icon: Settings, path: '/settings' },
   { code: 'guide', label: 'Hướng dẫn sử dụng', description: 'Tài liệu hướng dẫn', icon: HelpCircle, path: '/docs' },
@@ -80,7 +80,7 @@ function MenuSection({ title, items, isFeatureEnabled, isAdmin }: {
   isAdmin: boolean;
 }) {
   const filtered = items.filter((item) => {
-    if (item.code === 'settings' || item.code === 'guide' || item.code === 'teachers' || item.code === 'tasks') return true;
+    if (['settings', 'guide', 'teachers', 'tasks', 'students'].includes(item.code)) return true;
     if (item.adminOnly && !isAdmin) return false;
     return isFeatureEnabled(item.code);
   });
@@ -169,7 +169,7 @@ export default function MobileMenu() {
           </Link>
         )}
 
-        <MenuSection title="Công việc & tiến độ" items={tasksItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
+        <MenuSection title="Thông tin & Lịch trình" items={tasksItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
         <MenuSection title="Quản lý nội trú" items={boardingItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
         <MenuSection title="Thi đua - Sức khoẻ" items={emulationHealthItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />
         <MenuSection title="Thực phẩm" items={foodItems} isFeatureEnabled={isFeatureEnabled} isAdmin={isAdmin} />

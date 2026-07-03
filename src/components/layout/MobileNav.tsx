@@ -33,7 +33,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
-  { code: 'tasks', label: 'Công việc', icon: ClipboardList, path: '/tasks' },
+  { code: 'tasks', label: 'Thông tin', icon: ClipboardList, path: '/tasks' },
   {
     code: 'boarding_group', label: 'Nội trú', icon: Home,
     children: [
