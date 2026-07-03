@@ -208,6 +208,9 @@ export function TeacherFormDialog({ open, onOpenChange, schoolId, teacher, onSav
           <div>
             <Label>SĐT</Label>
             <Input value={form.phone || ''} onChange={(e) => update({ phone: e.target.value })} />
+            {!form.user_id && (
+              <p className="text-[11px] text-muted-foreground mt-1">Nếu nhập SĐT, hệ thống sẽ tự tạo tài khoản (mật khẩu mặc định: 123456) hoặc ghép với tài khoản cùng SĐT.</p>
+            )}
           </div>
           <div>
             <Label>Email</Label>
