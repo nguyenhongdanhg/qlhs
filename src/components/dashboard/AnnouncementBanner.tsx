@@ -153,7 +153,7 @@ export function AnnouncementBanner() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight">Bảng tin</h3>
+                    <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight">Thông báo</h3>
                     {unseenCount > 0 && (
                       <Badge className="h-4 px-1.5 text-[10px] bg-destructive">{unseenCount} mới</Badge>
                     )}
