@@ -1759,8 +1759,8 @@ export default function Statistics() {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={(v) => { const sp = new URLSearchParams(searchParams); sp.set('tab', v); setSearchParams(sp, { replace: true }); }} className="space-y-4">
-          <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-3'}`}>
-            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+          <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-3'} hidden lg:grid`}>
+            <TabsTrigger value="overview">Bữa ăn</TabsTrigger>
             {!isClassTeacher && <TabsTrigger value="attendance">Điểm danh</TabsTrigger>}
             {!isClassTeacher && <TabsTrigger value="rice">Thống kê gạo</TabsTrigger>}
           </TabsList>
