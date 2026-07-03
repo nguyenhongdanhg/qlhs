@@ -416,6 +416,13 @@
   .text-high-contrast {
     @apply text-foreground font-medium;
   }
+
+  /* Skip rendering off-screen sections to speed long pages.
+     Áp cho các section dài (danh sách, bảng phụ) — trình duyệt chỉ render khi cuộn tới. */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 800px;
+  }
 }
 
 /* Keyframes */
