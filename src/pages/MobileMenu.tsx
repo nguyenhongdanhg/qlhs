@@ -68,8 +68,6 @@ const statisticsItems: MenuItem[] = [
 
 // 6. Cài đặt
 const settingsItems: MenuItem[] = [
-  { code: 'students', label: 'Học sinh', description: 'Danh sách học sinh', icon: Users, path: '/students' },
-  { code: 'teachers', label: 'Giáo viên', description: 'Hồ sơ, chấm công, thành tích GV', icon: GraduationCap, path: '/teachers', adminOnly: true },
   { code: 'user_management', label: 'Quản lý người dùng', description: 'Thêm, sửa, xóa người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
   { code: 'settings', label: 'Thông tin tài khoản', description: 'Tài khoản & thiết lập', icon: Settings, path: '/settings' },
   { code: 'guide', label: 'Hướng dẫn sử dụng', description: 'Tài liệu hướng dẫn', icon: HelpCircle, path: '/docs' },
