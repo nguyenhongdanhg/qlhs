@@ -51,6 +51,7 @@ import { MealDayOffDialog } from '@/components/attendance/MealDayOffDialog';
 import { useToast } from '@/hooks/use-toast';
 import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
 import { AttendanceStatsTab } from '@/components/statistics/AttendanceStatsTab';
+import { DailyActivityMatrix } from '@/components/statistics/DailyActivityMatrix';
 import { cn } from '@/lib/utils';
 
 interface AbsentStudent {
