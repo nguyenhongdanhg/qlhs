@@ -48,7 +48,14 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
-  { code: 'tasks', label: 'Công việc & tiến độ', icon: ClipboardList, path: '/tasks' },
+  {
+    code: 'info_schedule_group', label: 'Thông tin & Lịch trình', icon: ClipboardList,
+    children: [
+      { code: 'tasks', label: 'Công việc & tiến độ', icon: ClipboardList, path: '/tasks' },
+      { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
+      { code: 'teachers', label: 'Giáo viên', icon: GraduationCap, path: '/teachers', adminOnly: true },
+    ],
+  },
   {
     code: 'boarding_group', label: 'Quản lý nội trú', icon: Home,
     children: [
