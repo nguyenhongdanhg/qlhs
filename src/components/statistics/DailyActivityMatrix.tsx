@@ -28,10 +28,10 @@ interface Props {
 type ActivityType = 'boarding' | 'breakfast' | 'lunch' | 'dinner' | 'evening_study';
 
 const ACTIVITIES: { key: ActivityType; label: string }[] = [
-  { key: 'boarding', label: 'Nội trú (ngủ)' },
   { key: 'breakfast', label: 'Ăn sáng' },
   { key: 'lunch', label: 'Ăn trưa' },
   { key: 'dinner', label: 'Ăn tối' },
+  { key: 'boarding', label: 'Nội trú (ngủ)' },
   { key: 'evening_study', label: 'Tự học tối' },
 ];
 
