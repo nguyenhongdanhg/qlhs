@@ -48,8 +48,10 @@ const navItems: NavItem[] = [
   { code: 'menu', label: 'Thêm', icon: Menu, path: '/menu' },
 ];
 
+// Derived from `children[].code` of each group in navItems — keep in sync so the
+// group button only appears when at least one child is actually available.
 const groupFeatureCodes: Record<string, string[]> = {
-  boarding_group: ['boarding', 'evening_study', 'duty_schedule', 'dormitory_exit', 'meals'],
+  boarding_group: ['duty_schedule', 'boarding', 'meals', 'dormitory_exit'],
 };
 
 export const bottomNavCodes = ['dashboard', 'tasks', 'boarding', 'statistics'];
