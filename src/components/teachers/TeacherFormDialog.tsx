@@ -98,19 +98,46 @@ export function TeacherFormDialog({ open, onOpenChange, schoolId, teacher, onSav
     }
     setSaving(true);
     try {
+      let linkedUserId: string | null = form.user_id || null;
+      const cleanPhone = (form.phone || '').replace(/\D/g, '');
+
+      // Auto-create/link user account when phone is provided and not yet linked
+      if (!linkedUserId && cleanPhone) {
+        const { data: createRes, error: fnError } = await supabase.functions.invoke('create-user', {
+          body: {
+            phone: cleanPhone,
+            password: '123456',
+            full_name: form.full_name.trim(),
+            school_id: schoolId,
+            role: 'teacher',
+          },
+        });
+        if (fnError) throw fnError;
+        if (createRes?.error) throw new Error(createRes.error);
+        linkedUserId = createRes?.user_id || null;
+        if (createRes?.user_id && !createRes?.existing) {
+          toast({ title: 'Đã tạo tài khoản', description: `SĐT: ${cleanPhone} • Mật khẩu mặc định: 123456` });
+        }
+      }
+
+      // Sync linked profile with the latest full_name / phone
+      if (linkedUserId) {
+        await supabase.from('profiles').update({
+          full_name: form.full_name.trim(),
+          ...(cleanPhone ? { phone: cleanPhone, username: cleanPhone } : {}),
+        }).eq('id', linkedUserId);
+      }
+
       const payload: any = {
         ...form,
         school_id: schoolId,
         salary_coefficient: form.salary_coefficient ? Number(form.salary_coefficient) : null,
-        user_id: form.user_id || null,
+        user_id: linkedUserId,
         birthday: form.birthday || null,
         joined_at: form.joined_at || null,
         salary_effective_date: form.salary_effective_date || null,
       };
-      // Strip undefined and empty strings
-      Object.keys(payload).forEach((k) => {
-        if (payload[k] === '') payload[k] = null;
-      });
+      Object.keys(payload).forEach((k) => { if (payload[k] === '') payload[k] = null; });
 
       let error;
       if (teacher?.id) {
@@ -181,6 +208,9 @@ export function TeacherFormDialog({ open, onOpenChange, schoolId, teacher, onSav
           <div>
             <Label>SĐT</Label>
             <Input value={form.phone || ''} onChange={(e) => update({ phone: e.target.value })} />
+            {!form.user_id && (
+              <p className="text-[11px] text-muted-foreground mt-1">Nếu nhập SĐT, hệ thống sẽ tự tạo tài khoản (mật khẩu mặc định: 123456) hoặc ghép với tài khoản cùng SĐT.</p>
+            )}
           </div>
           <div>
             <Label>Email</Label>
