@@ -83,8 +83,6 @@ const navGroups: NavGroup[] = [
   {
     code: 'settings_group', label: 'Cài đặt', icon: Settings,
     children: [
-      { code: 'students', label: 'Học sinh', icon: Users, path: '/students' },
-      { code: 'teachers', label: 'Giáo viên', icon: GraduationCap, path: '/teachers', adminOnly: true },
       { code: 'user_management', label: 'Quản lý người dùng', icon: UserCog, path: '/user-management', adminOnly: true },
       { code: 'settings', label: 'Thông tin tài khoản', icon: Settings, path: '/settings' },
       { code: 'guide', label: 'Hướng dẫn sử dụng', icon: HelpCircle, path: '/docs' },
