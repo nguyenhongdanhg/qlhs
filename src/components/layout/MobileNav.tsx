@@ -8,10 +8,13 @@ import {
   UtensilsCrossed,
   Menu,
   CalendarDays,
-  BookOpen,
   DoorOpen,
   ClipboardList,
   BarChart3,
+  GraduationCap,
+  Users,
+  Package,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +24,7 @@ interface SubItem {
   icon: React.ComponentType<{ className?: string }>;
   path: string;
   adminOnly?: boolean;
+  alwaysVisible?: boolean;
 }
 
 interface NavItem {
@@ -33,28 +37,47 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { code: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/dashboard' },
-  { code: 'tasks', label: 'Thông tin', icon: ClipboardList, path: '/tasks' },
+  {
+    code: 'tasks_group', label: 'Thông tin', icon: ClipboardList,
+    children: [
+      { code: 'tasks', label: 'Công việc & tiến độ', icon: ClipboardList, path: '/tasks', alwaysVisible: true },
+      { code: 'teachers', label: 'Giáo viên', icon: GraduationCap, path: '/teachers', adminOnly: true, alwaysVisible: true },
+      { code: 'students', label: 'Học sinh', icon: Users, path: '/students', alwaysVisible: true },
+    ],
+  },
   {
     code: 'boarding_group', label: 'Nội trú', icon: Home,
     children: [
       { code: 'duty_schedule', label: 'Lịch trực', icon: CalendarDays, path: '/duty-schedule' },
       { code: 'boarding', label: 'Điểm danh', icon: Home, path: '/boarding' },
-      
       { code: 'meals', label: 'Báo ăn', icon: UtensilsCrossed, path: '/meals' },
       { code: 'dormitory_exit', label: 'Ra vào KTX', icon: DoorOpen, path: '/dormitory-exit' },
     ],
   },
-  { code: 'statistics', label: 'Thống kê', icon: BarChart3, path: '/statistics' },
+  {
+    code: 'statistics_group', label: 'Thống kê', icon: BarChart3,
+    children: [
+      { code: 'statistics', label: 'Điểm danh', icon: CheckCircle2, path: '/statistics?tab=attendance' },
+      { code: 'statistics', label: 'Bữa ăn', icon: UtensilsCrossed, path: '/statistics?tab=overview' },
+      { code: 'statistics', label: 'Gạo', icon: Package, path: '/statistics?tab=rice' },
+    ],
+  },
   { code: 'menu', label: 'Thêm', icon: Menu, path: '/menu' },
 ];
 
 // Derived from `children[].code` of each group in navItems — keep in sync so the
 // group button only appears when at least one child is actually available.
 const groupFeatureCodes: Record<string, string[]> = {
+  tasks_group: ['tasks', 'teachers', 'students'],
   boarding_group: ['duty_schedule', 'boarding', 'meals', 'dormitory_exit'],
+  statistics_group: ['statistics'],
 };
 
-export const bottomNavCodes = ['dashboard', 'tasks', 'boarding', 'statistics'];
+// Groups whose button should render even when feature toggles are off (children
+// use `alwaysVisible: true` and are gated by role/admin instead of features).
+const alwaysVisibleGroups = new Set(['tasks_group']);
+
+export const bottomNavCodes = ['dashboard', 'tasks_group', 'boarding', 'statistics_group'];
 
 export const MobileNav = memo(function MobileNav() {
   const location = useLocation();
@@ -66,7 +89,7 @@ export const MobileNav = memo(function MobileNav() {
   // Close popup on route change
   useEffect(() => {
     setOpenGroup(null);
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   // Close popup on outside click
   useEffect(() => {
@@ -85,7 +108,8 @@ export const MobileNav = memo(function MobileNav() {
   }, [openGroup]);
 
   const filteredNavItems = useMemo(() => navItems.filter((item) => {
-    if (item.code === 'dashboard' || item.code === 'menu' || item.code === 'tasks' || item.code === 'statistics') return true;
+    if (item.code === 'dashboard' || item.code === 'menu') return true;
+    if (alwaysVisibleGroups.has(item.code)) return true;
     const featureCodes = groupFeatureCodes[item.code];
     if (featureCodes) {
       return featureCodes.some(code => isFeatureEnabled(code));
@@ -95,7 +119,10 @@ export const MobileNav = memo(function MobileNav() {
 
   const isActive = (item: NavItem) => {
     if (item.children) {
-      return item.children.some(c => location.pathname === c.path);
+      return item.children.some(c => {
+        const [p] = c.path.split('?');
+        return location.pathname === p;
+      });
     }
     if (item.code === 'menu') {
       return location.pathname === '/menu';
@@ -105,6 +132,7 @@ export const MobileNav = memo(function MobileNav() {
 
   const isChildVisible = (child: SubItem) => {
     if (child.adminOnly && !isSchoolAdmin()) return false;
+    if (child.alwaysVisible) return true;
     return isFeatureEnabled(child.code);
   };
 
@@ -126,10 +154,12 @@ export const MobileNav = memo(function MobileNav() {
             <div className="space-y-1">
               {visible.map((child) => {
                 const ChildIcon = child.icon;
-                const childActive = location.pathname === child.path;
+                const [childPath, childQuery] = child.path.split('?');
+                const childActive = location.pathname === childPath &&
+                  (childQuery ? location.search.includes(childQuery) : true);
                 return (
                   <Link
-                    key={child.code}
+                    key={`${child.code}-${child.path}`}
                     to={child.path}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 border',

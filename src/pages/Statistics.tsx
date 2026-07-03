@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -109,6 +110,9 @@ interface MonthlyRiceSummary {
 export default function Statistics() {
   const { currentSchool, profile, user, currentMembership, isSuperAdmin, isSchoolAdmin } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab = ['overview', 'attendance', 'rice'].includes(tabParam || '') ? (tabParam as string) : 'overview';
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -1746,7 +1750,7 @@ export default function Statistics() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(v) => { const sp = new URLSearchParams(searchParams); sp.set('tab', v); setSearchParams(sp, { replace: true }); }} className="space-y-4">
           <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-3'}`}>
             <TabsTrigger value="overview">Tổng quan</TabsTrigger>
             {!isClassTeacher && <TabsTrigger value="attendance">Điểm danh</TabsTrigger>}
