@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSyncDateToSelectedYear } from '@/hooks/useSyncDateToSelectedYear';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
