@@ -174,9 +174,14 @@ export default function Teachers() {
               <Input className="pl-8" placeholder="Tìm tên, SĐT, môn..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             {isAdmin && (
-              <Button onClick={() => { setEditing(null); setOpen(true); }}>
-                <Plus className="h-4 w-4 mr-1" />Thêm giáo viên
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => setImportOpen(true)}>
+                  <Upload className="h-4 w-4 mr-1" />Nhập Excel
+                </Button>
+                <Button onClick={() => { setEditing(null); setOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-1" />Thêm giáo viên
+                </Button>
+              </>
             )}
           </div>
 
