@@ -234,6 +234,11 @@ export default function Teachers() {
       </Tabs>
 
       <TeacherFormDialog open={open} onOpenChange={setOpen} schoolId={currentSchool.id} teacher={editing} onSaved={load} />
+      {importOpen && (
+        <Suspense fallback={null}>
+          <TeacherImportDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
+        </Suspense>
+      )}
     </div>
   );
 }
