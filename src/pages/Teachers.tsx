@@ -53,6 +53,88 @@ export default function Teachers() {
     else { toast({ title: 'Đã xoá' }); load(); }
   };
 
+  const handleImport = async (rows: TeacherImportRow[]): Promise<{ stt: number; full_name: string; error: string }[]> => {
+    if (!currentSchool) return rows.map(r => ({ stt: r.stt, full_name: r.full_name, error: 'Chưa chọn trường' }));
+    const errors: { stt: number; full_name: string; error: string }[] = [];
+    let created = 0;
+
+    for (const r of rows) {
+      try {
+        let user_id: string | null = null;
+        const cleanPhone = (r.phone || '').replace(/\D/g, '');
+
+        // Auto-create/link user account when phone provided
+        if (cleanPhone) {
+          const { data: createRes, error: fnError } = await supabase.functions.invoke('create-user', {
+            body: {
+              phone: cleanPhone,
+              password: '123456',
+              full_name: r.full_name,
+              school_id: currentSchool.id,
+              role: 'teacher',
+            },
+          });
+          if (fnError) throw fnError;
+          if (createRes?.error) throw new Error(createRes.error);
+          user_id = createRes?.user_id || null;
+        }
+
+        const payload: any = {
+          school_id: currentSchool.id,
+          user_id,
+          full_name: r.full_name,
+          birthday: r.birthday || null,
+          gender: r.gender,
+          ethnicity: r.ethnicity || null,
+          phone: cleanPhone || null,
+          email: r.email || null,
+          hometown: r.hometown || null,
+          address: r.address || null,
+          education_level: r.education_level || null,
+          subject: r.subject || null,
+          position: r.position || null,
+          joined_at: r.joined_at || null,
+          salary_rank: r.salary_rank || null,
+          salary_class: r.salary_class || null,
+          salary_level: r.salary_level || null,
+          salary_coefficient: r.salary_coefficient,
+          salary_effective_date: r.salary_effective_date || null,
+          notes: r.notes || null,
+          is_active: true,
+        };
+
+        // If a teacher record already exists for this user_id → update instead of insert
+        if (user_id) {
+          const { data: existing } = await supabase
+            .from('teachers')
+            .select('id')
+            .eq('school_id', currentSchool.id)
+            .eq('user_id', user_id)
+            .maybeSingle();
+          if (existing?.id) {
+            const { error } = await supabase.from('teachers').update(payload).eq('id', existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from('teachers').insert(payload);
+            if (error) throw error;
+          }
+        } else {
+          const { error } = await supabase.from('teachers').insert(payload);
+          if (error) throw error;
+        }
+        created++;
+      } catch (e: any) {
+        errors.push({ stt: r.stt, full_name: r.full_name, error: e?.message || 'Lỗi không xác định' });
+      }
+    }
+
+    if (created > 0) {
+      toast({ title: 'Đã nhập', description: `${created} giáo viên. Tài khoản mặc định: 123456` });
+      load();
+    }
+    return errors;
+  };
+
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
     return teachers.filter((t) => !s
