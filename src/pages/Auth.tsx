@@ -157,33 +157,18 @@ export default function Auth() {
       <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center animate-fade-in">
-          <div className="relative mb-5 group">
-            {/* Animated glow rings */}
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary to-accent blur-2xl opacity-40 animate-pulse" />
-            <div className="absolute -inset-2 rounded-[2rem] bg-gradient-to-tr from-primary/30 via-accent/30 to-primary/30 blur-xl opacity-70 animate-[spin_8s_linear_infinite]" />
-
-            {/* Main icon tile */}
-            <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent shadow-2xl shadow-primary/40 transition-transform duration-500 group-hover:scale-105 group-hover:-rotate-3">
-              <GraduationCap className="h-12 w-12 text-white drop-shadow-lg transition-transform duration-500 group-hover:scale-110" />
-              {/* Shine sweep */}
-              <div className="absolute inset-0 rounded-3xl overflow-hidden">
-                <div className="absolute -inset-x-full top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 animate-[slide-in-right_2.5s_ease-in-out_infinite]" />
-              </div>
+          <div className="relative">
+            <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-accent shadow-xl shadow-primary/25 mb-4">
+              <GraduationCap className="h-12 w-12 text-white" />
             </div>
-
-            {/* Floating sparkles badge */}
-            <div className="absolute -top-1.5 -right-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-warning to-orange-500 shadow-lg shadow-warning/50 animate-bounce">
+            <div className="absolute -top-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-warning shadow-lg">
               <Sparkles className="h-4 w-4 text-white" />
             </div>
-            <div className="absolute -bottom-1 -left-1 h-3 w-3 rounded-full bg-accent shadow-lg shadow-accent/50 animate-ping" />
           </div>
-
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] bg-clip-text text-transparent animate-[shimmer_3s_linear_infinite] text-center">
-            QUẢN LÝ NHÀ TRƯỜNG
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            QUẢN LÝ NỘI TRÚ/BÁN TRÚ
           </h1>
-          <p className="text-muted-foreground mt-2 text-sm text-center max-w-xs leading-relaxed">
-            Ứng dụng quản lý đa tiện ích, tích hợp quản lý nội trú/bán trú
-          </p>
+          <p className="text-muted-foreground mt-1 text-sm">Ứng dụng quản lý nội trú/bán trú</p>
         </div>
 
         {/* Tab Switcher */}
