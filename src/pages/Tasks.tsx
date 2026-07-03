@@ -100,13 +100,23 @@ export default function Tasks() {
     if (!currentSchool) return;
     setLoading(true);
     try {
-      const [tasksRes, membersRes] = await Promise.all([
+      const [tasksRes, responsesRes, attachmentsRes, membersRes] = await Promise.all([
         supabase
           .from('tasks')
-          .select('*, assignee:profiles!tasks_assignee_id_fkey(full_name), creator:profiles!tasks_created_by_fkey(full_name), responses:task_responses(*, user:profiles(full_name)), attachments:task_attachments(*)')
+          .select('*')
           .eq('school_id', currentSchool.id)
           .order('deadline', { ascending: true, nullsFirst: false })
           .order('created_at', { ascending: false }),
+        supabase
+          .from('task_responses')
+          .select('*')
+          .in('task_id', []) // placeholder, replaced below
+          .limit(1),
+        supabase
+          .from('task_attachments')
+          .select('*')
+          .in('task_id', [])
+          .limit(1),
         supabase
           .from('school_memberships')
           .select('user_id, profiles!inner(full_name)')
@@ -115,7 +125,53 @@ export default function Tasks() {
       ]);
       if (tasksRes.error) throw tasksRes.error;
       if (membersRes.error) throw membersRes.error;
-      setTasks((tasksRes.data as any[]) || []);
+
+      const taskRows = (tasksRes.data as any[]) || [];
+      const taskIds = taskRows.map((t) => t.id);
+
+      const [respRes, attRes] = await Promise.all([
+        taskIds.length
+          ? supabase.from('task_responses').select('*').in('task_id', taskIds).order('created_at', { ascending: true })
+          : Promise.resolve({ data: [], error: null } as any),
+        taskIds.length
+          ? supabase.from('task_attachments').select('*').in('task_id', taskIds).order('created_at', { ascending: true })
+          : Promise.resolve({ data: [], error: null } as any),
+      ]);
+      if (respRes.error) throw respRes.error;
+      if (attRes.error) throw attRes.error;
+
+      const responses = (respRes.data as any[]) || [];
+      const attachments = (attRes.data as any[]) || [];
+
+      // Collect all user ids to lookup profile names
+      const userIds = new Set<string>();
+      taskRows.forEach((t) => {
+        if (t.assignee_id) userIds.add(t.assignee_id);
+        if (t.created_by) userIds.add(t.created_by);
+      });
+      responses.forEach((r) => r.user_id && userIds.add(r.user_id));
+
+      let profileMap = new Map<string, string>();
+      if (userIds.size > 0) {
+        const { data: profs, error: pErr } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', Array.from(userIds));
+        if (pErr) throw pErr;
+        (profs || []).forEach((p: any) => profileMap.set(p.id, p.full_name));
+      }
+
+      const tasksMerged: Task[] = taskRows.map((t) => ({
+        ...t,
+        assignee: t.assignee_id ? { full_name: profileMap.get(t.assignee_id) || 'Người dùng' } : null,
+        creator: t.created_by ? { full_name: profileMap.get(t.created_by) || 'Người dùng' } : null,
+        responses: responses
+          .filter((r) => r.task_id === t.id)
+          .map((r) => ({ ...r, user: { full_name: profileMap.get(r.user_id) || 'Người dùng' } })),
+        attachments: attachments.filter((a) => a.task_id === t.id),
+      }));
+
+      setTasks(tasksMerged);
       setMembers(
         ((membersRes.data as any[]) || []).map((m) => ({
           user_id: m.user_id,
@@ -128,6 +184,7 @@ export default function Tasks() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchAll();
