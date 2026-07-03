@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 
@@ -228,44 +228,41 @@
   }
   
   .nav-item svg {
-    color: hsl(199 95% 45%) !important;
+    color: hsl(var(--sidebar-primary));
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   .nav-item:hover svg {
     transform: scale(1.15) rotate(-3deg);
-    filter: drop-shadow(0 0 8px hsl(199 95% 45% / 0.5));
+    filter: drop-shadow(0 0 8px hsl(var(--sidebar-primary) / 0.5));
   }
   
   .nav-item-active {
-    @apply bg-sidebar-accent font-semibold shadow-sm;
-    color: hsl(199 95% 30%) !important;
-    border-left: 3px solid hsl(199 95% 45%);
-    background: linear-gradient(90deg, hsl(199 95% 95%) 0%, hsl(199 95% 98%) 100%) !important;
+    @apply bg-sidebar-accent font-semibold shadow-sm text-sidebar-accent-foreground;
+    border-left: 3px solid hsl(var(--sidebar-primary));
   }
   
   .nav-item-active svg {
-    color: hsl(199 95% 45%) !important;
-    filter: drop-shadow(0 0 10px hsl(199 95% 45% / 0.6));
+    color: hsl(var(--sidebar-primary));
+    filter: drop-shadow(0 0 10px hsl(var(--sidebar-primary) / 0.6));
     animation: iconPulse 2s ease-in-out infinite;
   }
   
   .nav-item-inactive {
-    @apply hover:bg-sidebar-accent/60;
-    color: hsl(210 50% 35%) !important;
+    @apply hover:bg-sidebar-accent/60 text-sidebar-foreground;
   }
   
   .nav-item-inactive:hover {
-    color: hsl(199 95% 30%) !important;
+    @apply text-sidebar-accent-foreground;
     transform: translateX(4px);
   }
   
   @keyframes iconPulse {
     0%, 100% {
-      filter: drop-shadow(0 0 8px hsl(199 95% 45% / 0.5));
+      filter: drop-shadow(0 0 8px hsl(var(--sidebar-primary) / 0.5));
     }
     50% {
-      filter: drop-shadow(0 0 12px hsl(199 95% 45% / 0.8));
+      filter: drop-shadow(0 0 12px hsl(var(--sidebar-primary) / 0.8));
     }
   }
   
