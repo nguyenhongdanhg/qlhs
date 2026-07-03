@@ -5,6 +5,7 @@ import { MobileHeader } from './MobileHeader';
 import { MainHeader } from './MainHeader';
 import { Footer } from './Footer';
 import { SchoolProvider } from '@/contexts/SchoolContext';
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 
 export function AppLayout() {
   return (
@@ -22,7 +23,9 @@ export function AppLayout() {
           <MainHeader />
           
           <div className="flex-1 pb-20 lg:pb-0">
-            <Outlet />
+            <RouteErrorBoundary>
+              <Outlet />
+            </RouteErrorBoundary>
           </div>
           
           {/* Footer */}
@@ -35,3 +38,4 @@ export function AppLayout() {
     </SchoolProvider>
   );
 }
+
