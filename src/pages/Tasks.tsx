@@ -100,7 +100,7 @@ export default function Tasks() {
     if (!currentSchool) return;
     setLoading(true);
     try {
-      const [tasksRes, responsesRes, attachmentsRes, membersRes] = await Promise.all([
+      const [tasksRes, membersRes] = await Promise.all([
         supabase
           .from('tasks')
           .select('*')
@@ -108,21 +108,12 @@ export default function Tasks() {
           .order('deadline', { ascending: true, nullsFirst: false })
           .order('created_at', { ascending: false }),
         supabase
-          .from('task_responses')
-          .select('*')
-          .in('task_id', []) // placeholder, replaced below
-          .limit(1),
-        supabase
-          .from('task_attachments')
-          .select('*')
-          .in('task_id', [])
-          .limit(1),
-        supabase
           .from('school_memberships')
           .select('user_id, profiles!inner(full_name)')
           .eq('school_id', currentSchool.id)
           .eq('status', 'active'),
       ]);
+
       if (tasksRes.error) throw tasksRes.error;
       if (membersRes.error) throw membersRes.error;
 
