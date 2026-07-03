@@ -125,6 +125,143 @@ export function parseStudentImportFile(file: File): Promise<StudentImportRow[]> 
   });
 }
 
+// ==================== TEACHER IMPORT ====================
+
+export const TEACHER_IMPORT_COLUMNS = [
+  'STT',
+  'Họ và tên',
+  'Ngày sinh',
+  'Giới tính',
+  'Dân tộc',
+  'SĐT',
+  'Email',
+  'Quê quán',
+  'Địa chỉ',
+  'Cấp học',
+  'Môn dạy',
+  'Chức vụ',
+  'Ngày vào ngành',
+  'Bậc',
+  'Hạng',
+  'Cấp',
+  'Hệ số',
+  'Hưởng từ ngày',
+  'Ghi chú',
+];
+
+export interface TeacherImportRow {
+  stt: number;
+  full_name: string;
+  birthday: string;
+  gender: 'male' | 'female' | 'other' | null;
+  ethnicity: string;
+  phone: string;
+  email: string;
+  hometown: string;
+  address: string;
+  education_level: string;
+  subject: string;
+  position: string;
+  joined_at: string;
+  salary_rank: string;
+  salary_class: string;
+  salary_level: string;
+  salary_coefficient: number | null;
+  salary_effective_date: string;
+  notes: string;
+  isValid: boolean;
+  errors: string[];
+}
+
+export function generateTeacherTemplate(): Blob {
+  const ws = XLSX.utils.aoa_to_sheet([
+    TEACHER_IMPORT_COLUMNS,
+    [1, 'Nguyễn Văn A', '15/03/1985', 'Nam', 'Kinh', '0901234567', 'a@example.com', 'Hà Nội', 'Số 1, Phường X, Hà Nội', 'THCS', 'Toán', 'Giáo viên', '01/09/2010', 'Bậc 3', 'Hạng II', 'Cấp THCS', 3.0, '01/01/2024', ''],
+    [2, 'Trần Thị B', '20/05/1990', 'Nữ', 'Tày', '0901234568', '', 'Hà Nam', '', 'THPT', 'Văn', 'Tổ trưởng', '01/09/2015', 'Bậc 2', 'Hạng III', 'Cấp THPT', 2.67, '', 'GVCN 10A1'],
+  ]);
+  ws['!cols'] = [
+    { wch: 5 }, { wch: 25 }, { wch: 12 }, { wch: 10 }, { wch: 12 },
+    { wch: 13 }, { wch: 22 }, { wch: 15 }, { wch: 30 }, { wch: 10 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
+    { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 20 },
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Danh sách giáo viên');
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function parseGenderExt(s: string): 'male' | 'female' | 'other' | null {
+  const l = s.toLowerCase().trim();
+  if (!l) return null;
+  if (l === 'nam' || l === 'male' || l === 'm') return 'male';
+  if (l === 'nữ' || l === 'nu' || l === 'female' || l === 'f') return 'female';
+  if (l === 'khác' || l === 'khac' || l === 'other') return 'other';
+  return null;
+}
+
+export function parseTeacherImportFile(file: File): Promise<TeacherImportRow[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+        const teachers: TeacherImportRow[] = [];
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (!row || !row[1]) continue;
+          const full_name = String(row[1] || '').trim();
+          const birthday = parseDateString(String(row[2] || ''));
+          const genderStr = String(row[3] || '').trim();
+          const gender = parseGenderExt(genderStr);
+          const phone = String(row[5] || '').trim();
+          const coefRaw = row[16];
+          const salary_coefficient = coefRaw === '' || coefRaw == null || isNaN(Number(coefRaw)) ? null : Number(coefRaw);
+
+          const errors: string[] = [];
+          if (!full_name) errors.push('Thiếu họ và tên');
+          if (genderStr && !gender) errors.push(`Giới tính "${genderStr}" không hợp lệ (Nam/Nữ/Khác)`);
+          if (birthday && !/^\d{4}-\d{2}-\d{2}$/.test(birthday)) errors.push('Ngày sinh sai định dạng (dd/mm/yyyy)');
+
+          teachers.push({
+            stt: row[0] || i,
+            full_name,
+            birthday,
+            gender,
+            ethnicity: String(row[4] || '').trim(),
+            phone,
+            email: String(row[6] || '').trim(),
+            hometown: String(row[7] || '').trim(),
+            address: String(row[8] || '').trim(),
+            education_level: String(row[9] || '').trim(),
+            subject: String(row[10] || '').trim(),
+            position: String(row[11] || '').trim(),
+            joined_at: parseDateString(String(row[12] || '')),
+            salary_rank: String(row[13] || '').trim(),
+            salary_class: String(row[14] || '').trim(),
+            salary_level: String(row[15] || '').trim(),
+            salary_coefficient,
+            salary_effective_date: parseDateString(String(row[17] || '')),
+            notes: String(row[18] || '').trim(),
+            isValid: errors.length === 0,
+            errors,
+          });
+        }
+        resolve(teachers);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 // Export students to Excel
 export function exportStudentsToExcel(students: Student[], classes: Class[], fileName: string = 'danh-sach-hoc-sinh'): void {
   const data = students.map((student, index) => ({
