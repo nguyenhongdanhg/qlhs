@@ -2066,6 +2066,12 @@ export default function Statistics() {
                 </Card>
               </div>
 
+              <DailyActivityMatrix
+                currentSchool={currentSchool}
+                classes={classes}
+                students={students}
+              />
+
               <AttendanceStatsTab
                 currentSchool={currentSchool}
                 classes={classes}
