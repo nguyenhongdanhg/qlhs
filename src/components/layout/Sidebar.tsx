@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { memo, useState, useMemo, useCallback } from 'react';
+import { preloadRoute } from '@/lib/route-preload';
 
 interface NavSubItem {
   code: string;
@@ -135,6 +136,8 @@ function ExpandableSubmenu({ group, isCollapsed, isChildVisible, locationPath }:
               <Link
                 key={child.code}
                 to={child.path}
+                onMouseEnter={() => preloadRoute(child.path)}
+                onFocus={() => preloadRoute(child.path)}
                 className={cn(
                   'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-all duration-150',
                   childActive
