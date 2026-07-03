@@ -110,6 +110,9 @@ interface MonthlyRiceSummary {
 export default function Statistics() {
   const { currentSchool, profile, user, currentMembership, isSuperAdmin, isSchoolAdmin } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab = ['overview', 'attendance', 'rice'].includes(tabParam || '') ? (tabParam as string) : 'overview';
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
