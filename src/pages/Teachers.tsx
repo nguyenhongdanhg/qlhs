@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -8,12 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search } from 'lucide-react';
+import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, Upload } from 'lucide-react';
 import { TeacherFormDialog, TeacherRow } from '@/components/teachers/TeacherFormDialog';
 import { TeacherAbsenceTab } from '@/components/teachers/TeacherAbsenceTab';
 import { TeacherAchievementsTab } from '@/components/teachers/TeacherAchievementsTab';
 import { TeacherSalaryTab } from '@/components/teachers/TeacherSalaryTab';
 import { TeacherStatisticsTab } from '@/components/teachers/TeacherStatisticsTab';
+import type { TeacherImportRow } from '@/lib/excel-utils';
+
+const TeacherImportDialog = lazy(() =>
+  import('@/components/teachers/TeacherImportDialog').then(m => ({ default: m.TeacherImportDialog }))
+);
 
 export default function Teachers() {
   const { currentSchool, isSchoolAdmin } = useAuth();
@@ -23,6 +28,7 @@ export default function Teachers() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<TeacherRow | null>(null);
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const isAdmin = isSchoolAdmin();
 
   const load = async () => {
@@ -45,6 +51,88 @@ export default function Teachers() {
     const { error } = await supabase.from('teachers').delete().eq('id', id);
     if (error) toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
     else { toast({ title: 'Đã xoá' }); load(); }
+  };
+
+  const handleImport = async (rows: TeacherImportRow[]): Promise<{ stt: number; full_name: string; error: string }[]> => {
+    if (!currentSchool) return rows.map(r => ({ stt: r.stt, full_name: r.full_name, error: 'Chưa chọn trường' }));
+    const errors: { stt: number; full_name: string; error: string }[] = [];
+    let created = 0;
+
+    for (const r of rows) {
+      try {
+        let user_id: string | null = null;
+        const cleanPhone = (r.phone || '').replace(/\D/g, '');
+
+        // Auto-create/link user account when phone provided
+        if (cleanPhone) {
+          const { data: createRes, error: fnError } = await supabase.functions.invoke('create-user', {
+            body: {
+              phone: cleanPhone,
+              password: '123456',
+              full_name: r.full_name,
+              school_id: currentSchool.id,
+              role: 'teacher',
+            },
+          });
+          if (fnError) throw fnError;
+          if (createRes?.error) throw new Error(createRes.error);
+          user_id = createRes?.user_id || null;
+        }
+
+        const payload: any = {
+          school_id: currentSchool.id,
+          user_id,
+          full_name: r.full_name,
+          birthday: r.birthday || null,
+          gender: r.gender,
+          ethnicity: r.ethnicity || null,
+          phone: cleanPhone || null,
+          email: r.email || null,
+          hometown: r.hometown || null,
+          address: r.address || null,
+          education_level: r.education_level || null,
+          subject: r.subject || null,
+          position: r.position || null,
+          joined_at: r.joined_at || null,
+          salary_rank: r.salary_rank || null,
+          salary_class: r.salary_class || null,
+          salary_level: r.salary_level || null,
+          salary_coefficient: r.salary_coefficient,
+          salary_effective_date: r.salary_effective_date || null,
+          notes: r.notes || null,
+          is_active: true,
+        };
+
+        // If a teacher record already exists for this user_id → update instead of insert
+        if (user_id) {
+          const { data: existing } = await supabase
+            .from('teachers')
+            .select('id')
+            .eq('school_id', currentSchool.id)
+            .eq('user_id', user_id)
+            .maybeSingle();
+          if (existing?.id) {
+            const { error } = await supabase.from('teachers').update(payload).eq('id', existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from('teachers').insert(payload);
+            if (error) throw error;
+          }
+        } else {
+          const { error } = await supabase.from('teachers').insert(payload);
+          if (error) throw error;
+        }
+        created++;
+      } catch (e: any) {
+        errors.push({ stt: r.stt, full_name: r.full_name, error: e?.message || 'Lỗi không xác định' });
+      }
+    }
+
+    if (created > 0) {
+      toast({ title: 'Đã nhập', description: `${created} giáo viên. Tài khoản mặc định: 123456` });
+      load();
+    }
+    return errors;
   };
 
   const filtered = useMemo(() => {
@@ -86,9 +174,14 @@ export default function Teachers() {
               <Input className="pl-8" placeholder="Tìm tên, SĐT, môn..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             {isAdmin && (
-              <Button onClick={() => { setEditing(null); setOpen(true); }}>
-                <Plus className="h-4 w-4 mr-1" />Thêm giáo viên
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => setImportOpen(true)}>
+                  <Upload className="h-4 w-4 mr-1" />Nhập Excel
+                </Button>
+                <Button onClick={() => { setEditing(null); setOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-1" />Thêm giáo viên
+                </Button>
+              </>
             )}
           </div>
 
@@ -141,6 +234,11 @@ export default function Teachers() {
       </Tabs>
 
       <TeacherFormDialog open={open} onOpenChange={setOpen} schoolId={currentSchool.id} teacher={editing} onSaved={load} />
+      {importOpen && (
+        <Suspense fallback={null}>
+          <TeacherImportDialog open={importOpen} onOpenChange={setImportOpen} onImport={handleImport} />
+        </Suspense>
+      )}
     </div>
   );
 }
