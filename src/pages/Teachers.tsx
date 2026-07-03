@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -8,12 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search } from 'lucide-react';
+import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, Upload } from 'lucide-react';
 import { TeacherFormDialog, TeacherRow } from '@/components/teachers/TeacherFormDialog';
 import { TeacherAbsenceTab } from '@/components/teachers/TeacherAbsenceTab';
 import { TeacherAchievementsTab } from '@/components/teachers/TeacherAchievementsTab';
 import { TeacherSalaryTab } from '@/components/teachers/TeacherSalaryTab';
 import { TeacherStatisticsTab } from '@/components/teachers/TeacherStatisticsTab';
+import type { TeacherImportRow } from '@/lib/excel-utils';
+
+const TeacherImportDialog = lazy(() =>
+  import('@/components/teachers/TeacherImportDialog').then(m => ({ default: m.TeacherImportDialog }))
+);
 
 export default function Teachers() {
   const { currentSchool, isSchoolAdmin } = useAuth();
