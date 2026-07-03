@@ -28,6 +28,7 @@ export default function Teachers() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<TeacherRow | null>(null);
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const isAdmin = isSchoolAdmin();
 
   const load = async () => {
