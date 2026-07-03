@@ -1750,7 +1750,7 @@ export default function Statistics() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(v) => { const sp = new URLSearchParams(searchParams); sp.set('tab', v); setSearchParams(sp, { replace: true }); }} className="space-y-4">
           <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-3'}`}>
             <TabsTrigger value="overview">Tổng quan</TabsTrigger>
             {!isClassTeacher && <TabsTrigger value="attendance">Điểm danh</TabsTrigger>}
