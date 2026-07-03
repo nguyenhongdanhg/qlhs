@@ -34,9 +34,11 @@ interface MenuItem {
   superAdminOnly?: boolean;
 }
 
-// 1. Công việc & tiến độ (single item - shown as standalone)
+// 1. Thông tin & Lịch trình
 const tasksItems: MenuItem[] = [
   { code: 'tasks', label: 'Công việc & tiến độ', description: 'Giao việc, hạn hoàn thành, tài liệu', icon: ClipboardList, path: '/tasks' },
+  { code: 'students', label: 'Học sinh', description: 'Danh sách học sinh', icon: Users, path: '/students' },
+  { code: 'teachers', label: 'Giáo viên', description: 'Hồ sơ, chấm công, thành tích GV', icon: GraduationCap, path: '/teachers', adminOnly: true },
 ];
 
 // 2. Quản lý nội trú
