@@ -1709,15 +1709,23 @@ export default function Statistics() {
     );
   }
 
+  const tabMeta: Record<string, { title: string; description: string; icon: typeof BarChart3 }> = {
+    overview: { title: 'Thống kê bữa ăn', description: 'Báo cáo bữa ăn theo ngày', icon: UtensilsCrossed },
+    attendance: { title: 'Thống kê điểm danh', description: 'Báo cáo điểm danh nội trú & học tối', icon: CheckCircle2 },
+    rice: { title: 'Thống kê gạo', description: 'Nhập, xuất và tồn kho gạo', icon: Package },
+  };
+  const currentMeta = tabMeta[activeTab] || tabMeta.overview;
+  const HeaderIcon = currentMeta.icon;
+
   return (
     <div className="content-wrapper animate-fade-in">
       <div className="page-header">
         <h1 className="page-title flex items-center gap-2">
-          <BarChart3 className="h-7 w-7 text-info" />
-          Thống kê
+          <HeaderIcon className="h-7 w-7 text-info" />
+          {currentMeta.title}
         </h1>
         <p className="page-description">
-          Báo cáo điểm danh và thống kê bữa ăn theo ngày
+          {currentMeta.description}
         </p>
       </div>
 
