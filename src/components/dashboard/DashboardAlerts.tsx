@@ -194,7 +194,7 @@ export function DashboardAlerts() {
           <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
         {tasks.length > 0 && (
           <Section
             icon={<ClipboardList className="h-4 w-4 text-orange-600" />}
