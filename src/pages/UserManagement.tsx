@@ -346,6 +346,32 @@ export default function UserManagement() {
     return '-';
   };
 
+  const handleExportUsers = () => {
+    try {
+      const rows = filteredMemberships.map((m, i) => ({
+        'STT': i + 1,
+        'Họ và tên': m.profile?.full_name || '',
+        'Giới tính': (m.profile as any)?.gender === 'male' ? 'Nam' : (m.profile as any)?.gender === 'female' ? 'Nữ' : (m.profile as any)?.gender === 'other' ? 'Khác' : '',
+        'Ngày sinh': (m.profile as any)?.birth_date ? (() => { const [y,mo,d] = String((m.profile as any).birth_date).split('-'); return `${d}/${mo}/${y}`; })() : '',
+        'Chức vụ': m.profile?.position || '',
+        'Vai trò': roleLabels[m.role] || m.role,
+        'Lớp CN': getClassName(m.class_id),
+        'SĐT': m.profile?.phone || '',
+        'Username': m.profile?.username || '',
+        'Trạng thái': m.status === 'active' ? 'Hoạt động' : 'Khóa',
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [{wch:5},{wch:25},{wch:10},{wch:12},{wch:18},{wch:16},{wch:12},{wch:13},{wch:22},{wch:12}];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Tài khoản');
+      const date = new Date().toISOString().slice(0,10);
+      XLSX.writeFile(wb, `danh-sach-tai-khoan-${date}.xlsx`);
+      toast({ title: 'Thành công', description: `Đã xuất ${rows.length} tài khoản` });
+    } catch (e: any) {
+      toast({ title: 'Lỗi', description: e.message || 'Không thể xuất Excel', variant: 'destructive' });
+    }
+  };
+
   if (!currentSchool) {
     return (
       <div className="flex min-h-screen items-center justify-center">
