@@ -249,7 +249,7 @@ export default function Tasks() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ category: 'dang', title: '', description: '', assignee_id: '', deadline: '' });
+    setForm({ category: 'dang', title: '', description: '', assigneeIds: [], deadline: '' });
     setFormOpen(true);
   };
 
@@ -259,7 +259,7 @@ export default function Tasks() {
       category: t.category,
       title: t.title,
       description: t.description || '',
-      assignee_id: t.assignee_id || '',
+      assigneeIds: (t.assignees || []).map((a) => a.user_id),
       deadline: t.deadline || '',
     });
     setFormOpen(true);
@@ -277,18 +277,33 @@ export default function Tasks() {
         category: form.category,
         title: form.title.trim(),
         description: form.description.trim() || null,
-        assignee_id: form.assignee_id || null,
+        assignee_id: form.assigneeIds[0] || null, // giữ lại cho tương thích
         deadline: form.deadline || null,
       };
+      let taskId: string;
       if (editing) {
         const { error } = await supabase.from('tasks').update(payload).eq('id', editing.id);
         if (error) throw error;
-        toast({ title: 'Đã cập nhật công việc' });
+        taskId = editing.id;
       } else {
-        const { error } = await supabase.from('tasks').insert({ ...payload, created_by: user.id });
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert({ ...payload, created_by: user.id })
+          .select('id')
+          .single();
         if (error) throw error;
-        toast({ title: 'Đã tạo công việc' });
+        taskId = data.id;
       }
+
+      // Đồng bộ danh sách người thực hiện
+      await supabase.from('task_assignees').delete().eq('task_id', taskId);
+      if (form.assigneeIds.length > 0) {
+        const rows = form.assigneeIds.map((uid) => ({ task_id: taskId, user_id: uid }));
+        const { error: aErr } = await supabase.from('task_assignees').insert(rows);
+        if (aErr) throw aErr;
+      }
+
+      toast({ title: editing ? 'Đã cập nhật công việc' : 'Đã tạo công việc' });
       setFormOpen(false);
       fetchAll();
     } catch (e: any) {
