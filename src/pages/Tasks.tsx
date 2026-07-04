@@ -468,7 +468,7 @@ export default function Tasks() {
                       </TableHeader>
                       <TableBody>
                         {rows.map((t, idx) => {
-                          const isAssignee = t.assignee_id === user?.id;
+                          const isAssignee = (t.assignees || []).some((a) => a.user_id === user?.id);
                           const canEdit = isAdmin || t.created_by === user?.id;
                           return (
                             <TableRow key={t.id} className={cn(t.status === 'done' && 'opacity-70')}>
