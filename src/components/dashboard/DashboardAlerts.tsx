@@ -111,13 +111,15 @@ export function DashboardAlerts() {
           if (tc.salary_effective_date) {
             const eff = parseISO(tc.salary_effective_date);
             if (isValid(eff)) {
-              // Find next raise date >= today
+              // Tìm mốc nâng lương gần nhất so với hôm nay.
+              // Cho phép "vừa quá hạn trong 30 ngày" vẫn giữ mốc cũ để còn báo.
               let next = addYears(eff, SALARY_RAISE_YEARS);
-              while (differenceInCalendarDays(next, today) < 0) {
+              while (differenceInCalendarDays(next, today) < -30) {
                 next = addYears(next, SALARY_RAISE_YEARS);
               }
               const days = differenceInCalendarDays(next, today);
-              if (days <= 5 && days >= 0) {
+              // Báo khi còn ≤ 30 ngày hoặc đã quá hạn ≤ 30 ngày
+              if (days <= 30 && days >= -30) {
                 sArr.push({
                   id: tc.id,
                   name: tc.full_name,
@@ -236,8 +238,8 @@ export function DashboardAlerts() {
                     Ngày xét: {format(parseISO(s.raiseDate), 'dd/MM/yyyy', { locale: vi })}
                   </div>
                 </div>
-                <Badge className="bg-emerald-600 hover:bg-emerald-700 shrink-0">
-                  {s.daysLeft === 0 ? 'Hôm nay' : `Còn ${s.daysLeft} ngày`}
+                <Badge className={cn('shrink-0', s.daysLeft < 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700')}>
+                  {s.daysLeft < 0 ? `Quá hạn ${Math.abs(s.daysLeft)} ngày` : s.daysLeft === 0 ? 'Hôm nay' : `Còn ${s.daysLeft} ngày`}
                 </Badge>
               </Link>
             ))}
