@@ -21,8 +21,11 @@ import { vi } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-// Chu kỳ nâng lương mặc định (năm). Có thể tuỳ chỉnh sau.
-const SALARY_RAISE_YEARS = 3;
+// Chu kỳ mặc định (năm) nếu giáo viên chưa cấu hình riêng
+const DEFAULT_SALARY_RAISE_YEARS = 3;
+const DEFAULT_SENIORITY_RAISE_YEARS = 1;
+// Ngưỡng báo trước (ngày)
+const ALERT_LEAD_DAYS = 10;
 
 interface TaskAlert {
   id: string;
@@ -35,6 +38,7 @@ interface TaskAlert {
 interface SalaryAlert {
   id: string;
   name: string;
+  kind: 'salary' | 'seniority';
   raiseDate: string;
   daysLeft: number;
 }
