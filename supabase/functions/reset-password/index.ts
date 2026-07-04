@@ -136,9 +136,10 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Update password using Admin API
+        // Update password using Admin API (per-user password takes precedence)
+        const pwd = body.passwords?.[userId] || body.new_password!;
         const { error: updateError } = await adminClient.auth.admin.updateUserById(userId, {
-          password: body.new_password,
+          password: pwd,
         });
 
         if (updateError) {
