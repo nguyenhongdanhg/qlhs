@@ -71,6 +71,12 @@ interface Member {
   full_name: string;
 }
 
+interface DutyGroup {
+  id: string;
+  name: string;
+  member_ids: string[];
+}
+
 export default function Tasks() {
   const { currentSchool, user, isSchoolAdmin } = useAuth();
   const { toast } = useToast();
@@ -78,6 +84,7 @@ export default function Tasks() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [dutyGroups, setDutyGroups] = useState<DutyGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStatus, setActiveStatus] = useState<Status>('pending');
 
@@ -87,7 +94,7 @@ export default function Tasks() {
     category: 'dang' as Category,
     title: '',
     description: '',
-    assignee_id: '',
+    assigneeIds: [] as string[],
     deadline: '',
   });
 
