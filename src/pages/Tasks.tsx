@@ -14,7 +14,10 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Plus, Check, Trash2, Pencil, Paperclip, ExternalLink, MessageSquare, AlertTriangle, ClipboardList } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, Plus, Check, Trash2, Pencil, Paperclip, ExternalLink, MessageSquare, AlertTriangle, ClipboardList, Users, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Category = 'dang' | 'chuyen_mon' | 'noi_tru' | 'doan_doi';
