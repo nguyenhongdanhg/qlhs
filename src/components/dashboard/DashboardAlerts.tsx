@@ -236,7 +236,7 @@ export function DashboardAlerts() {
         {salaries.length > 0 && (
           <Section
             icon={<Wallet className="h-4 w-4 text-emerald-600" />}
-            title="Sắp đến ngày xét nâng lương"
+            title="Sắp đến ngày xét nâng lương / thâm niên"
             color="emerald"
           >
             {salaries.map((s) => (
@@ -246,13 +246,18 @@ export function DashboardAlerts() {
                 className="flex items-center justify-between gap-2 rounded-md bg-background/60 px-3 py-2 hover:bg-background transition"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{s.name}</div>
+                  <div className="text-sm font-medium truncate">
+                    {s.name}
+                    <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                      ({s.kind === 'salary' ? 'Nâng lương' : 'Nâng thâm niên'})
+                    </span>
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     Ngày xét: {format(parseISO(s.raiseDate), 'dd/MM/yyyy', { locale: vi })}
                   </div>
                 </div>
-                <Badge className={cn('shrink-0', s.daysLeft < 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700')}>
-                  {s.daysLeft < 0 ? `Quá hạn ${Math.abs(s.daysLeft)} ngày` : s.daysLeft === 0 ? 'Hôm nay' : `Còn ${s.daysLeft} ngày`}
+                <Badge className="shrink-0 bg-emerald-600 hover:bg-emerald-700">
+                  {s.daysLeft === 0 ? 'Hôm nay' : `Còn ${s.daysLeft} ngày`}
                 </Badge>
               </Link>
             ))}
