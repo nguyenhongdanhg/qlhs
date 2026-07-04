@@ -65,7 +65,7 @@ export function DashboardAlerts() {
       setLoading(true);
       const today = new Date();
       const todayStr = format(today, 'yyyy-MM-dd');
-      const in2Days = format(new Date(today.getTime() + 2 * 86400000), 'yyyy-MM-dd');
+      const in2Days = format(new Date(today.getTime() + 10 * 86400000), 'yyyy-MM-dd');
       const mm = format(today, 'MM');
       const dd = format(today, 'dd');
 
