@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, KeyRound, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { getDefaultPassword } from '@/lib/default-password';
 
 interface ResetPasswordDialogProps {
   open: boolean;
@@ -36,61 +38,73 @@ export default function ResetPasswordDialog({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [useDefault, setUseDefault] = useState(true);
+
+  useEffect(() => {
+    if (open) {
+      setUseDefault(true);
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+  }, [open]);
 
   const handleReset = async () => {
     if (!currentSchool) return;
 
-    if (newPassword.length < 6) {
-      toast({
-        title: 'Lỗi',
-        description: 'Mật khẩu phải có ít nhất 6 ký tự',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: 'Lỗi',
-        description: 'Mật khẩu xác nhận không khớp',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsResetting(true);
-
     try {
-      const { data, error } = await supabase.functions.invoke('reset-password', {
-        body: {
-          user_ids: selectedUserIds,
-          new_password: newPassword,
-          school_id: currentSchool.id,
-        },
-      });
+      const payload: any = {
+        user_ids: selectedUserIds,
+        school_id: currentSchool.id,
+      };
 
+      if (useDefault) {
+        // Fetch full names to build per-user passwords
+        const { data: profs, error: pErr } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', selectedUserIds);
+        if (pErr) throw pErr;
+
+        const passwords: Record<string, string> = {};
+        for (const p of profs || []) {
+          passwords[p.id] = getDefaultPassword(p.full_name || '');
+        }
+        // Fallback for any missing profile
+        for (const uid of selectedUserIds) {
+          if (!passwords[uid]) passwords[uid] = '123456';
+        }
+        payload.passwords = passwords;
+      } else {
+        if (newPassword.length < 6) {
+          toast({ title: 'Lỗi', description: 'Mật khẩu phải có ít nhất 6 ký tự', variant: 'destructive' });
+          setIsResetting(false);
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          toast({ title: 'Lỗi', description: 'Mật khẩu xác nhận không khớp', variant: 'destructive' });
+          setIsResetting(false);
+          return;
+        }
+        payload.new_password = newPassword;
+      }
+
+      const { data, error } = await supabase.functions.invoke('reset-password', { body: payload });
       if (error) throw error;
 
-      if (data.summary) {
+      if (data?.summary) {
         const { success, failed } = data.summary;
-        
         if (failed === 0) {
           toast({
             title: 'Thành công',
-            description: `Đã reset mật khẩu cho ${success} người dùng`,
+            description: useDefault
+              ? `Đã reset ${success} tài khoản về mật khẩu mặc định (Tên@123)`
+              : `Đã reset mật khẩu cho ${success} người dùng`,
           });
         } else if (success > 0) {
-          toast({
-            title: 'Hoàn thành một phần',
-            description: `Reset thành công: ${success}, thất bại: ${failed}`,
-            variant: 'destructive',
-          });
+          toast({ title: 'Hoàn thành một phần', description: `Thành công: ${success}, thất bại: ${failed}`, variant: 'destructive' });
         } else {
-          toast({
-            title: 'Lỗi',
-            description: 'Không thể reset mật khẩu cho bất kỳ người dùng nào',
-            variant: 'destructive',
-          });
+          toast({ title: 'Lỗi', description: 'Không thể reset mật khẩu', variant: 'destructive' });
         }
       }
 
@@ -100,11 +114,7 @@ export default function ResetPasswordDialog({
       onResetComplete();
     } catch (error: any) {
       console.error('Error resetting passwords:', error);
-      toast({
-        title: 'Lỗi',
-        description: error.message || 'Không thể reset mật khẩu',
-        variant: 'destructive',
-      });
+      toast({ title: 'Lỗi', description: error.message || 'Không thể reset mật khẩu', variant: 'destructive' });
     } finally {
       setIsResetting(false);
     }
@@ -116,71 +126,81 @@ export default function ResetPasswordDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="h-5 w-5 text-primary" />
-            Reset mật khẩu hàng loạt
+            Reset mật khẩu
           </DialogTitle>
           <DialogDescription>
-            Đặt mật khẩu mới cho {selectedUserIds.length} người dùng đã chọn
+            Đặt lại mật khẩu cho {selectedUserIds.length} người dùng đã chọn
           </DialogDescription>
         </DialogHeader>
 
         <Alert variant="destructive" className="border-warning/50 bg-warning/10 text-warning">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Tất cả người dùng được chọn sẽ có cùng một mật khẩu mới. Hãy thông báo cho họ sau khi reset.
+            Hãy thông báo cho người dùng sau khi reset mật khẩu.
           </AlertDescription>
         </Alert>
 
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="new-password">Mật khẩu mới</Label>
-            <div className="relative">
-              <Input
-                id="new-password"
-                type={showPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="confirm-password">Xác nhận mật khẩu</Label>
-            <Input
-              id="confirm-password"
-              type={showPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Nhập lại mật khẩu mới"
+          <label className="flex items-start gap-2 cursor-pointer">
+            <Checkbox
+              checked={useDefault}
+              onCheckedChange={(v) => setUseDefault(!!v)}
+              className="mt-1"
             />
-          </div>
+            <div className="text-sm">
+              <div className="font-medium">Dùng mật khẩu mặc định theo tên</div>
+              <div className="text-xs text-muted-foreground">
+                Tên (không dấu, viết hoa) + @123. VD: Đặng Phương Nam → <strong>Nam@123</strong>
+              </div>
+            </div>
+          </label>
+
+          {!useDefault && (
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor="new-password">Mật khẩu mới</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="confirm-password">Xác nhận mật khẩu</Label>
+                <Input
+                  id="confirm-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Nhập lại mật khẩu mới"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isResetting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isResetting}>
             Hủy
           </Button>
           <Button
             onClick={handleReset}
-            disabled={isResetting || !newPassword || !confirmPassword}
+            disabled={isResetting || (!useDefault && (!newPassword || !confirmPassword))}
           >
             {isResetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Reset mật khẩu

@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { getDefaultPassword } from '@/lib/default-password';
 
 interface CreateUserDialogProps {
   open: boolean;
@@ -54,10 +55,11 @@ export default function CreateUserDialog({
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
-    password: '123456',
+    password: '',
     role: 'teacher' as AppRole,
     class_id: '',
   });
+  const [passwordEdited, setPasswordEdited] = useState(false);
 
   useEffect(() => {
     if (open && currentSchool) {
@@ -161,10 +163,11 @@ export default function CreateUserDialog({
       setFormData({
         full_name: '',
         phone: '',
-        password: '123456',
+        password: '',
         role: 'teacher',
         class_id: '',
       });
+      setPasswordEdited(false);
 
       onOpenChange(false);
       onCreateComplete();
@@ -200,7 +203,14 @@ export default function CreateUserDialog({
               id="full_name"
               placeholder="Nguyễn Văn A"
               value={formData.full_name}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              onChange={(e) => {
+                const full_name = e.target.value;
+                setFormData((prev) => ({
+                  ...prev,
+                  full_name,
+                  password: passwordEdited ? prev.password : getDefaultPassword(full_name),
+                }));
+              }}
             />
           </div>
 
@@ -225,7 +235,7 @@ export default function CreateUserDialog({
                 type={showPassword ? 'text' : 'password'}
                 placeholder="******"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => { setPasswordEdited(true); setFormData({ ...formData, password: e.target.value }); }}
               />
               <Button
                 type="button"
@@ -238,7 +248,7 @@ export default function CreateUserDialog({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Mật khẩu mặc định: 123456
+              Mật khẩu mặc định theo tên: <strong>Tên@123</strong> (VD: Đặng Phương Nam → Nam@123)
             </p>
           </div>
 

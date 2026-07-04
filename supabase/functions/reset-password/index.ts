@@ -7,7 +7,8 @@ const corsHeaders = {
 
 interface ResetPasswordRequest {
   user_ids: string[];
-  new_password: string;
+  new_password?: string;
+  passwords?: Record<string, string>; // per-user override: user_id -> password
   school_id: string;
 }
 
@@ -64,11 +65,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!body.new_password || body.new_password.length < 6) {
+    const hasPerUser = body.passwords && Object.keys(body.passwords).length > 0;
+    if (!hasPerUser && (!body.new_password || body.new_password.length < 6)) {
       return new Response(
         JSON.stringify({ error: 'Password must be at least 6 characters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+    if (hasPerUser) {
+      for (const [uid, pwd] of Object.entries(body.passwords!)) {
+        if (!pwd || pwd.length < 6) {
+          return new Response(
+            JSON.stringify({ error: `Mật khẩu cho user ${uid} phải có ít nhất 6 ký tự` }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
     }
 
     console.log('Resetting password for', body.user_ids.length, 'users');
@@ -124,9 +136,10 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Update password using Admin API
+        // Update password using Admin API (per-user password takes precedence)
+        const pwd = body.passwords?.[userId] || body.new_password!;
         const { error: updateError } = await adminClient.auth.admin.updateUserById(userId, {
-          password: body.new_password,
+          password: pwd,
         });
 
         if (updateError) {

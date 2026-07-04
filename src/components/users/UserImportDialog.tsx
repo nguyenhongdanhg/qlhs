@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table';
 import { Loader2, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import XLSX from 'xlsx-js-style';
+import { getDefaultPassword } from '@/lib/default-password';
 
 interface UserImportDialogProps {
   open: boolean;
@@ -166,7 +167,8 @@ export default function UserImportDialog({
             const position = String(row[2] || '').trim();
             const class_teacher = String(row[3] || '').trim();
             const phone = String(row[4] || '').trim();
-            const password = String(row[5] || '').trim();
+            let password = String(row[5] || '').trim();
+            if (!password && full_name) password = getDefaultPassword(full_name);
             const email = String(row[6] || '').trim();
 
             let isValid = true;
