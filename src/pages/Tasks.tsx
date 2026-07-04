@@ -104,7 +104,8 @@ export default function Tasks() {
 
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTask, setAttachTask] = useState<Task | null>(null);
-  const [attachForm, setAttachForm] = useState({ file_name: '', drive_url: '' });
+  const [attachFile, setAttachFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const [detailTask, setDetailTask] = useState<Task | null>(null);
 
