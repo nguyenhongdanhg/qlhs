@@ -110,7 +110,7 @@ export default function Tasks() {
     if (!currentSchool) return;
     setLoading(true);
     try {
-      const [tasksRes, membersRes, groupsRes, groupMembersRes] = await Promise.all([
+      const [tasksRes, membersRes, teachersRes, groupsRes, groupMembersRes] = await Promise.all([
         supabase
           .from('tasks')
           .select('*')
@@ -119,9 +119,13 @@ export default function Tasks() {
           .order('created_at', { ascending: false }),
         supabase
           .from('school_memberships')
-          .select('user_id, profiles!inner(full_name)')
+          .select('user_id, profiles!inner(full_name, phone)')
           .eq('school_id', currentSchool.id)
           .eq('status', 'active'),
+        supabase
+          .from('teachers')
+          .select('user_id, full_name, phone')
+          .eq('school_id', currentSchool.id),
         supabase
           .from('duty_groups')
           .select('id, name, display_order')
@@ -136,8 +140,10 @@ export default function Tasks() {
 
       if (tasksRes.error) throw tasksRes.error;
       if (membersRes.error) throw membersRes.error;
+      if (teachersRes.error) throw teachersRes.error;
       if (groupsRes.error) throw groupsRes.error;
       if (groupMembersRes.error) throw groupMembersRes.error;
+
 
       const taskRows = (tasksRes.data as any[]) || [];
       const taskIds = taskRows.map((t) => t.id);
