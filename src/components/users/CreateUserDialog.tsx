@@ -55,10 +55,11 @@ export default function CreateUserDialog({
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
-    password: '123456',
+    password: '',
     role: 'teacher' as AppRole,
     class_id: '',
   });
+  const [passwordEdited, setPasswordEdited] = useState(false);
 
   useEffect(() => {
     if (open && currentSchool) {
