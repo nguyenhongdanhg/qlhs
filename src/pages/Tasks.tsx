@@ -122,7 +122,7 @@ export default function Tasks() {
           .order('created_at', { ascending: false }),
         supabase
           .from('school_memberships')
-          .select('user_id, profiles!inner(full_name, phone)')
+          .select('user_id, profiles(full_name, phone)')
           .eq('school_id', currentSchool.id)
           .eq('status', 'active'),
         supabase
