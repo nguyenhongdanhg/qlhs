@@ -14,7 +14,10 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Plus, Check, Trash2, Pencil, Paperclip, ExternalLink, MessageSquare, AlertTriangle, ClipboardList } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, Plus, Check, Trash2, Pencil, Paperclip, ExternalLink, MessageSquare, AlertTriangle, ClipboardList, Users, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Category = 'dang' | 'chuyen_mon' | 'noi_tru' | 'doan_doi';
@@ -39,7 +42,7 @@ interface Task {
   completed_at: string | null;
   created_by: string | null;
   created_at: string;
-  assignee?: { full_name: string } | null;
+  assignees?: { user_id: string; full_name: string }[];
   creator?: { full_name: string } | null;
   responses?: TaskResponse[];
   attachments?: TaskAttachment[];
@@ -68,6 +71,12 @@ interface Member {
   full_name: string;
 }
 
+interface DutyGroup {
+  id: string;
+  name: string;
+  member_ids: string[];
+}
+
 export default function Tasks() {
   const { currentSchool, user, isSchoolAdmin } = useAuth();
   const { toast } = useToast();
@@ -75,6 +84,7 @@ export default function Tasks() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [dutyGroups, setDutyGroups] = useState<DutyGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStatus, setActiveStatus] = useState<Status>('pending');
 
@@ -84,7 +94,7 @@ export default function Tasks() {
     category: 'dang' as Category,
     title: '',
     description: '',
-    assignee_id: '',
+    assigneeIds: [] as string[],
     deadline: '',
   });
 
@@ -100,7 +110,7 @@ export default function Tasks() {
     if (!currentSchool) return;
     setLoading(true);
     try {
-      const [tasksRes, membersRes] = await Promise.all([
+      const [tasksRes, membersRes, groupsRes, groupMembersRes] = await Promise.all([
         supabase
           .from('tasks')
           .select('*')
@@ -112,34 +122,52 @@ export default function Tasks() {
           .select('user_id, profiles!inner(full_name)')
           .eq('school_id', currentSchool.id)
           .eq('status', 'active'),
+        supabase
+          .from('duty_groups')
+          .select('id, name, display_order')
+          .eq('school_id', currentSchool.id)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true }),
+        supabase
+          .from('duty_group_members')
+          .select('group_id, user_id')
+          .eq('school_id', currentSchool.id),
       ]);
 
       if (tasksRes.error) throw tasksRes.error;
       if (membersRes.error) throw membersRes.error;
+      if (groupsRes.error) throw groupsRes.error;
+      if (groupMembersRes.error) throw groupMembersRes.error;
 
       const taskRows = (tasksRes.data as any[]) || [];
       const taskIds = taskRows.map((t) => t.id);
 
-      const [respRes, attRes] = await Promise.all([
+      const [respRes, attRes, assigneesRes] = await Promise.all([
         taskIds.length
           ? supabase.from('task_responses').select('*').in('task_id', taskIds).order('created_at', { ascending: true })
           : Promise.resolve({ data: [], error: null } as any),
         taskIds.length
           ? supabase.from('task_attachments').select('*').in('task_id', taskIds).order('created_at', { ascending: true })
           : Promise.resolve({ data: [], error: null } as any),
+        taskIds.length
+          ? supabase.from('task_assignees').select('task_id, user_id').in('task_id', taskIds)
+          : Promise.resolve({ data: [], error: null } as any),
       ]);
       if (respRes.error) throw respRes.error;
       if (attRes.error) throw attRes.error;
+      if (assigneesRes.error) throw assigneesRes.error;
 
       const responses = (respRes.data as any[]) || [];
       const attachments = (attRes.data as any[]) || [];
+      const assigneeRows = (assigneesRes.data as any[]) || [];
 
-      // Collect all user ids to lookup profile names
+      // Collect all user ids for name lookup
       const userIds = new Set<string>();
       taskRows.forEach((t) => {
         if (t.assignee_id) userIds.add(t.assignee_id);
         if (t.created_by) userIds.add(t.created_by);
       });
+      assigneeRows.forEach((a) => userIds.add(a.user_id));
       responses.forEach((r) => r.user_id && userIds.add(r.user_id));
 
       let profileMap = new Map<string, string>();
@@ -152,21 +180,39 @@ export default function Tasks() {
         (profs || []).forEach((p: any) => profileMap.set(p.id, p.full_name));
       }
 
-      const tasksMerged: Task[] = taskRows.map((t) => ({
-        ...t,
-        assignee: t.assignee_id ? { full_name: profileMap.get(t.assignee_id) || 'Người dùng' } : null,
-        creator: t.created_by ? { full_name: profileMap.get(t.created_by) || 'Người dùng' } : null,
-        responses: responses
-          .filter((r) => r.task_id === t.id)
-          .map((r) => ({ ...r, user: { full_name: profileMap.get(r.user_id) || 'Người dùng' } })),
-        attachments: attachments.filter((a) => a.task_id === t.id),
-      }));
+      const tasksMerged: Task[] = taskRows.map((t) => {
+        const list = assigneeRows
+          .filter((a) => a.task_id === t.id)
+          .map((a) => ({ user_id: a.user_id, full_name: profileMap.get(a.user_id) || 'Người dùng' }));
+        // Backward compat: nếu chưa migrate, dùng assignee_id cũ
+        if (list.length === 0 && t.assignee_id) {
+          list.push({ user_id: t.assignee_id, full_name: profileMap.get(t.assignee_id) || 'Người dùng' });
+        }
+        return {
+          ...t,
+          assignees: list,
+          creator: t.created_by ? { full_name: profileMap.get(t.created_by) || 'Người dùng' } : null,
+          responses: responses
+            .filter((r) => r.task_id === t.id)
+            .map((r) => ({ ...r, user: { full_name: profileMap.get(r.user_id) || 'Người dùng' } })),
+          attachments: attachments.filter((a) => a.task_id === t.id),
+        };
+      });
 
       setTasks(tasksMerged);
       setMembers(
         ((membersRes.data as any[]) || []).map((m) => ({
           user_id: m.user_id,
           full_name: m.profiles?.full_name || 'Người dùng',
+        }))
+      );
+
+      const gm = (groupMembersRes.data as any[]) || [];
+      setDutyGroups(
+        ((groupsRes.data as any[]) || []).map((g) => ({
+          id: g.id,
+          name: g.name,
+          member_ids: gm.filter((m) => m.group_id === g.id).map((m) => m.user_id),
         }))
       );
     } catch (e: any) {
@@ -203,7 +249,7 @@ export default function Tasks() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ category: 'dang', title: '', description: '', assignee_id: '', deadline: '' });
+    setForm({ category: 'dang', title: '', description: '', assigneeIds: [], deadline: '' });
     setFormOpen(true);
   };
 
@@ -213,7 +259,7 @@ export default function Tasks() {
       category: t.category,
       title: t.title,
       description: t.description || '',
-      assignee_id: t.assignee_id || '',
+      assigneeIds: (t.assignees || []).map((a) => a.user_id),
       deadline: t.deadline || '',
     });
     setFormOpen(true);
@@ -231,18 +277,33 @@ export default function Tasks() {
         category: form.category,
         title: form.title.trim(),
         description: form.description.trim() || null,
-        assignee_id: form.assignee_id || null,
+        assignee_id: form.assigneeIds[0] || null, // giữ lại cho tương thích
         deadline: form.deadline || null,
       };
+      let taskId: string;
       if (editing) {
         const { error } = await supabase.from('tasks').update(payload).eq('id', editing.id);
         if (error) throw error;
-        toast({ title: 'Đã cập nhật công việc' });
+        taskId = editing.id;
       } else {
-        const { error } = await supabase.from('tasks').insert({ ...payload, created_by: user.id });
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert({ ...payload, created_by: user.id })
+          .select('id')
+          .single();
         if (error) throw error;
-        toast({ title: 'Đã tạo công việc' });
+        taskId = data.id;
       }
+
+      // Đồng bộ danh sách người thực hiện
+      await supabase.from('task_assignees').delete().eq('task_id', taskId);
+      if (form.assigneeIds.length > 0) {
+        const rows = form.assigneeIds.map((uid) => ({ task_id: taskId, user_id: uid }));
+        const { error: aErr } = await supabase.from('task_assignees').insert(rows);
+        if (aErr) throw aErr;
+      }
+
+      toast({ title: editing ? 'Đã cập nhật công việc' : 'Đã tạo công việc' });
       setFormOpen(false);
       fetchAll();
     } catch (e: any) {
@@ -407,7 +468,7 @@ export default function Tasks() {
                       </TableHeader>
                       <TableBody>
                         {rows.map((t, idx) => {
-                          const isAssignee = t.assignee_id === user?.id;
+                          const isAssignee = (t.assignees || []).some((a) => a.user_id === user?.id);
                           const canEdit = isAdmin || t.created_by === user?.id;
                           return (
                             <TableRow key={t.id} className={cn(t.status === 'done' && 'opacity-70')}>
@@ -427,7 +488,11 @@ export default function Tasks() {
                                   </div>
                                 )}
                               </TableCell>
-                              <TableCell className="text-sm">{t.assignee?.full_name || '—'}</TableCell>
+                              <TableCell className="text-sm">
+                                {t.assignees && t.assignees.length > 0
+                                  ? t.assignees.map((a) => a.full_name).join(', ')
+                                  : '—'}
+                              </TableCell>
                               <TableCell className="text-sm">
                                 {t.deadline ? format(parseISO(t.deadline), 'dd/MM/yyyy', { locale: vi }) : '—'}
                               </TableCell>
@@ -522,15 +587,105 @@ export default function Tasks() {
             </div>
             <div>
               <Label>Người thực hiện</Label>
-              <Select value={form.assignee_id || 'none'} onValueChange={(v) => setForm({ ...form, assignee_id: v === 'none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="Chọn người..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Chưa gán —</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="mt-1 space-y-2">
+                {dutyGroups.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground self-center mr-1">
+                      <Users className="h-3 w-3 inline mr-1" />
+                      Gán nhanh nhóm:
+                    </span>
+                    {dutyGroups.map((g) => {
+                      const allIn = g.member_ids.length > 0 && g.member_ids.every((id) => form.assigneeIds.includes(id));
+                      return (
+                        <Button
+                          key={g.id}
+                          type="button"
+                          size="sm"
+                          variant={allIn ? 'default' : 'outline'}
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            setForm((prev) => {
+                              const set = new Set(prev.assigneeIds);
+                              if (allIn) g.member_ids.forEach((id) => set.delete(id));
+                              else g.member_ids.forEach((id) => set.add(id));
+                              return { ...prev, assigneeIds: Array.from(set) };
+                            });
+                          }}
+                        >
+                          {g.name} ({g.member_ids.length})
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-between font-normal">
+                      <span className="truncate">
+                        {form.assigneeIds.length === 0
+                          ? 'Chọn người...'
+                          : `Đã chọn ${form.assigneeIds.length} người`}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <ScrollArea className="max-h-64">
+                      <div className="p-2 space-y-1">
+                        {members.length === 0 && (
+                          <div className="text-xs text-muted-foreground p-2">Chưa có thành viên</div>
+                        )}
+                        {members.map((m) => {
+                          const checked = form.assigneeIds.includes(m.user_id);
+                          return (
+                            <label
+                              key={m.user_id}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    assigneeIds: v
+                                      ? [...prev.assigneeIds, m.user_id]
+                                      : prev.assigneeIds.filter((id) => id !== m.user_id),
+                                  }));
+                                }}
+                              />
+                              <span className="text-sm">{m.full_name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+                {form.assigneeIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {form.assigneeIds.map((id) => {
+                      const m = members.find((x) => x.user_id === id);
+                      return (
+                        <Badge key={id} variant="secondary" className="gap-1">
+                          {m?.full_name || 'Người dùng'}
+                          <button
+                            type="button"
+                            className="ml-0.5 hover:text-destructive"
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                assigneeIds: prev.assigneeIds.filter((x) => x !== id),
+                              }))
+                            }
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <Label>Hạn hoàn thành</Label>
