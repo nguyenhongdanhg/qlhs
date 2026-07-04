@@ -836,22 +836,29 @@ export default function Tasks() {
           <DialogHeader>
             <DialogTitle>Thêm tài liệu: {attachTask?.title}</DialogTitle>
             <DialogDescription>
-              Upload file lên Google Drive, đặt quyền chia sẻ, rồi dán link vào đây.
+              Chọn file, hệ thống sẽ tự tải lên Google Drive và lưu link chia sẻ.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Tên tài liệu</Label>
-              <Input value={attachForm.file_name} onChange={(e) => setAttachForm({ ...attachForm, file_name: e.target.value })} placeholder="VD: Kế hoạch tuần" />
-            </div>
-            <div>
-              <Label>Link Google Drive</Label>
-              <Input value={attachForm.drive_url} onChange={(e) => setAttachForm({ ...attachForm, drive_url: e.target.value })} placeholder="https://drive.google.com/..." />
+              <Label>File tài liệu</Label>
+              <Input
+                type="file"
+                onChange={(e) => setAttachFile(e.target.files?.[0] || null)}
+                disabled={uploading}
+              />
+              {attachFile && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {attachFile.name} · {(attachFile.size / 1024).toFixed(1)} KB
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setAttachOpen(false)}>Huỷ</Button>
-            <Button onClick={handleSaveAttach}>Lưu</Button>
+            <Button variant="ghost" onClick={() => setAttachOpen(false)} disabled={uploading}>Huỷ</Button>
+            <Button onClick={handleSaveAttach} disabled={uploading || !attachFile}>
+              {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Đang tải lên...</> : 'Tải lên Drive'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
