@@ -82,7 +82,7 @@ export function DashboardAlerts() {
             .order('deadline', { ascending: true }),
           supabase
             .from('teachers')
-            .select('id, full_name, birthday, salary_effective_date')
+            .select('id, full_name, birthday, salary_effective_date, salary_raise_years, seniority_effective_date, seniority_raise_years')
             .eq('school_id', currentSchool.id),
           supabase
             .from('students')
