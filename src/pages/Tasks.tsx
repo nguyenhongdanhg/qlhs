@@ -587,15 +587,105 @@ export default function Tasks() {
             </div>
             <div>
               <Label>Người thực hiện</Label>
-              <Select value={form.assignee_id || 'none'} onValueChange={(v) => setForm({ ...form, assignee_id: v === 'none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="Chọn người..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Chưa gán —</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="mt-1 space-y-2">
+                {dutyGroups.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground self-center mr-1">
+                      <Users className="h-3 w-3 inline mr-1" />
+                      Gán nhanh nhóm:
+                    </span>
+                    {dutyGroups.map((g) => {
+                      const allIn = g.member_ids.length > 0 && g.member_ids.every((id) => form.assigneeIds.includes(id));
+                      return (
+                        <Button
+                          key={g.id}
+                          type="button"
+                          size="sm"
+                          variant={allIn ? 'default' : 'outline'}
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            setForm((prev) => {
+                              const set = new Set(prev.assigneeIds);
+                              if (allIn) g.member_ids.forEach((id) => set.delete(id));
+                              else g.member_ids.forEach((id) => set.add(id));
+                              return { ...prev, assigneeIds: Array.from(set) };
+                            });
+                          }}
+                        >
+                          {g.name} ({g.member_ids.length})
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-between font-normal">
+                      <span className="truncate">
+                        {form.assigneeIds.length === 0
+                          ? 'Chọn người...'
+                          : `Đã chọn ${form.assigneeIds.length} người`}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <ScrollArea className="max-h-64">
+                      <div className="p-2 space-y-1">
+                        {members.length === 0 && (
+                          <div className="text-xs text-muted-foreground p-2">Chưa có thành viên</div>
+                        )}
+                        {members.map((m) => {
+                          const checked = form.assigneeIds.includes(m.user_id);
+                          return (
+                            <label
+                              key={m.user_id}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    assigneeIds: v
+                                      ? [...prev.assigneeIds, m.user_id]
+                                      : prev.assigneeIds.filter((id) => id !== m.user_id),
+                                  }));
+                                }}
+                              />
+                              <span className="text-sm">{m.full_name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+                {form.assigneeIds.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {form.assigneeIds.map((id) => {
+                      const m = members.find((x) => x.user_id === id);
+                      return (
+                        <Badge key={id} variant="secondary" className="gap-1">
+                          {m?.full_name || 'Người dùng'}
+                          <button
+                            type="button"
+                            className="ml-0.5 hover:text-destructive"
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                assigneeIds: prev.assigneeIds.filter((x) => x !== id),
+                              }))
+                            }
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <Label>Hạn hoàn thành</Label>
