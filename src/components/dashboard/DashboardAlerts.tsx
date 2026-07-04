@@ -111,13 +111,15 @@ export function DashboardAlerts() {
           if (tc.salary_effective_date) {
             const eff = parseISO(tc.salary_effective_date);
             if (isValid(eff)) {
-              // Find next raise date >= today
+              // Tìm mốc nâng lương gần nhất so với hôm nay.
+              // Cho phép "vừa quá hạn trong 30 ngày" vẫn giữ mốc cũ để còn báo.
               let next = addYears(eff, SALARY_RAISE_YEARS);
-              while (differenceInCalendarDays(next, today) < 0) {
+              while (differenceInCalendarDays(next, today) < -30) {
                 next = addYears(next, SALARY_RAISE_YEARS);
               }
               const days = differenceInCalendarDays(next, today);
-              if (days <= 5 && days >= 0) {
+              // Báo khi còn ≤ 30 ngày hoặc đã quá hạn ≤ 30 ngày
+              if (days <= 30 && days >= -30) {
                 sArr.push({
                   id: tc.id,
                   name: tc.full_name,
