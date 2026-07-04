@@ -441,6 +441,14 @@ export default function UserManagement() {
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
                   Nhập Excel
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportUsers}
+                  className="flex-1 sm:flex-none"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Xuất Excel
+                </Button>
                 {selectedUserIds.length > 0 && (
                   <>
                     <Button
