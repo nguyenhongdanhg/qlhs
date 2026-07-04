@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { getDefaultPassword } from '@/lib/default-password';
 
 interface CreateUserDialogProps {
   open: boolean;
