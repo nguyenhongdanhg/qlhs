@@ -135,10 +135,13 @@ export function TeacherFormDialog({ open, onOpenChange, schoolId, teacher, onSav
         ...form,
         school_id: schoolId,
         salary_coefficient: form.salary_coefficient ? Number(form.salary_coefficient) : null,
+        salary_raise_years: form.salary_raise_years ? Number(form.salary_raise_years) : 3,
+        seniority_raise_years: form.seniority_raise_years ? Number(form.seniority_raise_years) : 1,
         user_id: linkedUserId,
         birthday: form.birthday || null,
         joined_at: form.joined_at || null,
         salary_effective_date: form.salary_effective_date || null,
+        seniority_effective_date: form.seniority_effective_date || null,
       };
       Object.keys(payload).forEach((k) => { if (payload[k] === '') payload[k] = null; });
 
