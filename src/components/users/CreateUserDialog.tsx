@@ -248,7 +248,7 @@ export default function CreateUserDialog({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Mật khẩu mặc định: 123456
+              Mật khẩu mặc định theo tên: <strong>Tên@123</strong> (VD: Đặng Phương Nam → Nam@123)
             </p>
           </div>
 
