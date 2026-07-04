@@ -397,27 +397,36 @@ export default function Tasks() {
 
   const openAttach = (t: Task) => {
     setAttachTask(t);
-    setAttachForm({ file_name: '', drive_url: '' });
+    setAttachFile(null);
     setAttachOpen(true);
   };
 
   const handleSaveAttach = async () => {
-    if (!attachTask || !user) return;
-    if (!attachForm.file_name.trim() || !attachForm.drive_url.trim()) {
-      toast({ title: 'Nhập tên file và link Google Drive', variant: 'destructive' });
+    if (!attachTask || !user || !currentSchool) return;
+    if (!attachFile) {
+      toast({ title: 'Chọn file tài liệu', variant: 'destructive' });
       return;
     }
-    const { error } = await supabase.from('task_attachments').insert({
-      task_id: attachTask.id,
-      file_name: attachForm.file_name.trim(),
-      drive_url: attachForm.drive_url.trim(),
-      uploaded_by: user.id,
-    });
-    if (error) toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
-    else {
-      toast({ title: 'Đã thêm tài liệu' });
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', attachFile);
+      fd.append('task_id', attachTask.id);
+      fd.append('school_id', currentSchool.id);
+      fd.append('school_name', currentSchool.name || 'Truong');
+      fd.append('category', attachTask.category);
+      const { data, error } = await supabase.functions.invoke('upload-task-attachment', {
+        body: fd,
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Upload thất bại');
+      toast({ title: 'Đã tải lên Google Drive', description: attachFile.name });
       setAttachOpen(false);
       fetchAll();
+    } catch (e: any) {
+      toast({ title: 'Lỗi tải lên', description: e.message || String(e), variant: 'destructive' });
+    } finally {
+      setUploading(false);
     }
   };
 
