@@ -2509,8 +2509,11 @@ export type Database = {
           salary_coefficient: number | null
           salary_effective_date: string | null
           salary_level: string | null
+          salary_raise_years: number
           salary_rank: string | null
           school_id: string
+          seniority_effective_date: string | null
+          seniority_raise_years: number
           subject: string | null
           updated_at: string
           user_id: string | null
@@ -2535,8 +2538,11 @@ export type Database = {
           salary_coefficient?: number | null
           salary_effective_date?: string | null
           salary_level?: string | null
+          salary_raise_years?: number
           salary_rank?: string | null
           school_id: string
+          seniority_effective_date?: string | null
+          seniority_raise_years?: number
           subject?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2561,8 +2567,11 @@ export type Database = {
           salary_coefficient?: number | null
           salary_effective_date?: string | null
           salary_level?: string | null
+          salary_raise_years?: number
           salary_rank?: string | null
           school_id?: string
+          seniority_effective_date?: string | null
+          seniority_raise_years?: number
           subject?: string | null
           updated_at?: string
           user_id?: string | null
