@@ -235,7 +235,7 @@ export default function CreateUserDialog({
                 type={showPassword ? 'text' : 'password'}
                 placeholder="******"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => { setPasswordEdited(true); setFormData({ ...formData, password: e.target.value }); }}
               />
               <Button
                 type="button"
