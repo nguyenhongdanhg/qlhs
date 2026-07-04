@@ -213,7 +213,7 @@ export function DashboardAlerts() {
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Bell className="h-5 w-5 text-primary" />
-          Ngày hôm nay có gì?
+          Sự kiện hôm nay
           <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
         </CardTitle>
       </CardHeader>
