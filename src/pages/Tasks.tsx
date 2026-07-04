@@ -110,7 +110,7 @@ export default function Tasks() {
     if (!currentSchool) return;
     setLoading(true);
     try {
-      const [tasksRes, membersRes] = await Promise.all([
+      const [tasksRes, membersRes, groupsRes, groupMembersRes] = await Promise.all([
         supabase
           .from('tasks')
           .select('*')
@@ -122,34 +122,52 @@ export default function Tasks() {
           .select('user_id, profiles!inner(full_name)')
           .eq('school_id', currentSchool.id)
           .eq('status', 'active'),
+        supabase
+          .from('duty_groups')
+          .select('id, name, display_order')
+          .eq('school_id', currentSchool.id)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true }),
+        supabase
+          .from('duty_group_members')
+          .select('group_id, user_id')
+          .eq('school_id', currentSchool.id),
       ]);
 
       if (tasksRes.error) throw tasksRes.error;
       if (membersRes.error) throw membersRes.error;
+      if (groupsRes.error) throw groupsRes.error;
+      if (groupMembersRes.error) throw groupMembersRes.error;
 
       const taskRows = (tasksRes.data as any[]) || [];
       const taskIds = taskRows.map((t) => t.id);
 
-      const [respRes, attRes] = await Promise.all([
+      const [respRes, attRes, assigneesRes] = await Promise.all([
         taskIds.length
           ? supabase.from('task_responses').select('*').in('task_id', taskIds).order('created_at', { ascending: true })
           : Promise.resolve({ data: [], error: null } as any),
         taskIds.length
           ? supabase.from('task_attachments').select('*').in('task_id', taskIds).order('created_at', { ascending: true })
           : Promise.resolve({ data: [], error: null } as any),
+        taskIds.length
+          ? supabase.from('task_assignees').select('task_id, user_id').in('task_id', taskIds)
+          : Promise.resolve({ data: [], error: null } as any),
       ]);
       if (respRes.error) throw respRes.error;
       if (attRes.error) throw attRes.error;
+      if (assigneesRes.error) throw assigneesRes.error;
 
       const responses = (respRes.data as any[]) || [];
       const attachments = (attRes.data as any[]) || [];
+      const assigneeRows = (assigneesRes.data as any[]) || [];
 
-      // Collect all user ids to lookup profile names
+      // Collect all user ids for name lookup
       const userIds = new Set<string>();
       taskRows.forEach((t) => {
         if (t.assignee_id) userIds.add(t.assignee_id);
         if (t.created_by) userIds.add(t.created_by);
       });
+      assigneeRows.forEach((a) => userIds.add(a.user_id));
       responses.forEach((r) => r.user_id && userIds.add(r.user_id));
 
       let profileMap = new Map<string, string>();
@@ -162,21 +180,39 @@ export default function Tasks() {
         (profs || []).forEach((p: any) => profileMap.set(p.id, p.full_name));
       }
 
-      const tasksMerged: Task[] = taskRows.map((t) => ({
-        ...t,
-        assignee: t.assignee_id ? { full_name: profileMap.get(t.assignee_id) || 'Người dùng' } : null,
-        creator: t.created_by ? { full_name: profileMap.get(t.created_by) || 'Người dùng' } : null,
-        responses: responses
-          .filter((r) => r.task_id === t.id)
-          .map((r) => ({ ...r, user: { full_name: profileMap.get(r.user_id) || 'Người dùng' } })),
-        attachments: attachments.filter((a) => a.task_id === t.id),
-      }));
+      const tasksMerged: Task[] = taskRows.map((t) => {
+        const list = assigneeRows
+          .filter((a) => a.task_id === t.id)
+          .map((a) => ({ user_id: a.user_id, full_name: profileMap.get(a.user_id) || 'Người dùng' }));
+        // Backward compat: nếu chưa migrate, dùng assignee_id cũ
+        if (list.length === 0 && t.assignee_id) {
+          list.push({ user_id: t.assignee_id, full_name: profileMap.get(t.assignee_id) || 'Người dùng' });
+        }
+        return {
+          ...t,
+          assignees: list,
+          creator: t.created_by ? { full_name: profileMap.get(t.created_by) || 'Người dùng' } : null,
+          responses: responses
+            .filter((r) => r.task_id === t.id)
+            .map((r) => ({ ...r, user: { full_name: profileMap.get(r.user_id) || 'Người dùng' } })),
+          attachments: attachments.filter((a) => a.task_id === t.id),
+        };
+      });
 
       setTasks(tasksMerged);
       setMembers(
         ((membersRes.data as any[]) || []).map((m) => ({
           user_id: m.user_id,
           full_name: m.profiles?.full_name || 'Người dùng',
+        }))
+      );
+
+      const gm = (groupMembersRes.data as any[]) || [];
+      setDutyGroups(
+        ((groupsRes.data as any[]) || []).map((g) => ({
+          id: g.id,
+          name: g.name,
+          member_ids: gm.filter((m) => m.group_id === g.id).map((m) => m.user_id),
         }))
       );
     } catch (e: any) {
