@@ -498,41 +498,34 @@ export default function Tasks() {
                         <TableRow>
                           <TableHead className="w-12">STT</TableHead>
                           <TableHead>Nội dung</TableHead>
-                          <TableHead>Người thực hiện</TableHead>
-                          <TableHead>Hạn</TableHead>
+                          <TableHead className="hidden sm:table-cell">Người thực hiện</TableHead>
+                          <TableHead className="hidden sm:table-cell">Hạn</TableHead>
                           <TableHead>Trạng thái</TableHead>
-                          <TableHead>Tài liệu</TableHead>
-                          <TableHead className="text-right">Thao tác</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {rows.map((t, idx) => {
-                          const isAssignee = (t.assignees || []).some((a) => a.user_id === user?.id);
-                          const canEdit = isAdmin || t.created_by === user?.id;
+                          const assigneesText = t.assignees && t.assignees.length > 0
+                            ? t.assignees.map((a) => a.full_name).join(', ')
+                            : '—';
                           return (
-                            <TableRow key={t.id} className={cn(t.status === 'done' && 'opacity-70')}>
+                            <TableRow
+                              key={t.id}
+                              className={cn('cursor-pointer hover:bg-muted/50', t.status === 'done' && 'opacity-70')}
+                              onClick={() => setDetailTask(t)}
+                            >
                               <TableCell>{idx + 1}</TableCell>
                               <TableCell>
-                                <div className="font-medium">{t.title}</div>
-                                {t.description && (
-                                  <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{t.description}</div>
-                                )}
-                                {t.responses && t.responses.length > 0 && (
-                                  <div className="mt-2 space-y-1">
-                                    {t.responses.map((r) => (
-                                      <div key={r.id} className="text-xs bg-muted/50 rounded px-2 py-1">
-                                        <span className="font-medium">{r.user?.full_name}:</span> {r.content}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                <div className="font-medium line-clamp-1">{t.title}</div>
+                                <div className="text-xs text-muted-foreground sm:hidden mt-0.5 truncate">
+                                  {assigneesText}
+                                  {t.deadline && ' • ' + format(parseISO(t.deadline), 'dd/MM/yyyy', { locale: vi })}
+                                </div>
                               </TableCell>
-                              <TableCell className="text-sm">
-                                {t.assignees && t.assignees.length > 0
-                                  ? t.assignees.map((a) => a.full_name).join(', ')
-                                  : '—'}
+                              <TableCell className="text-sm hidden sm:table-cell truncate max-w-[220px]">
+                                {assigneesText}
                               </TableCell>
-                              <TableCell className="text-sm">
+                              <TableCell className="text-sm hidden sm:table-cell">
                                 {t.deadline ? format(parseISO(t.deadline), 'dd/MM/yyyy', { locale: vi }) : '—'}
                               </TableCell>
                               <TableCell>{deadlineBadge(t) || (
@@ -540,50 +533,6 @@ export default function Tasks() {
                                   ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Hoàn thành</Badge>
                                   : <Badge variant="secondary">Đang thực hiện</Badge>
                               )}</TableCell>
-                              <TableCell>
-                                <div className="space-y-1">
-                                  {t.attachments?.map((a) => (
-                                    <a
-                                      key={a.id}
-                                      href={a.drive_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-primary hover:underline"
-                                    >
-                                      <Paperclip className="h-3 w-3" />
-                                      {a.file_name}
-                                      <ExternalLink className="h-3 w-3" />
-                                    </a>
-                                  ))}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
-                                  {(isAssignee || canEdit) && (
-                                    <Button size="icon" variant="ghost" title="Đánh dấu hoàn thành" onClick={() => handleToggleDone(t)}>
-                                      <Check className={cn('h-4 w-4', t.status === 'done' && 'text-emerald-600')} />
-                                    </Button>
-                                  )}
-                                  {(isAssignee || canEdit) && (
-                                    <Button size="icon" variant="ghost" title="Phản hồi" onClick={() => openResponse(t)}>
-                                      <MessageSquare className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  <Button size="icon" variant="ghost" title="Thêm tài liệu" onClick={() => openAttach(t)}>
-                                    <Paperclip className="h-4 w-4" />
-                                  </Button>
-                                  {canEdit && (
-                                    <Button size="icon" variant="ghost" title="Sửa" onClick={() => openEdit(t)}>
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                  )}
-                                  {canEdit && (
-                                    <Button size="icon" variant="ghost" title="Xoá" onClick={() => handleDelete(t)}>
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -596,6 +545,122 @@ export default function Tasks() {
           })}
         </div>
       )}
+
+      {/* Task detail dialog */}
+      <Dialog open={!!detailTask} onOpenChange={(v) => !v && setDetailTask(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {detailTask && (() => {
+            const t = detailTask;
+            const isAssignee = (t.assignees || []).some((a) => a.user_id === user?.id);
+            const canEdit = isAdmin || t.created_by === user?.id;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="pr-8">{t.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 text-sm">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {deadlineBadge(t) || (
+                      t.status === 'done'
+                        ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Hoàn thành</Badge>
+                        : <Badge variant="secondary">Đang thực hiện</Badge>
+                    )}
+                    <Badge variant="outline">{CATEGORIES.find((c) => c.code === t.category)?.label || t.category}</Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Người giao</div>
+                      <div>{t.creator?.full_name || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Hạn hoàn thành</div>
+                      <div>{t.deadline ? format(parseISO(t.deadline), 'dd/MM/yyyy', { locale: vi }) : '—'}</div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <div className="text-xs text-muted-foreground">Người thực hiện</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {t.assignees && t.assignees.length > 0
+                          ? t.assignees.map((a) => <Badge key={a.user_id} variant="secondary">{a.full_name}</Badge>)
+                          : <span className="text-muted-foreground">—</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {t.description && (
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Mô tả</div>
+                      <div className="whitespace-pre-wrap bg-muted/40 rounded p-3">{t.description}</div>
+                    </div>
+                  )}
+
+                  {t.attachments && t.attachments.length > 0 && (
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Tài liệu</div>
+                      <div className="space-y-1">
+                        {t.attachments.map((a) => (
+                          <a
+                            key={a.id}
+                            href={a.drive_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Paperclip className="h-3 w-3" />
+                            {a.file_name}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {t.responses && t.responses.length > 0 && (
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">Phản hồi</div>
+                      <div className="space-y-1">
+                        {t.responses.map((r) => (
+                          <div key={r.id} className="text-xs bg-muted/50 rounded px-2 py-1">
+                            <span className="font-medium">{r.user?.full_name}:</span> {r.content}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter className="flex-wrap gap-2">
+                  {(isAssignee || canEdit) && (
+                    <Button variant="outline" onClick={() => { handleToggleDone(t); setDetailTask(null); }}>
+                      <Check className={cn('h-4 w-4 mr-2', t.status === 'done' && 'text-emerald-600')} />
+                      {t.status === 'done' ? 'Bỏ hoàn thành' : 'Đánh dấu hoàn thành'}
+                    </Button>
+                  )}
+                  {(isAssignee || canEdit) && (
+                    <Button variant="outline" onClick={() => { setDetailTask(null); openResponse(t); }}>
+                      <MessageSquare className="h-4 w-4 mr-2" /> Phản hồi
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => { setDetailTask(null); openAttach(t); }}>
+                    <Paperclip className="h-4 w-4 mr-2" /> Tài liệu
+                  </Button>
+                  {canEdit && (
+                    <Button variant="outline" onClick={() => { setDetailTask(null); openEdit(t); }}>
+                      <Pencil className="h-4 w-4 mr-2" /> Sửa
+                    </Button>
+                  )}
+                  {canEdit && (
+                    <Button variant="destructive" onClick={() => { handleDelete(t); setDetailTask(null); }}>
+                      <Trash2 className="h-4 w-4 mr-2" /> Xoá
+                    </Button>
+                  )}
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
 
       {/* Create/Edit dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
