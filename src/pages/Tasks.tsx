@@ -106,6 +106,9 @@ export default function Tasks() {
   const [attachTask, setAttachTask] = useState<Task | null>(null);
   const [attachForm, setAttachForm] = useState({ file_name: '', drive_url: '' });
 
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
+
+
   const fetchAll = async () => {
     if (!currentSchool) return;
     setLoading(true);
