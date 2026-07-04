@@ -9,6 +9,7 @@ import {
   Cake,
   Bell,
   AlertTriangle,
+  ChevronDown,
 } from 'lucide-react';
 import {
   format,
@@ -56,6 +57,7 @@ export function DashboardAlerts() {
   const [salaries, setSalaries] = useState<SalaryAlert[]>([]);
   const [birthdays, setBirthdays] = useState<BirthdayAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(true);
 
   useEffect(() => {
     if (!currentSchool) return;
@@ -211,12 +213,26 @@ export function DashboardAlerts() {
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Bell className="h-5 w-5 text-primary" />
-          Sự kiện hôm nay
-          <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
-        </CardTitle>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 text-left"
+          aria-expanded={open}
+        >
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
+            Sự kiện hôm nay
+            <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
+          </CardTitle>
+          <ChevronDown
+            className={cn(
+              'h-5 w-5 text-muted-foreground transition-transform',
+              open ? 'rotate-180' : 'rotate-0'
+            )}
+          />
+        </button>
       </CardHeader>
+      {open && (
       <CardContent className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
         {tasks.length > 0 && (
           <Section
@@ -315,6 +331,7 @@ export function DashboardAlerts() {
           </Section>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }
