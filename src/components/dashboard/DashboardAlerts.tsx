@@ -57,6 +57,7 @@ export function DashboardAlerts() {
   const [salaries, setSalaries] = useState<SalaryAlert[]>([]);
   const [birthdays, setBirthdays] = useState<BirthdayAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(true);
 
   useEffect(() => {
     if (!currentSchool) return;
