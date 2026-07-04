@@ -182,14 +182,28 @@ export default function Tasks() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSchool?.id]);
 
-  const filteredTasks = useMemo(
-    () => tasks.filter((t) => t.category === activeCategory),
-    [tasks, activeCategory]
-  );
+  const sortByDeadline = (a: Task, b: Task) => {
+    // pending: sắp đến hạn trước (nulls sau); done: hoàn thành gần nhất trước
+    if (a.status === 'done' && b.status === 'done') {
+      return (b.completed_at || '').localeCompare(a.completed_at || '');
+    }
+    if (!a.deadline && !b.deadline) return 0;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return a.deadline.localeCompare(b.deadline);
+  };
+
+  const tasksByStatus = useMemo(() => {
+    const pending = tasks.filter((t) => t.status === 'pending').sort(sortByDeadline);
+    const done = tasks.filter((t) => t.status === 'done').sort(sortByDeadline);
+    return { pending, done };
+  }, [tasks]);
+
+  const currentList = activeStatus === 'pending' ? tasksByStatus.pending : tasksByStatus.done;
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ category: activeCategory, title: '', description: '', assignee_id: '', deadline: '' });
+    setForm({ category: 'dang', title: '', description: '', assignee_id: '', deadline: '' });
     setFormOpen(true);
   };
 
