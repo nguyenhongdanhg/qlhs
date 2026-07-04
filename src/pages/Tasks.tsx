@@ -42,7 +42,7 @@ interface Task {
   completed_at: string | null;
   created_by: string | null;
   created_at: string;
-  assignee?: { full_name: string } | null;
+  assignees?: { user_id: string; full_name: string }[];
   creator?: { full_name: string } | null;
   responses?: TaskResponse[];
   attachments?: TaskAttachment[];
