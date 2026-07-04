@@ -21,8 +21,11 @@ import { vi } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-// Chu kỳ nâng lương mặc định (năm). Có thể tuỳ chỉnh sau.
-const SALARY_RAISE_YEARS = 3;
+// Chu kỳ mặc định (năm) nếu giáo viên chưa cấu hình riêng
+const DEFAULT_SALARY_RAISE_YEARS = 3;
+const DEFAULT_SENIORITY_RAISE_YEARS = 1;
+// Ngưỡng báo trước (ngày)
+const ALERT_LEAD_DAYS = 10;
 
 interface TaskAlert {
   id: string;
@@ -35,6 +38,7 @@ interface TaskAlert {
 interface SalaryAlert {
   id: string;
   name: string;
+  kind: 'salary' | 'seniority';
   raiseDate: string;
   daysLeft: number;
 }
@@ -78,7 +82,7 @@ export function DashboardAlerts() {
             .order('deadline', { ascending: true }),
           supabase
             .from('teachers')
-            .select('id, full_name, birthday, salary_effective_date')
+            .select('id, full_name, birthday, salary_effective_date, salary_raise_years, seniority_effective_date, seniority_raise_years')
             .eq('school_id', currentSchool.id),
           supabase
             .from('students')
@@ -103,31 +107,40 @@ export function DashboardAlerts() {
         }));
         setTasks(tArr);
 
-        // Salary raise (assume 3-year cycle from salary_effective_date)
+        // Nâng lương & thâm niên: chỉ báo khi còn ≤ 10 ngày, không báo quá hạn
         const sArr: SalaryAlert[] = [];
         const bArr: BirthdayAlert[] = [];
+        const pushRaise = (
+          tc: any,
+          kind: 'salary' | 'seniority',
+          effectiveDate: string,
+          cycleYears: number,
+        ) => {
+          const eff = parseISO(effectiveDate);
+          if (!isValid(eff) || cycleYears <= 0) return;
+          let next = addYears(eff, cycleYears);
+          // Tiến tới mốc gần nhất trong tương lai (bỏ qua các mốc đã qua)
+          while (differenceInCalendarDays(next, today) < 0) {
+            next = addYears(next, cycleYears);
+          }
+          const days = differenceInCalendarDays(next, today);
+          if (days >= 0 && days <= ALERT_LEAD_DAYS) {
+            sArr.push({
+              id: `${tc.id}-${kind}`,
+              name: tc.full_name,
+              kind,
+              raiseDate: format(next, 'yyyy-MM-dd'),
+              daysLeft: days,
+            });
+          }
+        };
+
         for (const tc of (teachersRes.data as any[]) || []) {
-          // Salary
           if (tc.salary_effective_date) {
-            const eff = parseISO(tc.salary_effective_date);
-            if (isValid(eff)) {
-              // Tìm mốc nâng lương gần nhất so với hôm nay.
-              // Cho phép "vừa quá hạn trong 30 ngày" vẫn giữ mốc cũ để còn báo.
-              let next = addYears(eff, SALARY_RAISE_YEARS);
-              while (differenceInCalendarDays(next, today) < -30) {
-                next = addYears(next, SALARY_RAISE_YEARS);
-              }
-              const days = differenceInCalendarDays(next, today);
-              // Báo khi còn ≤ 30 ngày hoặc đã quá hạn ≤ 30 ngày
-              if (days <= 30 && days >= -30) {
-                sArr.push({
-                  id: tc.id,
-                  name: tc.full_name,
-                  raiseDate: format(next, 'yyyy-MM-dd'),
-                  daysLeft: days,
-                });
-              }
-            }
+            pushRaise(tc, 'salary', tc.salary_effective_date, tc.salary_raise_years || DEFAULT_SALARY_RAISE_YEARS);
+          }
+          if (tc.seniority_effective_date) {
+            pushRaise(tc, 'seniority', tc.seniority_effective_date, tc.seniority_raise_years || DEFAULT_SENIORITY_RAISE_YEARS);
           }
           // Birthday
           if (tc.birthday) {
@@ -223,7 +236,7 @@ export function DashboardAlerts() {
         {salaries.length > 0 && (
           <Section
             icon={<Wallet className="h-4 w-4 text-emerald-600" />}
-            title="Sắp đến ngày xét nâng lương"
+            title="Sắp đến ngày xét nâng lương / thâm niên"
             color="emerald"
           >
             {salaries.map((s) => (
@@ -233,13 +246,18 @@ export function DashboardAlerts() {
                 className="flex items-center justify-between gap-2 rounded-md bg-background/60 px-3 py-2 hover:bg-background transition"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{s.name}</div>
+                  <div className="text-sm font-medium truncate">
+                    {s.name}
+                    <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                      ({s.kind === 'salary' ? 'Nâng lương' : 'Nâng thâm niên'})
+                    </span>
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     Ngày xét: {format(parseISO(s.raiseDate), 'dd/MM/yyyy', { locale: vi })}
                   </div>
                 </div>
-                <Badge className={cn('shrink-0', s.daysLeft < 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700')}>
-                  {s.daysLeft < 0 ? `Quá hạn ${Math.abs(s.daysLeft)} ngày` : s.daysLeft === 0 ? 'Hôm nay' : `Còn ${s.daysLeft} ngày`}
+                <Badge className="shrink-0 bg-emerald-600 hover:bg-emerald-700">
+                  {s.daysLeft === 0 ? 'Hôm nay' : `Còn ${s.daysLeft} ngày`}
                 </Badge>
               </Link>
             ))}
