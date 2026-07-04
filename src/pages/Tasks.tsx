@@ -488,7 +488,11 @@ export default function Tasks() {
                                   </div>
                                 )}
                               </TableCell>
-                              <TableCell className="text-sm">{t.assignee?.full_name || '—'}</TableCell>
+                              <TableCell className="text-sm">
+                                {t.assignees && t.assignees.length > 0
+                                  ? t.assignees.map((a) => a.full_name).join(', ')
+                                  : '—'}
+                              </TableCell>
                               <TableCell className="text-sm">
                                 {t.deadline ? format(parseISO(t.deadline), 'dd/MM/yyyy', { locale: vi }) : '—'}
                               </TableCell>
