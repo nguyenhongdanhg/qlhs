@@ -163,10 +163,11 @@ export default function CreateUserDialog({
       setFormData({
         full_name: '',
         phone: '',
-        password: '123456',
+        password: '',
         role: 'teacher',
         class_id: '',
       });
+      setPasswordEdited(false);
 
       onOpenChange(false);
       onCreateComplete();
