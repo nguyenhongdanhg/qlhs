@@ -107,31 +107,40 @@ export function DashboardAlerts() {
         }));
         setTasks(tArr);
 
-        // Salary raise (assume 3-year cycle from salary_effective_date)
+        // Nâng lương & thâm niên: chỉ báo khi còn ≤ 10 ngày, không báo quá hạn
         const sArr: SalaryAlert[] = [];
         const bArr: BirthdayAlert[] = [];
+        const pushRaise = (
+          tc: any,
+          kind: 'salary' | 'seniority',
+          effectiveDate: string,
+          cycleYears: number,
+        ) => {
+          const eff = parseISO(effectiveDate);
+          if (!isValid(eff) || cycleYears <= 0) return;
+          let next = addYears(eff, cycleYears);
+          // Tiến tới mốc gần nhất trong tương lai (bỏ qua các mốc đã qua)
+          while (differenceInCalendarDays(next, today) < 0) {
+            next = addYears(next, cycleYears);
+          }
+          const days = differenceInCalendarDays(next, today);
+          if (days >= 0 && days <= ALERT_LEAD_DAYS) {
+            sArr.push({
+              id: `${tc.id}-${kind}`,
+              name: tc.full_name,
+              kind,
+              raiseDate: format(next, 'yyyy-MM-dd'),
+              daysLeft: days,
+            });
+          }
+        };
+
         for (const tc of (teachersRes.data as any[]) || []) {
-          // Salary
           if (tc.salary_effective_date) {
-            const eff = parseISO(tc.salary_effective_date);
-            if (isValid(eff)) {
-              // Tìm mốc nâng lương gần nhất so với hôm nay.
-              // Cho phép "vừa quá hạn trong 30 ngày" vẫn giữ mốc cũ để còn báo.
-              let next = addYears(eff, SALARY_RAISE_YEARS);
-              while (differenceInCalendarDays(next, today) < -30) {
-                next = addYears(next, SALARY_RAISE_YEARS);
-              }
-              const days = differenceInCalendarDays(next, today);
-              // Báo khi còn ≤ 30 ngày hoặc đã quá hạn ≤ 30 ngày
-              if (days <= 30 && days >= -30) {
-                sArr.push({
-                  id: tc.id,
-                  name: tc.full_name,
-                  raiseDate: format(next, 'yyyy-MM-dd'),
-                  daysLeft: days,
-                });
-              }
-            }
+            pushRaise(tc, 'salary', tc.salary_effective_date, tc.salary_raise_years || DEFAULT_SALARY_RAISE_YEARS);
+          }
+          if (tc.seniority_effective_date) {
+            pushRaise(tc, 'seniority', tc.seniority_effective_date, tc.seniority_raise_years || DEFAULT_SENIORITY_RAISE_YEARS);
           }
           // Birthday
           if (tc.birthday) {
