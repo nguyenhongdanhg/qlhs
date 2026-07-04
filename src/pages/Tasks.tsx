@@ -206,11 +206,43 @@ export default function Tasks() {
       });
 
       setTasks(tasksMerged);
+      // Hợp nhất danh sách người thực hiện: tài khoản (school_memberships) + giáo viên đã liên kết
+      // Ghép cùng người theo user_id (khi giáo viên đã liên kết) hoặc theo số điện thoại
+      const normPhone = (p?: string | null) => (p || '').replace(/\D/g, '');
+      const byUserId = new Map<string, { user_id: string; full_name: string; phone: string }>();
+      const byPhone = new Map<string, { user_id: string; full_name: string; phone: string }>();
+
+      const upsert = (uid: string | null | undefined, name: string, phone: string) => {
+        if (!uid) return;
+        const existing = byUserId.get(uid);
+        const merged = {
+          user_id: uid,
+          full_name: name || existing?.full_name || 'Người dùng',
+          phone: phone || existing?.phone || '',
+        };
+        byUserId.set(uid, merged);
+        if (merged.phone) byPhone.set(merged.phone, merged);
+      };
+
+      ((membersRes.data as any[]) || []).forEach((m) => {
+        upsert(m.user_id, m.profiles?.full_name || 'Người dùng', normPhone(m.profiles?.phone));
+      });
+      ((teachersRes.data as any[]) || []).forEach((t) => {
+        const phone = normPhone(t.phone);
+        // Nếu giáo viên đã liên kết account → cập nhật tên theo hồ sơ giáo viên
+        if (t.user_id) {
+          upsert(t.user_id, t.full_name, phone);
+        } else if (phone && byPhone.has(phone)) {
+          // Cùng SĐT với 1 account đã có → xem là cùng người, dùng tên giáo viên cho rõ hơn
+          const acc = byPhone.get(phone)!;
+          upsert(acc.user_id, t.full_name, phone);
+        }
+      });
+
       setMembers(
-        ((membersRes.data as any[]) || []).map((m) => ({
-          user_id: m.user_id,
-          full_name: m.profiles?.full_name || 'Người dùng',
-        }))
+        Array.from(byUserId.values())
+          .map((m) => ({ user_id: m.user_id, full_name: m.full_name }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name, 'vi'))
       );
 
       const gm = (groupMembersRes.data as any[]) || [];
@@ -219,6 +251,7 @@ export default function Tasks() {
           id: g.id,
           name: g.name,
           member_ids: gm.filter((m) => m.group_id === g.id).map((m) => m.user_id),
+
         }))
       );
     } catch (e: any) {
