@@ -353,130 +353,145 @@ export default function Tasks() {
         )}
       </div>
 
-      <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as Category)}>
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full sm:w-auto">
-          {CATEGORIES.map((c) => (
-            <TabsTrigger key={c.code} value={c.code}>
-              {c.label}
-              <span className="ml-2 text-xs text-muted-foreground">
-                {tasks.filter((t) => t.category === c.code).length}
-              </span>
-            </TabsTrigger>
-          ))}
+      <Tabs value={activeStatus} onValueChange={(v) => setActiveStatus(v as Status)}>
+        <TabsList className="grid grid-cols-2 w-full sm:w-auto">
+          <TabsTrigger value="pending">
+            Cần thực hiện
+            <span className="ml-2 text-xs text-muted-foreground">{tasksByStatus.pending.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="done">
+            Đã thực hiện
+            <span className="ml-2 text-xs text-muted-foreground">{tasksByStatus.done.length}</span>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {CATEGORIES.find((c) => c.code === activeCategory)?.label}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          ) : filteredTasks.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">Chưa có công việc nào.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">STT</TableHead>
-                    <TableHead>Nội dung</TableHead>
-                    <TableHead>Người thực hiện</TableHead>
-                    <TableHead>Hạn</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Tài liệu</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTasks.map((t, idx) => {
-                    const isAssignee = t.assignee_id === user?.id;
-                    const canEdit = isAdmin || t.created_by === user?.id;
-                    return (
-                      <TableRow key={t.id} className={cn(t.status === 'done' && 'opacity-70')}>
-                        <TableCell>{idx + 1}</TableCell>
-                        <TableCell>
-                          <div className="font-medium">{t.title}</div>
-                          {t.description && (
-                            <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{t.description}</div>
-                          )}
-                          {t.responses && t.responses.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              {t.responses.map((r) => (
-                                <div key={r.id} className="text-xs bg-muted/50 rounded px-2 py-1">
-                                  <span className="font-medium">{r.user?.full_name}:</span> {r.content}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : currentList.length === 0 ? (
+        <Card>
+          <CardContent className="py-8">
+            <p className="text-center text-sm text-muted-foreground">
+              {activeStatus === 'pending' ? 'Không có công việc nào cần thực hiện.' : 'Chưa có công việc nào được hoàn thành.'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {CATEGORIES.map((cat) => {
+            const rows = currentList.filter((t) => t.category === cat.code);
+            if (rows.length === 0) return null;
+            return (
+              <Card key={cat.code}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {cat.label}
+                    <Badge variant="secondary">{rows.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">STT</TableHead>
+                          <TableHead>Nội dung</TableHead>
+                          <TableHead>Người thực hiện</TableHead>
+                          <TableHead>Hạn</TableHead>
+                          <TableHead>Trạng thái</TableHead>
+                          <TableHead>Tài liệu</TableHead>
+                          <TableHead className="text-right">Thao tác</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows.map((t, idx) => {
+                          const isAssignee = t.assignee_id === user?.id;
+                          const canEdit = isAdmin || t.created_by === user?.id;
+                          return (
+                            <TableRow key={t.id} className={cn(t.status === 'done' && 'opacity-70')}>
+                              <TableCell>{idx + 1}</TableCell>
+                              <TableCell>
+                                <div className="font-medium">{t.title}</div>
+                                {t.description && (
+                                  <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{t.description}</div>
+                                )}
+                                {t.responses && t.responses.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {t.responses.map((r) => (
+                                      <div key={r.id} className="text-xs bg-muted/50 rounded px-2 py-1">
+                                        <span className="font-medium">{r.user?.full_name}:</span> {r.content}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-sm">{t.assignee?.full_name || '—'}</TableCell>
+                              <TableCell className="text-sm">
+                                {t.deadline ? format(parseISO(t.deadline), 'dd/MM/yyyy', { locale: vi }) : '—'}
+                              </TableCell>
+                              <TableCell>{deadlineBadge(t) || (
+                                t.status === 'done'
+                                  ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Hoàn thành</Badge>
+                                  : <Badge variant="secondary">Đang thực hiện</Badge>
+                              )}</TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  {t.attachments?.map((a) => (
+                                    <a
+                                      key={a.id}
+                                      href={a.drive_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                                    >
+                                      <Paperclip className="h-3 w-3" />
+                                      {a.file_name}
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm">{t.assignee?.full_name || '—'}</TableCell>
-                        <TableCell className="text-sm">
-                          {t.deadline ? format(parseISO(t.deadline), 'dd/MM/yyyy', { locale: vi }) : '—'}
-                        </TableCell>
-                        <TableCell>{deadlineBadge(t) || (
-                          t.status === 'done'
-                            ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Hoàn thành</Badge>
-                            : <Badge variant="secondary">Đang thực hiện</Badge>
-                        )}</TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {t.attachments?.map((a) => (
-                              <a
-                                key={a.id}
-                                href={a.drive_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-xs text-primary hover:underline"
-                              >
-                                <Paperclip className="h-3 w-3" />
-                                {a.file_name}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            {(isAssignee || canEdit) && (
-                              <Button size="icon" variant="ghost" title="Đánh dấu hoàn thành" onClick={() => handleToggleDone(t)}>
-                                <Check className={cn('h-4 w-4', t.status === 'done' && 'text-emerald-600')} />
-                              </Button>
-                            )}
-                            {(isAssignee || canEdit) && (
-                              <Button size="icon" variant="ghost" title="Phản hồi" onClick={() => openResponse(t)}>
-                                <MessageSquare className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <Button size="icon" variant="ghost" title="Thêm tài liệu" onClick={() => openAttach(t)}>
-                              <Paperclip className="h-4 w-4" />
-                            </Button>
-                            {canEdit && (
-                              <Button size="icon" variant="ghost" title="Sửa" onClick={() => openEdit(t)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {canEdit && (
-                              <Button size="icon" variant="ghost" title="Xoá" onClick={() => handleDelete(t)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                  {(isAssignee || canEdit) && (
+                                    <Button size="icon" variant="ghost" title="Đánh dấu hoàn thành" onClick={() => handleToggleDone(t)}>
+                                      <Check className={cn('h-4 w-4', t.status === 'done' && 'text-emerald-600')} />
+                                    </Button>
+                                  )}
+                                  {(isAssignee || canEdit) && (
+                                    <Button size="icon" variant="ghost" title="Phản hồi" onClick={() => openResponse(t)}>
+                                      <MessageSquare className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  <Button size="icon" variant="ghost" title="Thêm tài liệu" onClick={() => openAttach(t)}>
+                                    <Paperclip className="h-4 w-4" />
+                                  </Button>
+                                  {canEdit && (
+                                    <Button size="icon" variant="ghost" title="Sửa" onClick={() => openEdit(t)}>
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {canEdit && (
+                                    <Button size="icon" variant="ghost" title="Xoá" onClick={() => handleDelete(t)}>
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Create/Edit dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
