@@ -331,6 +331,7 @@ export function DashboardAlerts() {
           </Section>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }
