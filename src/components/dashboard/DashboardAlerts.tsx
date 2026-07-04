@@ -57,7 +57,7 @@ export function DashboardAlerts() {
   const [salaries, setSalaries] = useState<SalaryAlert[]>([]);
   const [birthdays, setBirthdays] = useState<BirthdayAlert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!currentSchool) return;
@@ -220,9 +220,9 @@ export function DashboardAlerts() {
           aria-expanded={open}
         >
           <CardTitle className="text-base flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
+            <Bell className="h-5 w-5 text-primary animate-pulse" />
             Sự kiện hôm nay
-            <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
+            <Badge variant="secondary" className="ml-1 animate-pulse">{totalCount}</Badge>
           </CardTitle>
           <ChevronDown
             className={cn(
