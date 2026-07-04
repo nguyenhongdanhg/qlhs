@@ -104,7 +104,8 @@ export default function Tasks() {
 
   const [attachOpen, setAttachOpen] = useState(false);
   const [attachTask, setAttachTask] = useState<Task | null>(null);
-  const [attachForm, setAttachForm] = useState({ file_name: '', drive_url: '' });
+  const [attachFile, setAttachFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const [detailTask, setDetailTask] = useState<Task | null>(null);
 
@@ -396,27 +397,36 @@ export default function Tasks() {
 
   const openAttach = (t: Task) => {
     setAttachTask(t);
-    setAttachForm({ file_name: '', drive_url: '' });
+    setAttachFile(null);
     setAttachOpen(true);
   };
 
   const handleSaveAttach = async () => {
-    if (!attachTask || !user) return;
-    if (!attachForm.file_name.trim() || !attachForm.drive_url.trim()) {
-      toast({ title: 'Nhập tên file và link Google Drive', variant: 'destructive' });
+    if (!attachTask || !user || !currentSchool) return;
+    if (!attachFile) {
+      toast({ title: 'Chọn file tài liệu', variant: 'destructive' });
       return;
     }
-    const { error } = await supabase.from('task_attachments').insert({
-      task_id: attachTask.id,
-      file_name: attachForm.file_name.trim(),
-      drive_url: attachForm.drive_url.trim(),
-      uploaded_by: user.id,
-    });
-    if (error) toast({ title: 'Lỗi', description: error.message, variant: 'destructive' });
-    else {
-      toast({ title: 'Đã thêm tài liệu' });
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', attachFile);
+      fd.append('task_id', attachTask.id);
+      fd.append('school_id', currentSchool.id);
+      fd.append('school_name', currentSchool.name || 'Truong');
+      fd.append('category', attachTask.category);
+      const { data, error } = await supabase.functions.invoke('upload-task-attachment', {
+        body: fd,
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Upload thất bại');
+      toast({ title: 'Đã tải lên Google Drive', description: attachFile.name });
       setAttachOpen(false);
       fetchAll();
+    } catch (e: any) {
+      toast({ title: 'Lỗi tải lên', description: e.message || String(e), variant: 'destructive' });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -826,22 +836,29 @@ export default function Tasks() {
           <DialogHeader>
             <DialogTitle>Thêm tài liệu: {attachTask?.title}</DialogTitle>
             <DialogDescription>
-              Upload file lên Google Drive, đặt quyền chia sẻ, rồi dán link vào đây.
+              Chọn file, hệ thống sẽ tự tải lên Google Drive và lưu link chia sẻ.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Tên tài liệu</Label>
-              <Input value={attachForm.file_name} onChange={(e) => setAttachForm({ ...attachForm, file_name: e.target.value })} placeholder="VD: Kế hoạch tuần" />
-            </div>
-            <div>
-              <Label>Link Google Drive</Label>
-              <Input value={attachForm.drive_url} onChange={(e) => setAttachForm({ ...attachForm, drive_url: e.target.value })} placeholder="https://drive.google.com/..." />
+              <Label>File tài liệu</Label>
+              <Input
+                type="file"
+                onChange={(e) => setAttachFile(e.target.files?.[0] || null)}
+                disabled={uploading}
+              />
+              {attachFile && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {attachFile.name} · {(attachFile.size / 1024).toFixed(1)} KB
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setAttachOpen(false)}>Huỷ</Button>
-            <Button onClick={handleSaveAttach}>Lưu</Button>
+            <Button variant="ghost" onClick={() => setAttachOpen(false)} disabled={uploading}>Huỷ</Button>
+            <Button onClick={handleSaveAttach} disabled={uploading || !attachFile}>
+              {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Đang tải lên...</> : 'Tải lên Drive'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.upload-exit-attachment]
 verify_jwt = true
+
+[functions.upload-task-attachment]
+verify_jwt = true
