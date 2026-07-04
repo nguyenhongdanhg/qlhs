@@ -31,6 +31,9 @@ export interface TeacherRow {
   salary_level?: string | null;
   salary_coefficient?: number | null;
   salary_effective_date?: string | null;
+  salary_raise_years?: number | null;
+  seniority_effective_date?: string | null;
+  seniority_raise_years?: number | null;
   notes?: string | null;
   is_active?: boolean;
 }
