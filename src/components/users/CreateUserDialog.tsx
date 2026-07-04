@@ -203,7 +203,14 @@ export default function CreateUserDialog({
               id="full_name"
               placeholder="Nguyễn Văn A"
               value={formData.full_name}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              onChange={(e) => {
+                const full_name = e.target.value;
+                setFormData((prev) => ({
+                  ...prev,
+                  full_name,
+                  password: passwordEdited ? prev.password : getDefaultPassword(full_name),
+                }));
+              }}
             />
           </div>
 
