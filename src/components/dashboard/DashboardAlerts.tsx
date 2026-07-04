@@ -73,7 +73,7 @@ export function DashboardAlerts() {
         const [tasksRes, teachersRes, studentsRes, classesRes] = await Promise.all([
           supabase
             .from('tasks')
-            .select('id, title, deadline, assignee:profiles!tasks_assignee_id_fkey(full_name)')
+            .select('id, title, deadline, assignee_id, task_assignees(user_id)')
             .eq('school_id', currentSchool.id)
             .eq('status', 'pending')
             .not('deadline', 'is', null)
@@ -97,15 +97,38 @@ export function DashboardAlerts() {
 
         if (cancelled) return;
 
+        // Collect all assignee user_ids and resolve names via profiles
+        const rawTasks = (tasksRes.data as any[]) || [];
+        const userIds = new Set<string>();
+        for (const t of rawTasks) {
+          if (t.assignee_id) userIds.add(t.assignee_id);
+          for (const a of t.task_assignees || []) if (a.user_id) userIds.add(a.user_id);
+        }
+        const nameMap = new Map<string, string>();
+        if (userIds.size > 0) {
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', Array.from(userIds));
+          for (const p of (profs as any[]) || []) nameMap.set(p.id, p.full_name);
+        }
+
         // Tasks
-        const tArr: TaskAlert[] = ((tasksRes.data as any[]) || []).map((t) => ({
-          id: t.id,
-          title: t.title,
-          deadline: t.deadline,
-          daysLeft: differenceInCalendarDays(parseISO(t.deadline), today),
-          assignee: t.assignee?.full_name,
-        }));
+        const tArr: TaskAlert[] = rawTasks.map((t) => {
+          const ids: string[] = [];
+          for (const a of t.task_assignees || []) if (a.user_id) ids.push(a.user_id);
+          if (ids.length === 0 && t.assignee_id) ids.push(t.assignee_id);
+          const names = ids.map((id) => nameMap.get(id)).filter(Boolean);
+          return {
+            id: t.id,
+            title: t.title,
+            deadline: t.deadline,
+            daysLeft: differenceInCalendarDays(parseISO(t.deadline), today),
+            assignee: names.length ? names.join(', ') : undefined,
+          };
+        });
         setTasks(tArr);
+
 
         // Nâng lương & thâm niên: chỉ báo khi còn ≤ 10 ngày, không báo quá hạn
         const sArr: SalaryAlert[] = [];
