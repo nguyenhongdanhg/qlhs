@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table';
 import { Loader2, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import XLSX from 'xlsx-js-style';
+import { getDefaultPassword } from '@/lib/default-password';
 
 interface UserImportDialogProps {
   open: boolean;
