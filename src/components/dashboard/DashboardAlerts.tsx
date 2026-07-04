@@ -238,8 +238,8 @@ export function DashboardAlerts() {
                     Ngày xét: {format(parseISO(s.raiseDate), 'dd/MM/yyyy', { locale: vi })}
                   </div>
                 </div>
-                <Badge className="bg-emerald-600 hover:bg-emerald-700 shrink-0">
-                  {s.daysLeft === 0 ? 'Hôm nay' : `Còn ${s.daysLeft} ngày`}
+                <Badge className={cn('shrink-0', s.daysLeft < 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700')}>
+                  {s.daysLeft < 0 ? `Quá hạn ${Math.abs(s.daysLeft)} ngày` : s.daysLeft === 0 ? 'Hôm nay' : `Còn ${s.daysLeft} ngày`}
                 </Badge>
               </Link>
             ))}
