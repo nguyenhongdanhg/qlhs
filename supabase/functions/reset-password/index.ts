@@ -7,7 +7,8 @@ const corsHeaders = {
 
 interface ResetPasswordRequest {
   user_ids: string[];
-  new_password: string;
+  new_password?: string;
+  passwords?: Record<string, string>; // per-user override: user_id -> password
   school_id: string;
 }
 
