@@ -273,8 +273,20 @@ export function TeacherFormDialog({ open, onOpenChange, schoolId, teacher, onSav
             <Input type="number" step="0.01" value={form.salary_coefficient ?? ''} onChange={(e) => update({ salary_coefficient: e.target.value as any })} />
           </div>
           <div>
-            <Label>Hưởng từ ngày</Label>
+            <Label>Hưởng lương từ ngày</Label>
             <Input type="date" value={form.salary_effective_date || ''} onChange={(e) => update({ salary_effective_date: e.target.value })} />
+          </div>
+          <div>
+            <Label>Chu kỳ nâng lương (năm)</Label>
+            <Input type="number" min="1" step="1" value={form.salary_raise_years ?? 3} onChange={(e) => update({ salary_raise_years: e.target.value as any })} placeholder="Mặc định 3 năm" />
+          </div>
+          <div>
+            <Label>Hưởng thâm niên từ ngày</Label>
+            <Input type="date" value={form.seniority_effective_date || ''} onChange={(e) => update({ seniority_effective_date: e.target.value })} />
+          </div>
+          <div>
+            <Label>Chu kỳ nâng thâm niên (năm)</Label>
+            <Input type="number" min="1" step="1" value={form.seniority_raise_years ?? 1} onChange={(e) => update({ seniority_raise_years: e.target.value as any })} placeholder="Mặc định 1 năm" />
           </div>
           <div className="flex items-end gap-2">
             <Switch checked={!!form.is_active} onCheckedChange={(v) => update({ is_active: v })} />
