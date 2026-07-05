@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        url: primaryUrl,
+        url: savedUrl,
         drive_url: driveUrl,
         drive_error: driveError,
       }),
