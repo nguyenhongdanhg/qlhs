@@ -221,18 +221,19 @@ Deno.serve(async (req) => {
       console.warn("Drive backup skipped:", driveError);
     }
 
-    // Save URL to request if request_id provided
+    // Ưu tiên link Google Drive nếu upload thành công, fallback storage
+    const savedUrl = driveUrl || primaryUrl;
     if (requestId) {
       await adminClient
         .from("dormitory_exit_requests")
-        .update({ attachment_url: primaryUrl })
+        .update({ attachment_url: savedUrl })
         .eq("id", requestId);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        url: primaryUrl,
+        url: savedUrl,
         drive_url: driveUrl,
         drive_error: driveError,
       }),
