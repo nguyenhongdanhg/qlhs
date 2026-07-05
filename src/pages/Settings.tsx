@@ -20,7 +20,7 @@ import {
 import { MealSettingsCard } from '@/components/settings/MealSettingsCard';
 import { NotificationSettingsCard } from '@/components/settings/NotificationSettingsCard';
 import { GoogleSheetsSettingsCard } from '@/components/settings/GoogleSheetsSettingsCard';
-import { ReportSyncSettingsCard } from '@/components/settings/ReportSyncSettingsCard';
+
 import { AcademicYearsCard } from '@/components/settings/AcademicYearsCard';
 
 export default function Settings() {
@@ -301,10 +301,6 @@ export default function Settings() {
           <GoogleSheetsSettingsCard />
         )}
 
-        {/* Report Sync to Google Sheets - Only for admin/super_admin */}
-        {(isSuperAdmin || currentMembership?.role === 'admin') && currentSchool && (
-          <ReportSyncSettingsCard />
-        )}
 
         {/* PWA Install */}
         <Card>

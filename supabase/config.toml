@@ -15,8 +15,6 @@ verify_jwt = false
 [functions.sync-to-sheets]
 verify_jwt = false
 
-[functions.sync-report-sheets]
-verify_jwt = false
 
 [functions.upload-exit-attachment]
 verify_jwt = true
