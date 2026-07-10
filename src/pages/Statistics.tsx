@@ -36,6 +36,7 @@ import {
   Lock,
   CalendarOff,
   CheckCircle2,
+  ClipboardList,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ClassMealStatistics } from '@/components/statistics/ClassMealStatistics';
 import { AttendanceStatsTab } from '@/components/statistics/AttendanceStatsTab';
 import { DailyActivityMatrix } from '@/components/statistics/DailyActivityMatrix';
+import { TaskStatsTab } from '@/components/statistics/TaskStatsTab';
 import { cn } from '@/lib/utils';
 
 interface AbsentStudent {
@@ -113,7 +115,7 @@ export default function Statistics() {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const activeTab = ['overview', 'attendance', 'rice'].includes(tabParam || '') ? (tabParam as string) : 'overview';
+  const activeTab = ['overview', 'attendance', 'rice', 'tasks'].includes(tabParam || '') ? (tabParam as string) : 'overview';
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -1714,6 +1716,7 @@ export default function Statistics() {
     overview: { title: 'Thống kê bữa ăn', description: 'Báo cáo bữa ăn theo ngày', icon: UtensilsCrossed },
     attendance: { title: 'Thống kê điểm danh', description: 'Báo cáo điểm danh nội trú & học tối', icon: CheckCircle2 },
     rice: { title: 'Thống kê gạo', description: 'Nhập, xuất và tồn kho gạo', icon: Package },
+    tasks: { title: 'Thống kê công việc', description: 'Kết quả công việc được giao theo nhóm và giáo viên', icon: ClipboardList },
   };
   const currentMeta = tabMeta[activeTab] || tabMeta.overview;
   const HeaderIcon = currentMeta.icon;
@@ -1760,10 +1763,11 @@ export default function Statistics() {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={(v) => { const sp = new URLSearchParams(searchParams); sp.set('tab', v); setSearchParams(sp, { replace: true }); }} className="space-y-4">
-          <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-3'} hidden lg:grid`}>
+          <TabsList className={`grid w-full ${isClassTeacher ? 'grid-cols-1' : 'grid-cols-4'} hidden lg:grid`}>
             <TabsTrigger value="overview">Bữa ăn</TabsTrigger>
             {!isClassTeacher && <TabsTrigger value="attendance">Điểm danh</TabsTrigger>}
             {!isClassTeacher && <TabsTrigger value="rice">Thống kê gạo</TabsTrigger>}
+            {!isClassTeacher && <TabsTrigger value="tasks">Công việc</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -2397,6 +2401,12 @@ export default function Statistics() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {!isClassTeacher && (
+            <TabsContent value="tasks" className="space-y-4">
+              <TaskStatsTab />
+            </TabsContent>
+          )}
         </Tabs>
       )}
 
