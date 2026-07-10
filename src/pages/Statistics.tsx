@@ -2401,6 +2401,12 @@ export default function Statistics() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {!isClassTeacher && (
+            <TabsContent value="tasks" className="space-y-4">
+              <TaskStatsTab />
+            </TabsContent>
+          )}
         </Tabs>
       )}
 
