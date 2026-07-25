@@ -42,7 +42,6 @@
           "openWorldHint": false
         },
         "inputSchema": {
-          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "properties": {
             "school_id": {
@@ -50,21 +49,23 @@
               "description": "School id from list_schools."
             },
             "status": {
-              "description": "Filter by task status, e.g. pending or completed.",
-              "type": "string"
+              "type": "string",
+              "description": "Filter by task status, e.g. pending or completed."
             },
             "category": {
-              "description": "Filter by task category.",
-              "type": "string"
+              "type": "string",
+              "description": "Filter by task category."
             },
             "limit": {
-              "description": "Max rows to return (default 50).",
-              "type": "number"
+              "type": "number",
+              "description": "Max rows to return (default 50)."
             }
           },
           "required": [
             "school_id"
-          ]
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
       },
@@ -78,7 +79,6 @@
           "openWorldHint": false
         },
         "inputSchema": {
-          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "properties": {
             "school_id": {
@@ -94,19 +94,21 @@
               "description": "Task category, e.g. party, professional, boarding, youth_union."
             },
             "description": {
-              "description": "Task details.",
-              "type": "string"
+              "type": "string",
+              "description": "Task details."
             },
             "deadline": {
-              "description": "Deadline as an ISO date, e.g. 2026-08-01.",
-              "type": "string"
+              "type": "string",
+              "description": "Deadline as an ISO date, e.g. 2026-08-01."
             }
           },
           "required": [
             "school_id",
             "title",
             "category"
-          ]
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
       },
@@ -120,7 +122,6 @@
           "openWorldHint": false
         },
         "inputSchema": {
-          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "properties": {
             "school_id": {
@@ -128,21 +129,23 @@
               "description": "School id from list_schools."
             },
             "search": {
-              "description": "Search text matched against full name or student code.",
-              "type": "string"
+              "type": "string",
+              "description": "Search text matched against full name or student code."
             },
             "boarding_only": {
-              "description": "Only return boarding (nội trú) students.",
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Only return boarding (nội trú) students."
             },
             "limit": {
-              "description": "Max rows to return (default 50).",
-              "type": "number"
+              "type": "number",
+              "description": "Max rows to return (default 50)."
             }
           },
           "required": [
             "school_id"
-          ]
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
       }
