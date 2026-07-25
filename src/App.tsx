@@ -41,6 +41,8 @@ const Documentation = lazy(() => import("@/pages/Documentation"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Teachers = lazy(() => import("@/pages/Teachers"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
+const OAuthConsent = lazy(() => import("@/pages/OAuthConsent"));
+
 
 // Optimized QueryClient with better caching
 const queryClient = new QueryClient({
@@ -92,6 +94,8 @@ const App = () => (
               {/* Public routes */}
               <Route path="/auth" element={<Auth />} />
               <Route path="/docs" element={<Documentation />} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+
               
               {/* Root redirect */}
               <Route path="/" element={<RootRedirect />} />
