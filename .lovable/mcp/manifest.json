@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://qrxvkbcuggeitgxbbgrd.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "noitrubantru-mcp",
+      "version": "0.1.0",
+      "title": "Quản lý nội trú/bán trú"
+    },
+    "tools": [
+      {
+        "name": "list_schools",
+        "title": "List my schools",
+        "description": "List the schools (đơn vị/trường) the signed-in user belongs to, with the school id needed by other tools.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_tasks",
+        "title": "List tasks",
+        "description": "List assigned work items (công việc & tiến độ) for a school, optionally filtered by status or category, ordered by deadline.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "school_id": {
+              "type": "string",
+              "description": "School id from list_schools."
+            },
+            "status": {
+              "description": "Filter by task status, e.g. pending or completed.",
+              "type": "string"
+            },
+            "category": {
+              "description": "Filter by task category.",
+              "type": "string"
+            },
+            "limit": {
+              "description": "Max rows to return (default 50).",
+              "type": "number"
+            }
+          },
+          "required": [
+            "school_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_task",
+        "title": "Create task",
+        "description": "Create a new work item (công việc) for a school. The task is created as the signed-in user.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "school_id": {
+              "type": "string",
+              "description": "School id from list_schools."
+            },
+            "title": {
+              "type": "string",
+              "description": "Task title."
+            },
+            "category": {
+              "type": "string",
+              "description": "Task category, e.g. party, professional, boarding, youth_union."
+            },
+            "description": {
+              "description": "Task details.",
+              "type": "string"
+            },
+            "deadline": {
+              "description": "Deadline as an ISO date, e.g. 2026-08-01.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "school_id",
+            "title",
+            "category"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_students",
+        "title": "List students",
+        "description": "List students (học sinh) of a school, optionally searching by name or student code and filtering boarding students.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "school_id": {
+              "type": "string",
+              "description": "School id from list_schools."
+            },
+            "search": {
+              "description": "Search text matched against full name or student code.",
+              "type": "string"
+            },
+            "boarding_only": {
+              "description": "Only return boarding (nội trú) students.",
+              "type": "boolean"
+            },
+            "limit": {
+              "description": "Max rows to return (default 50).",
+              "type": "number"
+            }
+          },
+          "required": [
+            "school_id"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
