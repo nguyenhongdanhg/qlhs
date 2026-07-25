@@ -98,9 +98,14 @@ export default function Auth() {
       description: 'Chào mừng bạn quay trở lại!',
     });
 
+    // Return to a same-origin `next` path (e.g. OAuth consent) when provided.
+    const nextParam = new URLSearchParams(window.location.search).get('next');
+    const safeNext = nextParam && /^\/(?!\/)/.test(nextParam) ? nextParam : null;
+
     // AuthContext will handle school selection (auto-select if 1, redirect to select-school if multiple)
-    navigate('/', { replace: true });
+    navigate(safeNext ?? '/', { replace: true });
   }, [loginPhone, loginPassword, signIn, navigate, toast]);
+
 
   const handleSignup = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
